@@ -10,9 +10,9 @@ spring:
         definition: rewardTrxConsumer
       bindings:
         rewardTrxConsumer-in-0:
-          destination: ${KAFKA_TOPIC_REWARD_TRX:}
+          destination: ${KAFKA_TOPIC_TRANSACTION:}
           group: ${KAFKA_IDPAY_GROUP:}
-          content-type: ${KAFKA_CONTENT_TYPE:}
+          content-type: ${KAFKA_CONTENT_TYPE:application/json}
           binder: kafka
       kafka:
         binder:
