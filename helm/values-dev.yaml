@@ -4,7 +4,7 @@ microservice-chart:
   fullnameOverride: ""
 
   image:
-    repository: cstardcommonarc.azurecr.io/idpaytransactions
+    repository: cstardcommonacr.azurecr.io/idpaytransactions
     tag: 0.0.1
     pullPolicy: Always
 
