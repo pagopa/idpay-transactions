@@ -36,7 +36,7 @@ public class RewardTransactionMapper {
             rewardTrx.setVat(rewardTrxDto.getVat());
             rewardTrx.setPosType(rewardTrxDto.getPosType());
             rewardTrx.setPar(rewardTrxDto.getPar());
-            rewardTrx.setStatus(rewardTrx.getStatus());
+            rewardTrx.setStatus(rewardTrxDto.getStatus());
             rewardTrx.setRejectionReason(rewardTrxDto.getRejectionReason());
             rewardTrx.setInitiatives(rewardTrxDto.getInitiatives());
             rewardTrx.setRewards(rewardTrxDto.getRewards());
