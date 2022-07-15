@@ -13,14 +13,15 @@ public class RewardTransactionMapper {
             rewardTrx = RewardTransaction.builder().build();
             rewardTrx.setId(rewardTrxDto.getIdTrxAcquirer()
                     .concat(rewardTrxDto.getAcquirerCode())
-                    .concat(String.valueOf(rewardTrxDto.getTrxDate()))
+                    .concat(String.valueOf(rewardTrxDto.getTrxDate().toLocalDateTime()))
                     .concat(rewardTrxDto.getOperationType())
                     .concat(rewardTrxDto.getAcquirerId()));
             rewardTrx.setIdTrxAcquirer(rewardTrxDto.getIdTrxAcquirer());
             rewardTrx.setAcquirerCode(rewardTrxDto.getAcquirerCode());
-            rewardTrx.setTrxDate(rewardTrxDto.getTrxDate());
+            rewardTrx.setTrxDate(rewardTrxDto.getTrxDate().toLocalDateTime());
             rewardTrx.setHpan(rewardTrxDto.getHpan());
             rewardTrx.setOperationType(rewardTrxDto.getOperationType());
+            rewardTrx.setCircuitType(rewardTrxDto.getCircuitType());
             rewardTrx.setIdTrxIssuer(rewardTrxDto.getIdTrxIssuer());
             rewardTrx.setCorrelationId(rewardTrxDto.getCorrelationId());
             rewardTrx.setAmount(rewardTrxDto.getAmount());
@@ -35,7 +36,7 @@ public class RewardTransactionMapper {
             rewardTrx.setVat(rewardTrxDto.getVat());
             rewardTrx.setPosType(rewardTrxDto.getPosType());
             rewardTrx.setPar(rewardTrxDto.getPar());
-            rewardTrx.setStatus(rewardTrx.getStatus());
+            rewardTrx.setStatus(rewardTrxDto.getStatus());
             rewardTrx.setRejectionReason(rewardTrxDto.getRejectionReason());
             rewardTrx.setInitiatives(rewardTrxDto.getInitiatives());
             rewardTrx.setRewards(rewardTrxDto.getRewards());
