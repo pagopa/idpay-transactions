@@ -94,6 +94,7 @@ microservice-chart:
       KAFKA_TRANSACTIONS_SASL_MECHANISM: kafka_sasl_mechanism
       KAFKA_TRANSACTIONS_SECURITY_PROTOCOL: kafka_security_protocol
       KAFKA_TOPIC_TRANSACTION: idpay_transaction_topic
+      KAFKA_IDPAY_GROUP: idpay_transaction_consumer_group
       
   envSecret:
     aks-api-url: cstar-d-weu-dev01-aks-apiserver-url
