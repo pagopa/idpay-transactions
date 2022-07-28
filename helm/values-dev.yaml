@@ -21,8 +21,8 @@ microservice-chart:
       path: /actuator/health
       port: 8080
     initialDelaySeconds: 60
-    failureThreshold: 6
-    periodSeconds: 10
+    failureThreshold: 10
+    periodSeconds: 30
 
   deployment:
     create: true
@@ -57,7 +57,7 @@ microservice-chart:
       cpu: "40m"
     limits:
       memory: "4Gi"
-      cpu: "200m"
+      cpu: "300m"
 
 #  autoscaling:
 #    enable: true
