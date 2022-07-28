@@ -185,6 +185,6 @@ stages:
                     namespace: '$(deployNamespace)'
                     action: patch
                     kind: deployment
-                    name: '$(helmReleaseName)-chart'
+                    name: '$(helmReleaseName)'
                     mergeStrategy: strategic
                     patch: '{"spec":{"template":{"metadata":{"annotations":{"buildNumber":"$(Build.BuildNumber)"}}}}}'
