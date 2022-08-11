@@ -1,6 +1,10 @@
 server:
   port: ${TRANSACTIONS_PORT:8080}
 
+reactor:
+  bufferSize:
+    small: ${REACTOR_BUFFER_SIZE:256}
+
 spring:
   application:
     name: idpay-transactions
@@ -13,35 +17,36 @@ spring:
         definition: rewardTrxConsumer
       bindings:
         rewardTrxConsumer-in-0:
-          destination: ${KAFKA_TOPIC_TRANSACTION:}
-          group: ${KAFKA_IDPAY_GROUP:}
+          destination: ${KAFKA_TRANSACTION_TOPIC:}
+          group: ${KAFKA_TRANSACTION_GROUP_ID:idpay-trx-consumer}
           content-type: ${KAFKA_CONTENT_TYPE:application/json}
           binder: kafka
       kafka:
         binder:
-          auto-create-topics: ${KAFKA_TRANSACTIONS_BINDER_AUTO_CREATE_TOPIC:false}
+          auto-create-topics: false
           brokers: ${KAFKA_BINDER_BROKER_ENDPOINT_REWARD_TRX:}
           configuration:
             heartbeat.interval.ms: ${KAFKA_TRANSACTIONS_BINDER_CONFIGURATION_HEARTBEAT_INTERVAL_MS:30000}
             session.timeout.ms: ${KAFKA_TRANSACTIONS_BINDER_CONFIGURATION_SESSION_TIMEOUT_MS:60000}
-            sasl:
-              jaas:
-                config: ${EVH_CONNECTION_REWARD_RESPONSE:}
-              mechanism: ${KAFKA_TRANSACTIONS_SASL_MECHANISM:PLAIN}
-            security:
-              protocol: ${KAFKA_TRANSACTIONS_SECURITY_PROTOCOL:SASL_SSL}
-          consumerProperties:
-            socket:
-              connection:
-                setup:
-                  timeout:
-                    max:
-                      ms: ${KAFKA_TRANSACTIONS_CONNECTION_TIMEOUT_MAX_MS:200000}
-                    ms: ${KAFKA_TRANSACTIONS_CONNECTION_TIMEOUT_MS:100000}
-            connections:
-              max:
-                idle:
-                  ms: ${KAFKA_TRANSACTIONS_CONNECTIONS_MAX_IDLE_MS:300000}
+            sasl.jaas.config: ${EVH_CONNECTION_REWARD_RESPONSE:}
+            sasl.mechanism: ${KAFKA_TRANSACTIONS_SASL_MECHANISM:PLAIN}
+            security.protocol: ${KAFKA_TRANSACTIONS_SECURITY_PROTOCOL:SASL_SSL}
+        bindings:
+          rewardTrxConsumer-in-0:
+            consumer:
+              startOffset: ${KAFKA_TRANSACTION_START_OFFSET:${KAFKA_CONSUMER_CONFIG_START_OFFSET:earliest}}
+              autoCommitOffset: ${KAFKA_TRANSACTION_AUTO_COMMIT:${KAFKA_CONSUMER_CONFIG_AUTO_COMMIT:true}}
+              enableDlq: ${KAFKA_TRANSACTION_ENABLE_DLQ:${KAFKA_CONSUMER_CONFIG_ENABLE_DLQ:false}}
+              dlqName: ${KAFKA_TRANSACTION_DLQ_NAME:${KAFKA_CONSUMER_CONFIG_DLQ_NAME:errorTopic}}
+              standardHeaders: ${KAFKA_TRANSACTION_STANDARD_HEADERS:${KAFKA_CONSUMER_CONFIG_STANDARD_HEADERS:both}}
+              configuration:
+                max.poll:
+                  records: ${KAFKA_TRANSACTION_MAX_POLL_SIZE:${KAFKA_CONSUMER_CONFIG_MAX_POLL_SIZE:500}}
+                  interval.ms: ${KAFKA_TRANSACTION_INTERVAL_TIMEOUT_MS:${KAFKA_CONFIG_MAX_POLL_INTERVAL_TIMEOUT_MS:300000}}
+                connections.max.idle.ms: ${KAFKA_TRANSACTION_CONNECTIONS_MAX_IDLE_MS:${KAFKA_CONSUMER_CONFIG_CONNECTIONS_MAX_IDLE_MS:300000}}
+                socket.connection.setup.timeout:
+                  max.ms: ${KAFKA_TRANSACTION_CONNECTION_TIMEOUT_MAX_MS:${KAFKA_CONSUMER_CONFIG_CONNECTION_TIMEOUT_MAX_MS:200000}}
+                  ms: ${KAFKA_TRANSACTION_CONNECTION_TIMEOUT_MS:${KAFKA_CONSUMER_CONFIG_CONNECTION_TIMEOUT_MS:100000}}
   data:
     mongodb:
       uri: ${MONGODB_URI}
