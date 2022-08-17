@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class RewardTransactionConsumerTest extends BaseIntegrationTest {
+class RewardTransactionConsumerTest extends BaseIntegrationTest {
 
     @Autowired
     private RewardTransactionRepository rewardTransactionRepository;
