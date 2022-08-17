@@ -6,12 +6,18 @@ import it.gov.pagopa.idpay.transactions.config.JsonConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Assertions;
 
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.TimeZone;
 
 public class TestUtils {
     private TestUtils(){}
+
+    static {
+        TimeZone.setDefault(TimeZone.getTimeZone(ZoneId.of("Europe/Rome")));
+    }
 
     /** applications's objectMapper */
     public static ObjectMapper objectMapper = new JsonConfig().objectMapper();
