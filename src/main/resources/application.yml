@@ -17,18 +17,34 @@ spring:
         definition: rewardTrxConsumer
       bindings:
         rewardTrxConsumer-in-0:
-          destination: ${KAFKA_TRANSACTION_TOPIC:}
+          destination: ${KAFKA_TRANSACTION_TOPIC:idpay-transaction}
           group: ${KAFKA_TRANSACTION_GROUP_ID:idpay-trx-consumer}
           content-type: ${KAFKA_CONTENT_TYPE:application/json}
-          binder: kafka
+          binder: kafka-transactions
+        errors-out-0:
+          destination: ${KAFKA_ERROR_TOPIC:idpay-errors}
+          content-type: ${KAFKA_CONTENT_TYPE:application/json}
+          binder: kafka-errors
+      binders:
+        kafka-transactions:
+          type: kafka
+          environment:
+            spring.cloud.stream.kafka.binder:
+              brokers: ${KAFKA_BINDER_BROKER_ENDPOINT_REWARD_TRX:${KAFKA_BROKER:}}
+              configuration.sasl.jaas.config: ${EVH_CONNECTION_REWARD_RESPONSE:}
+        kafka-errors:
+          type: kafka
+          environment:
+            spring.cloud.stream.kafka.binder:
+              brokers: ${KAFKA_ERRORS_BROKER:${KAFKA_BROKER:}}
+              configuration.sasl.jaas.config: ${KAFKA_ERRORS_SASL_JAAJ_CONFIG:}
       kafka:
         binder:
           auto-create-topics: false
-          brokers: ${KAFKA_BINDER_BROKER_ENDPOINT_REWARD_TRX:}
           configuration:
             heartbeat.interval.ms: ${KAFKA_TRANSACTIONS_BINDER_CONFIGURATION_HEARTBEAT_INTERVAL_MS:30000}
             session.timeout.ms: ${KAFKA_TRANSACTIONS_BINDER_CONFIGURATION_SESSION_TIMEOUT_MS:60000}
-            sasl.jaas.config: ${EVH_CONNECTION_REWARD_RESPONSE:}
+            request.timeout.ms: ${KAFKA_CONFIG_REQUEST_TIMEOUT_MS:60000}
             sasl.mechanism: ${KAFKA_TRANSACTIONS_SASL_MECHANISM:PLAIN}
             security.protocol: ${KAFKA_TRANSACTIONS_SECURITY_PROTOCOL:SASL_SSL}
         bindings:

@@ -65,4 +65,6 @@ public class RewardTransactionDTO {
     List<String> initiatives;
 
     Map<String,BigDecimal> rewards;
+
+    String userId;
 }

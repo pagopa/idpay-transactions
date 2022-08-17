@@ -1,8 +1,9 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
-import reactor.core.publisher.Mono;
+import org.springframework.messaging.Message;
+import reactor.core.publisher.Flux;
 
 public interface RewardTransactionService {
-    Mono<RewardTransaction> save(RewardTransaction transaction);
+    Flux<RewardTransaction> save(Flux<Message<String>> messageFlux);
 }
