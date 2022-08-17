@@ -37,12 +37,12 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
     public Mono<RewardTransaction> save(Message<String> message) {
         return Mono.just(message)
-                .map(this::deserializeMessage)
+                .mapNotNull(this::deserializeMessage)
                 .map(this.mapper::mapFromDTO)
                 .flatMap(this.rewardTrxRepository::save)
 
                 .onErrorResume(e -> {
-                    errorNotifierService.notifyTransaction(message, "An error occurred storing transaction", true, e);
+                    errorNotifierService.notifyTransaction(message, "An error occurred while storing transaction", true, e);
                     return Mono.empty();
                 });
     }
