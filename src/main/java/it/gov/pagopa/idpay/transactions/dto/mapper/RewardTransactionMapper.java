@@ -4,6 +4,8 @@ import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.springframework.stereotype.Service;
 
+import java.time.ZoneId;
+
 @Service
 public class RewardTransactionMapper {
     public RewardTransaction mapFromDTO(RewardTransactionDTO rewardTrxDto){
@@ -13,12 +15,12 @@ public class RewardTransactionMapper {
             rewardTrx = RewardTransaction.builder().build();
             rewardTrx.setId(rewardTrxDto.getIdTrxAcquirer()
                     .concat(rewardTrxDto.getAcquirerCode())
-                    .concat(String.valueOf(rewardTrxDto.getTrxDate().toLocalDateTime()))
+                    .concat(String.valueOf(rewardTrxDto.getTrxDate().atZoneSameInstant(ZoneId.of("Europe/Rome")).toLocalDateTime()))
                     .concat(rewardTrxDto.getOperationType())
                     .concat(rewardTrxDto.getAcquirerId()));
             rewardTrx.setIdTrxAcquirer(rewardTrxDto.getIdTrxAcquirer());
             rewardTrx.setAcquirerCode(rewardTrxDto.getAcquirerCode());
-            rewardTrx.setTrxDate(rewardTrxDto.getTrxDate().toLocalDateTime());
+            rewardTrx.setTrxDate(rewardTrxDto.getTrxDate().atZoneSameInstant(ZoneId.of("Europe/Rome")).toLocalDateTime());
             rewardTrx.setHpan(rewardTrxDto.getHpan());
             rewardTrx.setOperationType(rewardTrxDto.getOperationType());
             rewardTrx.setCircuitType(rewardTrxDto.getCircuitType());
@@ -37,7 +39,8 @@ public class RewardTransactionMapper {
             rewardTrx.setPosType(rewardTrxDto.getPosType());
             rewardTrx.setPar(rewardTrxDto.getPar());
             rewardTrx.setStatus(rewardTrxDto.getStatus());
-            rewardTrx.setRejectionReason(rewardTrxDto.getRejectionReason());
+            rewardTrx.setRejectionReasons(rewardTrxDto.getRejectionReasons());
+            rewardTrx.setInitiativeRejectionReasons(rewardTrxDto.getInitiativeRejectionReasons());
             rewardTrx.setInitiatives(rewardTrxDto.getInitiatives());
             rewardTrx.setRewards(rewardTrxDto.getRewards());
         }

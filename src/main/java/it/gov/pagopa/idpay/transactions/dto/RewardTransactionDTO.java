@@ -17,54 +17,56 @@ import java.util.Map;
 @Builder
 public class RewardTransactionDTO {
 
-    String idTrxAcquirer;
+    private String idTrxAcquirer;
 
-    String acquirerCode;
+    private String acquirerCode;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    OffsetDateTime trxDate;
+    private OffsetDateTime trxDate;
 
-    String hpan;
+    private String hpan;
 
-    String operationType;
+    private String operationType;
 
-    String circuitType;
+    private String circuitType;
 
-    String idTrxIssuer;
+    private String idTrxIssuer;
 
-    String correlationId;
+    private String correlationId;
 
-    BigDecimal amount;
+    private BigDecimal amount;
 
-    String amountCurrency;
+    private String amountCurrency;
 
-    String mcc;
+    private String mcc;
 
-    String acquirerId;
+    private String acquirerId;
 
-    String merchantId;
+    private String merchantId;
 
-    String terminalId;
+    private String terminalId;
 
-    String bin;
+    private String bin;
 
-    String senderCode;
+    private String senderCode;
 
-    String fiscalCode;
+    private String fiscalCode;
 
-    String vat;
+    private String vat;
 
-    String posType;
+    private String posType;
 
-    String par;
+    private String par;
 
-    String status;
+    private String status;
 
-    String rejectionReason;
+    private List<String> rejectionReasons;
 
-    List<String> initiatives;
+    private Map<String, List<String>> initiativeRejectionReasons;
 
-    Map<String,BigDecimal> rewards;
+    private List<String> initiatives;
+
+    private Map<String,BigDecimal> rewards;
 
     String userId;
 }

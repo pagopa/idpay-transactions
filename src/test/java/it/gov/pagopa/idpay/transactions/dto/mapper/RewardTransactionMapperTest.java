@@ -34,6 +34,8 @@ class RewardTransactionMapperTest {
         List<String> initiative = List.of("initiativeId");
         Map<String,BigDecimal> reward = new HashMap<>();
         reward.put("initiativeID",new BigDecimal("30.00"));
+        Map<String,List<String>> initiativeRejectionsReason = new HashMap<>();
+        initiativeRejectionsReason.put("initiative",List.of("Error initiative"));
 
         RewardTransactionDTO rewardTrx = RewardTransactionDTO.builder().build();
         //region initializer RewardTransactionDTO
@@ -58,7 +60,8 @@ class RewardTransactionMapperTest {
         rewardTrx.setPosType("01");
         rewardTrx.setPar("par1");
         rewardTrx.setStatus("ACCEPTED");
-        rewardTrx.setRejectionReason(null);
+        rewardTrx.setRejectionReasons(List.of("ERROR"));
+        rewardTrx.setInitiativeRejectionReasons(initiativeRejectionsReason);
         rewardTrx.setInitiatives(initiative);
         rewardTrx.setRewards(reward);
         //endregion
@@ -68,6 +71,6 @@ class RewardTransactionMapperTest {
 
         //Then
         Assertions.assertNotNull(result);
-        TestUtils.checkNotNullFields(result,"rejectionReason");
+        TestUtils.checkNotNullFields(result);
     }
 }
