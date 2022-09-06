@@ -105,7 +105,7 @@ microservice-chart:
     MONGODB_URI: mongodb-connection-string
     EVH_CONNECTION_REWARD_RESPONSE: evh-idpay-transaction-idpay-transaction-consumer-jaas-config-idpay-01
     # TODO fix error topic reference
-    KAFKA_ERRORS_SASL_JAAJ_CONFIG: evh-idpay-transaction-error-idpay-transaction-error-producer-jaas-config-idpay-01
+    KAFKA_ERRORS_SASL_JAAS_CONFIG: evh-idpay-transaction-error-idpay-transaction-error-producer-jaas-config-idpay-01
 
   keyvault:
     name: "cstar-d-idpay-kv"

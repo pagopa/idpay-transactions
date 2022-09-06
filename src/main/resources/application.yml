@@ -8,6 +8,7 @@ reactor:
 spring:
   application:
     name: idpay-transactions
+  jmx.enabled: true
   config:
     activate:
       on-profile: default
@@ -37,7 +38,7 @@ spring:
           environment:
             spring.cloud.stream.kafka.binder:
               brokers: ${KAFKA_ERRORS_BROKER:${KAFKA_BROKER:}}
-              configuration.sasl.jaas.config: ${KAFKA_ERRORS_SASL_JAAJ_CONFIG:}
+              configuration.sasl.jaas.config: ${KAFKA_ERRORS_SASL_JAAS_CONFIG:}
       kafka:
         binder:
           auto-create-topics: false
