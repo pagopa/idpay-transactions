@@ -1,55 +1,8 @@
 microservice-chart:
-  namespace: "idpay"
-  nameOverride: ""
-  fullnameOverride: ""
-
   image:
     repository: cstardcommonacr.azurecr.io/idpaytransactions
     tag: latest
     pullPolicy: Always
-
-  livenessProbe:
-    httpGet:
-      path: /actuator/health
-      port: 8080
-    initialDelaySeconds: 60
-    failureThreshold: 6
-    periodSeconds: 10
-
-  readinessProbe:
-    httpGet:
-      path: /actuator/health
-      port: 8080
-    initialDelaySeconds: 60
-    failureThreshold: 10
-    periodSeconds: 30
-
-  deployment:
-    create: true
-
-  service:
-    create: true
-    type: ClusterIP
-    port: 8080
-
-  ingress:
-    create: true
-    host: "dev01.idpay.internal.dev.cstar.pagopa.it"
-    path: /idpay/transactions/(.*)
-
-  serviceAccount:
-    create: false
-    annotations: {}
-    name: ""
-
-  podAnnotations: {}
-
-  podSecurityContext:
-    seccompProfile:
-      type: RuntimeDefault
-
-  securityContext:
-    allowPrivilegeEscalation: false
 
   resources:
     requests:
@@ -79,33 +32,8 @@ microservice-chart:
 #          metricAggregationType: Count
 #          targetValue: "30"
 
-  envConfig:
-    MONGODB_DBNAME: idpay
-    APPLICATIONINSIGHTS_ROLE_NAME: "idpaytransactions"
-    APPLICATIONINSIGHTS_INSTRUMENTATION_LOGGING_LEVEL: "OFF"
-    APPLICATIONINSIGHTS_INSTRUMENTATION_MICROMETER_ENABLED: "false"
-    JAVA_TOOL_OPTIONS: -Xms128m -Xmx4g -javaagent:/app/applicationinsights-agent.jar
-
-  envConfigMapExternals:
-    idpay-common:
-      TZ: TZ
-    idpay-eventhub-01:
-      KAFKA_BINDER_BROKER_ENDPOINT_REWARD_TRX: kafka_broker
-      KAFKA_TRANSACTIONS_SASL_MECHANISM: kafka_sasl_mechanism
-      KAFKA_TRANSACTIONS_SECURITY_PROTOCOL: kafka_security_protocol
-      KAFKA_TRANSACTION_TOPIC: idpay_transaction_topic
-      KAFKA_TRANSACTION_GROUP_ID: idpay_transaction_consumer_group
-      # TODO fix error topic reference
-      KAFKA_ERRORS_BROKER: kafka_broker
-      KAFKA_ERRRORS_TOPIC: idpay_transaction_error_topic
-      
   envSecret:
     aks-api-url: cstar-d-weu-dev01-aks-apiserver-url
-#    APPLICATIONINSIGHTS_CONNECTION_STRING: appinsights-instrumentation-key
-    MONGODB_URI: mongodb-connection-string
-    EVH_CONNECTION_REWARD_RESPONSE: evh-idpay-transaction-idpay-transaction-consumer-jaas-config-idpay-01
-    # TODO fix error topic reference
-    KAFKA_ERRORS_SASL_JAAS_CONFIG: evh-idpay-transaction-error-idpay-transaction-error-producer-jaas-config-idpay-01
 
   keyvault:
     name: "cstar-d-idpay-kv"
