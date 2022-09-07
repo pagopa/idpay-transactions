@@ -85,7 +85,10 @@ public class RewardTransaction {
     String status;
 
     @Field("rejection_reason_s")
-    String rejectionReason;
+    List<String> rejectionReasons;
+
+    @Field("initiative_rejection_reasons_s")
+    Map<String, List<String>> initiativeRejectionReasons;
 
     @Field("initiatives_s")
     List<String> initiatives;
