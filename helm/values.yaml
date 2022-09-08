@@ -61,13 +61,11 @@ microservice-chart:
       KAFKA_TRANSACTIONS_SECURITY_PROTOCOL: kafka_security_protocol
       KAFKA_TRANSACTION_TOPIC: idpay_transaction_topic
       KAFKA_TRANSACTION_GROUP_ID: idpay_transaction_consumer_group
-      # TODO fix error topic reference
       KAFKA_ERRORS_BROKER: kafka_broker
-      KAFKA_ERRRORS_TOPIC: idpay_transaction_error_topic
+      KAFKA_ERRORS_TOPIC: idpay_error_topic
 
   envSecret:
     #    APPLICATIONINSIGHTS_CONNECTION_STRING: appinsights-instrumentation-key
     MONGODB_URI: mongodb-connection-string
     EVH_CONNECTION_REWARD_RESPONSE: evh-idpay-transaction-idpay-transaction-consumer-jaas-config-idpay-01
-    # TODO fix error topic reference
-    KAFKA_ERRORS_SASL_JAAS_CONFIG: evh-idpay-transaction-error-idpay-transaction-error-producer-jaas-config-idpay-01
+    KAFKA_ERRORS_SASL_JAAS_CONFIG: evh-idpay-errors-idpay-errors-producer-jaas-config-idpay-01
