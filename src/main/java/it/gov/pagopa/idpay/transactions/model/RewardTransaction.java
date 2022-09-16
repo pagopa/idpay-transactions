@@ -14,85 +14,92 @@ import java.util.Map;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-@EqualsAndHashCode(of = {"idTrxAcquirer","acquirerCode", "trxDate", "operationType", "acquirerId"}, callSuper = false)
+@EqualsAndHashCode(of = {"id"}, callSuper = false)
 @Document(collection = "transaction")
 public class RewardTransaction {
 
     @Id
-    String id;
+    private String id;
 
     @Field("id_trx_acquirer_s")
-    String idTrxAcquirer;
+    private String idTrxAcquirer;
 
     @Field("acquirer_c")
-    String acquirerCode;
+    private String acquirerCode;
 
     @Field("trx_timestamp_t")
-    LocalDateTime trxDate;
+    private LocalDateTime trxDate;
 
     @Field("hpan_s")
-    String hpan;
+    private String hpan;
 
     @Field("operation_type_c")
-    String operationType;
+    private String operationType;
 
     @Field("circuit_type_c")
-    String circuitType;
+    private String circuitType;
 
     @Field("id_trx_issuer_s")
-    String idTrxIssuer;
+    private String idTrxIssuer;
 
     @Field("correlation_id_s")
-    String correlationId;
+    private String correlationId;
 
     @Field("amount_i")
-    BigDecimal amount;
+    private BigDecimal amount;
 
     @Field("amount_currency_c")
-    String amountCurrency;
+    private String amountCurrency;
 
     @Field("mcc_c")
-    String mcc;
+    private String mcc;
 
     @Field("acquirer_id_s")
-    String acquirerId;
+    private String acquirerId;
 
     @Field("merchant_id_s")
-    String merchantId;
+    private String merchantId;
 
     @Field("terminal_id_s")
-    String terminalId;
+    private String terminalId;
 
     @Field("bin_s")
-    String bin;
+    private String bin;
 
     @Field("sender_code_s")
-    String senderCode;
+    private String senderCode;
 
     @Field("fiscal_code_s")
-    String fiscalCode;
+    private String fiscalCode;
 
     @Field("vat_s")
-    String vat;
+    private String vat;
 
     @Field("pos_type_s")
-    String posType;
+    private String posType;
 
     @Field("par_s")
-    String par;
+    private String par;
 
     @Field("status_s")
-    String status;
+    private String status;
 
     @Field("rejection_reason_s")
-    List<String> rejectionReasons;
+    private List<String> rejectionReasons;
 
     @Field("initiative_rejection_reasons_s")
-    Map<String, List<String>> initiativeRejectionReasons;
+    private Map<String, List<String>> initiativeRejectionReasons;
 
     @Field("initiatives_s")
-    List<String> initiatives;
+    private List<String> initiatives;
 
     @Field("rewards_i")
-    Map<String,BigDecimal> rewards;
+    private Map<String,Reward> rewards;
+
+    private String userId;
+
+    private String operationTypeTranscoded;
+    private BigDecimal effectiveAmount;
+    private LocalDateTime trxChargeDate;
+    private RefundInfo refundInfo;
 }
