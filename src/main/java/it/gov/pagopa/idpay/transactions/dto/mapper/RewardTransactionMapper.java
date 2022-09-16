@@ -43,6 +43,7 @@ public class RewardTransactionMapper {
             rewardTrx.setInitiativeRejectionReasons(rewardTrxDto.getInitiativeRejectionReasons());
             rewardTrx.setInitiatives(rewardTrxDto.getInitiatives());
             rewardTrx.setRewards(rewardTrxDto.getRewards());
+            rewardTrx.setUserId(rewardTrxDto.getUserId());
         }
 
         return rewardTrx;

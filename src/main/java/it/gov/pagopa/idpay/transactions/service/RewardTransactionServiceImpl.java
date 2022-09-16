@@ -13,6 +13,9 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 @Service
 @Slf4j
 public class RewardTransactionServiceImpl implements RewardTransactionService {
@@ -48,5 +51,27 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
     private RewardTransactionDTO deserializeMessage(Message<String> message) {
         return Utils.deserializeMessage(message, objectReader, e -> errorNotifierService.notifyTransaction(message, "Unexpected JSON", true, e));
+    }
+
+    public Flux<RewardTransaction> findAll(String startDate, String endDate, String userId, String hpan, String acquirerId){
+        if(startDate==null || endDate == null){
+            return null;
+        }else {
+            return rewardTrxRepository.findAllInRange(LocalDateTime.parse(startDate, DateTimeFormatter.ISO_DATE_TIME), LocalDateTime.parse(endDate, DateTimeFormatter.ISO_DATE_TIME))
+                    .filter(transaction ->
+                            checkEqualObject(transaction.getUserId(), userId)
+                            && checkEqualObject(transaction.getHpan(), hpan)
+                            && checkEqualObject(transaction.getAcquirerId(), acquirerId))
+                    .onErrorResume(e -> {log.error("Error occurred in searching transactions",e);
+                        return Flux.empty();});
+        }
+    }
+
+    private static <T> boolean checkEqualObject(T value, T expected){
+        if(expected != null){
+            return value.equals(expected);
+        } else {
+            return true;
+        }
     }
 }

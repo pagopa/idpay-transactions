@@ -64,6 +64,7 @@ class RewardTransactionMapperTest {
         rewardTrx.setInitiativeRejectionReasons(initiativeRejectionsReason);
         rewardTrx.setInitiatives(initiative);
         rewardTrx.setRewards(reward);
+        rewardTrx.setUserId("USERID");
         //endregion
 
         //When
