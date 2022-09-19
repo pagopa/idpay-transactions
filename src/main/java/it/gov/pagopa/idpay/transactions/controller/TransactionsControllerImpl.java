@@ -1,13 +1,13 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
-import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
-import org.springframework.http.HttpStatus;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
 @RestController
+@Slf4j
 public class TransactionsControllerImpl implements TransactionsController{
     private final RewardTransactionService rewardTransactionService;
 
@@ -16,12 +16,7 @@ public class TransactionsControllerImpl implements TransactionsController{
     }
 
     @Override
-    public ResponseEntity<Flux<?>> findAll(String startDate, String endDate, String userId, String hpan, String acquirerId) {
-    Flux<RewardTransaction> retrieved = rewardTransactionService.findAll(startDate, endDate, userId, hpan, acquirerId);
-        if(retrieved==null){
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Flux.just("The following filters are mandatory: startDate, endDate"));
-        } else{
-            return ResponseEntity.ok().body(retrieved);
-        }
+    public ResponseEntity<Flux<?>> findAll(String idTrxAcquirer, String userId, String trxDate, String amount) {
+        return ResponseEntity.ok(rewardTransactionService.findTrxsFilters(idTrxAcquirer, userId, trxDate, amount));
     }
 }

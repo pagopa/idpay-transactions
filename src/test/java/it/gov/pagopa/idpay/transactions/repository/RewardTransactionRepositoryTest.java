@@ -7,9 +7,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import reactor.core.publisher.Flux;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 class RewardTransactionRepositoryTest extends BaseIntegrationTest {
@@ -23,31 +25,31 @@ class RewardTransactionRepositoryTest extends BaseIntegrationTest {
     }
 
     @Test
-    void findBetweenDate() {
+    void findTrxs(){
+        LocalDateTime date = LocalDateTime.of(2021, 9, 6, 17, 30, 25);
+        BigDecimal amount = new BigDecimal("30.00");
         RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
-                .trxDate(LocalDateTime.now().minusYears(5L)).build();
-        RewardTransaction rt2 = RewardTransactionFaker.mockInstanceBuilder(2)
-                .trxDate(LocalDateTime.of(2021, 04, 06, 17, 30, 25)).build();
-        RewardTransaction rt3 = RewardTransactionFaker.mockInstanceBuilder(3)
-                .trxDate(LocalDateTime.now()).build();
-        RewardTransaction rt4 = RewardTransactionFaker.mockInstanceBuilder(4)
-                .trxDate(LocalDateTime.now().plusYears(7L)).build();
-
+                .trxDate(date)
+                .amount(amount).build();
         rewardTransactionRepository.save(rt1).block();
+        RewardTransaction rt2 = RewardTransactionFaker.mockInstanceBuilder(2)
+                .trxDate(LocalDateTime.of(2021, 4, 6, 17, 30, 25)).build();
         rewardTransactionRepository.save(rt2).block();
-        rewardTransactionRepository.save(rt3).block();
-        rewardTransactionRepository.save(rt4).block();
 
-        LocalDateTime startSearch = LocalDateTime.now().minusYears(2L);
-        LocalDateTime endSearch = LocalDateTime.now().plusMonths(7);
+        Flux<RewardTransaction> resultTrxIssuer = rewardTransactionRepository.findByIdTrxIssuer("IDTRXISSUER1",null ,null,null);
+        Assertions.assertNotNull(resultTrxIssuer);
+        Assertions.assertEquals(1, resultTrxIssuer.count().block());
 
-        Flux<RewardTransaction> betweenDateResult = rewardTransactionRepository.findAllInRange(startSearch, endSearch);
-        betweenDateResult.toIterable().forEach(rt -> {
-            Assertions.assertNotNull(rt.getTrxDate());
-            Assertions.assertFalse(rt.getTrxDate().isBefore(startSearch));
-            Assertions.assertFalse(rt.getTrxDate().isAfter(endSearch));
-        });
+        Flux<RewardTransaction> resultTrxIssuerAndUserId = rewardTransactionRepository.findByIdTrxIssuer("IDTRXISSUER1","USERID1",null,null);
+        Assertions.assertNotNull(resultTrxIssuerAndUserId);
+        Assertions.assertEquals(1, resultTrxIssuerAndUserId.count().block());
 
+        Flux<RewardTransaction> resultTrxIssuerAndAnotherUserId = rewardTransactionRepository.findByIdTrxIssuer("IDTRXISSUER1","USERID2" ,null,null);
+        Assertions.assertNotNull(resultTrxIssuerAndAnotherUserId);
+        Assertions.assertEquals(0, resultTrxIssuerAndAnotherUserId.count().block());
 
+        Flux<RewardTransaction> resultNotTrxIssuer = rewardTransactionRepository.findByIdTrxIssuer(null,"USERID1",date, amount);
+        Assertions.assertNotNull(resultNotTrxIssuer);
+        Assertions.assertEquals(1, resultNotTrxIssuer.count().block());
     }
 }

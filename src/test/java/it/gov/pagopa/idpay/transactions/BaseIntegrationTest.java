@@ -86,8 +86,11 @@ public abstract class BaseIntegrationTest {
     @Autowired
     protected KafkaTemplate<byte[], byte[]> template;
 
-    @Autowired
+    @Autowired(required = false)
     private MongodExecutable embeddedMongoServer;
+
+    @Value("${spring.data.mongodb.uri}")
+    private String mongodbUri;
 
     @Autowired
     protected ObjectMapper objectMapper;
@@ -116,18 +119,24 @@ public abstract class BaseIntegrationTest {
 
     @PostConstruct
     public void logEmbeddedServerConfig() throws NoSuchFieldException, UnknownHostException {
-        Field mongoEmbeddedServerConfigField = Executable.class.getDeclaredField("config");
-        mongoEmbeddedServerConfigField.setAccessible(true);
-        MongodConfig mongodConfig = (MongodConfig) ReflectionUtils.getField(mongoEmbeddedServerConfigField, embeddedMongoServer);
-        Net mongodNet = Objects.requireNonNull(mongodConfig).net();
+        String mongoUrl;
+        if(embeddedMongoServer != null) {
+            Field mongoEmbeddedServerConfigField = Executable.class.getDeclaredField("config");
+            mongoEmbeddedServerConfigField.setAccessible(true);
+            MongodConfig mongodConfig = (MongodConfig) ReflectionUtils.getField(mongoEmbeddedServerConfigField, embeddedMongoServer);
+            Net mongodNet = Objects.requireNonNull(mongodConfig).net();
 
+            mongoUrl="mongodb://%s:%s".formatted(mongodNet.getServerAddress().getHostAddress(), mongodNet.getPort());
+        } else {
+            mongoUrl=mongodbUri.replaceFirst(":[^:]+(?=:[0-9]+)", "");
+        }
         System.out.printf("""
                         ************************
                         Embedded mongo: %s
                         Embedded kafka: %s
                         ************************
                         """,
-                "mongo://%s:%s".formatted(mongodNet.getServerAddress().getHostAddress(), mongodNet.getPort()),
+                mongoUrl,
                 "bootstrapServers: %s, zkNodes: %s".formatted(bootstrapServers, zkNodes));
     }
 

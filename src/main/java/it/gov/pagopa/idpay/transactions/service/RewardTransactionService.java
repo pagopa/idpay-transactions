@@ -9,6 +9,5 @@ public interface
 
 RewardTransactionService {
     Flux<RewardTransaction> save(Flux<Message<String>> messageFlux);
-
-   Flux<RewardTransaction> findAll(String startDate, String endDate, String userId, String hpan, String acquirerId);
+    Flux<RewardTransaction> findTrxsFilters(String idTrxAcquirer, String userId, String trxDate, String amount);
 }

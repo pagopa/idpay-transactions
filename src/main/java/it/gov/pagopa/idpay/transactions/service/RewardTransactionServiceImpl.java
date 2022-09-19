@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -53,25 +54,13 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
         return Utils.deserializeMessage(message, objectReader, e -> errorNotifierService.notifyTransaction(message, "Unexpected JSON", true, e));
     }
 
-    public Flux<RewardTransaction> findAll(String startDate, String endDate, String userId, String hpan, String acquirerId){
-        if(startDate==null || endDate == null){
-            return null;
-        }else {
-            return rewardTrxRepository.findAllInRange(LocalDateTime.parse(startDate, DateTimeFormatter.ISO_DATE_TIME), LocalDateTime.parse(endDate, DateTimeFormatter.ISO_DATE_TIME))
-                    .filter(transaction ->
-                            checkEqualObject(transaction.getUserId(), userId)
-                            && checkEqualObject(transaction.getHpan(), hpan)
-                            && checkEqualObject(transaction.getAcquirerId(), acquirerId))
-                    .onErrorResume(e -> {log.error("Error occurred in searching transactions",e);
-                        return Flux.empty();});
-        }
-    }
-
-    private static <T> boolean checkEqualObject(T value, T expected){
-        if(expected != null){
-            return value.equals(expected);
-        } else {
-            return true;
-        }
+    @Override
+    public Flux<RewardTransaction> findTrxsFilters(String idTrxAcquirer, String userId, String trxDate, String amount) {
+        return Flux.defer(() ->
+                        rewardTrxRepository.findByIdTrxIssuer(
+                                idTrxAcquirer,
+                                userId,
+                                trxDate == null ? null : LocalDateTime.parse(trxDate, DateTimeFormatter.ISO_DATE_TIME),
+                                amount == null ? null : new BigDecimal(amount)));
     }
 }

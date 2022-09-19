@@ -15,26 +15,17 @@ import reactor.core.publisher.Flux;
 @RequestMapping("/idpay/transactions")
 public interface TransactionsController {
     /**
-     * Returns the actual a transaction
-     *
-     * with mandatory filters
+     * Returns a set of transactions when:
      * <ul>
-     *     <li>startDate</li>
-     *     <li>endDate</li>
+     *     <li>The field idTrxIssuer is present</li>
+     *     <li>The follows fields are not null: userId, trxDate and amount</li>
      * </ul>
-     * and optionally filters
-     * <ul>
-     *     <li>userId</li>
-     *     <li>hpan</li>
-     *     <li>acquirerId</li>
-     * </ul>
-     */
+     * */
     @GetMapping
     ResponseEntity<Flux<?>> findAll(
-            @RequestParam(value = "startDate",required = false) String startDate,
-            @RequestParam(value = "endDate", required = false) String endDate,
-            @RequestParam(value = "userId", required = false)  String userId,
-            @RequestParam(value = "hpan", required = false)  String hpan,
-            @RequestParam(value = "acquirerId", required = false)  String acquirerId
+            @RequestParam(value = "idTrxIssuer", required = false) String idTrxIssuer,
+            @RequestParam(value = "userId", required = false) String userId,
+            @RequestParam(value = "trxDate", required = false) String trxDate,
+            @RequestParam(value = "amount", required = false) String amount
     );
 }

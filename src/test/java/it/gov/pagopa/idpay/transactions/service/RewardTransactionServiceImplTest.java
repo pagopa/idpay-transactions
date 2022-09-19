@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
+import it.gov.pagopa.idpay.transactions.exception.NotEnoughFiltersException;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import org.junit.jupiter.api.Assertions;
@@ -9,8 +10,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import reactor.core.publisher.Flux;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 class RewardTransactionServiceImplTest {
 
@@ -24,56 +27,59 @@ class RewardTransactionServiceImplTest {
 
         RewardTransactionService rewardTransactionService= new RewardTransactionServiceImpl(rewardTransactionRepository, rewardTransactionMapper,errorNotifierService, objectMapper);
 
-        LocalDateTime start = LocalDateTime.now().minusYears(2L);
-        LocalDateTime end = LocalDateTime.now();
+        LocalDateTime date = LocalDateTime.of(2022, 9, 19, 15,43,39);
+//        LocalDateTime end = LocalDateTime.now();
         String userId = "USERID";
         String hpan = "HPAN";
         String acquuirerId = " ACQUIRERID";
 
-        RewardTransaction transaction1 = RewardTransaction.builder().
-                trxDate(end.minusMonths(3L))
+        RewardTransaction transaction1 = RewardTransaction.builder()
                 .userId(userId)
                 .hpan(hpan)
+                .amount(new BigDecimal("30.00"))
                 .acquirerId(acquuirerId).build();
-        RewardTransaction transaction2 = RewardTransaction.builder().
-                trxDate(end.minusMonths(4L))
+        RewardTransaction transaction2 = RewardTransaction.builder()
+                .trxDate(date)
                 .userId("ANOTHER_USERID")
                 .hpan(hpan)
+                .amount(new BigDecimal("100.00"))
                 .acquirerId(acquuirerId).build();
-        RewardTransaction transaction3 = RewardTransaction.builder().
-                trxDate(end.minusMonths(2L))
+        RewardTransaction transaction3 = RewardTransaction.builder()
+                .trxDate(date)
                 .userId(userId)
                 .hpan("ANOTHER_HPAN")
+                .idTrxIssuer("IDTRXISSUER")
                 .acquirerId(acquuirerId).build();
 
-        Mockito.when(rewardTransactionRepository.findAllInRange(start,end)).thenReturn(Flux.just(transaction1,transaction2,transaction3));
+        Mockito.when(rewardTransactionRepository.findByIdTrxIssuer(transaction1.getIdTrxIssuer(), transaction1.getUserId(), transaction1.getTrxDate(),transaction1.getAmount())).thenThrow(NotEnoughFiltersException.class);
+        Mockito.when(rewardTransactionRepository.findByIdTrxIssuer(transaction2.getIdTrxIssuer(), transaction2.getUserId(), transaction2.getTrxDate(),transaction2.getAmount())).thenReturn(Flux.just(transaction2));
+        Mockito.when(rewardTransactionRepository.findByIdTrxIssuer(transaction3.getIdTrxIssuer(), transaction3.getUserId(), transaction3.getTrxDate(),transaction3.getAmount())).thenReturn(Flux.just(transaction3));
+
         // When
-        Flux<RewardTransaction> resultAllFilters = rewardTransactionService.findAll(start.format(DateTimeFormatter.ISO_DATE_TIME), end.format(DateTimeFormatter.ISO_DATE_TIME), userId, hpan, acquuirerId);
+        Flux<RewardTransaction> resultNotEnoughFilter = rewardTransactionService.findTrxsFilters(transaction1.getIdTrxIssuer(), transaction1.getUserId(), null, transaction1.getAmount().toString());
+        Flux<RewardTransaction> resultWithFilter = rewardTransactionService.findTrxsFilters(transaction2.getIdTrxIssuer(), transaction2.getUserId(), transaction2.getTrxDate().format(DateTimeFormatter.ISO_DATE_TIME), transaction2.getAmount().toString());
+        Flux<RewardTransaction> resultWithIdTrxIssuer = rewardTransactionService.findTrxsFilters(transaction3.getIdTrxIssuer(), transaction3.getUserId(), transaction3.getTrxDate().format(DateTimeFormatter.ISO_DATE_TIME), null);
 
-        Flux<RewardTransaction> resultWithoutMandatoryField = rewardTransactionService.findAll(null, end.format(DateTimeFormatter.ISO_DATE_TIME), userId, hpan, acquuirerId);
-
-        Flux<RewardTransaction> resultNotUserIdFilter = rewardTransactionService.findAll(start.format(DateTimeFormatter.ISO_DATE_TIME), end.format(DateTimeFormatter.ISO_DATE_TIME), null, hpan, acquuirerId);
         // Then
-        Assertions.assertNotNull(resultAllFilters);
-        Assertions.assertEquals(1, resultAllFilters.count().block());
-        RewardTransaction rewardTransactionResultAllFilters = resultAllFilters.blockFirst();
-        Assertions.assertNotNull(rewardTransactionResultAllFilters);
-        Assertions.assertEquals(end.minusMonths(3L), rewardTransactionResultAllFilters.getTrxDate());
-        Assertions.assertEquals(userId,rewardTransactionResultAllFilters.getUserId());
-        Assertions.assertEquals(hpan, rewardTransactionResultAllFilters.getHpan());
-        Assertions.assertEquals(acquuirerId, rewardTransactionResultAllFilters.getAcquirerId());
+        Assertions.assertNotNull(resultWithFilter);
+        Assertions.assertEquals(1, resultWithFilter.count().block());
 
-        Assertions.assertNull(resultWithoutMandatoryField);
+        List<RewardTransaction> rtListResultWithFilter = resultWithFilter.collectList().block();
+        Assertions.assertNotNull(rtListResultWithFilter);
+        RewardTransaction rtResultWithFilter = rtListResultWithFilter.stream().findFirst().orElse(null);
+        Assertions.assertNotNull(rtResultWithFilter);
+        Assertions.assertEquals(transaction3, rtResultWithFilter);
 
-        Assertions.assertNotNull(resultNotUserIdFilter);
-        Assertions.assertEquals(2, resultNotUserIdFilter.count().block());
-        resultNotUserIdFilter.toIterable().forEach(rt -> {
-            Assertions.assertEquals(hpan, rt.getHpan());
-            Assertions.assertEquals(acquuirerId,rt.getAcquirerId());
-            Assertions.assertNotNull(rt.getUserId());
-            Assertions.assertFalse(rt.getTrxDate().isBefore(start));
-            Assertions.assertFalse(rt.getTrxDate().isAfter(end));
-        });
+        Assertions.assertNotNull(resultWithIdTrxIssuer);
+        Assertions.assertEquals(1, resultWithIdTrxIssuer.count().block());
 
+        List<RewardTransaction> rtListResultWithIdTrxIssuer = resultWithIdTrxIssuer.collectList().block();
+        Assertions.assertNotNull(rtListResultWithIdTrxIssuer);
+        RewardTransaction rtResultWithIdTrxIssuer = rtListResultWithIdTrxIssuer.stream().findFirst().orElse(null);
+        Assertions.assertNotNull(rtResultWithIdTrxIssuer);
+        Assertions.assertEquals(transaction3, rtResultWithIdTrxIssuer);
+
+        //TODO verify
+//        Mockito.verify(rewardTransactionRepository, Mockito.times(3)).findByIdTrxIssuer(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
     }
 }
