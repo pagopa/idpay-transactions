@@ -81,13 +81,28 @@ class TransactionsControllerImplTest {
 
         ErrorDTO expectedErrorDTO = new ErrorDTO(Severity.ERROR,"Error", "The mandatory filters are: trxDateStart, trxDateEnd, and one of the following options: 1) idTrxIssuer 2) userId and amount");
 
-        Mockito.when(rewardTransactionRepository.findByFilters(null,rt.getUserId(), rt.getAmount(),startDate, endDate))
-                .thenThrow(ClientExceptionNoBody.class);
-
         webClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
                         .queryParam("userId", rt.getUserId())
                         .queryParam("amount", rt.getAmount()).build())
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
+
+        webClient.get()
+                .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
+                        .queryParam("userId", rt.getUserId())
+                        .queryParam("amount", rt.getAmount())
+                        .queryParam("trxDateStart", startDate).build())
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
+
+        webClient.get()
+                .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
+                        .queryParam("userId", rt.getUserId())
+                        .queryParam("amount", rt.getAmount())
+                        .queryParam("trxDateEnd", endDate).build())
                 .exchange()
                 .expectStatus().isBadRequest()
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
