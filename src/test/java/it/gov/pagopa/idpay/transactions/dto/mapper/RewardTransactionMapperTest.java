@@ -1,6 +1,8 @@
 package it.gov.pagopa.idpay.transactions.dto.mapper;
 
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
+import it.gov.pagopa.idpay.transactions.model.RefundInfo;
+import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.utils.TestUtils;
 import org.junit.jupiter.api.Assertions;
@@ -32,10 +34,10 @@ class RewardTransactionMapperTest {
         RewardTransactionMapper rewardTransactionMapper = new RewardTransactionMapper();
         OffsetDateTime trxDate = OffsetDateTime.now();
         List<String> initiative = List.of("initiativeId");
-        Map<String,BigDecimal> reward = new HashMap<>();
-        reward.put("initiativeID",new BigDecimal("30.00"));
-        Map<String,List<String>> initiativeRejectionsReason = new HashMap<>();
-        initiativeRejectionsReason.put("initiative",List.of("Error initiative"));
+        Map<String, Reward> reward = new HashMap<>();
+        reward.put("initiativeID", new Reward());
+        Map<String, List<String>> initiativeRejectionsReason = new HashMap<>();
+        initiativeRejectionsReason.put("initiative", List.of("Error initiative"));
 
         RewardTransactionDTO rewardTrx = RewardTransactionDTO.builder().build();
         //region initializer RewardTransactionDTO
@@ -64,7 +66,11 @@ class RewardTransactionMapperTest {
         rewardTrx.setInitiativeRejectionReasons(initiativeRejectionsReason);
         rewardTrx.setInitiatives(initiative);
         rewardTrx.setRewards(reward);
-        rewardTrx.setUserId("USERID");
+        rewardTrx.setUserId("UserId");
+        rewardTrx.setOperationTypeTranscoded("OperationTypeTranscoded");
+        rewardTrx.setEffectiveAmount(BigDecimal.TEN);
+        rewardTrx.setTrxChargeDate(rewardTrx.getTrxDate().minusDays(1));
+        rewardTrx.setRefundInfo(new RefundInfo());
         //endregion
 
         //When
@@ -72,6 +78,41 @@ class RewardTransactionMapperTest {
 
         //Then
         Assertions.assertNotNull(result);
+        assertCommonFields(result, rewardTrx);
+
         TestUtils.checkNotNullFields(result);
+    }
+
+    private void assertCommonFields(RewardTransaction result, RewardTransactionDTO rewardTrx) {
+        Assertions.assertSame(result.getIdTrxAcquirer(), rewardTrx.getIdTrxAcquirer());
+        Assertions.assertSame(result.getAcquirerCode(), rewardTrx.getAcquirerCode());
+        Assertions.assertEquals(result.getTrxDate(), rewardTrx.getTrxDate().toLocalDateTime());
+        Assertions.assertSame(result.getHpan(), rewardTrx.getHpan());
+        Assertions.assertSame(result.getOperationType(), rewardTrx.getOperationType());
+        Assertions.assertSame(result.getCircuitType(), rewardTrx.getCircuitType());
+        Assertions.assertSame(result.getIdTrxIssuer(), rewardTrx.getIdTrxIssuer());
+        Assertions.assertSame(result.getCorrelationId(), rewardTrx.getCorrelationId());
+        Assertions.assertSame(result.getAmount(), rewardTrx.getAmount());
+        Assertions.assertSame(result.getAmountCurrency(), rewardTrx.getAmountCurrency());
+        Assertions.assertSame(result.getMcc(), rewardTrx.getMcc());
+        Assertions.assertSame(result.getAcquirerId(), rewardTrx.getAcquirerId());
+        Assertions.assertSame(result.getMerchantId(), rewardTrx.getMerchantId());
+        Assertions.assertSame(result.getTerminalId(), rewardTrx.getTerminalId());
+        Assertions.assertSame(result.getBin(), rewardTrx.getBin());
+        Assertions.assertSame(result.getSenderCode(), rewardTrx.getSenderCode());
+        Assertions.assertSame(result.getFiscalCode(), rewardTrx.getFiscalCode());
+        Assertions.assertSame(result.getVat(), rewardTrx.getVat());
+        Assertions.assertSame(result.getPosType(), rewardTrx.getPosType());
+        Assertions.assertSame(result.getPar(), rewardTrx.getPar());
+        Assertions.assertSame(result.getStatus(), rewardTrx.getStatus());
+        Assertions.assertSame(result.getRejectionReasons(), rewardTrx.getRejectionReasons());
+        Assertions.assertSame(result.getInitiativeRejectionReasons(), rewardTrx.getInitiativeRejectionReasons());
+        Assertions.assertSame(result.getInitiatives(), rewardTrx.getInitiatives());
+        Assertions.assertSame(result.getRewards(), rewardTrx.getRewards());
+        Assertions.assertSame(result.getUserId(), rewardTrx.getUserId());
+        Assertions.assertSame(result.getOperationTypeTranscoded(), rewardTrx.getOperationTypeTranscoded());
+        Assertions.assertSame(result.getEffectiveAmount(), rewardTrx.getEffectiveAmount());
+        Assertions.assertEquals(result.getTrxChargeDate(), rewardTrx.getTrxChargeDate().toLocalDateTime());
+        Assertions.assertSame(result.getRefundInfo(), rewardTrx.getRefundInfo());
     }
 }

@@ -1,5 +1,7 @@
 package it.gov.pagopa.idpay.transactions.dto;
 
+import it.gov.pagopa.idpay.transactions.model.RefundInfo;
+import it.gov.pagopa.idpay.transactions.model.Reward;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,12 +19,12 @@ import java.util.Map;
 @Builder
 public class RewardTransactionDTO {
 
+    private String id;
+    private String userId;
     private String idTrxAcquirer;
     private String acquirerCode;
-
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private OffsetDateTime trxDate;
-
     private String hpan;
     private String operationType;
     private String circuitType;
@@ -44,6 +46,12 @@ public class RewardTransactionDTO {
     private List<String> rejectionReasons;
     private Map<String, List<String>> initiativeRejectionReasons;
     private List<String> initiatives;
-    private Map<String,BigDecimal> rewards;
-    private String userId;
+    private Map<String, Reward> rewards;
+
+    private String operationTypeTranscoded;
+    private BigDecimal effectiveAmount;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    private OffsetDateTime trxChargeDate;
+    private RefundInfo refundInfo;
+
 }
