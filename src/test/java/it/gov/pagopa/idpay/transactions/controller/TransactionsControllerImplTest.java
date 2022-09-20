@@ -41,7 +41,7 @@ class TransactionsControllerImplTest {
                 .userId("USERID")
                 .amount(new BigDecimal("30.00")).build();
 
-        Mockito.when(rewardTransactionRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),rt.getUserId(),null,rt.getAmount()))
+        Mockito.when(rewardTransactionRepository.findByFilters(rt.getIdTrxIssuer(),rt.getUserId(),null,rt.getAmount()))
                 .thenReturn(Flux.just(rt));
 
         webClient.get()
@@ -53,7 +53,7 @@ class TransactionsControllerImplTest {
                 .expectStatus().isOk()
                 .expectBodyList(RewardTransaction.class).contains(rt);
 
-        Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findByIdTrxIssuer(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findByFilters(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -65,7 +65,7 @@ class TransactionsControllerImplTest {
 
         ErrorDTO expectedErrorDTO = new ErrorDTO(Severity.ERROR, "Error", null);
 
-        Mockito.when(rewardTransactionRepository.findByIdTrxIssuer(null,rt.getUserId(),null,rt.getAmount()))
+        Mockito.when(rewardTransactionRepository.findByFilters(null,rt.getUserId(),null,rt.getAmount()))
                 .thenThrow(NotEnoughFiltersException.class);
 
         webClient.get()
@@ -76,6 +76,6 @@ class TransactionsControllerImplTest {
                 .expectStatus().isBadRequest()
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
 
-        Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findByIdTrxIssuer(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findByFilters(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
     }
 }

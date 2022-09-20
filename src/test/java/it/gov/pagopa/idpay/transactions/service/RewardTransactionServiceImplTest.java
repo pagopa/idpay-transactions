@@ -51,9 +51,9 @@ class RewardTransactionServiceImplTest {
                 .idTrxIssuer("IDTRXISSUER")
                 .acquirerId(acquuirerId).build();
 
-        Mockito.when(rewardTransactionRepository.findByIdTrxIssuer(transaction1.getIdTrxIssuer(), transaction1.getUserId(), transaction1.getTrxDate(),transaction1.getAmount())).thenThrow(NotEnoughFiltersException.class);
-        Mockito.when(rewardTransactionRepository.findByIdTrxIssuer(transaction2.getIdTrxIssuer(), transaction2.getUserId(), transaction2.getTrxDate(),transaction2.getAmount())).thenReturn(Flux.just(transaction2));
-        Mockito.when(rewardTransactionRepository.findByIdTrxIssuer(transaction3.getIdTrxIssuer(), transaction3.getUserId(), transaction3.getTrxDate(),transaction3.getAmount())).thenReturn(Flux.just(transaction3));
+        Mockito.when(rewardTransactionRepository.findByFilters(transaction1.getIdTrxIssuer(), transaction1.getUserId(), transaction1.getTrxDate(),transaction1.getAmount())).thenThrow(NotEnoughFiltersException.class);
+        Mockito.when(rewardTransactionRepository.findByFilters(transaction2.getIdTrxIssuer(), transaction2.getUserId(), transaction2.getTrxDate(),transaction2.getAmount())).thenReturn(Flux.just(transaction2));
+        Mockito.when(rewardTransactionRepository.findByFilters(transaction3.getIdTrxIssuer(), transaction3.getUserId(), transaction3.getTrxDate(),transaction3.getAmount())).thenReturn(Flux.just(transaction3));
 
         // When
         Flux<RewardTransaction> resultNotEnoughFilter = rewardTransactionService.findTrxsFilters(transaction1.getIdTrxIssuer(), transaction1.getUserId(), null, transaction1.getAmount().toString());

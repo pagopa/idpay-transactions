@@ -20,7 +20,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Flux<RewardTransaction> findByIdTrxIssuer(String idTrxIssuer, String userId, LocalDateTime trxDate, BigDecimal amount) {
+    public Flux<RewardTransaction> findByFilters(String idTrxIssuer, String userId, LocalDateTime trxDate, BigDecimal amount) {
         return mongoTemplate.find(
                 Query.query(getCriteriaFilter(idTrxIssuer, userId, trxDate, amount)),
                 RewardTransaction.class);

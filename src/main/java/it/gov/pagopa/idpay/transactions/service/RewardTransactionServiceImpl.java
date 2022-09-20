@@ -57,7 +57,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
     @Override
     public Flux<RewardTransaction> findTrxsFilters(String idTrxAcquirer, String userId, String trxDate, String amount) {
         return Flux.defer(() ->
-                        rewardTrxRepository.findByIdTrxIssuer(
+                        rewardTrxRepository.findByFilters(
                                 idTrxAcquirer,
                                 userId,
                                 trxDate == null ? null : LocalDateTime.parse(trxDate, DateTimeFormatter.ISO_DATE_TIME),
