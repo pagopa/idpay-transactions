@@ -1,11 +1,12 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
-import it.gov.pagopa.idpay.transactions.exception.NotEnoughFiltersException;
+import it.gov.pagopa.idpay.transactions.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.http.HttpStatus;
 import reactor.core.publisher.Flux;
 
 import java.math.BigDecimal;
@@ -20,27 +21,26 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Flux<RewardTransaction> findByFilters(String idTrxIssuer, String userId, LocalDateTime trxDate, BigDecimal amount) {
+    public Flux<RewardTransaction> findByFilters(String idTrxIssuer, String userId, BigDecimal amount,  LocalDateTime trxDateStart, LocalDateTime trxDateEnd) {
         return mongoTemplate.find(
-                Query.query(getCriteriaFilter(idTrxIssuer, userId, trxDate, amount)),
+                Query.query(getCriteriaFilter(idTrxIssuer, userId, amount, trxDateStart, trxDateEnd)),
                 RewardTransaction.class);
     }
 
-    private Criteria getCriteriaFilter(String idTrxIssuer, String userId, LocalDateTime trxDate, BigDecimal amount) {
+    private Criteria getCriteriaFilter(String idTrxIssuer, String userId, BigDecimal amount, LocalDateTime trxDateStart, LocalDateTime trxDateEnd) {
+        Criteria criteria = Criteria.where(RewardTransaction.Fields.trxDate)
+                .gte(trxDateStart)
+                .lte(trxDateEnd);
         if(idTrxIssuer !=null) {
-            Criteria criteria = Criteria.where(
-                    RewardTransaction.Fields.idTrxIssuer).is(idTrxIssuer);
+            criteria.and(RewardTransaction.Fields.idTrxIssuer).is(idTrxIssuer);
             if (userId != null) {criteria.and(RewardTransaction.Fields.userId).is(userId);}
-            if (trxDate != null) {criteria.and(RewardTransaction.Fields.trxDate).is(trxDate);}
             if (amount != null) {criteria.and(RewardTransaction.Fields.amount).is(amount);}
-            return criteria;
-        }else if(userId != null && trxDate!=null && amount!= null){
-            return Criteria.where(
-                   RewardTransaction.Fields.userId).is(userId)
-                    .and(RewardTransaction.Fields.trxDate).is(trxDate)
+        }else if(userId != null && amount!= null){
+            criteria.and(RewardTransaction.Fields.userId).is(userId)
                     .and(RewardTransaction.Fields.amount).is(amount);
         }else {
-            throw new NotEnoughFiltersException("The minimum set of filter are: 1) idTrxIssuer  2) The set: userId, trxDate and amount");
+            throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,"Error", "Missing filters. Add one of the following options: 1) idTrxIssuer 2) userId and amount");
         }
+        return criteria;
     }
 }

@@ -6,7 +6,6 @@ import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionDTOFaker;
 import it.gov.pagopa.idpay.transactions.utils.TestUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.util.Pair;
@@ -23,11 +22,6 @@ class RewardTransactionConsumerTest extends BaseIntegrationTest {
 
     @Autowired
     private RewardTransactionRepository rewardTransactionRepository;
-
-    @BeforeEach
-    void clearData(){
-        rewardTransactionRepository.deleteAll().block();
-    }
 
     @Test
     void testRewardRuleBuilding(){

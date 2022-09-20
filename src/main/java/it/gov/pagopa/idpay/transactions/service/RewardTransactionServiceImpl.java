@@ -15,7 +15,6 @@ import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 @Service
 @Slf4j
@@ -55,12 +54,12 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
     }
 
     @Override
-    public Flux<RewardTransaction> findTrxsFilters(String idTrxAcquirer, String userId, String trxDate, String amount) {
-        return Flux.defer(() ->
-                        rewardTrxRepository.findByFilters(
-                                idTrxAcquirer,
-                                userId,
-                                trxDate == null ? null : LocalDateTime.parse(trxDate, DateTimeFormatter.ISO_DATE_TIME),
-                                amount == null ? null : new BigDecimal(amount)));
+    public Flux<RewardTransaction> findTrxsFilters(String idTrxAcquirer, String userId, BigDecimal amount, LocalDateTime trxDateStart, LocalDateTime trxDateEnd) {
+            return rewardTrxRepository.findByFilters(
+                            idTrxAcquirer,
+                            userId,
+                            amount,
+                            trxDateStart,
+                            trxDateEnd);
     }
 }

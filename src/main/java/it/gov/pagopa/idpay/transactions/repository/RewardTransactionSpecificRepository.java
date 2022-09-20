@@ -7,5 +7,5 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public interface RewardTransactionSpecificRepository {
-    Flux<RewardTransaction> findByFilters(String idTrxIssuer, String userId, LocalDateTime trxDate, BigDecimal amount);
+    Flux<RewardTransaction> findByFilters(String idTrxIssuer, String userId, BigDecimal amount, LocalDateTime trxDateStart, LocalDateTime trxDateEnd);
 }
