@@ -34,13 +34,13 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
             if (trxDate != null) {criteria.and(RewardTransaction.Fields.trxDate).is(trxDate);}
             if (amount != null) {criteria.and(RewardTransaction.Fields.amount).is(amount);}
             return criteria;
-        }else if(userId != null && trxDate!=null && amount!= null){ //TODO it's possible pass this control at the service and call dedicate query from CRUD repository
+        }else if(userId != null && trxDate!=null && amount!= null){
             return Criteria.where(
                    RewardTransaction.Fields.userId).is(userId)
                     .and(RewardTransaction.Fields.trxDate).is(trxDate)
                     .and(RewardTransaction.Fields.amount).is(amount);
         }else {
-            throw new NotEnoughFiltersException("There are not enough filters for searching. The minimum set of filter are: \n 1) idTrxIssuer \n 2) The set: userId, trxDate and amount");
+            throw new NotEnoughFiltersException("The minimum set of filter are: 1) idTrxIssuer  2) The set: userId, trxDate and amount");
         }
     }
 }

@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -16,7 +17,7 @@ public class TransactionsControllerImpl implements TransactionsController{
     }
 
     @Override
-    public ResponseEntity<Flux<?>> findAll(String idTrxAcquirer, String userId, String trxDate, String amount) {
+    public ResponseEntity<Flux<RewardTransaction>> findAll(String idTrxAcquirer, String userId, String trxDate, String amount) {
         return ResponseEntity.ok(rewardTransactionService.findTrxsFilters(idTrxAcquirer, userId, trxDate, amount));
     }
 }

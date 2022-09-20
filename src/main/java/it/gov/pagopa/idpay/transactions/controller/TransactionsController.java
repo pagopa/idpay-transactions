@@ -15,14 +15,14 @@ import reactor.core.publisher.Flux;
 @RequestMapping("/idpay/transactions")
 public interface TransactionsController {
     /**
-     * Returns a set of transactions when:
+     * Returns a set of transactions when one of the followed cases happens:
      * <ul>
      *     <li>The field idTrxIssuer is present</li>
      *     <li>The follows fields are not null: userId, trxDate and amount</li>
      * </ul>
      * */
     @GetMapping
-    ResponseEntity<Flux<?>> findAll(
+    ResponseEntity<Flux<RewardTransaction>> findAll(
             @RequestParam(value = "idTrxIssuer", required = false) String idTrxIssuer,
             @RequestParam(value = "userId", required = false) String userId,
             @RequestParam(value = "trxDate", required = false) String trxDate,
