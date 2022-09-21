@@ -104,7 +104,7 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
         Assertions.assertNotNull(rtResultUserIDAndRangeDate);
         Assertions.assertEquals(rt, rtResultUserIDAndRangeDate);
 
-        Flux<RewardTransaction> resultUserIDAndRangeDateAndAmount = rewardTransactionSpecificRepository.findByUserIdAndRangeDateAndAmount(rt.getUserId(), startDate ,endDate,null);
+        Flux<RewardTransaction> resultUserIDAndRangeDateAndAmount = rewardTransactionSpecificRepository.findByUserIdAndRangeDateAndAmount(rt.getUserId(), startDate ,endDate,rt.getAmount());
         Assertions.assertNotNull(resultUserIDAndRangeDateAndAmount);
         Assertions.assertEquals(1, resultUserIDAndRangeDateAndAmount.count().block());
         RewardTransaction rtResultUserIDAndRangeDateAndAmount = resultUserIDAndRangeDateAndAmount.toStream().findFirst().orElse(null);

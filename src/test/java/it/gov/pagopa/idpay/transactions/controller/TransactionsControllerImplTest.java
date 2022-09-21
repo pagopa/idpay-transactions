@@ -120,6 +120,36 @@ class TransactionsControllerImplTest {
                 .expectStatus().isBadRequest()
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
 
+        webClient.get()
+                .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
+                        .queryParam("amount", rt.getAmount())
+                        .queryParam("trxDateStart", startDate)
+                        .queryParam("trxDateEnd", endDate).build())
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
+
+        webClient.get()
+                .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
+                        .queryParam("trxDateStart", startDate).build())
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
+
+        webClient.get()
+                .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
+                        .queryParam("trxDateEnd", endDate).build())
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
+
+        webClient.get()
+                .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
+                        .queryParam("amount", rt.getAmount()).build())
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
+
         Mockito.verify(rewardTransactionRepository, Mockito.never()).findByUserIdAndRangeDateAndAmount(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
         Mockito.verify(rewardTransactionRepository, Mockito.never()).findByIdTrxIssuerAndOtherFilters(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
     }
