@@ -5,7 +5,6 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
@@ -22,11 +21,13 @@ public class TransactionsControllerImpl implements TransactionsController{
     }
 
     @Override
-    public ResponseEntity<Flux<RewardTransaction>> findAll(String idTrxAcquirer, String userId, BigDecimal amount, LocalDateTime trxDateStart, LocalDateTime trxDateEnd) {
-        if (trxDateStart == null || trxDateEnd == null) {
-            throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, "Error","The mandatory filters are: trxDateStart, trxDateEnd, and one of the following options: 1) idTrxIssuer 2) userId and amount");
-        } else {
-            return ResponseEntity.ok(rewardTransactionService.findTrxsFilters(idTrxAcquirer, userId, amount, trxDateStart, trxDateEnd));
+    public Flux<RewardTransaction> findAll(String idTrxIssuer, String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, BigDecimal amount) {
+        if(idTrxIssuer != null){
+            return rewardTransactionService.findByIdTrxIssuer(idTrxIssuer,userId,trxDateStart, trxDateEnd, amount);
+        }else if(userId != null && trxDateStart != null && trxDateEnd != null){
+            return rewardTransactionService.findByUserIdAndRangeDateAndAmount(userId, trxDateStart, trxDateEnd, amount);
+        }else {
+            throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, "Error","Mandatory filters are missing. Insert one of the following options: 1) idTrxIssuer 2) userId, trxDateStart and trxDateEnd");
         }
     }
 }

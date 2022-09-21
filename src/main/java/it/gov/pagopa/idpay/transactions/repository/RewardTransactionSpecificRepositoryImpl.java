@@ -1,12 +1,10 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
-import it.gov.pagopa.idpay.transactions.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.http.HttpStatus;
 import reactor.core.publisher.Flux;
 
 import java.math.BigDecimal;
@@ -21,26 +19,29 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Flux<RewardTransaction> findByFilters(String idTrxIssuer, String userId, BigDecimal amount,  LocalDateTime trxDateStart, LocalDateTime trxDateEnd) {
+    public Flux<RewardTransaction> findByIdTrxIssuerAndOtherFilters(String idTrxIssuer, String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, BigDecimal amount) {
+        Criteria criteria = Criteria.where(RewardTransaction.Fields.idTrxIssuer).is(idTrxIssuer);
+        if(trxDateStart != null){criteria.and(RewardTransaction.Fields.trxDate).gte(trxDateStart);}
+        if(trxDateEnd != null){criteria.and(RewardTransaction.Fields.trxDate).lte(trxDateEnd);}
+        if (userId != null) {criteria.and(RewardTransaction.Fields.userId).is(userId);}
+        if (amount != null) {criteria.and(RewardTransaction.Fields.amount).is(amount);}
+
         return mongoTemplate.find(
-                Query.query(getCriteriaFilter(idTrxIssuer, userId, amount, trxDateStart, trxDateEnd)),
+                Query.query(criteria),
                 RewardTransaction.class);
     }
 
-    private Criteria getCriteriaFilter(String idTrxIssuer, String userId, BigDecimal amount, LocalDateTime trxDateStart, LocalDateTime trxDateEnd) {
-        Criteria criteria = Criteria.where(RewardTransaction.Fields.trxDate)
+    @Override
+    public Flux<RewardTransaction> findByUserIdAndRangeDateAndAmount(String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, BigDecimal amount) {
+        Criteria criteria = Criteria
+                .where(RewardTransaction.Fields.userId).is(userId)
+                .and(RewardTransaction.Fields.trxDate)
                 .gte(trxDateStart)
                 .lte(trxDateEnd);
-        if(idTrxIssuer !=null) {
-            criteria.and(RewardTransaction.Fields.idTrxIssuer).is(idTrxIssuer);
-            if (userId != null) {criteria.and(RewardTransaction.Fields.userId).is(userId);}
-            if (amount != null) {criteria.and(RewardTransaction.Fields.amount).is(amount);}
-        }else if(userId != null && amount!= null){
-            criteria.and(RewardTransaction.Fields.userId).is(userId)
-                    .and(RewardTransaction.Fields.amount).is(amount);
-        }else {
-            throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,"Error", "Missing filters. Add one of the following options: 1) idTrxIssuer 2) userId and amount");
-        }
-        return criteria;
+        if(amount != null){criteria.and(RewardTransaction.Fields.amount).is(amount);}
+
+        return mongoTemplate.find(
+                Query.query(criteria),
+                RewardTransaction.class);
     }
 }
