@@ -21,10 +21,20 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     @Override
     public Flux<RewardTransaction> findByIdTrxIssuerAndOtherFilters(String idTrxIssuer, String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, BigDecimal amount) {
         Criteria criteria = Criteria.where(RewardTransaction.Fields.idTrxIssuer).is(idTrxIssuer);
-        if(trxDateStart != null){criteria.and(RewardTransaction.Fields.trxDate).gte(trxDateStart);}
-        if(trxDateEnd != null){criteria.and(RewardTransaction.Fields.trxDate).lte(trxDateEnd);}
         if (userId != null) {criteria.and(RewardTransaction.Fields.userId).is(userId);}
         if (amount != null) {criteria.and(RewardTransaction.Fields.amount).is(amount);}
+        if(trxDateStart != null && trxDateEnd != null){
+            criteria.and(RewardTransaction.Fields.trxDate)
+                .gte(trxDateStart)
+                .lte(trxDateEnd);
+        }else if(trxDateStart != null){
+            criteria.and(RewardTransaction.Fields.trxDate)
+                    .gte(trxDateStart);
+        }else if(trxDateEnd != null){
+            criteria.and(RewardTransaction.Fields.trxDate)
+                    .lte(trxDateEnd);
+        }
+
 
         return mongoTemplate.find(
                 Query.query(criteria),
