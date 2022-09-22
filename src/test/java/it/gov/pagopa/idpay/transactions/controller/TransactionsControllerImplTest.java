@@ -1,18 +1,14 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.idpay.transactions.dto.ErrorDTO;
-import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
 import it.gov.pagopa.idpay.transactions.exception.Severity;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
-import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
-import it.gov.pagopa.idpay.transactions.service.ErrorNotifierService;
-import it.gov.pagopa.idpay.transactions.service.RewardTransactionServiceImpl;
+import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Import;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
 
@@ -20,16 +16,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @WebFluxTest(controllers = {TransactionsController.class})
-@Import(RewardTransactionServiceImpl.class)
 class TransactionsControllerImplTest {
     @MockBean
-    RewardTransactionRepository rewardTransactionRepository;
-
-    @MockBean
-    RewardTransactionMapper rewardTransactionMapper;
-
-    @MockBean
-    ErrorNotifierService errorNotifierService;
+    RewardTransactionService rewardTransactionService;
 
     @Autowired
     protected WebTestClient webClient;
@@ -47,7 +36,7 @@ class TransactionsControllerImplTest {
                 .amount(new BigDecimal("30.00")).build();
 
         //idTrxIssuer present in request
-        Mockito.when(rewardTransactionRepository.findByIdTrxIssuerAndOtherFilters(Mockito.eq(rt.getIdTrxIssuer()),Mockito.eq(rt.getUserId()), Mockito.any(), Mockito.any(), Mockito.eq(rt.getAmount())))
+        Mockito.when(rewardTransactionService.findByIdTrxIssuer(Mockito.eq(rt.getIdTrxIssuer()),Mockito.eq(rt.getUserId()), Mockito.any(), Mockito.any(), Mockito.eq(rt.getAmount())))
                 .thenReturn(Flux.just(rt));
 
         webClient.get()
@@ -63,7 +52,7 @@ class TransactionsControllerImplTest {
                 .expectBodyList(RewardTransaction.class).contains(rt);
 
         //userId e range of date present in the request
-        Mockito.when(rewardTransactionRepository.findByUserIdAndRangeDateAndAmount(Mockito.eq(rt.getUserId()), Mockito.any(), Mockito.any(), Mockito.eq(rt.getAmount())))
+        Mockito.when(rewardTransactionService.findByUserIdAndRangeDateAndAmount(Mockito.eq(rt.getUserId()), Mockito.any(), Mockito.any(), Mockito.eq(rt.getAmount())))
                 .thenReturn(Flux.just(rt));
 
         webClient.get()
@@ -77,7 +66,7 @@ class TransactionsControllerImplTest {
                 .expectStatus().isOk()
                 .expectBodyList(RewardTransaction.class).contains(rt);
 
-        Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findByIdTrxIssuerAndOtherFilters(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.verify(rewardTransactionService, Mockito.times(1)).findByIdTrxIssuer(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -150,7 +139,7 @@ class TransactionsControllerImplTest {
                 .expectStatus().isBadRequest()
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
 
-        Mockito.verify(rewardTransactionRepository, Mockito.never()).findByUserIdAndRangeDateAndAmount(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
-        Mockito.verify(rewardTransactionRepository, Mockito.never()).findByIdTrxIssuerAndOtherFilters(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.verify(rewardTransactionService, Mockito.never()).findByUserIdAndRangeDateAndAmount(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.verify(rewardTransactionService, Mockito.never()).findByIdTrxIssuer(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
     }
 }

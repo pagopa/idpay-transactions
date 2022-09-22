@@ -28,10 +28,8 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
     }
 
     @Test
-    void findByIdTrxIssuerAndOtherFilters() {
+    void findByIdTrxIssuer() {
         LocalDateTime date = LocalDateTime.of(2021, 9, 6, 17, 30, 25);
-        LocalDateTime startDate = date.minusMonths(5L);
-        LocalDateTime endDate = date.plusMonths(6L);
         BigDecimal amount = new BigDecimal("30.00");
         RewardTransaction rt = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id_prova")
@@ -46,6 +44,20 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
         RewardTransaction rtResultTrxIssuer = resultTrxIssuer.toStream().findFirst().orElse(null);
         Assertions.assertNotNull(rtResultTrxIssuer);
         Assertions.assertEquals(rt, rtResultTrxIssuer);
+    }
+
+    @Test
+    void findByIdTrxIssuerAndOptionalFilters() {
+        LocalDateTime date = LocalDateTime.of(2021, 9, 6, 17, 30, 25);
+        LocalDateTime startDate = date.minusMonths(5L);
+        LocalDateTime endDate = date.plusMonths(6L);
+        BigDecimal amount = new BigDecimal("30.00");
+        RewardTransaction rt = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id_prova")
+                .idTrxIssuer("IDTRXISSUER1")
+                .trxDate(date)
+                .amount(amount).build();
+        rewardTransactionRepository.save(rt).block();
 
         Flux<RewardTransaction> resultTrxIssuerAndUserId = rewardTransactionSpecificRepository.findByIdTrxIssuerAndOtherFilters(rt.getIdTrxIssuer(),rt.getUserId() ,null,null, null);
         Assertions.assertNotNull(resultTrxIssuerAndUserId);
@@ -75,6 +87,13 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
         Assertions.assertNotNull(rtResultTrxIssuerAndAmount);
         Assertions.assertEquals(rt, rtResultTrxIssuerAndAmount);
 
+        Flux<RewardTransaction> resultTrxIssuerAndRangeDate = rewardTransactionSpecificRepository.findByIdTrxIssuerAndOtherFilters(rt.getIdTrxIssuer(),null ,startDate,endDate, rt.getAmount());
+        Assertions.assertNotNull(resultTrxIssuerAndRangeDate);
+        Assertions.assertEquals(1, resultTrxIssuerAndRangeDate.count().block());
+        RewardTransaction rtResultTrxIssuerAndRangeDate = resultTrxIssuerAndRangeDate.toStream().findFirst().orElse(null);
+        Assertions.assertNotNull(rtResultTrxIssuerAndRangeDate);
+        Assertions.assertEquals(rt, rtResultTrxIssuerAndRangeDate);
+
         Flux<RewardTransaction> resultBeforeStartDateBeforeStartDate = rewardTransactionSpecificRepository.findByIdTrxIssuerAndOtherFilters(rt.getIdTrxIssuer(),null ,date.plusDays(10L),null, null);
         Assertions.assertNotNull(resultBeforeStartDateBeforeStartDate);
         Assertions.assertEquals(0, resultBeforeStartDateBeforeStartDate.count().block());
@@ -83,7 +102,6 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
         Assertions.assertNotNull(resultDateAfterEndDate);
         Assertions.assertEquals(0, resultDateAfterEndDate.count().block());
     }
-
     @Test
     void findByUserIdAndRangeDateAndAmount() {
         LocalDateTime date = LocalDateTime.of(2021, 9, 6, 17, 30, 25);

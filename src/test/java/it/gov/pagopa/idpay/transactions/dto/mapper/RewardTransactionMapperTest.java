@@ -4,6 +4,7 @@ import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.model.RefundInfo;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionDTOFaker;
 import it.gov.pagopa.idpay.transactions.utils.TestUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -79,6 +80,41 @@ class RewardTransactionMapperTest {
         //Then
         Assertions.assertNotNull(result);
         assertCommonFields(result, rewardTrx);
+
+        TestUtils.checkNotNullFields(result);
+    }
+
+    @Test
+    void mapFromDTOTransactionWithId(){
+        //Given
+        RewardTransactionMapper rewardTransactionMapper = new RewardTransactionMapper();
+
+        List<String> initiative = List.of("initiativeId");
+        Map<String, Reward> reward = new HashMap<>();
+        reward.put("initiativeID", new Reward());
+        Map<String, List<String>> initiativeRejectionsReason = new HashMap<>();
+        initiativeRejectionsReason.put("initiative", List.of("Error initiative"));
+
+        RewardTransactionDTO rewardTrx = RewardTransactionDTOFaker.mockInstance(1);
+        rewardTrx.setId("IDPRESENTE");
+        rewardTrx.setStatus("ACCEPTED");
+        rewardTrx.setRejectionReasons(List.of("ERROR"));
+        rewardTrx.setInitiativeRejectionReasons(initiativeRejectionsReason);
+        rewardTrx.setInitiatives(initiative);
+        rewardTrx.setRewards(reward);
+        rewardTrx.setUserId("UserId");
+        rewardTrx.setOperationTypeTranscoded("OperationTypeTranscoded");
+        rewardTrx.setEffectiveAmount(BigDecimal.TEN);
+        rewardTrx.setTrxChargeDate(rewardTrx.getTrxDate().minusDays(1));
+        rewardTrx.setRefundInfo(new RefundInfo());
+
+        // When
+        RewardTransaction result = rewardTransactionMapper.mapFromDTO(rewardTrx);
+
+        //Then
+        Assertions.assertNotNull(result);
+        assertCommonFields(result, rewardTrx);
+        Assertions.assertEquals("IDPRESENTE", result.getId());
 
         TestUtils.checkNotNullFields(result);
     }
