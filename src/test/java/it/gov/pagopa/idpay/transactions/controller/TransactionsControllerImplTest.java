@@ -52,7 +52,7 @@ class TransactionsControllerImplTest {
                 .expectBodyList(RewardTransaction.class).contains(rt);
 
         //userId e range of date present in the request
-        Mockito.when(rewardTransactionService.findByUserIdAndRangeDateAndAmount(Mockito.eq(rt.getUserId()), Mockito.any(), Mockito.any(), Mockito.eq(rt.getAmount())))
+        Mockito.when(rewardTransactionService.findByRange(Mockito.eq(rt.getUserId()), Mockito.any(), Mockito.any(), Mockito.eq(rt.getAmount())))
                 .thenReturn(Flux.just(rt));
 
         webClient.get()
@@ -139,7 +139,7 @@ class TransactionsControllerImplTest {
                 .expectStatus().isBadRequest()
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
 
-        Mockito.verify(rewardTransactionService, Mockito.never()).findByUserIdAndRangeDateAndAmount(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.verify(rewardTransactionService, Mockito.never()).findByRange(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
         Mockito.verify(rewardTransactionService, Mockito.never()).findByIdTrxIssuer(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
     }
 }

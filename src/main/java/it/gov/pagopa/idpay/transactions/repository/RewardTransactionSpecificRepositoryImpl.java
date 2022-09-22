@@ -19,7 +19,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Flux<RewardTransaction> findByIdTrxIssuerAndOtherFilters(String idTrxIssuer, String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, BigDecimal amount) {
+    public Flux<RewardTransaction> findByIdTrxIssuer(String idTrxIssuer, String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, BigDecimal amount) {
         Criteria criteria = Criteria.where(RewardTransaction.Fields.idTrxIssuer).is(idTrxIssuer);
         if (userId != null) {criteria.and(RewardTransaction.Fields.userId).is(userId);}
         if (amount != null) {criteria.and(RewardTransaction.Fields.amount).is(amount);}
@@ -42,7 +42,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Flux<RewardTransaction> findByUserIdAndRangeDateAndAmount(String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, BigDecimal amount) {
+    public Flux<RewardTransaction> findByRange(String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, BigDecimal amount) {
         Criteria criteria = Criteria
                 .where(RewardTransaction.Fields.userId).is(userId)
                 .and(RewardTransaction.Fields.trxDate)

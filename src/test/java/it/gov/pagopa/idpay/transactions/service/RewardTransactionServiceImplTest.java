@@ -1,31 +1,40 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.springframework.messaging.Message;
-import org.springframework.messaging.support.MessageBuilder;
+import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Flux;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+@ExtendWith(MockitoExtension.class)
 class RewardTransactionServiceImplTest {
+    @Mock
+    private RewardTransactionRepository rewardTransactionRepository;
+    @Mock
+    private RewardTransactionMapper rewardTransactionMapper;
+    @Mock
+    private ErrorNotifierService errorNotifierService;
+    @Mock
+    private ObjectMapper objectMapper;
+    private RewardTransactionService rewardTransactionService;
+    @BeforeEach
+    void setUp(){
+        rewardTransactionService = new RewardTransactionServiceImpl(rewardTransactionRepository, rewardTransactionMapper,errorNotifierService,objectMapper);
+    }
+
     @Test
     void findByIdTrxIssuer() {
         // Given
-        RewardTransactionRepository rewardTransactionRepository = Mockito.mock(RewardTransactionRepository.class);
-        RewardTransactionMapper rewardTransactionMapper = Mockito.mock(RewardTransactionMapper.class);
-        ErrorNotifierService errorNotifierService = Mockito.mock(ErrorNotifierService.class);
-        ObjectMapper objectMapper = Mockito.mock(ObjectMapper.class);
-
-        RewardTransactionService rewardTransactionService= new RewardTransactionServiceImpl(rewardTransactionRepository, rewardTransactionMapper,errorNotifierService, objectMapper);
-
         RewardTransaction rt = RewardTransaction.builder()
                 .userId("USERID")
                 .amount(new BigDecimal("30.00"))
@@ -33,7 +42,7 @@ class RewardTransactionServiceImplTest {
                 .idTrxIssuer("IDTRXISSUER")
                 .build();
 
-        Mockito.when(rewardTransactionRepository.findByIdTrxIssuerAndOtherFilters(rt.getIdTrxIssuer(), null, null, null, null)).thenReturn(Flux.just(rt));
+        Mockito.when(rewardTransactionRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(), null, null, null, null)).thenReturn(Flux.just(rt));
 
         // When
         Flux<RewardTransaction> result = rewardTransactionService.findByIdTrxIssuer("IDTRXISSUER", null, null, null, null);
@@ -44,15 +53,8 @@ class RewardTransactionServiceImplTest {
     }
 
     @Test
-    void findByUserIdAndRangeDateAndAmount() {
+    void findByRange() {
         // Given
-        RewardTransactionRepository rewardTransactionRepository = Mockito.mock(RewardTransactionRepository.class);
-        RewardTransactionMapper rewardTransactionMapper = Mockito.mock(RewardTransactionMapper.class);
-        ErrorNotifierService errorNotifierService = Mockito.mock(ErrorNotifierService.class);
-        ObjectMapper objectMapper = Mockito.mock(ObjectMapper.class);
-
-        RewardTransactionService rewardTransactionService= new RewardTransactionServiceImpl(rewardTransactionRepository, rewardTransactionMapper,errorNotifierService, objectMapper);
-
         LocalDateTime date = LocalDateTime.of(2022, 9, 19, 15,43,39);
         LocalDateTime startDate = date.minusMonths(9L);
         LocalDateTime endDate = date.plusMonths(6L);
@@ -65,7 +67,7 @@ class RewardTransactionServiceImplTest {
                 .idTrxIssuer("IDTRXISSUER")
                 .build();
 
-        Mockito.when(rewardTransactionRepository.findByIdTrxIssuerAndOtherFilters(null, "USERID", startDate, endDate, null)).thenReturn(Flux.just(rt));
+        Mockito.when(rewardTransactionRepository.findByIdTrxIssuer(null, "USERID", startDate, endDate, null)).thenReturn(Flux.just(rt));
 
         // When
         Flux<RewardTransaction> result = rewardTransactionService.findByIdTrxIssuer(null, "USERID", startDate, endDate, null);
@@ -74,5 +76,4 @@ class RewardTransactionServiceImplTest {
         Assertions.assertNotNull(resultRT);
         Assertions.assertEquals(rt, resultRT);
     }
-
 }

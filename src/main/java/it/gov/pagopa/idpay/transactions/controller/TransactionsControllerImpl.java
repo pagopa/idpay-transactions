@@ -25,7 +25,7 @@ public class TransactionsControllerImpl implements TransactionsController{
         if(idTrxIssuer != null){
             return rewardTransactionService.findByIdTrxIssuer(idTrxIssuer,userId,trxDateStart, trxDateEnd, amount);
         }else if(userId != null && trxDateStart != null && trxDateEnd != null){
-            return rewardTransactionService.findByUserIdAndRangeDateAndAmount(userId, trxDateStart, trxDateEnd, amount);
+            return rewardTransactionService.findByRange(userId, trxDateStart, trxDateEnd, amount);
         }else {
             throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, "Error","Mandatory filters are missing. Insert one of the following options: 1) idTrxIssuer 2) userId, trxDateStart and trxDateEnd");
         }

@@ -13,5 +13,5 @@ public interface
 RewardTransactionService {
     Flux<RewardTransaction> save(Flux<Message<String>> messageFlux);
     Flux<RewardTransaction> findByIdTrxIssuer(String idTrxIssuer, String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, BigDecimal amount);
-    Flux<RewardTransaction> findByUserIdAndRangeDateAndAmount(String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, BigDecimal amount);
+    Flux<RewardTransaction> findByRange(String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, BigDecimal amount);
 }

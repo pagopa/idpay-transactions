@@ -55,11 +55,11 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
     @Override
     public Flux<RewardTransaction> findByIdTrxIssuer(String idTrxIssuer, String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, BigDecimal amount) {
-        return rewardTrxRepository.findByIdTrxIssuerAndOtherFilters(idTrxIssuer, userId, trxDateStart, trxDateEnd, amount);
+        return rewardTrxRepository.findByIdTrxIssuer(idTrxIssuer, userId, trxDateStart, trxDateEnd, amount);
     }
 
     @Override
-    public Flux<RewardTransaction> findByUserIdAndRangeDateAndAmount(String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, BigDecimal amount) {
-        return rewardTrxRepository.findByUserIdAndRangeDateAndAmount(userId, trxDateStart, trxDateEnd, amount);
+    public Flux<RewardTransaction> findByRange(String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, BigDecimal amount) {
+        return rewardTrxRepository.findByRange(userId, trxDateStart, trxDateEnd, amount);
     }
 }
