@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,6 +30,7 @@ public interface TransactionsController {
             @RequestParam(value = "userId", required = false) String userId,
             @RequestParam(value = "trxDateStart", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime trxDateStart,
             @RequestParam(value = "trxDateEnd", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime trxDateEnd,
-            @RequestParam(value = "amount", required = false) BigDecimal amount
+            @RequestParam(value = "amount", required = false) BigDecimal amount,
+            Pageable pageable
     );
 }

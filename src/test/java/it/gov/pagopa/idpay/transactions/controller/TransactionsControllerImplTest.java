@@ -36,7 +36,7 @@ class TransactionsControllerImplTest {
                 .amount(new BigDecimal("30.00")).build();
 
         //idTrxIssuer present in request
-        Mockito.when(rewardTransactionService.findByIdTrxIssuer(Mockito.eq(rt.getIdTrxIssuer()),Mockito.eq(rt.getUserId()), Mockito.any(), Mockito.any(), Mockito.eq(rt.getAmount())))
+        Mockito.when(rewardTransactionService.findByIdTrxIssuer(Mockito.eq(rt.getIdTrxIssuer()),Mockito.eq(rt.getUserId()), Mockito.any(), Mockito.any(), Mockito.eq(rt.getAmount()), Mockito.any()))
                 .thenReturn(Flux.just(rt));
 
         webClient.get()
@@ -52,7 +52,7 @@ class TransactionsControllerImplTest {
                 .expectBodyList(RewardTransaction.class).contains(rt);
 
         //userId e range of date present in the request
-        Mockito.when(rewardTransactionService.findByRange(Mockito.eq(rt.getUserId()), Mockito.any(), Mockito.any(), Mockito.eq(rt.getAmount())))
+        Mockito.when(rewardTransactionService.findByRange(Mockito.eq(rt.getUserId()), Mockito.any(), Mockito.any(), Mockito.eq(rt.getAmount()), Mockito.any()))
                 .thenReturn(Flux.just(rt));
 
         webClient.get()
@@ -66,7 +66,7 @@ class TransactionsControllerImplTest {
                 .expectStatus().isOk()
                 .expectBodyList(RewardTransaction.class).contains(rt);
 
-        Mockito.verify(rewardTransactionService, Mockito.times(1)).findByIdTrxIssuer(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.verify(rewardTransactionService, Mockito.times(1)).findByIdTrxIssuer(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -139,7 +139,38 @@ class TransactionsControllerImplTest {
                 .expectStatus().isBadRequest()
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
 
-        Mockito.verify(rewardTransactionService, Mockito.never()).findByRange(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
-        Mockito.verify(rewardTransactionService, Mockito.never()).findByIdTrxIssuer(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.verify(rewardTransactionService, Mockito.never()).findByRange(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        Mockito.verify(rewardTransactionService, Mockito.never()).findByIdTrxIssuer(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    void pageable(){
+        LocalDateTime now = LocalDateTime.of(2022, 9, 20, 13, 15,45);
+        LocalDateTime startDate = now.minusMonths(5L);
+        LocalDateTime endDate = now.plusMonths(8L);
+
+        RewardTransaction rt = RewardTransaction.builder()
+                .idTrxIssuer("IDTRXISSUER")
+                .userId("USERID")
+                .trxDate(now)
+                .amount(new BigDecimal("30.00")).build();
+
+        //idTrxIssuer present in request
+        Mockito.when(rewardTransactionService.findByIdTrxIssuer(Mockito.eq(rt.getIdTrxIssuer()),Mockito.eq(rt.getUserId()), Mockito.any(), Mockito.any(), Mockito.eq(rt.getAmount()), Mockito.any()))
+                .thenReturn(Flux.just(rt));
+
+        webClient.get()
+                .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
+                        .queryParam("idTrxIssuer", rt.getIdTrxIssuer())
+                        .queryParam("userId", rt.getUserId())
+                        .queryParam("amount", rt.getAmount())
+                        .queryParam("trxDateStart", startDate)
+                        .queryParam("trxDateEnd", endDate)
+                        .queryParam("number", 2)
+                        .queryParam("size", 3)
+                        .build())
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(RewardTransaction.class).contains(rt);
     }
 }

@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 
 @DirtiesContext
 class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
+    //TODO pageable add null
 
     @Autowired
     protected RewardTransactionRepository rewardTransactionRepository;
@@ -44,7 +45,7 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
 
     @Test
     void findByIdTrxIssuer() {
-        Flux<RewardTransaction> resultTrxIssuer = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,null,null, null);
+        Flux<RewardTransaction> resultTrxIssuer = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,null,null, null, null);
         Assertions.assertNotNull(resultTrxIssuer);
         Assertions.assertEquals(1, resultTrxIssuer.count().block());
         RewardTransaction rtResultTrxIssuer = resultTrxIssuer.toStream().findFirst().orElse(null);
@@ -57,46 +58,46 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
         LocalDateTime startDate = rt.getTrxDate().minusMonths(5L);
         LocalDateTime endDate = rt.getTrxDate().plusMonths(6L);
 
-        Flux<RewardTransaction> resultTrxIssuerAndUserId = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),rt.getUserId() ,null,null, null);
+        Flux<RewardTransaction> resultTrxIssuerAndUserId = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),rt.getUserId() ,null,null, null, null);
         Assertions.assertNotNull(resultTrxIssuerAndUserId);
         Assertions.assertEquals(1, resultTrxIssuerAndUserId.count().block());
         RewardTransaction rtResultTrxIssuerAndUserId = resultTrxIssuerAndUserId.toStream().findFirst().orElse(null);
         Assertions.assertNotNull(rtResultTrxIssuerAndUserId);
         Assertions.assertEquals(rt, rtResultTrxIssuerAndUserId);
 
-        Flux<RewardTransaction> resultTrxIssuerAndStartDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,startDate,null, null);
+        Flux<RewardTransaction> resultTrxIssuerAndStartDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,startDate,null, null, null);
         Assertions.assertNotNull(resultTrxIssuerAndStartDate);
         Assertions.assertEquals(1, resultTrxIssuerAndStartDate.count().block());
         RewardTransaction rtResultTrxIssuerAndStartDate = resultTrxIssuerAndStartDate.toStream().findFirst().orElse(null);
         Assertions.assertNotNull(rtResultTrxIssuerAndStartDate);
         Assertions.assertEquals(rt, rtResultTrxIssuerAndStartDate);
 
-        Flux<RewardTransaction> resultTrxIssuerAndEndDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,null,endDate, null);
+        Flux<RewardTransaction> resultTrxIssuerAndEndDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,null,endDate, null, null);
         Assertions.assertNotNull(resultTrxIssuerAndEndDate);
         Assertions.assertEquals(1, resultTrxIssuerAndEndDate.count().block());
         RewardTransaction rtResultTrxIssuerAndEndDate = resultTrxIssuerAndEndDate.toStream().findFirst().orElse(null);
         Assertions.assertNotNull(rtResultTrxIssuerAndEndDate);
         Assertions.assertEquals(rt, rtResultTrxIssuerAndEndDate);
 
-        Flux<RewardTransaction> resultTrxIssuerAndAmount = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,null,null, rt.getAmount());
+        Flux<RewardTransaction> resultTrxIssuerAndAmount = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,null,null, rt.getAmount(), null);
         Assertions.assertNotNull(resultTrxIssuerAndAmount);
         Assertions.assertEquals(1, resultTrxIssuerAndAmount.count().block());
         RewardTransaction rtResultTrxIssuerAndAmount = resultTrxIssuerAndAmount.toStream().findFirst().orElse(null);
         Assertions.assertNotNull(rtResultTrxIssuerAndAmount);
         Assertions.assertEquals(rt, rtResultTrxIssuerAndAmount);
 
-        Flux<RewardTransaction> resultTrxIssuerAndRangeDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,startDate,endDate, rt.getAmount());
+        Flux<RewardTransaction> resultTrxIssuerAndRangeDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,startDate,endDate, rt.getAmount(), null);
         Assertions.assertNotNull(resultTrxIssuerAndRangeDate);
         Assertions.assertEquals(1, resultTrxIssuerAndRangeDate.count().block());
         RewardTransaction rtResultTrxIssuerAndRangeDate = resultTrxIssuerAndRangeDate.toStream().findFirst().orElse(null);
         Assertions.assertNotNull(rtResultTrxIssuerAndRangeDate);
         Assertions.assertEquals(rt, rtResultTrxIssuerAndRangeDate);
 
-        Flux<RewardTransaction> resultBeforeStartDateBeforeStartDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,rt.getTrxDate().plusDays(10L),null, null);
+        Flux<RewardTransaction> resultBeforeStartDateBeforeStartDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,rt.getTrxDate().plusDays(10L),null, null, null);
         Assertions.assertNotNull(resultBeforeStartDateBeforeStartDate);
         Assertions.assertEquals(0, resultBeforeStartDateBeforeStartDate.count().block());
 
-        Flux<RewardTransaction> resultDateAfterEndDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,null,rt.getTrxDate().minusDays(10L), null);
+        Flux<RewardTransaction> resultDateAfterEndDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,null,rt.getTrxDate().minusDays(10L), null, null);
         Assertions.assertNotNull(resultDateAfterEndDate);
         Assertions.assertEquals(0, resultDateAfterEndDate.count().block());
     }
@@ -105,25 +106,25 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
         LocalDateTime startDate = rt.getTrxDate().minusMonths(5L);
         LocalDateTime endDate = rt.getTrxDate().plusMonths(6L);
 
-        Flux<RewardTransaction> resultUserIDAndRangeDate = rewardTransactionSpecificRepository.findByRange(rt.getUserId(), startDate ,endDate,null);
+        Flux<RewardTransaction> resultUserIDAndRangeDate = rewardTransactionSpecificRepository.findByRange(rt.getUserId(), startDate ,endDate,null, null);
         Assertions.assertNotNull(resultUserIDAndRangeDate);
         Assertions.assertEquals(1, resultUserIDAndRangeDate.count().block());
         RewardTransaction rtResultUserIDAndRangeDate = resultUserIDAndRangeDate.toStream().findFirst().orElse(null);
         Assertions.assertNotNull(rtResultUserIDAndRangeDate);
         Assertions.assertEquals(rt, rtResultUserIDAndRangeDate);
 
-        Flux<RewardTransaction> resultUserIDAndRangeDateAndAmount = rewardTransactionSpecificRepository.findByRange(rt.getUserId(), startDate ,endDate,rt.getAmount());
+        Flux<RewardTransaction> resultUserIDAndRangeDateAndAmount = rewardTransactionSpecificRepository.findByRange(rt.getUserId(), startDate ,endDate,rt.getAmount(), null);
         Assertions.assertNotNull(resultUserIDAndRangeDateAndAmount);
         Assertions.assertEquals(1, resultUserIDAndRangeDateAndAmount.count().block());
         RewardTransaction rtResultUserIDAndRangeDateAndAmount = resultUserIDAndRangeDateAndAmount.toStream().findFirst().orElse(null);
         Assertions.assertNotNull(rtResultUserIDAndRangeDateAndAmount);
         Assertions.assertEquals(rt, rtResultUserIDAndRangeDateAndAmount);
 
-        Flux<RewardTransaction> resultUserIDBeforeStartDateBeforeStartDate = rewardTransactionSpecificRepository.findByRange(rt.getUserId(), rt.getTrxDate().plusDays(10L) ,endDate,null);
+        Flux<RewardTransaction> resultUserIDBeforeStartDateBeforeStartDate = rewardTransactionSpecificRepository.findByRange(rt.getUserId(), rt.getTrxDate().plusDays(10L) ,endDate,null, null);
         Assertions.assertNotNull(resultUserIDBeforeStartDateBeforeStartDate);
         Assertions.assertEquals(0, resultUserIDBeforeStartDateBeforeStartDate.count().block());
 
-        Flux<RewardTransaction> resultUserIDDateAfterEndDate = rewardTransactionSpecificRepository.findByRange(rt.getUserId(), startDate ,rt.getTrxDate().minusDays(10L),null);
+        Flux<RewardTransaction> resultUserIDDateAfterEndDate = rewardTransactionSpecificRepository.findByRange(rt.getUserId(), startDate ,rt.getTrxDate().minusDays(10L),null, null);
         Assertions.assertNotNull(resultUserIDDateAfterEndDate);
         Assertions.assertEquals(0, resultUserIDDateAfterEndDate.count().block());
     }

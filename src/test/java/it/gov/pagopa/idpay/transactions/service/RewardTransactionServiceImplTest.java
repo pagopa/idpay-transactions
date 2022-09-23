@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 
 @ExtendWith(MockitoExtension.class)
 class RewardTransactionServiceImplTest {
+    //TODO pageable add null
     @Mock
     private RewardTransactionRepository rewardTransactionRepository;
     @Mock
@@ -42,10 +43,10 @@ class RewardTransactionServiceImplTest {
                 .idTrxIssuer("IDTRXISSUER")
                 .build();
 
-        Mockito.when(rewardTransactionRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(), null, null, null, null)).thenReturn(Flux.just(rt));
+        Mockito.when(rewardTransactionRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(), null, null, null, null, null)).thenReturn(Flux.just(rt));
 
         // When
-        Flux<RewardTransaction> result = rewardTransactionService.findByIdTrxIssuer("IDTRXISSUER", null, null, null, null);
+        Flux<RewardTransaction> result = rewardTransactionService.findByIdTrxIssuer("IDTRXISSUER", null, null, null, null, null);
         Assertions.assertNotNull(result);
         RewardTransaction resultRT = result.toStream().findFirst().orElse(null);
         Assertions.assertNotNull(resultRT);
@@ -67,10 +68,10 @@ class RewardTransactionServiceImplTest {
                 .idTrxIssuer("IDTRXISSUER")
                 .build();
 
-        Mockito.when(rewardTransactionRepository.findByIdTrxIssuer(null, "USERID", startDate, endDate, null)).thenReturn(Flux.just(rt));
+        Mockito.when(rewardTransactionRepository.findByIdTrxIssuer(null, "USERID", startDate, endDate, null, null)).thenReturn(Flux.just(rt));
 
         // When
-        Flux<RewardTransaction> result = rewardTransactionService.findByIdTrxIssuer(null, "USERID", startDate, endDate, null);
+        Flux<RewardTransaction> result = rewardTransactionService.findByIdTrxIssuer(null, "USERID", startDate, endDate, null, null);
         Assertions.assertNotNull(result);
         RewardTransaction resultRT = result.toStream().findFirst().orElse(null);
         Assertions.assertNotNull(resultRT);
