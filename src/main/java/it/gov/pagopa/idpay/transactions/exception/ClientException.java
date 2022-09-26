@@ -7,7 +7,7 @@ import org.springframework.http.HttpStatus;
 @Setter
 public class ClientException extends RuntimeException{
     private final HttpStatus httpStatus;
-    private boolean printStackTrace;
+    private final boolean printStackTrace;
 
     public ClientException(HttpStatus httpStatus, String message){
         this(httpStatus, message, true, null);
