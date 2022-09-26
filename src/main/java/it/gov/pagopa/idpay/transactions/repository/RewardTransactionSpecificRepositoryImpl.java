@@ -36,7 +36,6 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                     .lte(trxDateEnd);
         }
 
-
         return mongoTemplate.find(
                 Query.query(criteria)
                         .with(getPageable(pageable)),
