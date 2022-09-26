@@ -16,13 +16,13 @@ import javax.validation.constraints.NotBlank;
 @EqualsAndHashCode
 public class ErrorDTO {
     @NotBlank
-    @ApiModelProperty(required = true, value = "Livello di severity del messaggio di errore", example = "ERROR")
+    @ApiModelProperty(required = true, value = "Severity level of the error message", example = "ERROR")
     Severity severity;
     @NotBlank
-    @ApiModelProperty(required = true, value = "Contenuto del messaggio di errore", example = "Messaggio")
+    @ApiModelProperty(required = true, value = "Content of the error message", example = "Messaggio")
     String title;
     @NotBlank
-    @ApiModelProperty(required = true, value = "Titolo del messaggio di errore", example = "Titolo")
+    @ApiModelProperty(required = true, value = "Title of the error message", example = "Titolo")
     String message;
 
 }

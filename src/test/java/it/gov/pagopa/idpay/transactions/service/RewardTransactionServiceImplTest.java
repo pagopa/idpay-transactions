@@ -18,7 +18,6 @@ import java.time.LocalDateTime;
 
 @ExtendWith(MockitoExtension.class)
 class RewardTransactionServiceImplTest {
-    //TODO pageable add null
     @Mock
     private RewardTransactionRepository rewardTransactionRepository;
     @Mock
