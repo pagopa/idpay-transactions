@@ -26,7 +26,7 @@ class ErrorManagerTest extends BaseIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        defaultPageable = PageRequest.of(0, 20, Sort.unsorted());
+        defaultPageable = PageRequest.of(0, 2000, Sort.unsorted());
     }
 
     @Test
