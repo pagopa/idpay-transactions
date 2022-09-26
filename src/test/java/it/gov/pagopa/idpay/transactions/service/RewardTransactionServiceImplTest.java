@@ -68,10 +68,10 @@ class RewardTransactionServiceImplTest {
                 .idTrxIssuer("IDTRXISSUER")
                 .build();
 
-        Mockito.when(rewardTransactionRepository.findByIdTrxIssuer(null, "USERID", startDate, endDate, null, null)).thenReturn(Flux.just(rt));
+        Mockito.when(rewardTransactionRepository.findByRange(rt.getUserId(), startDate, endDate, null, null)).thenReturn(Flux.just(rt));
 
         // When
-        Flux<RewardTransaction> result = rewardTransactionService.findByIdTrxIssuer(null, "USERID", startDate, endDate, null, null);
+        Flux<RewardTransaction> result = rewardTransactionService.findByRange(rt.getUserId(), startDate, endDate, null, null);
         Assertions.assertNotNull(result);
         RewardTransaction resultRT = result.toStream().findFirst().orElse(null);
         Assertions.assertNotNull(resultRT);
