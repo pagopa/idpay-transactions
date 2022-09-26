@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.model;
 
 import lombok.*;
+import lombok.experimental.FieldNameConstants;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -13,6 +14,7 @@ import java.util.Map;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
+@FieldNameConstants
 @EqualsAndHashCode(of = {"id"}, callSuper = false)
 @Document(collection = "transaction")
 public class RewardTransaction {

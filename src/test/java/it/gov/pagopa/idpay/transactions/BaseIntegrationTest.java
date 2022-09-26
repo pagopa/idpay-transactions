@@ -20,6 +20,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.data.mongo.AutoConfigureDataMongo;
+import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.util.Pair;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
@@ -80,14 +81,18 @@ import static org.awaitility.Awaitility.await;
                 //endregion
         })
 @AutoConfigureDataMongo
+@AutoConfigureWebTestClient
 public abstract class BaseIntegrationTest {
     @Autowired
     protected EmbeddedKafkaBroker kafkaBroker;
     @Autowired
     protected KafkaTemplate<byte[], byte[]> template;
 
-    @Autowired
+    @Autowired(required = false)
     private MongodExecutable embeddedMongoServer;
+
+    @Value("${spring.data.mongodb.uri}")
+    private String mongodbUri;
 
     @Autowired
     protected ObjectMapper objectMapper;
@@ -116,18 +121,24 @@ public abstract class BaseIntegrationTest {
 
     @PostConstruct
     public void logEmbeddedServerConfig() throws NoSuchFieldException, UnknownHostException {
-        Field mongoEmbeddedServerConfigField = Executable.class.getDeclaredField("config");
-        mongoEmbeddedServerConfigField.setAccessible(true);
-        MongodConfig mongodConfig = (MongodConfig) ReflectionUtils.getField(mongoEmbeddedServerConfigField, embeddedMongoServer);
-        Net mongodNet = Objects.requireNonNull(mongodConfig).net();
+        String mongoUrl;
+        if(embeddedMongoServer != null) {
+            Field mongoEmbeddedServerConfigField = Executable.class.getDeclaredField("config");
+            mongoEmbeddedServerConfigField.setAccessible(true);
+            MongodConfig mongodConfig = (MongodConfig) ReflectionUtils.getField(mongoEmbeddedServerConfigField, embeddedMongoServer);
+            Net mongodNet = Objects.requireNonNull(mongodConfig).net();
 
+            mongoUrl="mongodb://%s:%s".formatted(mongodNet.getServerAddress().getHostAddress(), mongodNet.getPort());
+        } else {
+            mongoUrl=mongodbUri.replaceFirst(":[^:]+(?=:[0-9]+)", "");
+        }
         System.out.printf("""
                         ************************
                         Embedded mongo: %s
                         Embedded kafka: %s
                         ************************
                         """,
-                "mongo://%s:%s".formatted(mongodNet.getServerAddress().getHostAddress(), mongodNet.getPort()),
+                mongoUrl,
                 "bootstrapServers: %s, zkNodes: %s".formatted(bootstrapServers, zkNodes));
     }
 

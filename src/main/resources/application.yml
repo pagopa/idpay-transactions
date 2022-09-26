@@ -66,7 +66,7 @@ spring:
                   ms: ${KAFKA_TRANSACTION_CONNECTION_TIMEOUT_MS:${KAFKA_CONSUMER_CONFIG_CONNECTION_TIMEOUT_MS:100000}}
   data:
     mongodb:
-      uri: ${MONGODB_URI}
+      uri: ${MONGODB_URI:mongodb://localhost:27017}
       database: ${MONGODB_DBNAME:idpay}
 
 logging:
