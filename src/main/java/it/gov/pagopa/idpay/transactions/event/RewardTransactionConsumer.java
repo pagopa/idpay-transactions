@@ -1,6 +1,6 @@
 package it.gov.pagopa.idpay.transactions.event;
 
-import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
+import it.gov.pagopa.idpay.transactions.service.PersistenceTransactionMediator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,8 +14,7 @@ import java.util.function.Consumer;
 public class RewardTransactionConsumer {
 
     @Bean
-    public Consumer<Flux<Message<String>>> rewardTrxConsumer(RewardTransactionService rewardTransactionService) {
-        return messageFlux -> rewardTransactionService.save(messageFlux)
-                .subscribe(transaction -> log.info("Transaction saved: {}", transaction));
+    public Consumer<Flux<Message<String>>> rewardTrxConsumer(PersistenceTransactionMediator persistenceTransactionMediator) {
+        return persistenceTransactionMediator::execute;
     }
 }
