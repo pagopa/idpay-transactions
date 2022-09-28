@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
-import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionDTOFaker;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import it.gov.pagopa.idpay.transactions.utils.TestUtils;
@@ -20,9 +19,9 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @ExtendWith(MockitoExtension.class)
-class SaveTransactionServiceImplTest {
+class PersistenceTransactionMediatorImplTest {
     @Mock
-    private RewardTransactionRepository rewardTransactionRepository;
+    private RewardTransactionService rewardTransactionService;
 
     @Mock
     private ErrorNotifierService errorNotifierService;
@@ -30,12 +29,12 @@ class SaveTransactionServiceImplTest {
     @Mock
     private RewardTransactionMapper rewardTransactionMapper;
 
-    private SaveTransactionService saveTransactionService;
+    private PersistenceTransactionMediator persistenceTransactionMediator;
 
     @BeforeEach
     void setUp() {
-        saveTransactionService = new SaveTransactionServiceImpl(
-                rewardTransactionRepository,
+        persistenceTransactionMediator = new PersistenceTransactionMediatorImpl(
+                rewardTransactionService,
                 errorNotifierService,
                 rewardTransactionMapper,
                 1000,
@@ -54,14 +53,14 @@ class SaveTransactionServiceImplTest {
         Mockito.when(rewardTransactionMapper.mapFromDTO(rtDT1)).thenReturn(rt1);
         Mockito.when(rewardTransactionMapper.mapFromDTO(rtDT2)).thenThrow(RuntimeException.class);
 
-        Mockito.when(rewardTransactionRepository.save(rt1)).thenReturn(Mono.just(rt1));
+        Mockito.when(rewardTransactionService.save(rt1)).thenReturn(Mono.just(rt1));
 
         // When
-        saveTransactionService.execute(messageFlux);
+        persistenceTransactionMediator.execute(messageFlux);
 
         // Then
         Mockito.verify(rewardTransactionMapper, Mockito.times(2)).mapFromDTO(Mockito.any(RewardTransactionDTO.class));
-        Mockito.verify(rewardTransactionRepository, Mockito.times(1)).save(Mockito.any(RewardTransaction.class));
+        Mockito.verify(rewardTransactionService, Mockito.times(1)).save(Mockito.any(RewardTransaction.class));
         Mockito.verify(errorNotifierService, Mockito.times(1)).notifyTransaction(Mockito.any(Message.class),Mockito.anyString(), Mockito.anyBoolean(), Mockito.any(RuntimeException.class));
     }
 
@@ -71,11 +70,11 @@ class SaveTransactionServiceImplTest {
         Flux<Message<String>> messageFlux = Flux.just(MessageBuilder.withPayload("Error message").build());
 
         // When
-        saveTransactionService.execute(messageFlux);
+        persistenceTransactionMediator.execute(messageFlux);
 
         // Then
         Mockito.verifyNoInteractions(rewardTransactionMapper);
-        Mockito.verifyNoInteractions(rewardTransactionRepository);
+        Mockito.verifyNoInteractions(rewardTransactionService);
 
         Mockito.verify(errorNotifierService, Mockito.times(1)).notifyTransaction(Mockito.any(Message.class),Mockito.anyString(), Mockito.anyBoolean(), Mockito.any(JsonProcessingException.class));
     }

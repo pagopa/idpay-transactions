@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectReader;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
-import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.Message;
@@ -19,9 +18,9 @@ import java.util.function.Consumer;
 
 @Service
 @Slf4j
-public class SaveTransactionServiceImpl extends BaseKafkaConsumer<RewardTransactionDTO, RewardTransaction> implements SaveTransactionService{
+public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<RewardTransactionDTO, RewardTransaction> implements PersistenceTransactionMediator {
 
-    private final RewardTransactionRepository rewardTransactionRepository;
+    private final RewardTransactionService rewardTransactionService;
     private final ErrorNotifierService errorNotifierService;
     private final RewardTransactionMapper rewardTransactionMapper;
 
@@ -29,14 +28,14 @@ public class SaveTransactionServiceImpl extends BaseKafkaConsumer<RewardTransact
 
     private final ObjectReader objectReader;
 
-    public SaveTransactionServiceImpl(
-            RewardTransactionRepository rewardTransactionRepository,
+    public PersistenceTransactionMediatorImpl(
+            RewardTransactionService rewardTransactionService,
             ErrorNotifierService errorNotifierService,
 
             RewardTransactionMapper rewardTransactionMapper, @Value("${spring.cloud.stream.kafka.bindings.rewardTrxConsumer-in-0.consumer.ackTime}") long commitMillis,
 
             ObjectMapper objectMapper) {
-        this.rewardTransactionRepository = rewardTransactionRepository;
+        this.rewardTransactionService = rewardTransactionService;
         this.errorNotifierService = errorNotifierService;
         this.rewardTransactionMapper = rewardTransactionMapper;
         this.commitDelay = Duration.ofMillis(commitMillis);
@@ -73,6 +72,6 @@ public class SaveTransactionServiceImpl extends BaseKafkaConsumer<RewardTransact
     protected Mono<RewardTransaction> execute(RewardTransactionDTO payload, Message<String> message) {
         return Mono.just(payload)
                 .map(this.rewardTransactionMapper::mapFromDTO)
-                .flatMap(this.rewardTransactionRepository::save);
+                .flatMap(this.rewardTransactionService::save);
     }
 }

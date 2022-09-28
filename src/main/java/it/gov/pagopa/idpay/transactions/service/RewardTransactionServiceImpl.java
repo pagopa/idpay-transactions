@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -19,6 +20,11 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
     public RewardTransactionServiceImpl(RewardTransactionRepository rewardTrxRepository) {
         this.rewardTrxRepository = rewardTrxRepository;
+    }
+
+    @Override
+    public Mono<RewardTransaction> save(RewardTransaction rewardTransaction) {
+        return rewardTrxRepository.save(rewardTransaction);
     }
 
     @Override
