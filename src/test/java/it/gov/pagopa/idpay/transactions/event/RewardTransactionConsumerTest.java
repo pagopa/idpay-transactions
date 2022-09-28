@@ -5,6 +5,8 @@ import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionDTOFaker;
 import it.gov.pagopa.idpay.transactions.utils.TestUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +14,7 @@ import org.springframework.data.util.Pair;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
@@ -29,12 +32,12 @@ class RewardTransactionConsumerTest extends BaseIntegrationTest {
         int notValidTrx = errorUseCases.size();
         long maxWaitingMs = 30000;
 
-        List<String> initiativePayloads = new ArrayList<>(buildValidPayloads(errorUseCases.size(), validTrx / 2));
-        initiativePayloads.addAll(IntStream.range(0, notValidTrx).mapToObj(i -> errorUseCases.get(i).getFirst().get()).collect(Collectors.toList()));
-        initiativePayloads.addAll(buildValidPayloads(errorUseCases.size() + (validTrx / 2) + notValidTrx, validTrx / 2));
+        List<String> transactionPayloads = new ArrayList<>(buildValidPayloads(errorUseCases.size(), validTrx / 2));
+        transactionPayloads.addAll(IntStream.range(0, notValidTrx).mapToObj(i -> errorUseCases.get(i).getFirst().get()).collect(Collectors.toList()));
+        transactionPayloads.addAll(buildValidPayloads(errorUseCases.size() + (validTrx / 2) + notValidTrx, validTrx / 2));
 
         long timeStart=System.currentTimeMillis();
-        initiativePayloads.forEach(i->publishIntoEmbeddedKafka(topicRewardedTrxRequest, null, null, i));
+        transactionPayloads.forEach(i->publishIntoEmbeddedKafka(topicRewardedTrxRequest, null, null, i));
         long timePublishingEnd=System.currentTimeMillis();
 
         long countSaved = waitForTrxStored(validTrx);
@@ -58,6 +61,20 @@ class RewardTransactionConsumerTest extends BaseIntegrationTest {
                 timePublishingEnd-timeStart,
                 timeEnd-timePublishingEnd,
                 timeEnd-timeStart
+        );
+
+        long timeCommitCheckStart = System.currentTimeMillis();
+        final Map<TopicPartition, OffsetAndMetadata> srcCommitOffsets = checkCommittedOffsets(topicRewardedTrxRequest, groupIdTransactionConsumer,transactionPayloads.size());
+        long timeCommitCheckEnd = System.currentTimeMillis();
+        System.out.printf("""
+                        ************************
+                        Time occurred to check committed offset: %d millis
+                        ************************
+                        Source Topic Committed Offsets: %s
+                        ************************
+                        """,
+                timeCommitCheckEnd - timeCommitCheckStart,
+                srcCommitOffsets
         );
     }
 
@@ -85,13 +102,13 @@ class RewardTransactionConsumerTest extends BaseIntegrationTest {
         String useCaseJsonNotExpected = "{\"correlationId\":\"CORRELATIONID0\",unexpectedStructure:0}";
         errorUseCases.add(Pair.of(
                 () -> useCaseJsonNotExpected,
-                errorMessage -> checkErrorMessageHeaders(errorMessage, "Unexpected JSON", useCaseJsonNotExpected)
+                errorMessage -> checkErrorMessageHeaders(errorMessage, "[TRANSACTION] Unexpected JSON", useCaseJsonNotExpected)
         ));
 
         String jsonNotValid = "{\"correlationId\":\"CORRELATIONID1\",invalidJson";
         errorUseCases.add(Pair.of(
                 () -> jsonNotValid,
-                errorMessage -> checkErrorMessageHeaders(errorMessage, "Unexpected JSON", jsonNotValid)
+                errorMessage -> checkErrorMessageHeaders(errorMessage, "[TRANSACTION] Unexpected JSON", jsonNotValid)
         ));
 
     }

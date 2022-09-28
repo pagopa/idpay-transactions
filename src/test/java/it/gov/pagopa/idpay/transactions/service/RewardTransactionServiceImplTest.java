@@ -1,7 +1,5 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import org.junit.jupiter.api.Assertions;
@@ -20,16 +18,10 @@ import java.time.LocalDateTime;
 class RewardTransactionServiceImplTest {
     @Mock
     private RewardTransactionRepository rewardTransactionRepository;
-    @Mock
-    private RewardTransactionMapper rewardTransactionMapper;
-    @Mock
-    private ErrorNotifierService errorNotifierService;
-    @Mock
-    private ObjectMapper objectMapper;
     private RewardTransactionService rewardTransactionService;
     @BeforeEach
     void setUp(){
-        rewardTransactionService = new RewardTransactionServiceImpl(rewardTransactionRepository, rewardTransactionMapper,errorNotifierService,objectMapper);
+        rewardTransactionService = new RewardTransactionServiceImpl(rewardTransactionRepository);
     }
 
     @Test

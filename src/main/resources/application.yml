@@ -52,9 +52,9 @@ spring:
           rewardTrxConsumer-in-0:
             consumer:
               startOffset: ${KAFKA_TRANSACTION_START_OFFSET:${KAFKA_CONSUMER_CONFIG_START_OFFSET:earliest}}
-              autoCommitOffset: ${KAFKA_TRANSACTION_AUTO_COMMIT:${KAFKA_CONSUMER_CONFIG_AUTO_COMMIT:true}}
-              enableDlq: ${KAFKA_TRANSACTION_ENABLE_DLQ:${KAFKA_CONSUMER_CONFIG_ENABLE_DLQ:false}}
-              dlqName: ${KAFKA_TRANSACTION_DLQ_NAME:${KAFKA_CONSUMER_CONFIG_DLQ_NAME:errorTopic}}
+              autoCommitOffset: false
+              ackMode: MANUAL_IMMEDIATE
+              ackTime: ${KAFKA_TRANSACTION__ACK_MILLIS:10000}
               standardHeaders: ${KAFKA_TRANSACTION_STANDARD_HEADERS:${KAFKA_CONSUMER_CONFIG_STANDARD_HEADERS:both}}
               configuration:
                 max.poll:

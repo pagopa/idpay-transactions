@@ -1,0 +1,82 @@
+package it.gov.pagopa.idpay.transactions.service;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
+import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
+import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionDTOFaker;
+import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
+import it.gov.pagopa.idpay.transactions.utils.TestUtils;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+@ExtendWith(MockitoExtension.class)
+class SaveTransactionServiceImplTest {
+    @Mock
+    private RewardTransactionRepository rewardTransactionRepository;
+
+    @Mock
+    private ErrorNotifierService errorNotifierService;
+
+    @Mock
+    private RewardTransactionMapper rewardTransactionMapper;
+
+    private SaveTransactionService saveTransactionService;
+
+    @BeforeEach
+    void setUp() {
+        saveTransactionService = new SaveTransactionServiceImpl(
+                rewardTransactionRepository,
+                errorNotifierService,
+                rewardTransactionMapper,
+                1000,
+                TestUtils.objectMapper);
+    }
+
+    @Test
+    void execute(){
+        // Given
+        RewardTransactionDTO rtDT1 = RewardTransactionDTOFaker.mockInstance(1);
+        RewardTransactionDTO rtDT2 = RewardTransactionDTOFaker.mockInstance(2);
+
+        Flux<Message<String>> messageFlux = Flux.just(rtDT1, rtDT2).map(TestUtils::jsonSerializer).map(s -> MessageBuilder.withPayload(s).build());
+
+        RewardTransaction rt1 = RewardTransactionFaker.mockInstance(1);
+        Mockito.when(rewardTransactionMapper.mapFromDTO(rtDT1)).thenReturn(rt1);
+        Mockito.when(rewardTransactionMapper.mapFromDTO(rtDT2)).thenThrow(RuntimeException.class);
+
+        Mockito.when(rewardTransactionRepository.save(rt1)).thenReturn(Mono.just(rt1));
+
+        // When
+        saveTransactionService.execute(messageFlux);
+
+        // Then
+        Mockito.verify(rewardTransactionMapper, Mockito.times(2)).mapFromDTO(Mockito.any(RewardTransactionDTO.class));
+        Mockito.verify(rewardTransactionRepository, Mockito.times(1)).save(Mockito.any(RewardTransaction.class));
+        Mockito.verify(errorNotifierService, Mockito.times(1)).notifyTransaction(Mockito.any(Message.class),Mockito.anyString(), Mockito.anyBoolean(), Mockito.any(RuntimeException.class));
+    }
+
+    @Test
+    void executeErrorDeserializer(){
+        // Given
+        Flux<Message<String>> messageFlux = Flux.just(MessageBuilder.withPayload("Error message").build());
+
+        // When
+        saveTransactionService.execute(messageFlux);
+
+        // Then
+        Mockito.verifyNoInteractions(rewardTransactionMapper);
+        Mockito.verifyNoInteractions(rewardTransactionRepository);
+
+        Mockito.verify(errorNotifierService, Mockito.times(1)).notifyTransaction(Mockito.any(Message.class),Mockito.anyString(), Mockito.anyBoolean(), Mockito.any(JsonProcessingException.class));
+    }
+}
