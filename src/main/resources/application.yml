@@ -32,13 +32,16 @@ spring:
           environment:
             spring.cloud.stream.kafka.binder:
               brokers: ${KAFKA_BINDER_BROKER_ENDPOINT_REWARD_TRX:${KAFKA_BROKER:}}
-              configuration.sasl.jaas.config: ${EVH_CONNECTION_REWARD_RESPONSE:}
+              configuration:
+                sasl.jaas.config: ${EVH_CONNECTION_REWARD_RESPONSE:}
         kafka-errors:
           type: kafka
           environment:
             spring.cloud.stream.kafka.binder:
               brokers: ${KAFKA_ERRORS_BROKER:${KAFKA_BROKER:}}
-              configuration.sasl.jaas.config: ${KAFKA_ERRORS_SASL_JAAS_CONFIG:}
+              configuration:
+                sasl.jaas.config: ${KAFKA_ERRORS_SASL_JAAS_CONFIG:}
+                key.serializer: org.apache.kafka.common.serialization.StringSerializer
       kafka:
         binder:
           auto-create-topics: false
