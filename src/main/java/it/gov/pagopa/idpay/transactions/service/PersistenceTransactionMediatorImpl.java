@@ -14,6 +14,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 @Service
@@ -69,9 +70,14 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
     }
 
     @Override
-    protected Mono<RewardTransaction> execute(RewardTransactionDTO payload, Message<String> message) {
+    protected Mono<RewardTransaction> execute(RewardTransactionDTO payload, Message<String> message, Map<String, Object> ctx) {
         return Mono.just(payload)
                 .map(this.rewardTransactionMapper::mapFromDTO)
                 .flatMap(this.rewardTransactionService::save);
+    }
+
+    @Override
+    protected String getFlowName() {
+        return "TRANSACTION";
     }
 }
