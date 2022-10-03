@@ -29,7 +29,6 @@ microservice-chart:
 
   ingress:
     create: true
-    host: "dev01.idpay.internal.dev.cstar.pagopa.it"
     path: /idpay/transactions/(.*)
 
   serviceAccount:
