@@ -4,19 +4,22 @@ import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.model.RefundInfo;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.model.TransactionProcessed;
+import it.gov.pagopa.idpay.transactions.model.counters.RewardCounters;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionDTOFaker;
 import it.gov.pagopa.idpay.transactions.utils.TestUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 class RewardTransactionMapperTest {
-
+    //TODO check test
     @Test
     void mapFromDTO() {
         //Given
@@ -68,6 +71,8 @@ class RewardTransactionMapperTest {
         rewardTrx.setInitiatives(initiative);
         rewardTrx.setRewards(reward);
         rewardTrx.setUserId("UserId");
+        rewardTrx.setMaskedPan("MaskedPan");
+        rewardTrx.setBrandLogo("BrandLogo");
         rewardTrx.setOperationTypeTranscoded("OperationTypeTranscoded");
         rewardTrx.setEffectiveAmount(BigDecimal.TEN);
         rewardTrx.setTrxChargeDate(rewardTrx.getTrxDate().minusDays(1));
@@ -103,20 +108,123 @@ class RewardTransactionMapperTest {
         rewardTrx.setInitiatives(initiative);
         rewardTrx.setRewards(reward);
         rewardTrx.setUserId("UserId");
-        rewardTrx.setOperationTypeTranscoded("OperationTypeTranscoded");
-        rewardTrx.setEffectiveAmount(BigDecimal.TEN);
-        rewardTrx.setTrxChargeDate(rewardTrx.getTrxDate().minusDays(1));
-        rewardTrx.setRefundInfo(new RefundInfo());
+        rewardTrx.setMaskedPan("MaskedPan");
+        rewardTrx.setBrandLogo("BrandLogo");
+//        rewardTrx.setOperationTypeTranscoded("OperationTypeTranscoded");
+//        rewardTrx.setEffectiveAmount(BigDecimal.TEN);
+//        rewardTrx.setTrxChargeDate(rewardTrx.getTrxDate().minusDays(1));
+//        rewardTrx.setRefundInfo(new RefundInfo());
 
         // When
         RewardTransaction result = rewardTransactionMapper.mapFromDTO(rewardTrx);
 
         //Then
         Assertions.assertNotNull(result);
-        assertCommonFields(result, rewardTrx);
+//        assertCommonFields(result, rewardTrx);
         Assertions.assertEquals("IDPRESENTE", result.getId());
 
-        TestUtils.checkNotNullFields(result);
+        TestUtils.checkNotNullFields(result, "operationTypeTranscoded", "effectiveAmount","trxChargeDate","refundInfo");
+    }
+
+    @Test
+    void mapFromDTOTransactionWithRefund() {
+        //Given
+        RewardTransactionMapper rewardTransactionMapper = new RewardTransactionMapper();
+        OffsetDateTime trxDate = OffsetDateTime.now();
+        List<String> initiative = List.of("initiativeID");
+        Map<String, Reward> reward = new HashMap<>();
+
+        RewardCounters counter = RewardCounters.builder()
+                .exhaustedBudget(false)
+                .initiativeBudget(new BigDecimal("100.00"))
+                .build();
+
+        Reward rewardElement = Reward.builder()
+                .providedReward(BigDecimal.TEN)
+                .accruedReward(BigDecimal.TEN)
+                .capped(false)
+                .dailyCapped(false)
+                .monthlyCapped(false)
+                .yearlyCapped(false)
+                .weeklyCapped(false)
+                .counters(counter)
+                .build();
+        reward.put("initiativeID",rewardElement);
+
+        TransactionProcessed transactionProcessed = TransactionProcessed.builder()
+                .id("id")
+                .idTrxAcquirer("acquirer")
+                .acquirerCode("36081")
+                .trxDate(LocalDateTime.now())
+                .operationType("opType")
+                .acquirerId("acId")
+                .userId("userId")
+                .correlationId("correlationId")
+                .amount(BigDecimal.TEN)
+                .rewards(reward)
+                .effectiveAmount(BigDecimal.TEN)
+                .trxChargeDate(LocalDateTime.now())
+                .operationTypeTranscoded("aaa")
+                .timestamp(LocalDateTime.now())
+                .build();
+        HashMap<String, BigDecimal> previousRewards = new HashMap<>();
+        previousRewards.put("initiativeID", BigDecimal.TEN);
+        RefundInfo refundInfo = RefundInfo.builder()
+                .previousTrxs(List.of(transactionProcessed))
+                .previousRewards(previousRewards)
+                .build();
+
+        RewardTransactionDTO rewardTrx = RewardTransactionDTO.builder().build();
+        //region initializer RewardTransactionDTO
+        rewardTrx.setIdTrxAcquirer("98174002165501220007165503");
+        rewardTrx.setAcquirerCode("36081");
+        rewardTrx.setTrxDate(trxDate);
+        rewardTrx.setHpan("5c6bda1b1f5f6238dcba70f9f4b5a77671eb2b1563b0ca6d15d14c649a9b7ce0");
+        rewardTrx.setOperationType("00");
+        rewardTrx.setCircuitType("01");
+        rewardTrx.setIdTrxIssuer("005422");
+        rewardTrx.setCorrelationId("123456789");
+        rewardTrx.setAmount(new BigDecimal("100.00"));
+        rewardTrx.setAmountCurrency("978");
+        rewardTrx.setMcc("4900");
+        rewardTrx.setAcquirerId("09509");
+        rewardTrx.setMerchantId("40000098174");
+        rewardTrx.setTerminalId("98174002");
+        rewardTrx.setBin("54133300");
+        rewardTrx.setSenderCode("54133300");
+        rewardTrx.setFiscalCode("fc549921");
+        rewardTrx.setVat("123456");
+        rewardTrx.setPosType("01");
+        rewardTrx.setPar("par1");
+        rewardTrx.setStatus("ACCEPTED");
+//        rewardTrx.setRejectionReasons(List.of("ERROR"));
+//        rewardTrx.setInitiativeRejectionReasons(initiativeRejectionsReason);
+        rewardTrx.setInitiatives(initiative);
+        rewardTrx.setRewards(reward);
+        rewardTrx.setUserId("UserId");
+        rewardTrx.setMaskedPan("MaskedPan");
+        rewardTrx.setBrandLogo("BrandLogo");
+        rewardTrx.setOperationTypeTranscoded("OperationTypeTranscoded");
+        rewardTrx.setEffectiveAmount(BigDecimal.TEN);
+        rewardTrx.setTrxChargeDate(rewardTrx.getTrxDate().minusDays(1));
+        rewardTrx.setRefundInfo(refundInfo);
+        //endregion
+
+        //When
+        RewardTransaction result = rewardTransactionMapper.mapFromDTO(rewardTrx);
+
+        //Then
+        Assertions.assertNotNull(result);
+        assertCommonFields(result, rewardTrx);
+
+        TestUtils.checkNotNullFields(result, "rejectionReasons", "initiativeRejectionReasons");
+        result.getRewards().forEach(
+                (s,r) -> {
+                    Assertions.assertNotNull(s);
+                    Assertions.assertNotNull(r);
+                    TestUtils.checkNotNullFields(r);
+        });
+        TestUtils.checkNotNullFields(result.getRefundInfo());
     }
 
     private void assertCommonFields(RewardTransaction result, RewardTransactionDTO rewardTrx) {
@@ -146,6 +254,8 @@ class RewardTransactionMapperTest {
         Assertions.assertSame(result.getInitiatives(), rewardTrx.getInitiatives());
         Assertions.assertSame(result.getRewards(), rewardTrx.getRewards());
         Assertions.assertSame(result.getUserId(), rewardTrx.getUserId());
+        Assertions.assertSame(result.getMaskedPan(), rewardTrx.getMaskedPan());
+        Assertions.assertSame(result.getBrandLogo(), rewardTrx.getBrandLogo());
         Assertions.assertSame(result.getOperationTypeTranscoded(), rewardTrx.getOperationTypeTranscoded());
         Assertions.assertSame(result.getEffectiveAmount(), rewardTrx.getEffectiveAmount());
         Assertions.assertEquals(result.getTrxChargeDate(), rewardTrx.getTrxChargeDate().toLocalDateTime());

@@ -6,8 +6,7 @@ import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 
 import java.math.BigDecimal;
 import java.time.*;
-import java.util.Locale;
-import java.util.Random;
+import java.util.*;
 
 public class RewardTransactionDTOFaker {
     private RewardTransactionDTOFaker() {
@@ -45,30 +44,34 @@ public class RewardTransactionDTOFaker {
         LocalTime trxTime = LocalTime.of(getRandomPositiveNumber(bias, 23), getRandomPositiveNumber(bias, 59), getRandomPositiveNumber(bias, 59));
         LocalDateTime trxDateTime = LocalDateTime.of(trxDate, trxTime);
 
-        return RewardTransactionDTO.builder()
-                .idTrxAcquirer("IDTRXACQUIRER%s".formatted(bias))
-                .acquirerCode("ACQUIRERCODE%s".formatted(bias))
-                .trxDate(OffsetDateTime.of(
-                        trxDateTime,
-                        ZoneId.of("Europe/Rome").getRules().getOffset(trxDateTime)
-                ))
-                .hpan("HPAN%s".formatted(bias))
-                .operationType("OPERATIONTYPE%s".formatted(bias))
-                .circuitType("CIRCUITTYPE%s".formatted(bias))
-                .idTrxIssuer("IDTRXISSUER%s".formatted(bias))
-                .correlationId("CORRELATIONID%s".formatted(bias))
-                .amount(BigDecimal.valueOf(getRandomPositiveNumber(bias, 200)))
-                .amountCurrency("AMOUNTCURRENCY%s".formatted(bias))
-                .mcc("MCC%s".formatted(bias))
-                .acquirerId("ACQUIRERID%s".formatted(bias))
-                .merchantId("MERCHANTID%s".formatted(bias))
-                .terminalId("TERMINALID%s".formatted(bias))
-                .bin("BIN%s".formatted(bias))
-                .senderCode("SENDERCODE%s".formatted(bias))
-                .fiscalCode("FISCALCODE%s".formatted(bias))
-                .vat("VAT%s".formatted(bias))
-                .posType("POSTYPE%s".formatted(bias))
-                .par("PAR%s".formatted(bias))
-                .userId("USERID%s".formatted(bias));
+        RewardTransactionDTO.RewardTransactionDTOBuilder out = RewardTransactionDTO.builder();
+
+        out.idTrxAcquirer("IDTRXACQUIRER%d".formatted(bias));
+        out.acquirerCode("ACQUIRERCODE%d".formatted(bias));
+        out.trxDate(OffsetDateTime.of(
+                trxDateTime,
+                ZoneId.of("Europe/Rome").getRules().getOffset(trxDateTime)));
+        out.hpan("HPAN%s".formatted(bias));
+        out.operationType("OPERATIONTYPE%d".formatted(bias));
+        out.circuitType("CIRCUITTYPE%d".formatted(bias));
+        out.idTrxIssuer("IDTRXISSUER%d".formatted(bias));
+        out.correlationId("CORRELATIONID%d".formatted(bias));
+        out.amount(BigDecimal.valueOf(getRandomPositiveNumber(bias, 200)));
+        out.amountCurrency("AMOUNTCURRENCY%d".formatted(bias));
+        out.mcc("MCC%d".formatted(bias));
+        out.acquirerId("ACQUIRERID%d".formatted(bias));
+        out.merchantId("MERCHANTID%d".formatted(bias));
+        out.terminalId("TERMINALID%d".formatted(bias));
+        out.bin("BIN%d".formatted(bias));
+        out.senderCode("SENDERCODE%d".formatted(bias));
+        out.fiscalCode("FISCALCODE%d".formatted(bias));
+        out.vat("VAT%d".formatted(bias));
+        out.posType("POSTYPE%d".formatted(bias));
+        out.par("PAR%d".formatted(bias));
+        out.status("STATUS%d".formatted(bias));
+        out.userId("USERID%d".formatted(bias));
+        out.maskedPan("MASKEDPAN%d".formatted(bias));
+        out.brandLogo("BRANDLOGO%d".formatted(bias));
+        return out;
     }
 }
