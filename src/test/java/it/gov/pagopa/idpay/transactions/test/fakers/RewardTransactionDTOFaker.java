@@ -3,6 +3,10 @@ package it.gov.pagopa.idpay.transactions.test.fakers;
 import com.github.javafaker.service.FakeValuesService;
 import com.github.javafaker.service.RandomService;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
+import it.gov.pagopa.idpay.transactions.model.RefundInfo;
+import it.gov.pagopa.idpay.transactions.model.Reward;
+import it.gov.pagopa.idpay.transactions.model.TransactionProcessed;
+import it.gov.pagopa.idpay.transactions.model.counters.RewardCounters;
 
 import java.math.BigDecimal;
 import java.time.*;
@@ -72,6 +76,73 @@ public class RewardTransactionDTOFaker {
         out.userId("USERID%d".formatted(bias));
         out.maskedPan("MASKEDPAN%d".formatted(bias));
         out.brandLogo("BRANDLOGO%d".formatted(bias));
+        return out;
+    }
+
+    public static RewardTransactionDTO mockInstanceRefund(Integer bias){
+        RewardTransactionDTO out = mockInstanceBuilder(bias).build();
+        out.setOperationTypeTranscoded("OperationTypeTranscoded");
+        out.setEffectiveAmount(BigDecimal.TEN);
+        out.setTrxChargeDate(out.getTrxDate().minusDays(1));
+        out.setStatus("STATUS%d".formatted(bias));
+        out.setInitiatives(List.of("INITIATIVEID%d".formatted(bias)));
+
+        Map<String, Reward> reward = new HashMap<>();
+
+        RewardCounters counter = RewardCounters.builder()
+                .exhaustedBudget(false)
+                .initiativeBudget(new BigDecimal("100.00"))
+                .build();
+
+        Reward rewardElement = Reward.builder()
+                .providedReward(BigDecimal.TEN)
+                .accruedReward(BigDecimal.TEN)
+                .capped(false)
+                .dailyCapped(false)
+                .monthlyCapped(false)
+                .yearlyCapped(false)
+                .weeklyCapped(false)
+                .counters(counter)
+                .build();
+        reward.put("INITIATIVEID%d".formatted(bias),rewardElement);
+        out.setRewards(reward);
+        out.setTrxChargeDate(OffsetDateTime.now());
+
+        TransactionProcessed transactionProcessed = TransactionProcessed.builder()
+                .id(out.getId())
+                .idTrxAcquirer(out.getIdTrxAcquirer())
+                .acquirerCode(out.getAcquirerCode())
+                .trxDate(out.getTrxDate().toLocalDateTime())
+                .operationType(out.getOperationType())
+                .acquirerId(out.getAcquirerId())
+                .userId(out.getUserId())
+                .correlationId(out.getCorrelationId())
+                .amount(BigDecimal.TEN)
+                .rewards(out.getRewards())
+                .effectiveAmount(BigDecimal.TEN)
+                .trxChargeDate(out.getTrxChargeDate().toLocalDateTime())
+                .operationTypeTranscoded(out.getOperationTypeTranscoded())
+                .timestamp(LocalDateTime.now())
+                .build();
+        HashMap<String, BigDecimal> previousRewards = new HashMap<>();
+        previousRewards.put("initiativeID", BigDecimal.TEN);
+        RefundInfo refundInfo = RefundInfo.builder()
+                .previousTrxs(List.of(transactionProcessed))
+                .previousRewards(previousRewards)
+                .build();
+        out.setRefundInfo(refundInfo);
+        return out;
+    }
+
+    public static RewardTransactionDTO mockInstanceRejected(Integer bias){
+        RewardTransactionDTO out = mockInstanceBuilder(bias).build();
+        out.setStatus("REJECTED");
+        out.setRejectionReasons(List.of("ERROR"));
+
+        Map<String, List<String>> initiativeRejectionsReason = new HashMap<>();
+        initiativeRejectionsReason.put("initiative", List.of("Error initiative"));
+        out.setInitiativeRejectionReasons(initiativeRejectionsReason);
+
         return out;
     }
 }
