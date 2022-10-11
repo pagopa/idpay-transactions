@@ -266,8 +266,8 @@ public abstract class BaseIntegrationTest {
                 final Map<TopicPartition, OffsetAndMetadata> commits = getCommittedOffsets(topic, groupId);
                 Assertions.assertEquals(expectedCommittedMessages, commits.values().stream().mapToLong(OffsetAndMetadata::offset).sum());
                 return commits;
-            } catch (RuntimeException e){
-                lastException = e;
+            } catch (Throwable e){
+                lastException = new RuntimeException(e);
                 wait(millisAttemptDelay, TimeUnit.MILLISECONDS);
             }
         }
