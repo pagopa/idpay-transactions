@@ -21,7 +21,6 @@ public class RewardTransaction {
 
     @Id
     private String id;
-    private String userId;
     private String idTrxAcquirer;
     private String acquirerCode;
     private LocalDateTime trxDate;
@@ -47,6 +46,10 @@ public class RewardTransaction {
     private Map<String, List<String>> initiativeRejectionReasons;
     private List<String> initiatives;
     private Map<String,Reward> rewards;
+
+    private String userId;
+    private String maskedPan;
+    private String brandLogo;
 
     private String operationTypeTranscoded;
     private BigDecimal effectiveAmount;

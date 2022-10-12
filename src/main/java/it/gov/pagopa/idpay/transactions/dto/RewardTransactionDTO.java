@@ -20,7 +20,6 @@ import java.util.Map;
 public class RewardTransactionDTO {
 
     private String id;
-    private String userId;
     private String idTrxAcquirer;
     private String acquirerCode;
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
@@ -47,6 +46,10 @@ public class RewardTransactionDTO {
     private Map<String, List<String>> initiativeRejectionReasons;
     private List<String> initiatives;
     private Map<String, Reward> rewards;
+
+    private String userId;
+    private String maskedPan;
+    private String brandLogo;
 
     private String operationTypeTranscoded;
     private BigDecimal effectiveAmount;
