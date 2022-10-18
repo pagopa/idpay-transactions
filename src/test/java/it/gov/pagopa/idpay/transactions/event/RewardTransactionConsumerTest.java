@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 class RewardTransactionConsumerTest extends BaseIntegrationTest {
