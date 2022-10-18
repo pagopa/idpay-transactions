@@ -2,16 +2,19 @@ package it.gov.pagopa.idpay.transactions.event;
 
 import it.gov.pagopa.idpay.transactions.BaseIntegrationTest;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.service.ErrorNotifierServiceImpl;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionDTOFaker;
 import it.gov.pagopa.idpay.transactions.utils.TestUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.header.internals.RecordHeader;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.util.Pair;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,11 +36,13 @@ class RewardTransactionConsumerTest extends BaseIntegrationTest {
         long maxWaitingMs = 30000;
 
         List<String> transactionPayloads = new ArrayList<>(buildValidPayloads(errorUseCases.size(), validTrx / 2));
-        transactionPayloads.addAll(IntStream.range(0, notValidTrx).mapToObj(i -> errorUseCases.get(i).getFirst().get()).collect(Collectors.toList()));
+        transactionPayloads.addAll(IntStream.range(0, notValidTrx).mapToObj(i -> errorUseCases.get(i).getFirst().get()).toList());
         transactionPayloads.addAll(buildValidPayloads(errorUseCases.size() + (validTrx / 2) + notValidTrx, validTrx / 2));
 
         long timeStart=System.currentTimeMillis();
         transactionPayloads.forEach(i->publishIntoEmbeddedKafka(topicRewardedTrxRequest, null, null, i));
+        publishIntoEmbeddedKafka(topicRewardedTrxRequest, List.of(new RecordHeader(ErrorNotifierServiceImpl.ERROR_MSG_HEADER_APPLICATION_NAME, "OTHERAPPNAME".getBytes(StandardCharsets.UTF_8))), null, "OTHERAPPMESSAGE");
+
         long timePublishingEnd=System.currentTimeMillis();
 
         long countSaved = waitForTrxStored(validTrx);
@@ -64,7 +69,7 @@ class RewardTransactionConsumerTest extends BaseIntegrationTest {
         );
 
         long timeCommitCheckStart = System.currentTimeMillis();
-        final Map<TopicPartition, OffsetAndMetadata> srcCommitOffsets = checkCommittedOffsets(topicRewardedTrxRequest, groupIdTransactionConsumer,transactionPayloads.size());
+        final Map<TopicPartition, OffsetAndMetadata> srcCommitOffsets = checkCommittedOffsets(topicRewardedTrxRequest, groupIdTransactionConsumer,transactionPayloads.size()+1); // +1 due to other applicationName useCase
         long timeCommitCheckEnd = System.currentTimeMillis();
         System.out.printf("""
                         ************************
@@ -114,7 +119,7 @@ class RewardTransactionConsumerTest extends BaseIntegrationTest {
     }
 
     private void checkErrorMessageHeaders(ConsumerRecord<String, String> errorMessage, String errorDescription, String expectedPayload) {
-        checkErrorMessageHeaders(topicRewardedTrxRequest, errorMessage, errorDescription, expectedPayload);
+        checkErrorMessageHeaders(topicRewardedTrxRequest, groupIdTransactionConsumer, errorMessage, errorDescription, expectedPayload);
     }
     //endregion
 }

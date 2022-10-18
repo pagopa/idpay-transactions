@@ -30,12 +30,14 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
     private final ObjectReader objectReader;
 
     public PersistenceTransactionMediatorImpl(
+            @Value("${spring.application.name}") String applicationName,
             RewardTransactionService rewardTransactionService,
             ErrorNotifierService errorNotifierService,
 
             RewardTransactionMapper rewardTransactionMapper, @Value("${spring.cloud.stream.kafka.bindings.rewardTrxConsumer-in-0.consumer.ackTime}") long commitMillis,
 
             ObjectMapper objectMapper) {
+        super(applicationName);
         this.rewardTransactionService = rewardTransactionService;
         this.errorNotifierService = errorNotifierService;
         this.rewardTransactionMapper = rewardTransactionMapper;
