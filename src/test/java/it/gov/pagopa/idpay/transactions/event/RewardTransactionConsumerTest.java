@@ -9,6 +9,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.header.internals.RecordHeader;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,9 +29,14 @@ class RewardTransactionConsumerTest extends BaseIntegrationTest {
     @Autowired
     private RewardTransactionRepository rewardTransactionRepository;
 
+    @AfterEach
+    void cleanData(){
+        rewardTransactionRepository.deleteAll().block();
+    }
+
     @Test
     void testRewardRuleBuilding(){
-        int validTrx=100; // use even number
+        int validTrx=1000; // use even number
         int notValidTrx = errorUseCases.size();
         long maxWaitingMs = 30000;
 
