@@ -124,7 +124,7 @@ class RewardTransactionConsumerTest extends BaseIntegrationTest {
     }
 
     private void checkErrorMessageHeaders(ConsumerRecord<String, String> errorMessage, String errorDescription, String expectedPayload) {
-        checkErrorMessageHeaders(topicRewardedTrxRequest, groupIdTransactionConsumer, errorMessage, errorDescription, expectedPayload);
+        checkErrorMessageHeaders(topicRewardedTrxRequest, groupIdTransactionConsumer, errorMessage, errorDescription, expectedPayload,true,true);
     }
     //endregion
 }

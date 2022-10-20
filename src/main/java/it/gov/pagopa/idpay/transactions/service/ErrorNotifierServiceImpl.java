@@ -50,14 +50,13 @@ public class ErrorNotifierServiceImpl implements ErrorNotifierService {
 
     @Override
     public void notifyTransaction(Message<?> message, String description, boolean retryable, Throwable exception) {
-        notify(trxMessagingServiceType, trxServer, trxTopic, trxGroup, message, description, retryable, exception);
+        notify(trxMessagingServiceType, trxServer, trxTopic, trxGroup, message, description, retryable, true, exception);
     }
 
     @Override
-    public void notify(String srcType, String srcServer, String srcTopic, String group, Message<?> message, String description, boolean retryable, Throwable exception) {
+    public void notify(String srcType, String srcServer, String srcTopic, String group, Message<?> message, String description, boolean retryable, boolean resendApplication, Throwable exception) {
         log.info("[ERROR_NOTIFIER] notifying error: {}", description, exception);
         final MessageBuilder<?> errorMessage = MessageBuilder.fromMessage(message)
-                .setHeader(ERROR_MSG_HEADER_APPLICATION_NAME, applicationName)
                 .setHeader(ERROR_MSG_HEADER_GROUP, group)
                 .setHeader(ERROR_MSG_HEADER_SRC_TYPE, srcType)
                 .setHeader(ERROR_MSG_HEADER_SRC_SERVER, srcServer)
@@ -72,6 +71,10 @@ public class ErrorNotifierServiceImpl implements ErrorNotifierService {
         byte[] receivedKey = message.getHeaders().get(KafkaHeaders.RECEIVED_MESSAGE_KEY, byte[].class);
         if(receivedKey!=null){
             errorMessage.setHeader(KafkaHeaders.MESSAGE_KEY, new String(receivedKey, StandardCharsets.UTF_8));
+        }
+
+        if (resendApplication){
+            errorMessage.setHeader(ERROR_MSG_HEADER_APPLICATION_NAME, applicationName);
         }
 
         if (!streamBridge.send("errors-out-0", errorMessage.build())) {
