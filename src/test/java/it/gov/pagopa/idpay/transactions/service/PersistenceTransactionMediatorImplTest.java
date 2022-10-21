@@ -18,6 +18,8 @@ import org.springframework.messaging.support.MessageBuilder;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.nio.charset.StandardCharsets;
+
 @ExtendWith(MockitoExtension.class)
 class PersistenceTransactionMediatorImplTest {
     @Mock
@@ -34,6 +36,7 @@ class PersistenceTransactionMediatorImplTest {
     @BeforeEach
     void setUp() {
         persistenceTransactionMediator = new PersistenceTransactionMediatorImpl(
+                "appName",
                 rewardTransactionService,
                 errorNotifierService,
                 rewardTransactionMapper,
@@ -77,5 +80,24 @@ class PersistenceTransactionMediatorImplTest {
         Mockito.verifyNoInteractions(rewardTransactionService);
 
         Mockito.verify(errorNotifierService, Mockito.times(1)).notifyTransaction(Mockito.any(Message.class),Mockito.anyString(), Mockito.anyBoolean(), Mockito.any(JsonProcessingException.class));
+    }
+
+    @Test
+    void otherApplicationRetryTest(){
+        // Given
+        RewardTransactionDTO rtDT1 = RewardTransactionDTOFaker.mockInstance(1);
+        RewardTransactionDTO rtDT2 = RewardTransactionDTOFaker.mockInstance(2);
+
+        Flux<Message<String>> msgs = Flux.just(rtDT1, rtDT2)
+                .map(TestUtils::jsonSerializer)
+                .map(MessageBuilder::withPayload)
+                .doOnNext(m->m.setHeader(ErrorNotifierServiceImpl.ERROR_MSG_HEADER_APPLICATION_NAME, "otherAppName".getBytes(StandardCharsets.UTF_8)))
+                .map(MessageBuilder::build);
+
+        // When
+        persistenceTransactionMediator.execute(msgs);
+
+        // Then
+        Mockito.verifyNoInteractions(rewardTransactionMapper, rewardTransactionService, errorNotifierService);
     }
 }
