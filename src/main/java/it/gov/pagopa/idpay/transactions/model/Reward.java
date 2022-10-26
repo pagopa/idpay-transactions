@@ -1,6 +1,8 @@
 package it.gov.pagopa.idpay.transactions.model;
 
+import it.gov.pagopa.idpay.transactions.model.counters.RewardCounters;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -9,6 +11,7 @@ import java.math.BigDecimal;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@Builder
 public class Reward {
     /** The ruleEngine reward calculated */
     private BigDecimal providedReward;
@@ -25,4 +28,7 @@ public class Reward {
     private boolean yearlyCapped;
     /** True, if the reward has been capped due to weekly threshold */
     private boolean weeklyCapped;
+
+    /** Counters */
+    private RewardCounters counters;
 }
