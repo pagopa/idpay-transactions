@@ -124,8 +124,8 @@ public class RewardTransactionDTOFaker {
                 .operationTypeTranscoded(out.getOperationTypeTranscoded())
                 .timestamp(LocalDateTime.now())
                 .build();
-        HashMap<String, BigDecimal> previousRewards = new HashMap<>();
-        previousRewards.put("initiativeID", BigDecimal.TEN);
+        HashMap<String, RefundInfo.PreviousReward> previousRewards = new HashMap<>();
+        previousRewards.put("initiativeID", new RefundInfo.PreviousReward("initiativeID", "organizationID", BigDecimal.TEN));
         RefundInfo refundInfo = RefundInfo.builder()
                 .previousTrxs(List.of(transactionProcessed))
                 .previousRewards(previousRewards)
