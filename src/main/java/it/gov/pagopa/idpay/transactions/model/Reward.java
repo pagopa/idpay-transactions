@@ -29,8 +29,10 @@ public class Reward {
     /** True, if the reward has been capped due to weekly threshold */
     private boolean weeklyCapped;
 
-    /** True if is the trx has not more reward for the current initiative */
-    private boolean isCompleteRefund;
+    /** True if it's a refunding reward */
+    private boolean refund;
+    /** True if it's a complete refunding reward */
+    private boolean completeRefund;
 
     /** Counters */
     private RewardCounters counters;
