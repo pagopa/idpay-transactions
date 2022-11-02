@@ -13,6 +13,9 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @Builder
 public class Reward {
+    private String initiativeId;
+    private String organizationId;
+
     /** The ruleEngine reward calculated */
     private BigDecimal providedReward;
     /** The effective reward after CAP evaluation */
