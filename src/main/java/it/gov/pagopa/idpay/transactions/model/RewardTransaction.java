@@ -55,4 +55,6 @@ public class RewardTransaction {
     private BigDecimal effectiveAmount;
     private LocalDateTime trxChargeDate;
     private RefundInfo refundInfo;
+
+    private LocalDateTime elaborationDateTime;
 }
