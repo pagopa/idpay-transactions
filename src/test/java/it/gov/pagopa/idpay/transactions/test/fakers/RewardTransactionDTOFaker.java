@@ -86,6 +86,7 @@ public class RewardTransactionDTOFaker {
         out.setTrxChargeDate(out.getTrxDate().minusDays(1));
         out.setStatus("STATUS%d".formatted(bias));
         out.setInitiatives(List.of("INITIATIVEID%d".formatted(bias)));
+        out.setElaborationDateTime(LocalDateTime.now());
 
         Map<String, Reward> reward = new HashMap<>();
 
@@ -124,8 +125,8 @@ public class RewardTransactionDTOFaker {
                 .operationTypeTranscoded(out.getOperationTypeTranscoded())
                 .timestamp(LocalDateTime.now())
                 .build();
-        HashMap<String, BigDecimal> previousRewards = new HashMap<>();
-        previousRewards.put("initiativeID", BigDecimal.TEN);
+        HashMap<String, RefundInfo.PreviousReward> previousRewards = new HashMap<>();
+        previousRewards.put("initiativeID", new RefundInfo.PreviousReward("initiativeID", "organizationID", BigDecimal.TEN));
         RefundInfo refundInfo = RefundInfo.builder()
                 .previousTrxs(List.of(transactionProcessed))
                 .previousRewards(previousRewards)
@@ -138,10 +139,12 @@ public class RewardTransactionDTOFaker {
         RewardTransactionDTO out = mockInstanceBuilder(bias).build();
         out.setStatus("REJECTED");
         out.setRejectionReasons(List.of("ERROR"));
+        out.setTrxChargeDate(OffsetDateTime.now());
 
         Map<String, List<String>> initiativeRejectionsReason = new HashMap<>();
         initiativeRejectionsReason.put("initiative", List.of("Error initiative"));
         out.setInitiativeRejectionReasons(initiativeRejectionsReason);
+        out.setElaborationDateTime(LocalDateTime.now());
 
         return out;
     }

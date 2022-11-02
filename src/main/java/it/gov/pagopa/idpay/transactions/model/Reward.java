@@ -29,6 +29,11 @@ public class Reward {
     /** True, if the reward has been capped due to weekly threshold */
     private boolean weeklyCapped;
 
+    /** True if it's a refunding reward */
+    private boolean refund;
+    /** True if it's a complete refunding reward */
+    private boolean completeRefund;
+
     /** Counters */
     private RewardCounters counters;
 }
