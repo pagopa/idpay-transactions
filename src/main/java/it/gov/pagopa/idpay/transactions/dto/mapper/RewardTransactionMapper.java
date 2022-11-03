@@ -11,13 +11,13 @@ import java.time.ZoneId;
 
 @Service
 public class RewardTransactionMapper {
-    public RewardTransaction mapFromDTO(RewardTransactionDTO rewardTrxDto){
+    public RewardTransaction mapFromDTO(RewardTransactionDTO rewardTrxDto) {
         RewardTransaction rewardTrx = null;
 
-        if(rewardTrxDto!=null){
+        if (rewardTrxDto != null) {
             rewardTrx = RewardTransaction.builder().build();
 
-            if(StringUtils.isEmpty(rewardTrxDto.getId())){
+            if (StringUtils.isEmpty(rewardTrxDto.getId())) {
                 rewardTrx.setId(rewardTrxDto.getIdTrxAcquirer()
                         .concat(rewardTrxDto.getAcquirerCode())
                         .concat(String.valueOf(toLocalDateTime(rewardTrxDto.getTrxDate())))
@@ -59,7 +59,7 @@ public class RewardTransactionMapper {
             rewardTrx.setTrxChargeDate(rewardTrxDto.getTrxChargeDate() != null ? toLocalDateTime(rewardTrxDto.getTrxChargeDate()) : null);
             rewardTrx.setRefundInfo(rewardTrxDto.getRefundInfo());
 
-
+            rewardTrx.setElaborationDateTime(rewardTrxDto.getElaborationDateTime());
         }
 
         return rewardTrx;

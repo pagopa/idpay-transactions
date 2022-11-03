@@ -13,6 +13,9 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @Builder
 public class Reward {
+    private String initiativeId;
+    private String organizationId;
+
     /** The ruleEngine reward calculated */
     private BigDecimal providedReward;
     /** The effective reward after CAP evaluation */
@@ -28,6 +31,11 @@ public class Reward {
     private boolean yearlyCapped;
     /** True, if the reward has been capped due to weekly threshold */
     private boolean weeklyCapped;
+
+    /** True if it's a refunding reward */
+    private boolean refund;
+    /** True if it's a complete refunding reward */
+    private boolean completeRefund;
 
     /** Counters */
     private RewardCounters counters;
