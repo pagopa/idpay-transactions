@@ -85,7 +85,8 @@ public class RewardTransactionDTOFaker {
         out.setEffectiveAmount(BigDecimal.TEN);
         out.setTrxChargeDate(out.getTrxDate().minusDays(1));
         out.setStatus("STATUS%d".formatted(bias));
-        out.setInitiatives(List.of("INITIATIVEID%d".formatted(bias)));
+        String initiativeId = "INITIATIVEID%d".formatted(bias);
+        out.setInitiatives(List.of(initiativeId));
         out.setElaborationDateTime(LocalDateTime.now());
 
         Map<String, Reward> reward = new HashMap<>();
@@ -96,6 +97,8 @@ public class RewardTransactionDTOFaker {
                 .build();
 
         Reward rewardElement = Reward.builder()
+                .initiativeId(initiativeId)
+                .organizationId("ORGANIZATIONID")
                 .providedReward(BigDecimal.TEN)
                 .accruedReward(BigDecimal.TEN)
                 .capped(false)
@@ -105,7 +108,7 @@ public class RewardTransactionDTOFaker {
                 .weeklyCapped(false)
                 .counters(counter)
                 .build();
-        reward.put("INITIATIVEID%d".formatted(bias),rewardElement);
+        reward.put(initiativeId,rewardElement);
         out.setRewards(reward);
         out.setTrxChargeDate(OffsetDateTime.now());
 
