@@ -57,7 +57,6 @@ public class ErrorNotifierServiceImpl implements ErrorNotifierService {
     public void notify(String srcType, String srcServer, String srcTopic, String group, Message<?> message, String description, boolean retryable, boolean resendApplication, Throwable exception) {
         log.info("[ERROR_NOTIFIER] notifying error: {}", description, exception);
         final MessageBuilder<?> errorMessage = MessageBuilder.fromMessage(message)
-                .setHeader(ERROR_MSG_HEADER_GROUP, group)
                 .setHeader(ERROR_MSG_HEADER_SRC_TYPE, srcType)
                 .setHeader(ERROR_MSG_HEADER_SRC_SERVER, srcServer)
                 .setHeader(ERROR_MSG_HEADER_SRC_TOPIC, srcTopic)
@@ -75,6 +74,7 @@ public class ErrorNotifierServiceImpl implements ErrorNotifierService {
 
         if (resendApplication){
             errorMessage.setHeader(ERROR_MSG_HEADER_APPLICATION_NAME, applicationName);
+            errorMessage.setHeader(ERROR_MSG_HEADER_GROUP, group);
         }
 
         if (!streamBridge.send("errors-out-0", errorMessage.build())) {

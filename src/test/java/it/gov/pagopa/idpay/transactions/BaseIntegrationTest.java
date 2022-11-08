@@ -271,7 +271,7 @@ public abstract class BaseIntegrationTest {
         }
     }
     protected Map<TopicPartition, OffsetAndMetadata> checkCommittedOffsets(String topic, String groupId, long expectedCommittedMessages){
-        return checkCommittedOffsets(topic, groupId, expectedCommittedMessages, 10, 500);
+        return checkCommittedOffsets(topic, groupId, expectedCommittedMessages, 10, 1000);
     }
 
     // Cannot use directly Awaitlity cause the Callable condition is performed on separate thread, which will go into conflict with the consumer Kafka access
@@ -319,7 +319,7 @@ public abstract class BaseIntegrationTest {
 
     protected static void wait(long timeout, TimeUnit timeoutUnit) {
         try{
-            Awaitility.await().atLeast(timeout, timeoutUnit).until(()->false);
+            Awaitility.await().timeout(timeout, timeoutUnit).until(()->false);
         } catch (ConditionTimeoutException ex){
             // Do Nothing
         }
