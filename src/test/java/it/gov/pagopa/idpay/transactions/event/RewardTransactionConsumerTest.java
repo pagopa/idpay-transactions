@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.util.Pair;
+import org.springframework.test.context.TestPropertySource;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -24,6 +25,9 @@ import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
+@TestPropertySource(properties = {
+        "logging.level.it.gov.pagopa.idpay.transactions.service.BaseKafkaConsumer=WARN",
+})
 class RewardTransactionConsumerTest extends BaseIntegrationTest {
 
     @Autowired
