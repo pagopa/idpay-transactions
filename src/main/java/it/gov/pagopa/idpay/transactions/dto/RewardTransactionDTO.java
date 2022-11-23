@@ -1,5 +1,7 @@
 package it.gov.pagopa.idpay.transactions.dto;
 
+import it.gov.pagopa.idpay.transactions.model.RefundInfo;
+import it.gov.pagopa.idpay.transactions.model.Reward;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -7,6 +9,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
@@ -17,52 +20,45 @@ import java.util.Map;
 @Builder
 public class RewardTransactionDTO {
 
-    String idTrxAcquirer;
+    private String id;
+    private String idTrxAcquirer;
+    private String acquirerCode;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    private OffsetDateTime trxDate;
+    private String hpan;
+    private String operationType;
+    private String circuitType;
+    private String idTrxIssuer;
+    private String correlationId;
+    private BigDecimal amount;
+    private String amountCurrency;
+    private String mcc;
+    private String acquirerId;
+    private String merchantId;
+    private String terminalId;
+    private String bin;
+    private String senderCode;
+    private String fiscalCode;
+    private String vat;
+    private String posType;
+    private String par;
+    private String status;
+    private List<String> rejectionReasons;
+    private Map<String, List<String>> initiativeRejectionReasons;
+    private List<String> initiatives;
+    private Map<String, Reward> rewards;
 
-    String acquirerCode;
+    private String userId;
+    private String maskedPan;
+    private String brandLogo;
+
+    private String operationTypeTranscoded;
+    private BigDecimal effectiveAmount;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    private OffsetDateTime trxChargeDate;
+    private RefundInfo refundInfo;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    OffsetDateTime trxDate;
+    private LocalDateTime elaborationDateTime;
 
-    String hpan;
-
-    String operationType;
-
-    String circuitType;
-
-    String idTrxIssuer;
-
-    String correlationId;
-
-    BigDecimal amount;
-
-    String amountCurrency;
-
-    String mcc;
-
-    String acquirerId;
-
-    String merchantId;
-
-    String terminalId;
-
-    String bin;
-
-    String senderCode;
-
-    String fiscalCode;
-
-    String vat;
-
-    String posType;
-
-    String par;
-
-    String status;
-
-    String rejectionReason;
-
-    List<String> initiatives;
-
-    Map<String,BigDecimal> rewards;
 }
