@@ -36,7 +36,7 @@ microservice-chart:
 #          targetValue: "30"
 
   envSecret:
-    aks-api-url: cstar-p-weu-uat01-aks-apiserver-url
+    aks-api-url: cstar-p-weu-prod01-aks-apiserver-url
 
   keyvault:
     name: "cstar-p-idpay-kv"
