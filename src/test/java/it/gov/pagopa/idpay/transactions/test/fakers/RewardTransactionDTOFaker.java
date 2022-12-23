@@ -122,7 +122,7 @@ public class RewardTransactionDTOFaker {
                 .acquirerId(out.getAcquirerId())
                 .userId(out.getUserId())
                 .correlationId(out.getCorrelationId())
-                .amountCents(1000)
+                .amountCents(1000L)
                 .amount(BigDecimal.TEN)
                 .rewards(out.getRewards())
                 .effectiveAmount(BigDecimal.TEN)

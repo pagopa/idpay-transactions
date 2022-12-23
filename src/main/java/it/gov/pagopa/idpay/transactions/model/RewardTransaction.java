@@ -30,7 +30,7 @@ public class RewardTransaction {
     private String idTrxIssuer;
     private String correlationId;
 
-    private long amountCents;
+    private Long amountCents;
     private BigDecimal amount;
     private String amountCurrency;
 

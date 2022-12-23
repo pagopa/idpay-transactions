@@ -31,7 +31,7 @@ public class TransactionProcessed {
 
     private String correlationId;
 
-    private long amountCents;
+    private Long amountCents;
     private BigDecimal amount;
 
     private Map<String, Reward> rewards;
