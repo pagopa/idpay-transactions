@@ -34,6 +34,7 @@ public class RewardTransactionMapper {
             rewardTrx.setCircuitType(rewardTrxDto.getCircuitType());
             rewardTrx.setIdTrxIssuer(rewardTrxDto.getIdTrxIssuer());
             rewardTrx.setCorrelationId(rewardTrxDto.getCorrelationId());
+            rewardTrx.setAmountCents(rewardTrxDto.getAmountCents());
             rewardTrx.setAmount(rewardTrxDto.getAmount());
             rewardTrx.setAmountCurrency(rewardTrxDto.getAmountCurrency());
             rewardTrx.setMcc(rewardTrxDto.getMcc());

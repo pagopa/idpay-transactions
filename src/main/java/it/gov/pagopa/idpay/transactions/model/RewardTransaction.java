@@ -29,8 +29,11 @@ public class RewardTransaction {
     private String circuitType;
     private String idTrxIssuer;
     private String correlationId;
+
+    private Long amountCents;
     private BigDecimal amount;
     private String amountCurrency;
+
     private String mcc;
     private String acquirerId;
     private String merchantId;
