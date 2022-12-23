@@ -111,6 +111,7 @@ class RewardTransactionMapperTest {
         Assertions.assertSame(result.getCircuitType(), rewardTrx.getCircuitType());
         Assertions.assertSame(result.getIdTrxIssuer(), rewardTrx.getIdTrxIssuer());
         Assertions.assertSame(result.getCorrelationId(), rewardTrx.getCorrelationId());
+        Assertions.assertEquals(result.getAmountCents(), rewardTrx.getAmountCents());
         Assertions.assertSame(result.getAmount(), rewardTrx.getAmount());
         Assertions.assertSame(result.getAmountCurrency(), rewardTrx.getAmountCurrency());
         Assertions.assertSame(result.getMcc(), rewardTrx.getMcc());

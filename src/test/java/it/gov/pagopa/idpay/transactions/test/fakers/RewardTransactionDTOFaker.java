@@ -61,6 +61,7 @@ public class RewardTransactionDTOFaker {
         out.idTrxIssuer("IDTRXISSUER%d".formatted(bias));
         out.correlationId("CORRELATIONID%d".formatted(bias));
         out.amount(BigDecimal.valueOf(getRandomPositiveNumber(bias, 200)));
+        out.amountCents(getRandomPositiveNumber(bias, 200)*100L);
         out.amountCurrency("AMOUNTCURRENCY%d".formatted(bias));
         out.mcc("MCC%d".formatted(bias));
         out.acquirerId("ACQUIRERID%d".formatted(bias));
@@ -121,6 +122,7 @@ public class RewardTransactionDTOFaker {
                 .acquirerId(out.getAcquirerId())
                 .userId(out.getUserId())
                 .correlationId(out.getCorrelationId())
+                .amountCents(1000)
                 .amount(BigDecimal.TEN)
                 .rewards(out.getRewards())
                 .effectiveAmount(BigDecimal.TEN)

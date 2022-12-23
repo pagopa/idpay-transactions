@@ -56,6 +56,7 @@ public class RewardTransactionFaker {
                 .idTrxIssuer("IDTRXISSUER%s".formatted(bias))
                 .correlationId("CORRELATIONID%s".formatted(bias))
                 .amount(BigDecimal.valueOf(getRandomPositiveNumber(bias, 200)))
+                .amountCents(getRandomPositiveNumber(bias, 200)*100L)
                 .amountCurrency("AMOUNTCURRENCY%s".formatted(bias))
                 .mcc("MCC%s".formatted(bias))
                 .acquirerId("ACQUIRERID%s".formatted(bias))

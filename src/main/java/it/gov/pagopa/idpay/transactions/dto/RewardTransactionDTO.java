@@ -30,7 +30,10 @@ public class RewardTransactionDTO {
     private String circuitType;
     private String idTrxIssuer;
     private String correlationId;
+
+    private long amountCents;
     private BigDecimal amount;
+
     private String amountCurrency;
     private String mcc;
     private String acquirerId;
