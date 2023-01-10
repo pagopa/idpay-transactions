@@ -5,13 +5,6 @@ reactor:
   bufferSize:
     small: ${REACTOR_BUFFER_SIZE:256}
 
-info:
-  build:
-    artifact: "@project.artifactId@"
-    name: "@project.artifactId@"
-    description: "@project.description@"
-    version: "@project.version@"
-
 spring:
   application:
     name: "@project.artifactId@"
@@ -100,6 +93,10 @@ spring:
           maxConnectionLifeTimeMS: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTION_LIFE_MS:0}
           maxConnectionIdleTimeMS: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTION_IDLE_MS:120000}
           maxConnecting: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTING:2}
+
+management.endpoints:
+  web:
+    exposure.include: info, health
 
 logging:
   level:
