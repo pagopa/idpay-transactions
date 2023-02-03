@@ -16,7 +16,7 @@ spring:
   cloud:
     stream:
       function:
-        definition: rewardTrxConsumer
+        definition: rewardTrxConsumer;errors
       bindings:
         rewardTrxConsumer-in-0:
           destination: ${KAFKA_TRANSACTION_TOPIC:idpay-transaction}
