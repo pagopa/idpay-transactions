@@ -27,6 +27,7 @@ import java.util.stream.IntStream;
 
 @TestPropertySource(properties = {
         "logging.level.it.gov.pagopa.idpay.transactions.service.BaseKafkaConsumer=WARN",
+        "logging.level.it.gov.pagopa.idpay.transactions.utils.PerformanceLogger=WARN",
 })
 class RewardTransactionConsumerTest extends BaseIntegrationTest {
 
