@@ -50,6 +50,7 @@ microservice-chart:
     APPLICATIONINSIGHTS_ROLE_NAME: "idpaytransactions"
     APPLICATIONINSIGHTS_INSTRUMENTATION_LOGGING_LEVEL: "OFF"
     APPLICATIONINSIGHTS_INSTRUMENTATION_MICROMETER_ENABLED: "false"
+    APPLICATIONINSIGHTS_PREVIEW_PROFILER_ENABLED: "false"
 
   envConfigMapExternals:
     idpay-common:
@@ -64,7 +65,6 @@ microservice-chart:
       KAFKA_ERRORS_TOPIC: idpay_error_topic
 
   envSecret:
-    #    APPLICATIONINSIGHTS_CONNECTION_STRING: appinsights-instrumentation-key
     MONGODB_URI: mongodb-connection-string
     EVH_CONNECTION_REWARD_RESPONSE: evh-idpay-transaction-idpay-transaction-consumer-jaas-config-idpay-01
     KAFKA_ERRORS_SASL_JAAS_CONFIG: evh-idpay-errors-idpay-errors-producer-jaas-config-idpay-01

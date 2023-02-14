@@ -18,4 +18,10 @@ public final class Utils {
             return null;
         }
     }
+
+    /** To read Message header value */
+    @SuppressWarnings("unchecked")
+    public static <T> T getHeaderValue(Message<?> message, String headerName) {
+        return  (T)message.getHeaders().get(headerName);
+    }
 }

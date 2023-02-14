@@ -53,7 +53,7 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
 
     @Override
     protected void subscribeAfterCommits(Flux<List<RewardTransaction>> afterCommits2subscribe) {
-        afterCommits2subscribe.subscribe(p -> log.debug("[TRANSACTION] Processed offsets committed successfully"));
+        afterCommits2subscribe.subscribe(p -> log.info("[TRANSACTION] Processed offsets committed successfully"));
     }
 
     @Override
