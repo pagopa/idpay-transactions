@@ -1,7 +1,6 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.idpay.transactions.dto.ErrorDTO;
-import it.gov.pagopa.idpay.transactions.exception.Severity;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
 import org.junit.jupiter.api.Test;
@@ -84,7 +83,7 @@ class TransactionsControllerImplTest {
                 .trxDate(now)
                 .amount(new BigDecimal("30.00")).build();
 
-        ErrorDTO expectedErrorDTO = new ErrorDTO(Severity.ERROR,"Error", "Mandatory filters are missing. Insert one of the following options: 1) idTrxIssuer 2) userId, trxDateStart and trxDateEnd");
+        ErrorDTO expectedErrorDTO = new ErrorDTO("Error", "Mandatory filters are missing. Insert one of the following options: 1) idTrxIssuer 2) userId, trxDateStart and trxDateEnd");
 
         webClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
