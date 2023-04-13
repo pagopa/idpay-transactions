@@ -2,7 +2,6 @@ package it.gov.pagopa.idpay.transactions.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.annotations.ApiModelProperty;
-import it.gov.pagopa.idpay.transactions.exception.Severity;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -16,13 +15,10 @@ import javax.validation.constraints.NotBlank;
 @EqualsAndHashCode
 public class ErrorDTO {
     @NotBlank
-    @ApiModelProperty(required = true, value = "Severity level of the error message", example = "ERROR")
-    Severity severity;
+    @ApiModelProperty(required = true, value = "Code of the error", example = "Code")
+    String code;
     @NotBlank
-    @ApiModelProperty(required = true, value = "Content of the error message", example = "Messaggio")
-    String title;
-    @NotBlank
-    @ApiModelProperty(required = true, value = "Title of the error message", example = "Titolo")
+    @ApiModelProperty(required = true, value = "Content of the error message", example = "Error")
     String message;
 
 }
