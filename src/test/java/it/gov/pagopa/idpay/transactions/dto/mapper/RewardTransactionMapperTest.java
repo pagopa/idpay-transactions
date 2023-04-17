@@ -130,6 +130,7 @@ class RewardTransactionMapperTest {
         Assertions.assertSame(result.getUserId(), rewardTrx.getUserId());
         Assertions.assertSame(result.getMaskedPan(), rewardTrx.getMaskedPan());
         Assertions.assertSame(result.getBrandLogo(), rewardTrx.getBrandLogo());
+        Assertions.assertSame(result.getChannel(), rewardTrx.getChannel());
     }
 
     private void assertRefundFields(RewardTransaction resultRefunded, RewardTransactionDTO refundedTrx) {

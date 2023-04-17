@@ -63,5 +63,5 @@ public class RewardTransactionDTO {
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime elaborationDateTime;
-
+    private String channel;
 }

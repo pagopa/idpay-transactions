@@ -68,7 +68,8 @@ public class RewardTransactionFaker {
                 .vat("VAT%s".formatted(bias))
                 .posType("POSTYPE%s".formatted(bias))
                 .par("PAR%s".formatted(bias))
-                .userId("USERID%s".formatted(bias));
+                .userId("USERID%s".formatted(bias))
+                .channel("CHANNEL%d".formatted(bias));
     }
 }
 
