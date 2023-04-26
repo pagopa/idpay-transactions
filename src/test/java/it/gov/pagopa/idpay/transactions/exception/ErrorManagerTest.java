@@ -17,10 +17,10 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 class ErrorManagerTest extends BaseIntegrationTest {
 
     @SpyBean
-    TransactionsController rewardTransactionController;
+    private TransactionsController rewardTransactionController;
 
     @Autowired
-    WebTestClient webTestClient;
+    private WebTestClient webTestClient;
 
     private  Pageable defaultPageable;
 
