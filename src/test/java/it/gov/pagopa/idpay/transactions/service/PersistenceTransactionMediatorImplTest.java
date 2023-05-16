@@ -13,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 import reactor.core.publisher.Flux;
@@ -50,7 +51,14 @@ class PersistenceTransactionMediatorImplTest {
         RewardTransactionDTO rtDT1 = RewardTransactionDTOFaker.mockInstance(1);
         RewardTransactionDTO rtDT2 = RewardTransactionDTOFaker.mockInstance(2);
 
-        Flux<Message<String>> messageFlux = Flux.just(rtDT1, rtDT2).map(TestUtils::jsonSerializer).map(s -> MessageBuilder.withPayload(s).build());
+        Flux<Message<String>> messageFlux = Flux.just(rtDT1, rtDT2)
+                .map(TestUtils::jsonSerializer)
+                .map(payload -> MessageBuilder
+                        .withPayload(payload)
+                        .setHeader(KafkaHeaders.RECEIVED_PARTITION_ID, 0)
+                        .setHeader(KafkaHeaders.OFFSET, 0L)
+                        .build()
+                );
 
         RewardTransaction rt1 = RewardTransactionFaker.mockInstance(1);
         Mockito.when(rewardTransactionMapper.mapFromDTO(rtDT1)).thenReturn(rt1);
@@ -70,7 +78,11 @@ class PersistenceTransactionMediatorImplTest {
     @Test
     void executeErrorDeserializer(){
         // Given
-        Flux<Message<String>> messageFlux = Flux.just(MessageBuilder.withPayload("Error message").build());
+        Flux<Message<String>> messageFlux = Flux.just(MessageBuilder
+                .withPayload("Error message")
+                .setHeader(KafkaHeaders.RECEIVED_PARTITION_ID, 0)
+                .setHeader(KafkaHeaders.OFFSET, 0L)
+                .build());
 
         // When
         persistenceTransactionMediator.execute(messageFlux);
@@ -90,7 +102,11 @@ class PersistenceTransactionMediatorImplTest {
 
         Flux<Message<String>> msgs = Flux.just(rtDT1, rtDT2)
                 .map(TestUtils::jsonSerializer)
-                .map(MessageBuilder::withPayload)
+                .map(payload -> MessageBuilder
+                        .withPayload(payload)
+                        .setHeader(KafkaHeaders.RECEIVED_PARTITION_ID, 0)
+                        .setHeader(KafkaHeaders.OFFSET, 0L)
+                )
                 .doOnNext(m->m.setHeader(ErrorNotifierServiceImpl.ERROR_MSG_HEADER_APPLICATION_NAME, "otherAppName".getBytes(StandardCharsets.UTF_8)))
                 .map(MessageBuilder::build);
 

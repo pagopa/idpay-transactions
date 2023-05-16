@@ -60,4 +60,5 @@ public class RewardTransaction {
     private RefundInfo refundInfo;
 
     private LocalDateTime elaborationDateTime;
+    private String channel;
 }

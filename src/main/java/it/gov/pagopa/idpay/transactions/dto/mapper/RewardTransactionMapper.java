@@ -61,6 +61,7 @@ public class RewardTransactionMapper {
             rewardTrx.setRefundInfo(rewardTrxDto.getRefundInfo());
 
             rewardTrx.setElaborationDateTime(rewardTrxDto.getElaborationDateTime());
+            rewardTrx.setChannel(rewardTrxDto.getChannel());
         }
 
         return rewardTrx;

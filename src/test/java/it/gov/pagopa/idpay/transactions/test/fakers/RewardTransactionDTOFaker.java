@@ -77,6 +77,7 @@ public class RewardTransactionDTOFaker {
         out.userId("USERID%d".formatted(bias));
         out.maskedPan("MASKEDPAN%d".formatted(bias));
         out.brandLogo("BRANDLOGO%d".formatted(bias));
+        out.channel("CHANNEL%d".formatted(bias));
         return out;
     }
 

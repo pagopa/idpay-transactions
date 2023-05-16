@@ -17,10 +17,10 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 class ErrorManagerTest extends BaseIntegrationTest {
 
     @SpyBean
-    TransactionsController rewardTransactionController;
+    private TransactionsController rewardTransactionController;
 
     @Autowired
-    WebTestClient webTestClient;
+    private WebTestClient webTestClient;
 
     private  Pageable defaultPageable;
 
@@ -32,7 +32,7 @@ class ErrorManagerTest extends BaseIntegrationTest {
     @Test
     void handleExceptionClientExceptionNoBody() {
         Mockito.when(rewardTransactionController.findAll("ClientExceptionNoBody", null, null, null, null, defaultPageable))
-                .thenThrow(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST));
+                .thenThrow(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, "BADREQUEST"));
 
         webTestClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
@@ -46,8 +46,8 @@ class ErrorManagerTest extends BaseIntegrationTest {
     @Test
     void handleExceptionClientExceptionWithBody(){
         Mockito.when(rewardTransactionController.findAll("ClientExceptionWithBody", null, null,null,null, defaultPageable))
-                .thenThrow(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, "Error","Error ClientExceptionWithBody"));
-        ErrorDTO errorClientExceptionWithBody= new ErrorDTO(Severity.ERROR,"Error","Error ClientExceptionWithBody");
+                .thenThrow(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, "Error","Error ClientExceptionWithBody", new IllegalStateException("PROVA")));
+        ErrorDTO errorClientExceptionWithBody= new ErrorDTO("Error","Error ClientExceptionWithBody");
 
         webTestClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
@@ -59,7 +59,7 @@ class ErrorManagerTest extends BaseIntegrationTest {
 
         Mockito.when(rewardTransactionController.findAll("ClientExceptionWithBodyWithStatusAndTitleAndMessageAndThrowable", null, null,null,null, defaultPageable))
                 .thenThrow(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, "Error","Error ClientExceptionWithBody", new Throwable()));
-        ErrorDTO errorClientExceptionWithBodyWithStatusAndTitleAndMessageAndThrowable= new ErrorDTO(Severity.ERROR,"Error","Error ClientExceptionWithBody");
+        ErrorDTO errorClientExceptionWithBodyWithStatusAndTitleAndMessageAndThrowable= new ErrorDTO("Error","Error ClientExceptionWithBody");
 
         webTestClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
@@ -72,7 +72,7 @@ class ErrorManagerTest extends BaseIntegrationTest {
 
     @Test
     void handleExceptionClientExceptionTest(){
-        ErrorDTO expectedErrorClientException = new ErrorDTO(Severity.ERROR,"Error","Something gone wrong");
+        ErrorDTO expectedErrorClientException = new ErrorDTO("Error","Something gone wrong");
 
         Mockito.when(rewardTransactionController.findAll("ClientException", null, null,null,null, defaultPageable))
                 .thenThrow(ClientException.class);
@@ -108,7 +108,7 @@ class ErrorManagerTest extends BaseIntegrationTest {
 
     @Test
     void handleExceptionRuntimeException(){
-        ErrorDTO expectedErrorDefault = new ErrorDTO(Severity.ERROR,"Error","Something gone wrong");
+        ErrorDTO expectedErrorDefault = new ErrorDTO("Error","Something gone wrong");
 
         Mockito.when(rewardTransactionController.findAll("RuntimeException", null, null,null,null, defaultPageable))
                 .thenThrow(RuntimeException.class);
