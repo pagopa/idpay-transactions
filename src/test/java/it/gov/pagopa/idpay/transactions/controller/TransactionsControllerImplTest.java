@@ -1,6 +1,6 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
-import it.gov.pagopa.idpay.transactions.dto.ErrorDTO;
+import it.gov.pagopa.common.web.dto.ErrorDTO;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
 import org.junit.jupiter.api.Test;
