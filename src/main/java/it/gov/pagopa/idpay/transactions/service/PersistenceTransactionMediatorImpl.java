@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
+import it.gov.pagopa.common.reactive.kafka.consumer.BaseKafkaConsumer;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
@@ -22,7 +23,7 @@ import java.util.function.Consumer;
 public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<RewardTransactionDTO, RewardTransaction> implements PersistenceTransactionMediator {
 
     private final RewardTransactionService rewardTransactionService;
-    private final ErrorNotifierService errorNotifierService;
+    private final TransactionErrorNotifierService transactionErrorNotifierService;
     private final RewardTransactionMapper rewardTransactionMapper;
 
     private final Duration commitDelay;
@@ -32,14 +33,14 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
     public PersistenceTransactionMediatorImpl(
             @Value("${spring.application.name}") String applicationName,
             RewardTransactionService rewardTransactionService,
-            ErrorNotifierService errorNotifierService,
+            TransactionErrorNotifierService transactionErrorNotifierService,
 
             RewardTransactionMapper rewardTransactionMapper, @Value("${spring.cloud.stream.kafka.bindings.rewardTrxConsumer-in-0.consumer.ackTime}") long commitMillis,
 
             ObjectMapper objectMapper) {
         super(applicationName);
         this.rewardTransactionService = rewardTransactionService;
-        this.errorNotifierService = errorNotifierService;
+        this.transactionErrorNotifierService = transactionErrorNotifierService;
         this.rewardTransactionMapper = rewardTransactionMapper;
         this.commitDelay = Duration.ofMillis(commitMillis);
 
@@ -63,12 +64,12 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
 
     @Override
     protected Consumer<Throwable> onDeserializationError(Message<String> message) {
-        return e -> errorNotifierService.notifyTransaction(message, "[TRANSACTION] Unexpected JSON", true, e);
+        return e -> transactionErrorNotifierService.notifyTransaction(message, "[TRANSACTION] Unexpected JSON", true, e);
     }
 
     @Override
     protected void notifyError(Message<String> message, Throwable e) {
-        errorNotifierService.notifyTransaction(message, "[TRANSACTION] An error occurred evaluating transaction", true, e);
+        transactionErrorNotifierService.notifyTransaction(message, "[TRANSACTION] An error occurred evaluating transaction", true, e);
     }
 
     @Override
@@ -79,7 +80,7 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
     }
 
     @Override
-    protected String getFlowName() {
+    public String getFlowName() {
         return "TRANSACTION";
     }
 }
