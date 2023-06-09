@@ -1,12 +1,13 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import it.gov.pagopa.common.kafka.utils.KafkaConstants;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionDTOFaker;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
-import it.gov.pagopa.idpay.transactions.utils.TestUtils;
+import it.gov.pagopa.common.utils.TestUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,7 +28,7 @@ class PersistenceTransactionMediatorImplTest {
     private RewardTransactionService rewardTransactionService;
 
     @Mock
-    private ErrorNotifierService errorNotifierService;
+    private TransactionErrorNotifierService transactionErrorNotifierService;
 
     @Mock
     private RewardTransactionMapper rewardTransactionMapper;
@@ -39,7 +40,7 @@ class PersistenceTransactionMediatorImplTest {
         persistenceTransactionMediator = new PersistenceTransactionMediatorImpl(
                 "appName",
                 rewardTransactionService,
-                errorNotifierService,
+                transactionErrorNotifierService,
                 rewardTransactionMapper,
                 1000,
                 TestUtils.objectMapper);
@@ -72,7 +73,7 @@ class PersistenceTransactionMediatorImplTest {
         // Then
         Mockito.verify(rewardTransactionMapper, Mockito.times(2)).mapFromDTO(Mockito.any(RewardTransactionDTO.class));
         Mockito.verify(rewardTransactionService, Mockito.times(1)).save(Mockito.any(RewardTransaction.class));
-        Mockito.verify(errorNotifierService, Mockito.times(1)).notifyTransaction(Mockito.any(Message.class),Mockito.anyString(), Mockito.anyBoolean(), Mockito.any(RuntimeException.class));
+        Mockito.verify(transactionErrorNotifierService, Mockito.times(1)).notifyTransaction(Mockito.any(Message.class),Mockito.anyString(), Mockito.anyBoolean(), Mockito.any(RuntimeException.class));
     }
 
     @Test
@@ -91,7 +92,7 @@ class PersistenceTransactionMediatorImplTest {
         Mockito.verifyNoInteractions(rewardTransactionMapper);
         Mockito.verifyNoInteractions(rewardTransactionService);
 
-        Mockito.verify(errorNotifierService, Mockito.times(1)).notifyTransaction(Mockito.any(Message.class),Mockito.anyString(), Mockito.anyBoolean(), Mockito.any(JsonProcessingException.class));
+        Mockito.verify(transactionErrorNotifierService, Mockito.times(1)).notifyTransaction(Mockito.any(Message.class),Mockito.anyString(), Mockito.anyBoolean(), Mockito.any(JsonProcessingException.class));
     }
 
     @Test
@@ -107,13 +108,13 @@ class PersistenceTransactionMediatorImplTest {
                         .setHeader(KafkaHeaders.RECEIVED_PARTITION_ID, 0)
                         .setHeader(KafkaHeaders.OFFSET, 0L)
                 )
-                .doOnNext(m->m.setHeader(ErrorNotifierServiceImpl.ERROR_MSG_HEADER_APPLICATION_NAME, "otherAppName".getBytes(StandardCharsets.UTF_8)))
+                .doOnNext(m->m.setHeader(KafkaConstants.ERROR_MSG_HEADER_APPLICATION_NAME, "otherAppName".getBytes(StandardCharsets.UTF_8)))
                 .map(MessageBuilder::build);
 
         // When
         persistenceTransactionMediator.execute(msgs);
 
         // Then
-        Mockito.verifyNoInteractions(rewardTransactionMapper, rewardTransactionService, errorNotifierService);
+        Mockito.verifyNoInteractions(rewardTransactionMapper, rewardTransactionService, transactionErrorNotifierService);
     }
 }

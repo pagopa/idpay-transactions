@@ -1,10 +1,10 @@
 package it.gov.pagopa.idpay.transactions.event;
 
+import it.gov.pagopa.common.kafka.utils.KafkaConstants;
 import it.gov.pagopa.idpay.transactions.BaseIntegrationTest;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
-import it.gov.pagopa.idpay.transactions.service.ErrorNotifierServiceImpl;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionDTOFaker;
-import it.gov.pagopa.idpay.transactions.utils.TestUtils;
+import it.gov.pagopa.common.utils.TestUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -26,8 +26,8 @@ import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
 @TestPropertySource(properties = {
-        "logging.level.it.gov.pagopa.idpay.transactions.service.BaseKafkaConsumer=WARN",
-        "logging.level.it.gov.pagopa.idpay.transactions.utils.PerformanceLogger=WARN",
+        "logging.level.it.gov.pagopa.common.reactive.kafka.consumer.BaseKafkaConsumer=WARN",
+        "logging.level.it.gov.pagopa.common.reactive.utils.PerformanceLogger=WARN",
 })
 class RewardTransactionConsumerTest extends BaseIntegrationTest {
 
@@ -50,8 +50,8 @@ class RewardTransactionConsumerTest extends BaseIntegrationTest {
         transactionPayloads.addAll(buildValidPayloads(errorUseCases.size() + (validTrx / 2) + notValidTrx, validTrx / 2));
 
         long timeStart=System.currentTimeMillis();
-        transactionPayloads.forEach(i->publishIntoEmbeddedKafka(topicRewardedTrxRequest, null, null, i));
-        publishIntoEmbeddedKafka(topicRewardedTrxRequest, List.of(new RecordHeader(ErrorNotifierServiceImpl.ERROR_MSG_HEADER_APPLICATION_NAME, "OTHERAPPNAME".getBytes(StandardCharsets.UTF_8))), null, "OTHERAPPMESSAGE");
+        transactionPayloads.forEach(i->kafkaTestUtilitiesService.publishIntoEmbeddedKafka(topicRewardedTrxRequest, null, null, i));
+        kafkaTestUtilitiesService.publishIntoEmbeddedKafka(topicRewardedTrxRequest, List.of(new RecordHeader(KafkaConstants.ERROR_MSG_HEADER_APPLICATION_NAME, "OTHERAPPNAME".getBytes(StandardCharsets.UTF_8))), null, "OTHERAPPMESSAGE");
 
         long timePublishingEnd=System.currentTimeMillis();
 
@@ -79,7 +79,7 @@ class RewardTransactionConsumerTest extends BaseIntegrationTest {
         );
 
         long timeCommitCheckStart = System.currentTimeMillis();
-        final Map<TopicPartition, OffsetAndMetadata> srcCommitOffsets = checkCommittedOffsets(topicRewardedTrxRequest, groupIdTransactionConsumer,transactionPayloads.size()+1); // +1 due to other applicationName useCase
+        final Map<TopicPartition, OffsetAndMetadata> srcCommitOffsets = kafkaTestUtilitiesService.checkCommittedOffsets(topicRewardedTrxRequest, groupIdTransactionConsumer,transactionPayloads.size()+1); // +1 due to other applicationName useCase
         long timeCommitCheckEnd = System.currentTimeMillis();
         System.out.printf("""
                         ************************
@@ -103,7 +103,7 @@ class RewardTransactionConsumerTest extends BaseIntegrationTest {
     private long waitForTrxStored(int N) {
         long[] countSaved={0};
         //noinspection ConstantConditions
-        waitFor(()->(countSaved[0]=rewardTransactionRepository.count().block()) >= N, ()->"Expected %d saved rules, read %d".formatted(N, countSaved[0]), 60, 1000);
+        TestUtils.waitFor(()->(countSaved[0]=rewardTransactionRepository.count().block()) >= N, ()->"Expected %d saved rules, read %d".formatted(N, countSaved[0]), 60, 1000);
         return countSaved[0];
     }
 
@@ -129,7 +129,7 @@ class RewardTransactionConsumerTest extends BaseIntegrationTest {
     }
 
     private void checkErrorMessageHeaders(ConsumerRecord<String, String> errorMessage, String errorDescription, String expectedPayload) {
-        checkErrorMessageHeaders(topicRewardedTrxRequest, groupIdTransactionConsumer, errorMessage, errorDescription, expectedPayload,true,true);
+        checkErrorMessageHeaders(topicRewardedTrxRequest, groupIdTransactionConsumer, errorMessage, errorDescription, expectedPayload,null,true,true);
     }
     //endregion
 }
