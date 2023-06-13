@@ -5,6 +5,8 @@ reactor:
   bufferSize:
     small: ${REACTOR_BUFFER_SIZE:256}
 
+springdoc.swagger-ui.path: "/swagger-ui/index.html"
+
 spring:
   application:
     name: "@project.artifactId@"
@@ -14,9 +16,9 @@ spring:
     activate:
       on-profile: default
   cloud:
+    function:
+      definition: rewardTrxConsumer;errors
     stream:
-      function:
-        definition: rewardTrxConsumer;errors
       bindings:
         rewardTrxConsumer-in-0:
           destination: ${KAFKA_TRANSACTION_TOPIC:idpay-transaction}
