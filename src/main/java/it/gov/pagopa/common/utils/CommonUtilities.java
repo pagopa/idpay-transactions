@@ -4,7 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectReader;
 import org.springframework.messaging.Message;
 
+import java.math.BigDecimal;
 import java.util.function.Consumer;
+
 
 public final class CommonUtilities {
     private CommonUtilities(){}
@@ -35,5 +37,11 @@ public final class CommonUtilities {
     @SuppressWarnings("unchecked")
     public static <T> T getHeaderValue(Message<?> message, String headerName) {
         return  (T)message.getHeaders().get(headerName);
+    }
+
+    public static final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100);
+    /** To convert euro into cents */
+    public static Long euroToCents(BigDecimal euro){
+        return euro == null? null : euro.multiply(ONE_HUNDRED).longValue();
     }
 }
