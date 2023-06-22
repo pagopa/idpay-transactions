@@ -29,7 +29,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.repository.ReactiveMongoRepository;
 import org.springframework.data.mongodb.repository.query.MongoEntityInformation;
 import org.springframework.data.mongodb.repository.support.MappingMongoEntityInformation;
-import org.springframework.data.util.ClassTypeInformation;
+import org.springframework.data.util.TypeInformation;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
@@ -87,7 +87,7 @@ class BaseReactiveMongoRepositoryTestIntegrated {
 
         @Bean
         public TestRepository configureTestRepository(ReactiveMongoOperations mongoOperations) throws NoSuchFieldException {
-            ClassTypeInformation<TestCollection> testTypeInformation = ClassTypeInformation.from(TestCollection.class);
+            TypeInformation<TestCollection> testTypeInformation = TypeInformation.of(TestCollection.class);
             BasicMongoPersistentEntity<TestCollection> testPersistentEntity = new BasicMongoPersistentEntity<>(testTypeInformation);
             testPersistentEntity.addPersistentProperty(new BasicMongoPersistentProperty(
                     Property.of(testTypeInformation, TestCollection.class.getDeclaredField("id")),

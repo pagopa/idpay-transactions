@@ -2,12 +2,12 @@ package it.gov.pagopa.idpay.transactions.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import it.gov.pagopa.common.kafka.utils.KafkaConstants;
+import it.gov.pagopa.common.utils.TestUtils;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionDTOFaker;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
-import it.gov.pagopa.common.utils.TestUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,7 +56,7 @@ class PersistenceTransactionMediatorImplTest {
                 .map(TestUtils::jsonSerializer)
                 .map(payload -> MessageBuilder
                         .withPayload(payload)
-                        .setHeader(KafkaHeaders.RECEIVED_PARTITION_ID, 0)
+                        .setHeader(KafkaHeaders.RECEIVED_PARTITION, 0)
                         .setHeader(KafkaHeaders.OFFSET, 0L)
                         .build()
                 );
@@ -81,7 +81,7 @@ class PersistenceTransactionMediatorImplTest {
         // Given
         Flux<Message<String>> messageFlux = Flux.just(MessageBuilder
                 .withPayload("Error message")
-                .setHeader(KafkaHeaders.RECEIVED_PARTITION_ID, 0)
+                .setHeader(KafkaHeaders.RECEIVED_PARTITION, 0)
                 .setHeader(KafkaHeaders.OFFSET, 0L)
                 .build());
 
@@ -105,7 +105,7 @@ class PersistenceTransactionMediatorImplTest {
                 .map(TestUtils::jsonSerializer)
                 .map(payload -> MessageBuilder
                         .withPayload(payload)
-                        .setHeader(KafkaHeaders.RECEIVED_PARTITION_ID, 0)
+                        .setHeader(KafkaHeaders.RECEIVED_PARTITION, 0)
                         .setHeader(KafkaHeaders.OFFSET, 0L)
                 )
                 .doOnNext(m->m.setHeader(KafkaConstants.ERROR_MSG_HEADER_APPLICATION_NAME, "otherAppName".getBytes(StandardCharsets.UTF_8)))
