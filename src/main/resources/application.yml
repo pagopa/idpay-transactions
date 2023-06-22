@@ -121,3 +121,12 @@ logging:
     org.kie: ${LOG_LEVEL_ORG_KIE:WARN}
     org.drools: ${LOG_LEVEL_ORG_DROOLS:WARN}
     org.mongodb.driver: ${LOG_LEVEL_MONGODB_DRIVER:WARN}
+
+app:
+  pdv:
+    base-url: ${PDV_BASE_URL:https://api.uat.tokenizer.pdv.pagopa.it/tokenizer/v1}
+    headers:
+      x-api-key: ${PDV_DECRYPT_API_KEY:x_api_key}
+    retry:
+      delay-millis: ${PDV_RETRY_DELAY_MILLIS:2000}
+      max-attempts: ${PDV_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:10}}
