@@ -68,3 +68,4 @@ microservice-chart:
     MONGODB_URI: mongodb-connection-string
     EVH_CONNECTION_REWARD_RESPONSE: evh-idpay-transaction-idpay-transaction-consumer-jaas-config-idpay-01
     KAFKA_ERRORS_SASL_JAAS_CONFIG: evh-idpay-errors-idpay-errors-producer-jaas-config-idpay-01
+    PDV_DECRYPT_API_KEY: pdv-api-key
