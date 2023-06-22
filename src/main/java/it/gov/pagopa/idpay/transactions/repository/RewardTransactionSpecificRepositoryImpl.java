@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -11,11 +12,16 @@ import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 
 @Slf4j
 public class RewardTransactionSpecificRepositoryImpl implements RewardTransactionSpecificRepository{
     private final ReactiveMongoTemplate mongoTemplate;
+    private static final List<String> TRANSACTIONS_EXPOSED_STATUS = Arrays.asList(
+            "CANCELLED",
+            "REWARDED"
+    );
 
     public RewardTransactionSpecificRepositoryImpl(ReactiveMongoTemplate mongoTemplate) {
         this.mongoTemplate = mongoTemplate;
@@ -75,15 +81,19 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         if (userId != null) {
             criteria.and(RewardTransaction.Fields.userId).is(userId);
         }
-        criteria.and(RewardTransaction.Fields.status).in(List.of("REWARDED", "CANCELLED"));
         if (status != null) {
             criteria.and(RewardTransaction.Fields.status).is(status);
+        } else {
+            criteria.and(RewardTransaction.Fields.status).in(TRANSACTIONS_EXPOSED_STATUS);
         }
         return criteria;
     }
 
     @Override
     public Flux<RewardTransaction> findByFilter(String merchantId, String initiativeId, String userId, String status, Pageable pageable){
+        if (StringUtils.isNotBlank(status) && !TRANSACTIONS_EXPOSED_STATUS.contains(status)) {
+            return Flux.empty();
+        }
         Criteria criteria = getCriteria(merchantId, initiativeId, userId, status);
         return mongoTemplate.find(Query.query(criteria).with(getPageable(pageable)), RewardTransaction.class);
     }

@@ -1,4 +1,4 @@
-package it.gov.pagopa.idpay.transactions.dto.trxmerchant;
+package it.gov.pagopa.idpay.transactions.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;

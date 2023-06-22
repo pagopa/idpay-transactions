@@ -1,6 +1,6 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
-import it.gov.pagopa.idpay.transactions.dto.trxmerchant.MerchantTransactionsListDTO;
+import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;

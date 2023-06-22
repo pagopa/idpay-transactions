@@ -1,6 +1,6 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
-import it.gov.pagopa.idpay.transactions.dto.trxmerchant.MerchantTransactionsListDTO;
+import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
 import it.gov.pagopa.idpay.transactions.service.MerchantTransactionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
