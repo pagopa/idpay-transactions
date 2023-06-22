@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -58,7 +59,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
     private Mono<Tuple2<List<MerchantTransactionDTO>, Long>> getMerchantTransactionDTOs(String merchantId, String initiativeId, String status, Pageable pageable, String userId, String fiscalCode) {
         return rewardTransactionRepository.findByFilter(merchantId, initiativeId, userId, status, pageable)
                 .flatMap(t -> createMerchantTransactionDTO(initiativeId, t, fiscalCode))
-                .collectList()
+                .collectSortedList(Comparator.comparing(MerchantTransactionDTO::getElaborationDateTime).reversed())
                 .zipWith(rewardTransactionRepository.getCount(merchantId, initiativeId, userId, status));
     }
 
@@ -67,9 +68,9 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
         MerchantTransactionDTO out = MerchantTransactionDTO.builder()
                 .trxId(transaction.getId())
                 .effectiveAmount(transaction.getAmountCents())
-                .rewardAmount(CommonUtilities.euroToCents(transaction.getRewards().get(initiativeId).getProvidedReward()))
+                .rewardAmount(Math.abs(CommonUtilities.euroToCents(transaction.getRewards().get(initiativeId).getProvidedReward())))
                 .trxDate(transaction.getTrxDate())
-                .updateDate(transaction.getElaborationDateTime())
+                .elaborationDateTime(transaction.getElaborationDateTime())
                 .status(transaction.getStatus())
                 .build();
         if (StringUtils.isNotBlank(fiscalCode)){
