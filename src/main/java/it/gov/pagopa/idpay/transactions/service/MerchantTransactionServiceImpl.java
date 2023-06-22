@@ -67,7 +67,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
         MerchantTransactionDTO out = MerchantTransactionDTO.builder()
                 .trxId(transaction.getId())
                 .effectiveAmount(transaction.getAmountCents())
-                .effectiveReward(CommonUtilities.euroToCents(transaction.getRewards().get(initiativeId).getProvidedReward()))
+                .rewardAmount(CommonUtilities.euroToCents(transaction.getRewards().get(initiativeId).getProvidedReward()))
                 .trxDate(transaction.getTrxDate())
                 .updateDate(transaction.getElaborationDateTime())
                 .status(transaction.getStatus())

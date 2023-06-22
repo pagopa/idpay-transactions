@@ -18,7 +18,7 @@ public class MerchantTransactionDTO {
     String trxId;
     String fiscalCode;
     Long effectiveAmount;
-    Long effectiveReward;
+    Long rewardAmount;
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     LocalDateTime trxDate;
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
