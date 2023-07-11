@@ -1,0 +1,19 @@
+{
+  "request": {
+    "method": "PUT",
+    "urlPathPattern": "/tokens"
+  },
+  "response": {
+    "status": "429",
+    "jsonBody": {
+      "type": "type",
+      "title": "Too many request",
+      "status": "429",
+      "details": "details",
+      "instance": "instance"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}
