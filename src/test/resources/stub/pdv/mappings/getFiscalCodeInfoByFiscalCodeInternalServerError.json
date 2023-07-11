@@ -1,0 +1,24 @@
+{
+  "request": {
+    "method": "PUT",
+    "urlPathPattern": "/tokens",
+    "headers": {
+      "x-api-key": {
+        "matches": "x_api_key([0-9]?)+"
+      }
+    }
+  },
+  "response": {
+    "status": "500",
+    "jsonBody": {
+      "type": "type",
+      "title": "Internal server error",
+      "status": "500",
+      "details": "details",
+      "instance": "instance"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

@@ -105,6 +105,7 @@ logging:
     root: ${LOG_LEVEL_ROOT:INFO}
     it.gov.pagopa: ${LOG_LEVEL_PAGOPA:INFO}
     it.gov.pagopa.idpay: ${LOG_LEVEL_IDPAY:INFO}
+    it.gov.pagopa.transactions: ${LOG_LEVEL_TRANSACTIONS:INFO}
     it.gov.pagopa.idpay.transactions.service.BaseKafkaConsumer: ${LOG_LEVEL_BASE_KAFKA_CONSUMER:INFO}
     org.springframework.integration: ${LOG_LEVEL_SPRING_INTEGRATION:INFO}
     org.springframework.security: ${LOG_LEVEL_SPRING_SECURITY:INFO}

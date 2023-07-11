@@ -1,9 +1,9 @@
-package it.gov.pagopa.idpay.transactions.connector.pdvuser;
+package it.gov.pagopa.idpay.transactions.connector.rest;
 
 import it.gov.pagopa.common.reactive.utils.PerformanceLogger;
-import it.gov.pagopa.idpay.transactions.connector.pdvuser.dto.CFDTO;
-import it.gov.pagopa.idpay.transactions.connector.pdvuser.dto.FiscalCodeInfoPDV;
-import it.gov.pagopa.idpay.transactions.connector.pdvuser.dto.UserInfoPDV;
+import it.gov.pagopa.idpay.transactions.connector.rest.dto.CFDTO;
+import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
+import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -98,11 +98,11 @@ public class UserRestClientImpl implements UserRestClient {
                 )
 
                 .onErrorResume(WebClientResponseException.NotFound.class, x -> {
-                    log.warn("userId not found into pdv: {}", fiscalCode);
+                    log.warn("fiscal code not found into pdv");
                     return Mono.empty();
                 })
                 .onErrorResume(WebClientResponseException.BadRequest.class, x -> {
-                    log.warn("userId not valid: {}", fiscalCode);
+                    log.warn("fiscal code not valid");
                     return Mono.empty();
                 });
     }

@@ -1,0 +1,19 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/tokens/(USERID_BADREQUEST_[0-9]+)/pii"
+  },
+  "response": {
+    "status": "400",
+    "jsonBody": {
+      "type": "type",
+      "title": "Bad request",
+      "status": "400",
+      "details": "details",
+      "instance": "instance"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

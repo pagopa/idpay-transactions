@@ -1,0 +1,19 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/tokens/(USERID_TOOMANYREQUEST_[0-9]+)/pii"
+  },
+  "response": {
+    "status": "429",
+    "jsonBody": {
+      "type": "type",
+      "title": "Too many request",
+      "status": "429",
+      "details": "details",
+      "instance": "instance"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}
