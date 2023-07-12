@@ -11,16 +11,10 @@ import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
 
 @Slf4j
 public class RewardTransactionSpecificRepositoryImpl implements RewardTransactionSpecificRepository{
     private final ReactiveMongoTemplate mongoTemplate;
-    private static final List<String> TRANSACTIONS_EXPOSED_STATUS = Arrays.asList(
-            "CANCELLED",
-            "REWARDED"
-    );
 
     public RewardTransactionSpecificRepositoryImpl(ReactiveMongoTemplate mongoTemplate) {
         this.mongoTemplate = mongoTemplate;
