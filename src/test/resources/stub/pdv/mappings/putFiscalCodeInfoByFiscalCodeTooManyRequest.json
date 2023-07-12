@@ -1,0 +1,26 @@
+{
+  "request": {
+    "method": "PUT",
+    "urlPathPattern": "/tokens",
+    "bodyPatterns": [
+      {
+        "equalToJson": {
+          "pii": "FC_TOOMANYREQUEST_1"
+        }
+      }
+    ]
+  },
+  "response": {
+    "status": "429",
+    "jsonBody": {
+      "type": "type",
+      "title": "Too many request",
+      "status": "429",
+      "details": "details",
+      "instance": "instance"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

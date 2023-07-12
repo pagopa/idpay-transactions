@@ -1,4 +1,4 @@
-package it.gov.pagopa.idpay.transactions.connector.pdvuser.dto;
+package it.gov.pagopa.idpay.transactions.connector.rest.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

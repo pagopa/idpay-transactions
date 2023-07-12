@@ -1,0 +1,27 @@
+{
+  "request": {
+    "method": "PUT",
+    "urlPathPattern": "/tokens",
+    "bodyPatterns": [
+      {
+        "equalToJson": {
+          "pii": "FC_OK_1"
+        }
+      }
+    ],
+    "headers": {
+      "x-api-key": {
+        "matches": "x_api_key([0-9]?)+"
+      }
+    }
+  },
+  "response": {
+    "status": "200",
+    "jsonBody": {
+      "token": "userId"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}
