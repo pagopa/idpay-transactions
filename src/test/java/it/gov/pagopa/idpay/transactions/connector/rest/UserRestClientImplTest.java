@@ -5,6 +5,8 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.web.reactive.function.client.WebClientException;
@@ -29,28 +31,12 @@ class UserRestClientImplTest extends BaseIntegrationTest {
         Assertions.assertEquals("fiscalCode",result.getPii());
     }
 
-    @Test
-    void retrieveUserInfoNotFound() {
-        String userId = "USERID_NOTFOUND_1";
+    @ParameterizedTest
+    @ValueSource(strings = {"USERID_NOTFOUND_1", "USERID_NOTVALID_1", "USERID_BADREQUEST_1"})
+    void retrieveUserInfo_NotFound_NotValid_BadRequest(String userId) {
 
-        try{
-            userRestClient.retrieveUserInfo(userId).block();
-        }catch (Throwable e){
-            Assertions.assertTrue(e instanceof WebClientException);
-            Assertions.assertEquals(WebClientResponseException.NotFound.class,e.getClass());
-        }
-    }
-
-    @Test
-    void retrieveUserInfoNotValid() {
-        String userId = "USERID_NOTVALID_1";
-
-        try{
-            userRestClient.retrieveUserInfo(userId).block();
-        }catch (Throwable e){
-            Assertions.assertTrue(e instanceof WebClientException);
-            Assertions.assertEquals(WebClientResponseException.BadRequest.class,e.getClass());
-        }
+        UserInfoPDV result = userRestClient.retrieveUserInfo(userId).block();
+        Assertions.assertNull(result);
     }
 
     @Test
@@ -59,21 +45,10 @@ class UserRestClientImplTest extends BaseIntegrationTest {
 
         try{
             userRestClient.retrieveUserInfo(userId).block();
+            Assertions.fail();
         }catch (Throwable e){
             Assertions.assertTrue(e instanceof WebClientException);
             Assertions.assertEquals(WebClientResponseException.InternalServerError.class,e.getClass());
-        }
-    }
-
-    @Test
-    void retrieveUserInfoBadRequest() {
-        String userId = "USERID_BADREQUEST_1";
-
-        try{
-            userRestClient.retrieveUserInfo(userId).block();
-        }catch (Throwable e){
-            Assertions.assertTrue(e instanceof WebClientException);
-            Assertions.assertEquals(WebClientResponseException.BadRequest.class,e.getClass());
         }
     }
 
@@ -83,6 +58,7 @@ class UserRestClientImplTest extends BaseIntegrationTest {
 
         try{
             userRestClient.retrieveUserInfo(userId).block();
+            Assertions.fail();
         }catch (Throwable e){
             Assertions.assertTrue(Exceptions.isRetryExhausted(e));
         }
@@ -94,6 +70,7 @@ class UserRestClientImplTest extends BaseIntegrationTest {
 
         try{
             userRestClient.retrieveUserInfo(userId).block();
+            Assertions.fail();
         }catch (Throwable e){
             e.printStackTrace();
             Assertions.assertTrue(e instanceof WebClientException);
@@ -111,28 +88,11 @@ class UserRestClientImplTest extends BaseIntegrationTest {
         Assertions.assertEquals("userId", result.getToken());
     }
 
-    @Test
-    void retrieveFiscalCodeInfoNotFound() {
-        String fiscalCode = "FC_NOTFOUND_1";
-
-        try{
-            userRestClient.retrieveFiscalCodeInfo(fiscalCode).block();
-        }catch (Throwable e){
-            Assertions.assertTrue(e instanceof WebClientException);
-            Assertions.assertEquals(WebClientResponseException.NotFound.class,e.getClass());
-        }
-    }
-
-    @Test
-    void retrieveFiscalCodeInfoNotValid() {
-        String fiscalCode = "FC_NOTVALID_1";
-
-        try{
-            userRestClient.retrieveFiscalCodeInfo(fiscalCode).block();
-        }catch (Throwable e){
-            Assertions.assertTrue(e instanceof WebClientException);
-            Assertions.assertEquals(WebClientResponseException.BadRequest.class,e.getClass());
-        }
+    @ParameterizedTest
+    @ValueSource(strings = {"FC_NOTFOUND_1", "FC_NOTVALID_1", "FC_BADREQUEST_1"})
+    void retrieveFiscalCodeInfo_NotFound_NotValid_BadRequest(String fiscalCode) {
+        FiscalCodeInfoPDV result = userRestClient.retrieveFiscalCodeInfo(fiscalCode).block();
+        Assertions.assertNull(result);
     }
 
     @Test
@@ -141,21 +101,10 @@ class UserRestClientImplTest extends BaseIntegrationTest {
 
         try{
             userRestClient.retrieveFiscalCodeInfo(fiscalCode).block();
+            Assertions.fail();
         }catch (Throwable e){
             Assertions.assertTrue(e instanceof WebClientException);
             Assertions.assertEquals(WebClientResponseException.InternalServerError.class,e.getClass());
-        }
-    }
-
-    @Test
-    void retrieveFiscalCodeInfoBadRequest() {
-        String fiscalCode = "FC_BADREQUEST_1";
-
-        try{
-            userRestClient.retrieveFiscalCodeInfo(fiscalCode).block();
-        }catch (Throwable e){
-            Assertions.assertTrue(e instanceof WebClientException);
-            Assertions.assertEquals(WebClientResponseException.BadRequest.class,e.getClass());
         }
     }
 
@@ -165,6 +114,7 @@ class UserRestClientImplTest extends BaseIntegrationTest {
 
         try{
             userRestClient.retrieveFiscalCodeInfo(fiscalCode).block();
+            Assertions.fail();
         }catch (Throwable e){
             Assertions.assertTrue(Exceptions.isRetryExhausted(e));
         }
@@ -176,6 +126,7 @@ class UserRestClientImplTest extends BaseIntegrationTest {
 
         try{
             userRestClient.retrieveFiscalCodeInfo(fiscalCode).block();
+            Assertions.fail();
         }catch (Throwable e){
             e.printStackTrace();
             Assertions.assertTrue(e instanceof WebClientException);

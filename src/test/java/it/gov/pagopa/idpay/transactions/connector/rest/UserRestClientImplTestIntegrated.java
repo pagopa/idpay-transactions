@@ -1,14 +1,13 @@
 package it.gov.pagopa.idpay.transactions.connector.rest;
 
 import it.gov.pagopa.idpay.transactions.BaseIntegrationTest;
+import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.web.reactive.function.client.WebClientException;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 /**
  * See confluence page: <a href="https://pagopa.atlassian.net/wiki/spaces/IDPAY/pages/615974424/Secrets+UnitTests">Secrets for UnitTests</a>
@@ -25,12 +24,14 @@ class UserRestClientImplTestIntegrated extends BaseIntegrationTest {
     @Autowired
     private UserRestClient userRestClient;
 
-    @Value("${app.pdv.userIdOk:02105b50-9a81-4cd2-8e17-6573ebb09196}")
+    @Value("${app.pdv.userIdOk:2c2a70cb-d0dd-4c1d-89ca-45dc93798fff}")
     private String userIdOK;
-    @Value("${app.pdv.userFiscalCodeExpected:125}")
+    @Value("${app.pdv.userFiscalCodeExpected:RNZPMP80A44X000M}")
     private String fiscalCodeOKExpected;
     @Value("${app.pdv.userIdNotFound:02105b50-9a81-4cd2-8e17-6573ebb09195}")
     private String userIdNotFound;
+    @Value("${app.pdv.userIdNotFound:02105b50-9a81-4cd2-8e17-6573ebb09195AAAA}")
+    private String userIdNotValid;
 
     @Test
     void retrieveUserInfoOk() {
@@ -43,11 +44,23 @@ class UserRestClientImplTestIntegrated extends BaseIntegrationTest {
 
     @Test
     void retrieveUserInfoNotFound() {
-        try {
-            userRestClient.retrieveUserInfo(userIdNotFound).block();
-        } catch (Throwable e) {
-            Assertions.assertTrue(e instanceof WebClientException);
-            Assertions.assertEquals(WebClientResponseException.NotFound.class, e.getClass());
-        }
+        UserInfoPDV result = userRestClient.retrieveUserInfo(userIdNotFound).block();
+        Assertions.assertNull(result);
     }
+
+    @Test
+    void retrieveUserInfoNotValid() {
+        UserInfoPDV result = userRestClient.retrieveUserInfo(userIdNotValid).block();
+        Assertions.assertNull(result);
+    }
+
+    @Test
+    void retrieveFiscalCodeInfoOk() {
+        FiscalCodeInfoPDV result = userRestClient.retrieveFiscalCodeInfo(fiscalCodeOKExpected).block();
+
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(userIdOK, result.getToken());
+
+    }
+
 }

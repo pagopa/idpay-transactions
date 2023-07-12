@@ -2,6 +2,13 @@
   "request": {
     "method": "PUT",
     "urlPathPattern": "/tokens",
+    "bodyPatterns": [
+      {
+        "equalToJson": {
+          "pii": "FC_NOTVALID_1"
+        }
+      }
+    ],
     "headers": {
       "x-api-key": {
         "matches": "x_api_key([0-9]?)+"
@@ -9,11 +16,11 @@
     }
   },
   "response": {
-    "status": "403",
+    "status": "400",
     "jsonBody": {
       "type": "type",
-      "title": "Forbidden",
-      "status": "403",
+      "title": "Bad Request",
+      "status": "400",
       "details": "details",
       "instance": "instance"
     },
