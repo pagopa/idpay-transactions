@@ -74,6 +74,8 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         }
         if (status != null) {
             criteria.and(RewardTransaction.Fields.status).is(status);
+        } else {
+            criteria.and(RewardTransaction.Fields.status).in("CANCELLED", "REWARDED");
         }
         return criteria;
     }
