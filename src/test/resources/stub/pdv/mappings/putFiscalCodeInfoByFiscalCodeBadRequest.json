@@ -1,0 +1,26 @@
+{
+  "request": {
+    "method": "PUT",
+    "urlPathPattern": "/tokens",
+    "bodyPatterns": [
+      {
+        "equalToJson": {
+          "pii": "FC_BADREQUEST_1"
+        }
+      }
+    ]
+  },
+  "response": {
+    "status": "400",
+    "jsonBody": {
+      "type": "type",
+      "title": "Bad request",
+      "status": "400",
+      "details": "details",
+      "instance": "instance"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

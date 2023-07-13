@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.WireMockServer;
 import it.gov.pagopa.common.kafka.KafkaTestUtilitiesService;
 import it.gov.pagopa.common.mongo.MongoTestUtilitiesService;
 import it.gov.pagopa.common.stream.StreamsHealthIndicator;
@@ -17,6 +18,7 @@ import org.springframework.boot.actuate.health.Status;
 import org.springframework.boot.test.autoconfigure.data.mongo.AutoConfigureDataMongo;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.cloud.contract.wiremock.AutoConfigureWireMock;
 import org.springframework.data.util.Pair;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.test.context.TestPropertySource;
@@ -52,13 +54,26 @@ import java.util.regex.Pattern;
                 "spring.cloud.stream.binders.kafka-errors.environment.spring.cloud.stream.kafka.binder.brokers=${spring.embedded.kafka.brokers}",
                 //endregion
 
+                //region pdv
+                "app.pdv.retry.delay-millis=5000",
+                "app.pdv.retry.max-attempts=3",
+                //endregion
+
                 //region mongodb
                 "logging.level.org.mongodb.driver=WARN",
                 "logging.level.de.flapdoodle.embed.mongo.spring.autoconfigure=WARN",
                 "de.flapdoodle.mongodb.embedded.version=4.0.21",
                 //endregion
+
+                //region wiremock
+                "logging.level.WireMock=ERROR",
+                "app.pdv.base-url=http://localhost:${wiremock.server.port}",
+                //endregion
+
+                "org.springframework.boot.test.context.SpringBootTestContextBootstrapper=true"
         })
 @AutoConfigureDataMongo
+@AutoConfigureWireMock(stubs = "classpath:/stub", port = 0)
 @AutoConfigureWebTestClient
 public abstract class BaseIntegrationTest {
 
@@ -81,6 +96,9 @@ public abstract class BaseIntegrationTest {
     @Value("${spring.cloud.stream.bindings.rewardTrxConsumer-in-0.group}")
     protected String groupIdTransactionConsumer;
 
+    @Autowired
+    private WireMockServer wireMockServer;
+
     @BeforeAll
     public static void unregisterPreviouslyKafkaServers() throws MalformedObjectNameException, MBeanRegistrationException, InstanceNotFoundException {
         TestIntegrationUtils.setDefaultTimeZoneAndUnregisterCommonMBean();
@@ -92,10 +110,15 @@ public abstract class BaseIntegrationTest {
                         ************************
                         Embedded mongo: %s
                         Embedded kafka: %s
+                        Wiremock HTTP: http://localhost:%s
+                        Wiremock HTTPS: %s
                         ************************
                         """,
                 mongoTestUtilitiesService.getMongoUrl(),
-                kafkaTestUtilitiesService.getKafkaUrls());
+                kafkaTestUtilitiesService.getKafkaUrls(),
+                wireMockServer.getOptions().portNumber(),
+                wireMockServer.baseUrl());
+
     }
 
     @Test
