@@ -1,0 +1,31 @@
+{
+  "request": {
+    "method": "PUT",
+    "urlPathPattern": "/tokens",
+    "bodyPatterns": [
+      {
+        "equalToJson": {
+          "pii": "FC_NOTFOUND_1"
+        }
+      }
+    ],
+    "headers": {
+      "x-api-key": {
+        "matches": "x_api_key([0-9]?)+"
+      }
+    }
+  },
+  "response": {
+    "status": "404",
+    "jsonBody": {
+      "type": "type",
+      "title": "Not found",
+      "status": "404",
+      "details": "details",
+      "instance": "instance"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

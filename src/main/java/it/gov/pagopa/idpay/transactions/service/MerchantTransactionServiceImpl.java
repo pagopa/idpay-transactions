@@ -1,9 +1,9 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.common.utils.CommonUtilities;
-import it.gov.pagopa.idpay.transactions.connector.pdvuser.UserRestClient;
-import it.gov.pagopa.idpay.transactions.connector.pdvuser.dto.FiscalCodeInfoPDV;
-import it.gov.pagopa.idpay.transactions.connector.pdvuser.dto.UserInfoPDV;
+import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
+import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
