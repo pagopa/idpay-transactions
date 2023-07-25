@@ -261,6 +261,8 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
         Flux<RewardTransaction> transactionInProgressList = rewardTransactionRepository.findByFilter(MERCHANT_ID, INITIATIVE_ID, USER_ID, "CANCELLED", paging);
         List<RewardTransaction> result = transactionInProgressList.toStream().toList();
         assertEquals(rt1, result.get(0));
+
+        cleanDataPageable();
     }
 
     @Test
@@ -274,6 +276,8 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
         rewardTransactionRepository.save(rt1).block();
         Mono<Long> count = rewardTransactionRepository.getCount(MERCHANT_ID, INITIATIVE_ID, null, null);
         assertEquals(1, count.block());
+
+        cleanDataPageable();
     }
 
     @NotNull

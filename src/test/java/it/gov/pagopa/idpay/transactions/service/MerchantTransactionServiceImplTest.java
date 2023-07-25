@@ -62,7 +62,7 @@ class MerchantTransactionServiceImplTest {
         MerchantTransactionDTO merchantTransaction1 = MerchantTransactionDTO.builder()
                 .trxId(rt1.getId())
                 .effectiveAmount(rt1.getAmountCents())
-                .rewardAmount(CommonUtilities.euroToCents(rt1.getRewards().get(INITIATIVE_ID).getProvidedReward()))
+                .rewardAmount(CommonUtilities.euroToCents(rt1.getRewards().get(INITIATIVE_ID).getAccruedReward()))
                 .fiscalCode(FISCAL_CODE)
                 .status(rt1.getStatus())
                 .elaborationDateTime(rt1.getElaborationDateTime())
@@ -73,7 +73,6 @@ class MerchantTransactionServiceImplTest {
                 .content(List.of(merchantTransaction1))
                 .pageSize(10).totalElements(1).totalPages(1).build();
 
-        UserInfoPDV userId = new UserInfoPDV(FISCAL_CODE);
         FiscalCodeInfoPDV fiscalCode = new FiscalCodeInfoPDV(USER_ID);
         Pageable paging = PageRequest.of(0, 10, Sort.by(RewardTransaction.Fields.elaborationDateTime).descending());
 
@@ -100,7 +99,7 @@ class MerchantTransactionServiceImplTest {
         MerchantTransactionDTO merchantTransaction1 = MerchantTransactionDTO.builder()
                 .trxId(rt1.getId())
                 .effectiveAmount(rt1.getAmountCents())
-                .rewardAmount(CommonUtilities.euroToCents(rt1.getRewards().get(INITIATIVE_ID).getProvidedReward()))
+                .rewardAmount(CommonUtilities.euroToCents(rt1.getRewards().get(INITIATIVE_ID).getAccruedReward()))
                 .fiscalCode(FISCAL_CODE)
                 .status(rt1.getStatus())
                 .elaborationDateTime(rt1.getElaborationDateTime())
@@ -112,7 +111,6 @@ class MerchantTransactionServiceImplTest {
                 .pageSize(10).totalElements(1).totalPages(1).build();
 
         UserInfoPDV userId = new UserInfoPDV(FISCAL_CODE);
-        FiscalCodeInfoPDV fiscalCode = new FiscalCodeInfoPDV(USER_ID);
         Pageable paging = PageRequest.of(0, 10, Sort.by(RewardTransaction.Fields.elaborationDateTime).descending());
 
         Mockito.when(userRestClient.retrieveUserInfo(anyString())).thenReturn(Mono.just(userId));
