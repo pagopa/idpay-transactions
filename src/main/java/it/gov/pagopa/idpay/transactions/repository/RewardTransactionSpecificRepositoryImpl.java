@@ -66,9 +66,8 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     private Criteria getCriteria(String merchantId, String initiativeId, String userId, String status) {
-        String rewardedInitiativeIdField = "%s.%s".formatted(RewardTransaction.Fields.rewards, initiativeId);
         Criteria criteria = Criteria.where(RewardTransaction.Fields.merchantId).is(merchantId)
-                .and(rewardedInitiativeIdField).exists(true);
+                .and(RewardTransaction.Fields.initiatives).is(initiativeId);
         if (userId != null) {
             criteria.and(RewardTransaction.Fields.userId).is(userId);
         }

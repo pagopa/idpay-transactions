@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.List;
 
 @Service
 public class RewardTransactionMapper {
@@ -50,7 +51,7 @@ public class RewardTransactionMapper {
             rewardTrx.setStatus(rewardTrxDto.getStatus());
             rewardTrx.setRejectionReasons(rewardTrxDto.getRejectionReasons());
             rewardTrx.setInitiativeRejectionReasons(rewardTrxDto.getInitiativeRejectionReasons());
-            rewardTrx.setInitiatives(rewardTrxDto.getInitiatives());
+            rewardTrx.setInitiatives(rewardTrxDto.getInitiativeId() != null ? List.of(rewardTrxDto.getInitiativeId()) : rewardTrxDto.getInitiatives());
             rewardTrx.setRewards(rewardTrxDto.getRewards());
             rewardTrx.setUserId(rewardTrxDto.getUserId());
             rewardTrx.setMaskedPan(rewardTrxDto.getMaskedPan());
