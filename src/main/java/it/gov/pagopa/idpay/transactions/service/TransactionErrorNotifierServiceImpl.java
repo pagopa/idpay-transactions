@@ -17,18 +17,34 @@ public class TransactionErrorNotifierServiceImpl implements TransactionErrorNoti
     private final String trxTopic;
     private final String trxGroup;
 
+    private final String rewardCommandsServiceType;
+    private final String rewardCommandsServer;
+    private final String rewardCommandsTopic;
+    private final String rewardCommandsGroup;
+
     public TransactionErrorNotifierServiceImpl(ErrorNotifierService errorNotifierService,
 
                                                @Value("${spring.cloud.stream.binders.kafka-transactions.type}") String trxMessagingServiceType,
                                                @Value("${spring.cloud.stream.binders.kafka-transactions.environment.spring.cloud.stream.kafka.binder.brokers}") String trxServer,
                                                @Value("${spring.cloud.stream.bindings.rewardTrxConsumer-in-0.destination}") String trxTopic,
-                                               @Value("${spring.cloud.stream.bindings.rewardTrxConsumer-in-0.group}") String trxGroup) {
+                                               @Value("${spring.cloud.stream.bindings.rewardTrxConsumer-in-0.group}") String trxGroup,
+
+                                               @Value("${spring.cloud.stream.binders.kafka-commands.type}") String transactionsCommandsServiceType,
+                                               @Value("${spring.cloud.stream.binders.kafka-commands.environment.spring.cloud.stream.kafka.binder.brokers}") String transactionsCommandsServer,
+                                               @Value("${spring.cloud.stream.bindings.consumerCommands-in-0.destination}") String transactionsCommandsTopic,
+                                               @Value("${spring.cloud.stream.bindings.consumerCommands-in-0.group}") String transactionsCommandsGroup
+    ) {
         this.errorNotifierService = errorNotifierService;
 
         this.trxMessagingServiceType = trxMessagingServiceType;
         this.trxServer = trxServer;
         this.trxTopic = trxTopic;
         this.trxGroup = trxGroup;
+
+        this.rewardCommandsServiceType = transactionsCommandsServiceType;
+        this.rewardCommandsServer = transactionsCommandsServer;
+        this.rewardCommandsTopic = transactionsCommandsTopic;
+        this.rewardCommandsGroup = transactionsCommandsGroup;
     }
 
     @Override
@@ -39,5 +55,10 @@ public class TransactionErrorNotifierServiceImpl implements TransactionErrorNoti
     @Override
     public void notify(String srcType, String srcServer, String srcTopic, String group, Message<?> message, String description, boolean retryable,boolean resendApplication, Throwable exception) {
         errorNotifierService.notify(srcType, srcServer, srcTopic, group, message, description, retryable,resendApplication, exception);
+    }
+
+    @Override
+    public void notifyRewardCommands(Message<String> message, String description, boolean retryable, Throwable exception) {
+        notify(rewardCommandsServiceType, rewardCommandsServer, rewardCommandsTopic, rewardCommandsGroup, message, description, retryable, true, exception);
     }
 }

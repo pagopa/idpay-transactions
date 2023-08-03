@@ -1,11 +1,13 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
+import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -89,5 +91,26 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     public Mono<Long> getCount(String merchantId, String initiativeId, String userId, String status) {
         Criteria criteria = getCriteria(merchantId, initiativeId, userId, status);
         return mongoTemplate.count(Query.query(criteria), RewardTransaction.class);
+    }
+
+    @Override
+    public Mono<RewardTransaction> findOneByInitiativeId(String initiativeId) {
+        Criteria criteria = Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId);
+        return mongoTemplate.findOne(Query.query(criteria), RewardTransaction.class);
+    }
+
+    @Override
+    public Flux<RewardTransaction> deleteByInitiativeId(String initiativeId) {
+        Criteria criteria = Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId);
+        return mongoTemplate.findAllAndRemove(Query.query(criteria), RewardTransaction.class);
+    }
+
+    @Override
+    public Mono<UpdateResult> findAndRemoveInitiativeOnTransaction(String initiativeId) {
+        Criteria criteria = Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId);
+        return mongoTemplate.updateMulti(Query.query(criteria),
+                new Update().pull(RewardTransaction.Fields.initiatives, initiativeId),
+                RewardTransaction.class);
+
     }
 }
