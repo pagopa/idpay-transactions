@@ -29,7 +29,7 @@ import java.util.stream.IntStream;
         "logging.level.it.gov.pagopa.idpay.transactions.service.commands.CommandsMediatorServiceImpl=WARN",
         "logging.level.it.gov.pagopa.idpay.transactions.service.commands.ops.DeleteInitiativeServiceImpl=WARN",
 })
-class CommandsConsumerConfigTest extends BaseIntegrationTest {
+class CommandsConsumerConfigIntegrationTest extends BaseIntegrationTest {
     private static final int VALID_USE_CASES = 3;
     private static final int NUMBER_TRX = 3;
     private final String INITIATIVEID = "INITIATIVEID_%d";

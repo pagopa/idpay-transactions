@@ -37,8 +37,8 @@ spring:
         consumerCommands-in-0:
           binder: kafka-commands
           content-type: ${KAFKA_CONTENT_TYPE:application/json}
-          destination: ${KAFKA_TOPIC_COMMANDS:idpay-commands}
-          group: ${KAFKA_NOTIFICATION_GROUP_IN:idpay-commands-transactions-consumer-group}
+          destination: ${KAFKA_COMMANDS_TOPIC:idpay-commands}
+          group: ${KAFKA_NOTIFICATION_GROUP_ID:idpay-commands-transactions-consumer-group}
       binders:
         kafka-transactions:
           type: kafka
