@@ -56,12 +56,12 @@ public class CommandsMediatorServiceImpl extends BaseKafkaConsumer<QueueCommandO
 
     @Override
     protected Consumer<Throwable> onDeserializationError(Message<String> message) {
-        return e -> transactionErrorNotifierService.notifyRewardCommands(message, "[TRANSACTIONS_COMMANDS] Unexpected JSON", false, e);
+        return e -> transactionErrorNotifierService.notifyTransactionCommands(message, "[TRANSACTIONS_COMMANDS] Unexpected JSON", false, e);
     }
 
     @Override
     protected void notifyError(Message<String> message, Throwable e) {
-        transactionErrorNotifierService.notifyRewardCommands(message, "[TRANSACTIONS_COMMANDS] An error occurred evaluating commands", true, e);
+        transactionErrorNotifierService.notifyTransactionCommands(message, "[TRANSACTIONS_COMMANDS] An error occurred evaluating commands", true, e);
     }
 
     @Override

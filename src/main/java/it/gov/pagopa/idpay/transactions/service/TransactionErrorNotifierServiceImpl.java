@@ -17,10 +17,10 @@ public class TransactionErrorNotifierServiceImpl implements TransactionErrorNoti
     private final String trxTopic;
     private final String trxGroup;
 
-    private final String rewardCommandsServiceType;
-    private final String rewardCommandsServer;
-    private final String rewardCommandsTopic;
-    private final String rewardCommandsGroup;
+    private final String trxCommandsServiceType;
+    private final String trxCommandsServer;
+    private final String trxCommandsTopic;
+    private final String trxCommandsGroup;
 
     public TransactionErrorNotifierServiceImpl(ErrorNotifierService errorNotifierService,
 
@@ -41,10 +41,10 @@ public class TransactionErrorNotifierServiceImpl implements TransactionErrorNoti
         this.trxTopic = trxTopic;
         this.trxGroup = trxGroup;
 
-        this.rewardCommandsServiceType = transactionsCommandsServiceType;
-        this.rewardCommandsServer = transactionsCommandsServer;
-        this.rewardCommandsTopic = transactionsCommandsTopic;
-        this.rewardCommandsGroup = transactionsCommandsGroup;
+        this.trxCommandsServiceType = transactionsCommandsServiceType;
+        this.trxCommandsServer = transactionsCommandsServer;
+        this.trxCommandsTopic = transactionsCommandsTopic;
+        this.trxCommandsGroup = transactionsCommandsGroup;
     }
 
     @Override
@@ -53,12 +53,12 @@ public class TransactionErrorNotifierServiceImpl implements TransactionErrorNoti
     }
 
     @Override
-    public void notify(String srcType, String srcServer, String srcTopic, String group, Message<?> message, String description, boolean retryable,boolean resendApplication, Throwable exception) {
-        errorNotifierService.notify(srcType, srcServer, srcTopic, group, message, description, retryable,resendApplication, exception);
+    public void notifyTransactionCommands(Message<String> message, String description, boolean retryable, Throwable exception) {
+        notify(trxCommandsServiceType, trxCommandsServer, trxCommandsTopic, trxCommandsGroup, message, description, retryable, true, exception);
     }
 
     @Override
-    public void notifyRewardCommands(Message<String> message, String description, boolean retryable, Throwable exception) {
-        notify(rewardCommandsServiceType, rewardCommandsServer, rewardCommandsTopic, rewardCommandsGroup, message, description, retryable, true, exception);
+    public void notify(String srcType, String srcServer, String srcTopic, String group, Message<?> message, String description, boolean retryable,boolean resendApplication, Throwable exception) {
+        errorNotifierService.notify(srcType, srcServer, srcTopic, group, message, description, retryable,resendApplication, exception);
     }
 }

@@ -30,6 +30,8 @@ import java.util.stream.IntStream;
         "logging.level.it.gov.pagopa.idpay.transactions.service.commands.ops.DeleteInitiativeServiceImpl=WARN",
 })
 class CommandsConsumerConfigTest extends BaseIntegrationTest {
+    private static final int VALID_USE_CASES = 3;
+    private static final int NUMBER_TRX = 3;
     private final String INITIATIVEID = "INITIATIVEID_%d";
     private final Set<String> INITIATIVES_DELETED = new HashSet<>();
     @SpyBean
@@ -49,7 +51,7 @@ class CommandsConsumerConfigTest extends BaseIntegrationTest {
         commandsPayloads.forEach(cp -> kafkaTestUtilitiesService.publishIntoEmbeddedKafka(topicCommands, null, null, cp));
         long timePublishingEnd = System.currentTimeMillis();
 
-        waitForLastStorageChange(validMessages*3);
+        waitForLastStorageChange((validMessages/VALID_USE_CASES)*2*NUMBER_TRX);
 
         long timeEnd=System.currentTimeMillis();
 
@@ -100,17 +102,25 @@ class CommandsConsumerConfigTest extends BaseIntegrationTest {
     private List<String> buildValidPayloads(int startValue, int messagesNumber) {
         return IntStream.range(startValue, messagesNumber)
                 .mapToObj(i -> {
-                    initializeDB(i);
                     QueueCommandOperationDTO command = QueueCommandOperationDTO.builder()
                             .entityId(INITIATIVEID.formatted(i))
                             .operationTime(LocalDateTime.now())
                             .build();
-
-                    if(i%2 == 0){
-                        INITIATIVES_DELETED.add(command.getEntityId());
-                        command.setOperationType(CommandsConstants.COMMANDS_OPERATION_TYPE_DELETE_INITIATIVE);
-                    } else {
-                        command.setOperationType("ANOTHER_TYPE");
+                    switch (i%VALID_USE_CASES){
+                        case 0 -> {
+                            INITIATIVES_DELETED.add(command.getEntityId());
+                            command.setOperationType(CommandsConstants.COMMANDS_OPERATION_TYPE_DELETE_INITIATIVE);
+                            initializeDB(i, "QRCODE");
+                        }
+                        case 1 -> {
+                            INITIATIVES_DELETED.add(command.getEntityId());
+                            command.setOperationType(CommandsConstants.COMMANDS_OPERATION_TYPE_DELETE_INITIATIVE);
+                            initializeDB(i, "RTD");
+                        }
+                        default -> {
+                            command.setOperationType("ANOTHER_TYPE");
+                            initializeDB(i, "QRCODE");
+                        }
                     }
                     return command;
                 })
@@ -118,12 +128,18 @@ class CommandsConsumerConfigTest extends BaseIntegrationTest {
                 .toList();
     }
 
-    private void initializeDB(int bias) {
+    private void initializeDB(int bias, String channel) {
+        Map<String, List<String>> initiativeRejectionReasons = new HashMap<>();
+        initiativeRejectionReasons.put(INITIATIVEID.formatted(bias), List.of("BUDGET_EXHAUSTED"));
+
         List<RewardTransaction> rewardTransactionList = new ArrayList<>();
-        IntStream.range(1,4).forEach(i -> rewardTransactionList.add(
+        IntStream.range(1, NUMBER_TRX+1).forEach(i -> rewardTransactionList.add(
                 RewardTransactionFaker.mockInstanceBuilder(i)
-                    .initiatives(List.of(INITIATIVEID.formatted(bias)))
-                    .build()));
+                        .id("id_%d_%d".formatted(i, bias))
+                        .initiatives(List.of(INITIATIVEID.formatted(bias)))
+                        .initiativeRejectionReasons(initiativeRejectionReasons)
+                        .channel(channel)
+                        .build()));
 
         rewardTransactionRepository.saveAll(rewardTransactionList).blockLast();
     }
