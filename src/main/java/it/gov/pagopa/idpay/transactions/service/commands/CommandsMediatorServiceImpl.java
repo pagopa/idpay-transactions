@@ -46,7 +46,7 @@ public class CommandsMediatorServiceImpl extends BaseKafkaConsumer<QueueCommandO
     @Override
     protected void subscribeAfterCommits(Flux<List<String>> afterCommits2subscribe) {
         afterCommits2subscribe
-                .subscribe(r -> log.info("[REWARD_NOTIFICATION_COMMANDS] Processed offsets committed successfully"));
+                .subscribe(r -> log.info("[TRANSACTIONS_COMMANDS] Processed offsets committed successfully"));
     }
 
     @Override
