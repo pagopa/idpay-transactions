@@ -22,16 +22,16 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
     @Override
     public Mono<String> execute(String initiativeId) {
         log.info("[DELETE_INITIATIVE] Starting handle delete initiative {}", initiativeId);
-        return deletedTransactions(initiativeId)
+        return deleteTransactions(initiativeId)
                 .then(Mono.just(initiativeId));
     }
 
-    private Mono<Void> deletedTransactions(String initiativeId){
+    private Mono<Void> deleteTransactions(String initiativeId){
         return rewardTransactionRepository.findOneByInitiativeId(initiativeId)
                 .flatMap(trx -> {
                     if ("QRCODE".equals(trx.getChannel())){
-                        return rewardTransactionRepository.deleteByInitiativeId(initiativeId).count()
-                                .doOnNext(count -> auditUtilities.logTransactionsDeleted(count, initiativeId))
+                        return rewardTransactionRepository.deleteByInitiativeId(initiativeId)
+                                .doOnNext(response -> auditUtilities.logTransactionsDeleted(response.getDeletedCount(), initiativeId))
                                 .then();
                     } else {
                         return rewardTransactionRepository.findAndRemoveInitiativeOnTransaction(initiativeId)

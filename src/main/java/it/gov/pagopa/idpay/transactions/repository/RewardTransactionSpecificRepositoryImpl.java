@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
+import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import lombok.extern.slf4j.Slf4j;
@@ -100,9 +101,9 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Flux<RewardTransaction> deleteByInitiativeId(String initiativeId) {
+    public Mono<DeleteResult> deleteByInitiativeId(String initiativeId) {
         Criteria criteria = Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId);
-        return mongoTemplate.findAllAndRemove(Query.query(criteria), RewardTransaction.class);
+        return mongoTemplate.remove(Query.query(criteria), RewardTransaction.class);
     }
 
     @Override

@@ -45,7 +45,7 @@ class CommandsConsumerConfigIntegrationTest extends BaseIntegrationTest {
 
         List<String> commandsPayloads = new ArrayList<>(notValidMessages+validMessages);
         commandsPayloads.addAll(IntStream.range(0,notValidMessages).mapToObj(i -> errorUseCases.get(i).getFirst().get()).toList());
-        commandsPayloads.addAll(buildValidPayloads(notValidMessages, notValidMessages+validMessages));
+        commandsPayloads.addAll(buildValidPayloads(notValidMessages, validMessages));
 
         long timeStart=System.currentTimeMillis();
         commandsPayloads.forEach(cp -> kafkaTestUtilitiesService.publishIntoEmbeddedKafka(topicCommands, null, null, cp));
@@ -99,8 +99,8 @@ class CommandsConsumerConfigIntegrationTest extends BaseIntegrationTest {
         return countSaved[0];
     }
 
-    private List<String> buildValidPayloads(int startValue, int messagesNumber) {
-        return IntStream.range(startValue, messagesNumber)
+    private List<String> buildValidPayloads(int notValidMessages, int validMessages) {
+        return IntStream.range(notValidMessages, notValidMessages+validMessages)
                 .mapToObj(i -> {
                     QueueCommandOperationDTO command = QueueCommandOperationDTO.builder()
                             .entityId(INITIATIVEID.formatted(i))
@@ -110,16 +110,16 @@ class CommandsConsumerConfigIntegrationTest extends BaseIntegrationTest {
                         case 0 -> {
                             INITIATIVES_DELETED.add(command.getEntityId());
                             command.setOperationType(CommandsConstants.COMMANDS_OPERATION_TYPE_DELETE_INITIATIVE);
-                            initializeDB(i, "QRCODE");
+                            initializeDB(i, "QRCODE", command.getEntityId());
                         }
                         case 1 -> {
                             INITIATIVES_DELETED.add(command.getEntityId());
                             command.setOperationType(CommandsConstants.COMMANDS_OPERATION_TYPE_DELETE_INITIATIVE);
-                            initializeDB(i, "RTD");
+                            initializeDB(i, "RTD", command.getEntityId());
                         }
                         default -> {
                             command.setOperationType("ANOTHER_TYPE");
-                            initializeDB(i, "QRCODE");
+                            initializeDB(i, "QRCODE", command.getEntityId());
                         }
                     }
                     return command;
@@ -128,15 +128,15 @@ class CommandsConsumerConfigIntegrationTest extends BaseIntegrationTest {
                 .toList();
     }
 
-    private void initializeDB(int bias, String channel) {
+    private void initializeDB(int bias, String channel, String initiativeId) {
         Map<String, List<String>> initiativeRejectionReasons = new HashMap<>();
-        initiativeRejectionReasons.put(INITIATIVEID.formatted(bias), List.of("BUDGET_EXHAUSTED"));
+        initiativeRejectionReasons.put(initiativeId, List.of("BUDGET_EXHAUSTED"));
 
         List<RewardTransaction> rewardTransactionList = new ArrayList<>();
         IntStream.range(1, NUMBER_TRX+1).forEach(i -> rewardTransactionList.add(
                 RewardTransactionFaker.mockInstanceBuilder(i)
                         .id("id_%d_%d".formatted(i, bias))
-                        .initiatives(List.of(INITIATIVEID.formatted(bias)))
+                        .initiatives(List.of(initiativeId))
                         .initiativeRejectionReasons(initiativeRejectionReasons)
                         .channel(channel)
                         .build()));

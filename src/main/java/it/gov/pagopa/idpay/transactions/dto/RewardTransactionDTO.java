@@ -49,7 +49,6 @@ public class RewardTransactionDTO {
     private List<String> rejectionReasons;
     private Map<String, List<String>> initiativeRejectionReasons;
     private List<String> initiatives;
-    private String initiativeId;
     private Map<String, Reward> rewards;
 
     private String userId;

@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
+import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.BaseIntegrationTest;
 import it.gov.pagopa.idpay.transactions.model.Reward;
@@ -318,9 +319,9 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
                 .status("REWARDED")
                 .initiatives(List.of(INITIATIVE_ID)).build();
         rewardTransactionRepository.save(rt1).block();
-        Flux<RewardTransaction> rewardTransactionFlux = rewardTransactionRepository.deleteByInitiativeId(INITIATIVE_ID);
-        assertTrue(rewardTransactionFlux.toStream().toList().contains(rt1));
-        assertFalse(rewardTransactionFlux.toStream().toList().contains(rt));
+        DeleteResult response = rewardTransactionRepository.deleteByInitiativeId(INITIATIVE_ID).block();
+        assertNotNull(response);
+        assertEquals(1, response.getDeletedCount());
 
         cleanDataPageable();
     }
@@ -350,6 +351,7 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
         rewardTransactionRepository.save(rt2).block();
 
         UpdateResult result = rewardTransactionRepository.findAndRemoveInitiativeOnTransaction(INITIATIVE_ID).block();
+        assertNotNull(result);
         assertEquals(2, result.getModifiedCount());
         RewardTransaction trx1 = rewardTransactionRepository.findById("id1").block();
         RewardTransaction trx3 = rewardTransactionRepository.findById("id3").block();

@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.service.commands.ops;
 
 import com.mongodb.MongoException;
+import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
@@ -13,7 +14,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -44,7 +44,7 @@ class DeleteInitiativeServiceImplTest {
                 .thenReturn(Mono.just(trx));
 
         Mockito.when(rewardTransactionRepository.deleteByInitiativeId(initiativeId))
-                .thenReturn(Flux.just(Mockito.mock(RewardTransaction.class)));
+                .thenReturn(Mono.just(Mockito.mock(DeleteResult.class)));
 
         String result = deleteInitiativeService.execute(initiativeId).block();
 
