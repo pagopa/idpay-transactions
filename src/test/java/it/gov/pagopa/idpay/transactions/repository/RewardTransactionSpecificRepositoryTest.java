@@ -1,5 +1,7 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
+import com.mongodb.client.result.DeleteResult;
+import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.BaseIntegrationTest;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
@@ -14,19 +16,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.test.annotation.DirtiesContext;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 @DirtiesContext
 class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
@@ -254,7 +254,7 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
                 .id("id1")
                 .idTrxIssuer("IDTRXISSUER")
                 .status("CANCELLED")
-                .rewards(getReward()).build();
+                .initiatives(List.of(INITIATIVE_ID)).build();
         rewardTransactionRepository.save(rt1).block();
 
         Pageable paging = PageRequest.of(0, 10, Sort.by(RewardTransaction.Fields.elaborationDateTime).descending());
@@ -267,15 +267,100 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
 
     @Test
     void getCount() {
-        Map<String, Reward> reward = getReward();
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
                 .idTrxIssuer("IDTRXISSUER")
                 .status("REWARDED")
-                .rewards(reward).build();
+                .initiatives(List.of(INITIATIVE_ID)).build();
         rewardTransactionRepository.save(rt1).block();
         Mono<Long> count = rewardTransactionRepository.getCount(MERCHANT_ID, INITIATIVE_ID, null, null);
         assertEquals(1, count.block());
+
+        cleanDataPageable();
+    }
+
+    @Test
+    void findOneByInitiativeId() {
+        rt = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .idTrxIssuer("IDTRXISSUER")
+                .status("REWARDED")
+                .initiatives(List.of("INITIATIVEID0")).build();
+        rewardTransactionRepository.save(rt).block();
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id2")
+                .idTrxIssuer("IDTRXISSUER")
+                .status("REWARDED")
+                .initiatives(List.of(INITIATIVE_ID)).build();
+        rewardTransactionRepository.save(rt1).block();
+        rt2 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id3")
+                .idTrxIssuer("IDTRXISSUER")
+                .status("REWARDED")
+                .initiatives(List.of(INITIATIVE_ID)).build();
+        rewardTransactionRepository.save(rt2).block();
+        RewardTransaction trx= rewardTransactionRepository.findOneByInitiativeId(INITIATIVE_ID).block();
+        assertNotNull(trx);
+        assertTrue(trx.getInitiatives().contains(INITIATIVE_ID));
+        cleanDataPageable();
+    }
+
+    @Test
+    void deleteByInitiativeId() {
+        rt = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .idTrxIssuer("IDTRXISSUER")
+                .status("REWARDED")
+                .initiatives(List.of("INITIATIVEID0")).build();
+        rewardTransactionRepository.save(rt).block();
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id2")
+                .idTrxIssuer("IDTRXISSUER")
+                .status("REWARDED")
+                .initiatives(List.of(INITIATIVE_ID)).build();
+        rewardTransactionRepository.save(rt1).block();
+        DeleteResult response = rewardTransactionRepository.deleteByInitiativeId(INITIATIVE_ID).block();
+        assertNotNull(response);
+        assertEquals(1, response.getDeletedCount());
+
+        cleanDataPageable();
+    }
+
+    @Test
+    void findAndRemoveInitiativeOnTransaction() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .idTrxIssuer("IDTRXISSUER")
+                .status("REJECTED")
+                .initiativeRejectionReasons(getInitiativeRejectionReasons())
+                .initiatives(List.of(INITIATIVE_ID)).build();
+        rewardTransactionRepository.save(rt1).block();
+        rt3 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id3")
+                .idTrxIssuer("IDTRXISSUER")
+                .status("REWARDED")
+                .rewards(getReward())
+                .initiatives(List.of(INITIATIVE_ID)).build();
+        rewardTransactionRepository.save(rt3).block();
+        rt2 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id2")
+                .idTrxIssuer("IDTRXISSUER")
+                .status("REJECTED")
+                .initiativeRejectionReasons(getInitiativeRejectionReasons())
+                .initiatives(List.of("INITIATIVEID3")).build();
+        rewardTransactionRepository.save(rt2).block();
+
+        UpdateResult result = rewardTransactionRepository.findAndRemoveInitiativeOnTransaction(INITIATIVE_ID).block();
+        assertNotNull(result);
+        assertEquals(2, result.getModifiedCount());
+        RewardTransaction trx1 = rewardTransactionRepository.findById("id1").block();
+        RewardTransaction trx3 = rewardTransactionRepository.findById("id3").block();
+        assertNotNull(trx1);
+        assertNotNull(trx3);
+        assertFalse(trx1.getInitiatives().contains(INITIATIVE_ID));
+        assertFalse(trx3.getInitiatives().contains(INITIATIVE_ID));
+        assertTrue(trx1.getInitiativeRejectionReasons().isEmpty());
+        assertTrue(trx3.getRewards().isEmpty());
 
         cleanDataPageable();
     }
@@ -301,5 +386,12 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
                 .build();
         reward.put(INITIATIVE_ID, rewardElement);
         return reward;
+    }
+
+    @NotNull
+    private static Map<String, List<String>> getInitiativeRejectionReasons() {
+        Map<String, List<String>> initiativeRejectionReasons = new HashMap<>();
+        initiativeRejectionReasons.put(INITIATIVE_ID,  List.of("BUDGET_EXHAUSTED"));
+        return initiativeRejectionReasons;
     }
 }
