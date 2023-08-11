@@ -35,6 +35,7 @@ import java.util.regex.Pattern;
 @EmbeddedKafka(topics = {
         "${spring.cloud.stream.bindings.rewardTrxConsumer-in-0.destination}",
         "${spring.cloud.stream.bindings.errors-out-0.destination}",
+        "${spring.cloud.stream.bindings.consumerCommands-in-0.destination}",
 }, controlledShutdown = true)
 @TestPropertySource(
         properties = {
@@ -52,6 +53,7 @@ import java.util.regex.Pattern;
                 "spring.cloud.stream.kafka.binder.zkNodes=${spring.embedded.zookeeper.connect}",
                 "spring.cloud.stream.binders.kafka-transactions.environment.spring.cloud.stream.kafka.binder.brokers=${spring.embedded.kafka.brokers}",
                 "spring.cloud.stream.binders.kafka-errors.environment.spring.cloud.stream.kafka.binder.brokers=${spring.embedded.kafka.brokers}",
+                "spring.cloud.stream.binders.kafka-commands.environment.spring.cloud.stream.kafka.binder.brokers=${spring.embedded.kafka.brokers}",
                 //endregion
 
                 //region pdv
@@ -93,8 +95,14 @@ public abstract class BaseIntegrationTest {
     @Value("${spring.cloud.stream.bindings.errors-out-0.destination}")
     protected String topicErrors;
 
+    @Value("${spring.cloud.stream.bindings.consumerCommands-in-0.destination}")
+    protected String topicCommands;
+
     @Value("${spring.cloud.stream.bindings.rewardTrxConsumer-in-0.group}")
     protected String groupIdTransactionConsumer;
+
+    @Value("${spring.cloud.stream.bindings.consumerCommands-in-0.group}")
+    protected String groupIdCommands;
 
     @Autowired
     private WireMockServer wireMockServer;
