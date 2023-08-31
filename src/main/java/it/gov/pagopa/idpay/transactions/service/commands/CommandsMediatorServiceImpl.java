@@ -72,4 +72,9 @@ public class CommandsMediatorServiceImpl extends BaseKafkaConsumer<QueueCommandO
         log.debug("[TRANSACTIONS_COMMANDS] Not handled operation type {}", payload.getOperationType());
         return Mono.empty();
     }
+
+    @Override
+    public String getFlowName() {
+        return "TRANSACTIONS_COMMANDS";
+    }
 }

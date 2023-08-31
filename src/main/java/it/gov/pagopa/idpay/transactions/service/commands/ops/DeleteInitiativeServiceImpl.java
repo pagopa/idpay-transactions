@@ -31,11 +31,17 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
                 .flatMap(trx -> {
                     if ("QRCODE".equals(trx.getChannel())){
                         return rewardTransactionRepository.deleteByInitiativeId(initiativeId)
-                                .doOnNext(response -> auditUtilities.logTransactionsDeleted(response.getDeletedCount(), initiativeId))
+                                .doOnNext(response -> {
+                                    log.info("[DELETE_INITIATIVE] Deleted initiative {} from collection: transaction", initiativeId);
+                                    auditUtilities.logTransactionsDeleted(response.getDeletedCount(), initiativeId);
+                                })
                                 .then();
                     } else {
                         return rewardTransactionRepository.findAndRemoveInitiativeOnTransaction(initiativeId)
-                                .doOnNext(updateResult -> auditUtilities.logTransactionsDeleted(updateResult.getModifiedCount(), initiativeId))
+                                .doOnNext(updateResult -> {
+                                    log.info("[DELETE_INITIATIVE] Deleted initiative {} from collection: transaction", initiativeId);
+                                    auditUtilities.logTransactionsDeleted(updateResult.getModifiedCount(), initiativeId);
+                                })
                                 .then();
                     }
                 });
