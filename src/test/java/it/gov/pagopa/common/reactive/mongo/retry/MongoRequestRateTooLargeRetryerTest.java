@@ -1,9 +1,5 @@
 package it.gov.pagopa.common.reactive.mongo.retry;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-
 import ch.qos.logback.classic.LoggerContext;
 import com.mongodb.MongoQueryException;
 import com.mongodb.ServerAddress;
@@ -17,6 +13,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.mongodb.UncategorizedMongoDbException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 
 class MongoRequestRateTooLargeRetryerTest {
