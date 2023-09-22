@@ -6,6 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
+
 @Service
 @Slf4j
 public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
@@ -22,9 +24,18 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
     @Override
     public Mono<String> execute(String initiativeId) {
         log.info("[DELETE_INITIATIVE] Starting handle delete initiative {}", initiativeId);
+        return delete(initiativeId, 100, 30000)
+                .then(Mono.just(initiativeId));
+    }
+
+    /*
+    @Override
+    public Mono<String> execute(String initiativeId) {
+        log.info("[DELETE_INITIATIVE] Starting handle delete initiative {}", initiativeId);
         return deleteTransactions(initiativeId)
                 .then(Mono.just(initiativeId));
     }
+     */
 
     private Mono<Void> deleteTransactions(String initiativeId){
         return rewardTransactionRepository.findOneByInitiativeId(initiativeId)
@@ -45,5 +56,19 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
                                 .then();
                     }
                 });
+    }
+
+    private Mono<Void> delete(String initiativeId,int pageSize, long duration){
+        return rewardTransactionRepository.deletePaged(initiativeId, pageSize)
+                .delayElement(Duration.ofMillis(duration))
+                .expand(deletedPage -> {
+                    if(deletedPage.getDeletedCount() < pageSize){
+                        return Mono.empty();
+                    } else {
+                        return rewardTransactionRepository.deletePaged(initiativeId, pageSize)
+                                .delayElement(Duration.ofMillis(duration));
+                    }
+                })
+                .then();
     }
 }

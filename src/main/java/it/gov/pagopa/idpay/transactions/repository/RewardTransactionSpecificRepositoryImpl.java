@@ -4,6 +4,7 @@ import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -104,6 +105,13 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     public Mono<DeleteResult> deleteByInitiativeId(String initiativeId) {
         Criteria criteria = Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId);
         return mongoTemplate.remove(Query.query(criteria), RewardTransaction.class);
+    }
+
+    @Override
+    public Mono<DeleteResult> deletePaged(String initiativeId, int pageSize){
+        Pageable pageable = PageRequest.of(0, pageSize);
+        Criteria criteria = Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId);
+        return mongoTemplate.remove(Query.query(criteria).with(pageable), RewardTransaction.class);
     }
 
     @Override

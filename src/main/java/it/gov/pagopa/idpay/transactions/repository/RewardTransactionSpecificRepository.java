@@ -18,4 +18,5 @@ public interface RewardTransactionSpecificRepository {
     Mono<RewardTransaction> findOneByInitiativeId(String initiativeId);
     Mono<DeleteResult> deleteByInitiativeId(String initiativeId);
     Mono<UpdateResult> findAndRemoveInitiativeOnTransaction (String initiativeId);
+    Mono<DeleteResult> deletePaged(String initiativeId, int pageSize);
 }
