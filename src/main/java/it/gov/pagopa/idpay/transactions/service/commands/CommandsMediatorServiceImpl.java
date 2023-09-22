@@ -67,7 +67,7 @@ public class CommandsMediatorServiceImpl extends BaseKafkaConsumer<QueueCommandO
     @Override
     protected Mono<String> execute(QueueCommandOperationDTO payload, Message<String> message, Map<String, Object> ctx) {
         if(CommandsConstants.COMMANDS_OPERATION_TYPE_DELETE_INITIATIVE.equals(payload.getOperationType())){
-            return deleteInitiativeService.execute(payload.getEntityId());
+            return deleteInitiativeService.execute(payload);
         }
         log.debug("[TRANSACTIONS_COMMANDS] Not handled operation type {}", payload.getOperationType());
         return Mono.empty();

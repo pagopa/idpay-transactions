@@ -108,7 +108,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Mono<DeleteResult> deletePaged(String initiativeId, int pageSize){
+    public Mono<DeleteResult> deleteByInitiativeIdPaged(String initiativeId, int pageSize){
         Pageable pageable = PageRequest.of(0, pageSize);
         Criteria criteria = Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId);
         return mongoTemplate.remove(Query.query(criteria).with(pageable), RewardTransaction.class);
@@ -118,6 +118,18 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     public Mono<UpdateResult> findAndRemoveInitiativeOnTransaction(String initiativeId) {
         Criteria criteria = Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId);
         return mongoTemplate.updateMulti(Query.query(criteria),
+                new Update()
+                        .pull(RewardTransaction.Fields.initiatives, initiativeId)
+                        .unset("%s.%s".formatted(RewardTransaction.Fields.rewards, initiativeId))
+                        .unset("%s.%s".formatted(RewardTransaction.Fields.initiativeRejectionReasons, initiativeId)),
+                RewardTransaction.class);
+    }
+
+    @Override
+    public Mono<UpdateResult> findAndRemoveInitiativeOnTransactionPaged(String initiativeId, int pageSize) {
+        Pageable pageable = PageRequest.of(0, pageSize);
+        Criteria criteria = Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId);
+        return mongoTemplate.updateMulti(Query.query(criteria).with(pageable),
                 new Update()
                         .pull(RewardTransaction.Fields.initiatives, initiativeId)
                         .unset("%s.%s".formatted(RewardTransaction.Fields.rewards, initiativeId))
