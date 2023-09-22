@@ -306,7 +306,7 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
     }
 
     @Test
-    void deleteByInitiativeId() {
+    void deleteByInitiativeIdPaged() {
         rt = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
                 .idTrxIssuer("IDTRXISSUER")
@@ -319,7 +319,7 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
                 .status("REWARDED")
                 .initiatives(List.of(INITIATIVE_ID)).build();
         rewardTransactionRepository.save(rt1).block();
-        DeleteResult response = rewardTransactionRepository.deleteByInitiativeId(INITIATIVE_ID).block();
+        DeleteResult response = rewardTransactionRepository.deleteByInitiativeIdPaged(INITIATIVE_ID, 100).block();
         assertNotNull(response);
         assertEquals(1, response.getDeletedCount());
 
@@ -327,7 +327,7 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
     }
 
     @Test
-    void findAndRemoveInitiativeOnTransaction() {
+    void findAndRemoveInitiativeOnTransactionPaged() {
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
                 .idTrxIssuer("IDTRXISSUER")
@@ -350,7 +350,7 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
                 .initiatives(List.of("INITIATIVEID3")).build();
         rewardTransactionRepository.save(rt2).block();
 
-        UpdateResult result = rewardTransactionRepository.findAndRemoveInitiativeOnTransaction(INITIATIVE_ID).block();
+        UpdateResult result = rewardTransactionRepository.findAndRemoveInitiativeOnTransactionPaged(INITIATIVE_ID, 100).block();
         assertNotNull(result);
         assertEquals(2, result.getModifiedCount());
         RewardTransaction trx1 = rewardTransactionRepository.findById("id1").block();

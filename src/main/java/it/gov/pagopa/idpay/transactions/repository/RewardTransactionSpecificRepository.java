@@ -16,8 +16,6 @@ public interface RewardTransactionSpecificRepository {
     Flux<RewardTransaction> findByFilter(String merchantId, String initiativeId, String userId, String status, Pageable pageable);
     Mono<Long> getCount(String merchantId, String initiativeId, String userId, String status);
     Mono<RewardTransaction> findOneByInitiativeId(String initiativeId);
-    Mono<DeleteResult> deleteByInitiativeId(String initiativeId);
-    Mono<UpdateResult> findAndRemoveInitiativeOnTransaction (String initiativeId);
     Mono<DeleteResult> deleteByInitiativeIdPaged(String initiativeId, int pageSize);
     Mono<UpdateResult> findAndRemoveInitiativeOnTransactionPaged(String initiativeId, int pageSize);
 }
