@@ -1,5 +1,7 @@
 package it.gov.pagopa.idpay.transactions.service.commands.ops;
 
+import com.mongodb.client.result.DeleteResult;
+import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.dto.QueueCommandOperationDTO;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
@@ -35,14 +37,12 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
         return rewardTransactionRepository.findOneByInitiativeId(initiativeId)
                 .flatMap(trx -> {
                     if ("QRCODE".equals(trx.getChannel())){
-                        return rewardTransactionRepository.deleteByInitiativeIdPaged(initiativeId, pageSize)
-                                .delayElement(Duration.ofMillis(delayDuration))
+                        return  deleteByInitiativeIdPaged(initiativeId, pageSize, delayDuration)
                                 .expand(deletedPage -> {
                                     if(deletedPage.getDeletedCount() < pageSize){
                                         return Mono.empty();
                                     } else {
-                                        return rewardTransactionRepository.deleteByInitiativeIdPaged(initiativeId, pageSize)
-                                                .delayElement(Duration.ofMillis(delayDuration));
+                                        return deleteByInitiativeIdPaged(initiativeId, pageSize, delayDuration);
                                     }
                                 })
                                 .reduce((long)0, (totalDeletedElements, deletedPage) -> totalDeletedElements + deletedPage.getDeletedCount())
@@ -52,14 +52,12 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
                                 })
                                 .then();
                     } else {
-                        return rewardTransactionRepository.findAndRemoveInitiativeOnTransactionPaged(initiativeId, pageSize)
-                                .delayElement(Duration.ofMillis(delayDuration))
+                        return  findAndRemoveInitiativeOnTransactionPaged(initiativeId, pageSize, delayDuration)
                                 .expand(deletedPage -> {
                                     if(deletedPage.getModifiedCount() < pageSize){
                                         return Mono.empty();
                                     } else {
-                                        return rewardTransactionRepository.findAndRemoveInitiativeOnTransactionPaged(initiativeId, pageSize)
-                                                .delayElement(Duration.ofMillis(delayDuration));
+                                        return findAndRemoveInitiativeOnTransactionPaged(initiativeId, pageSize, delayDuration);
                                     }
                                 })
                                 .reduce((long)0, (totalUpdatedElements, updatedPage) -> totalUpdatedElements + updatedPage.getModifiedCount())
@@ -72,27 +70,13 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
                 });
     }
 
-    /*
-    private Mono<Void> deleteTransactions(String initiativeId){
-        return rewardTransactionRepository.findOneByInitiativeId(initiativeId)
-                .flatMap(trx -> {
-                    if ("QRCODE".equals(trx.getChannel())){
-                        return rewardTransactionRepository.deleteByInitiativeId(initiativeId)
-                                .doOnNext(response -> {
-                                    log.info("[DELETE_INITIATIVE] Deleted initiative {} from collection: transaction", initiativeId);
-                                    auditUtilities.logTransactionsDeleted(response.getDeletedCount(), initiativeId);
-                                })
-                                .then();
-                    } else {
-                        return rewardTransactionRepository.findAndRemoveInitiativeOnTransaction(initiativeId)
-                                .doOnNext(updateResult -> {
-                                    log.info("[DELETE_INITIATIVE] Deleted initiative {} from collection: transaction", initiativeId);
-                                    auditUtilities.logTransactionsDeleted(updateResult.getModifiedCount(), initiativeId);
-                                })
-                                .then();
-                    }
-                });
+    private Mono<DeleteResult> deleteByInitiativeIdPaged(String initiativeId, int pageSize, long delayDuration){
+        return rewardTransactionRepository.deleteByInitiativeIdPaged(initiativeId, pageSize)
+                .delayElement(Duration.ofMillis(delayDuration));
     }
 
-     */
+    private Mono<UpdateResult> findAndRemoveInitiativeOnTransactionPaged(String initiativeId, int pageSize, long delayDuration){
+        return rewardTransactionRepository.findAndRemoveInitiativeOnTransactionPaged(initiativeId, pageSize)
+                .delayElement(Duration.ofMillis(delayDuration));
+    }
 }
