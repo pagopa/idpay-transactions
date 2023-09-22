@@ -71,9 +71,10 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
                     }
                 })
                 .map(DeleteResult::getDeletedCount)
+                .reduce(Long::sum)
                 .doOnNext(totalDeletedElements -> {
                     log.info("[DELETE_INITIATIVE] Deleted initiative {} from collection: transaction", initiativeId);
-                    auditUtilities.logTransactionsDeleted(totalDeletedElements, initiativeId);
+                    auditUtilities.logTransactionsDeleted((totalDeletedElements), initiativeId);
                 })
                 .then();
     }
