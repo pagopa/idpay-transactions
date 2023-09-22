@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service.commands.ops;
 
+import com.mongodb.client.result.DeleteResult;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
 import lombok.extern.slf4j.Slf4j;
@@ -68,6 +69,11 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
                         return rewardTransactionRepository.deletePaged(initiativeId, pageSize)
                                 .delayElement(Duration.ofMillis(duration));
                     }
+                })
+                .map(DeleteResult::getDeletedCount)
+                .doOnNext(totalDeletedElements -> {
+                    log.info("[DELETE_INITIATIVE] Deleted initiative {} from collection: transaction", initiativeId);
+                    auditUtilities.logTransactionsDeleted(totalDeletedElements, initiativeId);
                 })
                 .then();
     }
