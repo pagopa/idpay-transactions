@@ -70,8 +70,11 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
                                 .delayElement(Duration.ofMillis(duration));
                     }
                 })
+                .reduce((long)0, (totalDeletedCount, deletedPage) -> totalDeletedCount + deletedPage.getDeletedCount())
+                /*
                 .map(DeleteResult::getDeletedCount)
                 .reduce(Long::sum)
+                 */
                 .doOnNext(totalDeletedElements -> {
                     log.info("[DELETE_INITIATIVE] Deleted initiative {} from collection: transaction", initiativeId);
                     auditUtilities.logTransactionsDeleted((totalDeletedElements), initiativeId);
