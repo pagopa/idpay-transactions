@@ -17,5 +17,5 @@ public interface RewardTransactionSpecificRepository {
     Mono<Long> getCount(String merchantId, String initiativeId, String userId, String status);
     Mono<RewardTransaction> findOneByInitiativeId(String initiativeId);
     Mono<DeleteResult> deleteByInitiativeIdPaged(String initiativeId, int pageSize);
-    Mono<UpdateResult> findAndRemoveInitiativeOnTransactionPaged(String initiativeId, int pageSize);
+    Mono<UpdateResult> findAndRemoveInitiativeOnTransactionPaged(String initiativeId, int pageSize, int pageCounter);
 }

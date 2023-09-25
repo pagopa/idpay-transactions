@@ -75,7 +75,7 @@ class DeleteInitiativeServiceImplTest {
 
         Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findOneByInitiativeId(Mockito.anyString());
         Mockito.verify(rewardTransactionRepository, Mockito.times(2)).deleteByInitiativeIdPaged(INITIATIVE_ID, 100);
-        Mockito.verify(rewardTransactionRepository, Mockito.times(0)).findAndRemoveInitiativeOnTransactionPaged(INITIATIVE_ID, 100);
+        Mockito.verify(rewardTransactionRepository, Mockito.times(0)).findAndRemoveInitiativeOnTransactionPaged(INITIATIVE_ID, 100, 0);
     }
 
     @Test
@@ -91,8 +91,9 @@ class DeleteInitiativeServiceImplTest {
         Mockito.when(rewardTransactionRepository.findOneByInitiativeId(INITIATIVE_ID))
                 .thenReturn(Mono.just(trx));
 
-        Mockito.when(rewardTransactionRepository.findAndRemoveInitiativeOnTransactionPaged(INITIATIVE_ID, Integer.parseInt(PAGINATION_VALUE)))
-                .thenReturn(Mono.just(updateResult1))
+        Mockito.when(rewardTransactionRepository.findAndRemoveInitiativeOnTransactionPaged(INITIATIVE_ID, Integer.parseInt(PAGINATION_VALUE), 0))
+                .thenReturn(Mono.just(updateResult1));
+        Mockito.when(rewardTransactionRepository.findAndRemoveInitiativeOnTransactionPaged(INITIATIVE_ID, Integer.parseInt(PAGINATION_VALUE), 1))
                 .thenReturn(Mono.just(updateResult2));
 
         // When
@@ -103,7 +104,8 @@ class DeleteInitiativeServiceImplTest {
 
         Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findOneByInitiativeId(Mockito.anyString());
         Mockito.verify(rewardTransactionRepository, Mockito.times(0)).deleteByInitiativeIdPaged(INITIATIVE_ID, 100);
-        Mockito.verify(rewardTransactionRepository, Mockito.times(2)).findAndRemoveInitiativeOnTransactionPaged(INITIATIVE_ID, 100);
+        Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findAndRemoveInitiativeOnTransactionPaged(INITIATIVE_ID, 100, 0);
+        Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findAndRemoveInitiativeOnTransactionPaged(INITIATIVE_ID, 100, 1);
     }
 
     @Test

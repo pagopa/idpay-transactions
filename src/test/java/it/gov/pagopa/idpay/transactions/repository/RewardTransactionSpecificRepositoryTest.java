@@ -350,7 +350,7 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
                 .initiatives(List.of("INITIATIVEID3")).build();
         rewardTransactionRepository.save(rt2).block();
 
-        UpdateResult result = rewardTransactionRepository.findAndRemoveInitiativeOnTransactionPaged(INITIATIVE_ID, 100).block();
+        UpdateResult result = rewardTransactionRepository.findAndRemoveInitiativeOnTransactionPaged(INITIATIVE_ID, 100, 0).block();
         assertNotNull(result);
         assertEquals(2, result.getModifiedCount());
         RewardTransaction trx1 = rewardTransactionRepository.findById("id1").block();

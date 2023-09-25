@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @Slf4j
@@ -34,6 +35,8 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
     }
 
     private Mono<Void> deleteTransactions(String initiativeId, int pageSize, long delayDuration){
+        AtomicInteger pageCounter = new AtomicInteger(0);
+
         return rewardTransactionRepository.findOneByInitiativeId(initiativeId)
                 .flatMap(trx -> {
                     if ("QRCODE".equals(trx.getChannel())){
@@ -52,12 +55,12 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
                                 })
                                 .then();
                     } else {
-                        return  findAndRemoveInitiativeOnTransactionPaged(initiativeId, pageSize, delayDuration)
+                        return  findAndRemoveInitiativeOnTransactionPaged(initiativeId, pageSize, delayDuration, pageCounter)
                                 .expand(deletedPage -> {
                                     if(deletedPage.getModifiedCount() < pageSize){
                                         return Mono.empty();
                                     } else {
-                                        return findAndRemoveInitiativeOnTransactionPaged(initiativeId, pageSize, delayDuration);
+                                        return findAndRemoveInitiativeOnTransactionPaged(initiativeId, pageSize, delayDuration, pageCounter);
                                     }
                                 })
                                 .reduce((long)0, (totalUpdatedElements, updatedPage) -> totalUpdatedElements + updatedPage.getModifiedCount())
@@ -75,8 +78,8 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
                 .delayElement(Duration.ofMillis(delayDuration));
     }
 
-    private Mono<UpdateResult> findAndRemoveInitiativeOnTransactionPaged(String initiativeId, int pageSize, long delayDuration){
-        return rewardTransactionRepository.findAndRemoveInitiativeOnTransactionPaged(initiativeId, pageSize)
+    private Mono<UpdateResult> findAndRemoveInitiativeOnTransactionPaged(String initiativeId, int pageSize, long delayDuration, AtomicInteger pageCounter){
+        return rewardTransactionRepository.findAndRemoveInitiativeOnTransactionPaged(initiativeId, pageSize, pageCounter.getAndIncrement())
                 .delayElement(Duration.ofMillis(delayDuration));
     }
 }
