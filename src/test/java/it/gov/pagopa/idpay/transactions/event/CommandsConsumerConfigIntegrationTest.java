@@ -100,11 +100,15 @@ class CommandsConsumerConfigIntegrationTest extends BaseIntegrationTest {
     }
 
     private List<String> buildValidPayloads(int notValidMessages, int validMessages) {
+        HashMap<String, String> additionalParams = new HashMap<>();
+        additionalParams.put("pagination", "100");
+        additionalParams.put("delay", "50");
         return IntStream.range(notValidMessages, notValidMessages+validMessages)
                 .mapToObj(i -> {
                     QueueCommandOperationDTO command = QueueCommandOperationDTO.builder()
                             .entityId(INITIATIVEID.formatted(i))
                             .operationTime(LocalDateTime.now())
+                            .additionalParams(additionalParams)
                             .build();
                     switch (i%VALID_USE_CASES){
                         case 0 -> {
