@@ -27,7 +27,9 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
     @Override
     public Mono<String> execute(QueueCommandOperationDTO payload) {
         log.info("[DELETE_INITIATIVE] Starting handle delete initiative {}", payload.getEntityId());
-        return deleteTransactions(payload.getEntityId(), Integer.parseInt(payload.getAdditionalParams().get(PAGINATION_KEY)), Long.parseLong(payload.getAdditionalParams().get(DELAY_KEY)))
+        return deleteTransactions(payload.getEntityId(),
+                Integer.parseInt(payload.getAdditionalParams().get(PAGINATION_KEY)),
+                Long.parseLong(payload.getAdditionalParams().get(DELAY_KEY)))
                 .then(Mono.just(payload.getEntityId()));
     }
 
@@ -41,9 +43,9 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
                                 .flatMap(trxToDelete -> rewardTransactionRepository.deleteById(trxToDelete.getId())
                                         .then(monoDelay), pageSize)
                                 .count()
-                                .doOnNext(totalDeltedTrx -> {
+                                .doOnNext(totalDeletedTrx -> {
                                     log.info("[DELETE_INITIATIVE] Deleted initiative {} from collection: transaction", initiativeId);
-                                    auditUtilities.logTransactionsDeleted((totalDeltedTrx), initiativeId);
+                                    auditUtilities.logTransactionsDeleted((totalDeletedTrx), initiativeId);
                                 })
                                 .then();
                     } else {
