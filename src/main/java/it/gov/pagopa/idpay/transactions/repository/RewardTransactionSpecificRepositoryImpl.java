@@ -100,7 +100,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
     @Override
     public Mono<Void> removeInitiativeOnTransaction(String trxId, String initiativeId) {
-        Criteria criteria = Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId);
+        Criteria criteria = Criteria.where(RewardTransaction.Fields.id).is(trxId);
         return mongoTemplate.updateFirst(Query.query(criteria),
                 new Update()
                         .pull(RewardTransaction.Fields.initiatives, initiativeId)
