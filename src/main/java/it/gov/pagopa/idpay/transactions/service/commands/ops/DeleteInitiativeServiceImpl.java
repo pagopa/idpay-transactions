@@ -53,9 +53,9 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
                                 .flatMap(trxToUpdate -> rewardTransactionRepository.removeInitiativeOnTransaction(trxToUpdate.getId(), initiativeId)
                                         .then(monoDelay), pageSize)
                                 .count()
-                                .doOnNext(totalUpdatedElements -> {
+                                .doOnNext(totalUpdatedTrx -> {
                                     log.info("[DELETE_INITIATIVE] Deleted initiative {} from collection: transaction", initiativeId);
-                                    auditUtilities.logTransactionsDeleted((totalUpdatedElements), initiativeId);
+                                    auditUtilities.logTransactionsDeleted((totalUpdatedTrx), initiativeId);
                                 })
                                 .then();
                     }
