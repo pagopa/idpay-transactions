@@ -1,8 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service.commands.ops;
 
 import com.mongodb.MongoException;
-import com.mongodb.client.result.DeleteResult;
-import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.dto.QueueCommandOperationDTO;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
@@ -15,12 +13,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class DeleteInitiativeServiceImplTest {
@@ -36,6 +39,7 @@ class DeleteInitiativeServiceImplTest {
     private static final String DELAY_KEY = "delay";
     private static final String DELAY_VALUE = "1500";
     private static final Map<String, String> ADDITIONAL_PARAMS = new HashMap<>() {{ put(PAGINATION_KEY, PAGINATION_VALUE); put(DELAY_KEY, DELAY_VALUE); }};
+    private static final String TRANSACTION_ID = "TRANSACTION_ID";
     private static final QueueCommandOperationDTO QUEUE_COMMAND_OPERATION_DTO = QueueCommandOperationDTO.builder()
             .entityId(INITIATIVE_ID)
             .operationTime(LocalDateTime.now().minusMinutes(5))
@@ -52,60 +56,46 @@ class DeleteInitiativeServiceImplTest {
 
     @Test
     void executeOK_delete() {
-        // Given
         RewardTransaction trx = RewardTransactionFaker.mockInstance(1);
+        trx.setId(TRANSACTION_ID);
         trx.setInitiatives(List.of(INITIATIVE_ID));
         trx.setChannel("QRCODE");
 
-        DeleteResult deleteResult1 = DeleteResult.acknowledged(100);
-        DeleteResult deleteResult2 = DeleteResult.acknowledged(63);
-
         Mockito.when(rewardTransactionRepository.findOneByInitiativeId(INITIATIVE_ID))
                 .thenReturn(Mono.just(trx));
+        Mockito.when(rewardTransactionRepository.findByInitiativesWithBatch(INITIATIVE_ID, 100))
+                .thenReturn(Flux.fromIterable(List.of(trx)));
+        Mockito.when(rewardTransactionRepository.deleteById(anyString()))
+                .thenReturn(Mono.empty());
 
-        Mockito.when(rewardTransactionRepository.deleteByInitiativeIdPaged(INITIATIVE_ID, Integer.parseInt(PAGINATION_VALUE)))
-                .thenReturn(Mono.just(deleteResult1))
-                .thenReturn(Mono.just(deleteResult2));
-
-        // When
         String result = deleteInitiativeService.execute(QUEUE_COMMAND_OPERATION_DTO).block();
 
-        // Then
         Assertions.assertNotNull(result);
-
-        Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findOneByInitiativeId(Mockito.anyString());
-        Mockito.verify(rewardTransactionRepository, Mockito.times(2)).deleteByInitiativeIdPaged(INITIATIVE_ID, 100);
-        Mockito.verify(rewardTransactionRepository, Mockito.times(0)).findAndRemoveInitiativeOnTransactionPaged(INITIATIVE_ID, 100, 0);
+        verify(rewardTransactionRepository, Mockito.times(1)).findOneByInitiativeId(anyString());
+        verify(rewardTransactionRepository, Mockito.times(1)).deleteById(anyString());
+        verify(rewardTransactionRepository, Mockito.times(0)).removeInitiativeOnTransaction(anyString(), eq(INITIATIVE_ID));
     }
 
     @Test
     void executeOK_findAndRemove() {
-        // Given
         RewardTransaction trx = RewardTransactionFaker.mockInstance(1);
+        trx.setId(TRANSACTION_ID);
         trx.setInitiatives(List.of(INITIATIVE_ID));
         trx.setChannel("RTD");
 
-        UpdateResult updateResult1 = UpdateResult.acknowledged(163,100L, null);
-        UpdateResult updateResult2 = UpdateResult.acknowledged(163,63L, null);
-
         Mockito.when(rewardTransactionRepository.findOneByInitiativeId(INITIATIVE_ID))
                 .thenReturn(Mono.just(trx));
+        Mockito.when(rewardTransactionRepository.findByInitiativesWithBatch(INITIATIVE_ID, 100))
+                .thenReturn(Flux.fromIterable(List.of(trx)));
+        Mockito.when(rewardTransactionRepository.removeInitiativeOnTransaction(anyString(), anyString()))
+                .thenReturn(Mono.empty());
 
-        Mockito.when(rewardTransactionRepository.findAndRemoveInitiativeOnTransactionPaged(INITIATIVE_ID, Integer.parseInt(PAGINATION_VALUE), 0))
-                .thenReturn(Mono.just(updateResult1));
-        Mockito.when(rewardTransactionRepository.findAndRemoveInitiativeOnTransactionPaged(INITIATIVE_ID, Integer.parseInt(PAGINATION_VALUE), 1))
-                .thenReturn(Mono.just(updateResult2));
-
-        // When
         String result = deleteInitiativeService.execute(QUEUE_COMMAND_OPERATION_DTO).block();
 
-        // Then
         Assertions.assertNotNull(result);
-
-        Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findOneByInitiativeId(Mockito.anyString());
-        Mockito.verify(rewardTransactionRepository, Mockito.times(0)).deleteByInitiativeIdPaged(INITIATIVE_ID, 100);
-        Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findAndRemoveInitiativeOnTransactionPaged(INITIATIVE_ID, 100, 0);
-        Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findAndRemoveInitiativeOnTransactionPaged(INITIATIVE_ID, 100, 1);
+        verify(rewardTransactionRepository, Mockito.times(1)).findOneByInitiativeId(anyString());
+        verify(rewardTransactionRepository, Mockito.times(0)).deleteById(anyString());
+        verify(rewardTransactionRepository, Mockito.times(1)).removeInitiativeOnTransaction(anyString(), eq(INITIATIVE_ID));
     }
 
     @Test
@@ -118,7 +108,10 @@ class DeleteInitiativeServiceImplTest {
         Mockito.when(rewardTransactionRepository.findOneByInitiativeId(initiativeId))
                 .thenReturn(Mono.just(trx));
 
-        Mockito.when(rewardTransactionRepository.deleteByInitiativeIdPaged(INITIATIVE_ID, Integer.parseInt(PAGINATION_VALUE)))
+        Mockito.when(rewardTransactionRepository.findByInitiativesWithBatch(eq(INITIATIVE_ID), Mockito.anyInt()))
+                .thenReturn(Flux.just(trx));
+
+        Mockito.when(rewardTransactionRepository.deleteById(trx.getId()))
                 .thenThrow(new MongoException("DUMMY_EXCEPTION"));
 
         try{

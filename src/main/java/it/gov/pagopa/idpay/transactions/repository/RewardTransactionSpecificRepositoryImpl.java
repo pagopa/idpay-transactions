@@ -1,10 +1,7 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
-import com.mongodb.client.result.DeleteResult;
-import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -102,21 +99,20 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Mono<DeleteResult> deleteByInitiativeIdPaged(String initiativeId, int pageSize){
-        Pageable pageable = PageRequest.of(0, pageSize);
+    public Mono<Void> removeInitiativeOnTransaction(String trxId, String initiativeId) {
         Criteria criteria = Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId);
-        return mongoTemplate.remove(Query.query(criteria).with(pageable), RewardTransaction.class);
-    }
-
-    @Override
-    public Mono<UpdateResult> findAndRemoveInitiativeOnTransactionPaged(String initiativeId, int pageSize, int pageCounter) {
-        Pageable pageable = PageRequest.of(pageCounter, pageSize);
-        Criteria criteria = Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId);
-        return mongoTemplate.updateMulti(Query.query(criteria).with(pageable),
+        return mongoTemplate.updateFirst(Query.query(criteria),
                 new Update()
                         .pull(RewardTransaction.Fields.initiatives, initiativeId)
                         .unset("%s.%s".formatted(RewardTransaction.Fields.rewards, initiativeId))
                         .unset("%s.%s".formatted(RewardTransaction.Fields.initiativeRejectionReasons, initiativeId)),
-                RewardTransaction.class);
+                RewardTransaction.class)
+                .then();
+    }
+
+    @Override
+    public Flux<RewardTransaction> findByInitiativesWithBatch(String initiativeId, int batchSize){
+        Query query = Query.query(Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId)).cursorBatchSize(batchSize);
+        return mongoTemplate.find(query, RewardTransaction.class);
     }
 }

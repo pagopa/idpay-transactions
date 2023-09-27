@@ -1,7 +1,5 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
-import com.mongodb.client.result.DeleteResult;
-import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
@@ -16,6 +14,6 @@ public interface RewardTransactionSpecificRepository {
     Flux<RewardTransaction> findByFilter(String merchantId, String initiativeId, String userId, String status, Pageable pageable);
     Mono<Long> getCount(String merchantId, String initiativeId, String userId, String status);
     Mono<RewardTransaction> findOneByInitiativeId(String initiativeId);
-    Mono<DeleteResult> deleteByInitiativeIdPaged(String initiativeId, int pageSize);
-    Mono<UpdateResult> findAndRemoveInitiativeOnTransactionPaged(String initiativeId, int pageSize, int pageCounter);
+    Mono<Void> removeInitiativeOnTransaction(String trxId, String initiativeId);
+    Flux<RewardTransaction> findByInitiativesWithBatch(String initiativeId, int batchSize);
 }
