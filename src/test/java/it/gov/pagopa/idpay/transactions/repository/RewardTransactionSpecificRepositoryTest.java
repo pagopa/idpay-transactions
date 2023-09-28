@@ -1,7 +1,5 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
-import com.mongodb.client.result.DeleteResult;
-import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.BaseIntegrationTest;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
@@ -306,62 +304,34 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
     }
 
     @Test
-    void deleteByInitiativeId() {
-        rt = RewardTransactionFaker.mockInstanceBuilder(1)
+    void findByInitiativesWithBatch() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
                 .idTrxIssuer("IDTRXISSUER")
-                .status("REWARDED")
-                .initiatives(List.of("INITIATIVEID0")).build();
-        rewardTransactionRepository.save(rt).block();
-        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("id2")
-                .idTrxIssuer("IDTRXISSUER")
-                .status("REWARDED")
+                .status("CANCELLED")
                 .initiatives(List.of(INITIATIVE_ID)).build();
         rewardTransactionRepository.save(rt1).block();
-        DeleteResult response = rewardTransactionRepository.deleteByInitiativeId(INITIATIVE_ID).block();
-        assertNotNull(response);
-        assertEquals(1, response.getDeletedCount());
 
+        Flux<RewardTransaction> result = rewardTransactionRepository.findByInitiativesWithBatch(INITIATIVE_ID, 100);
+
+        List<RewardTransaction> rewardTransactions = result.toStream().toList();
+        assertEquals(1, rewardTransactions.size());
         cleanDataPageable();
     }
 
     @Test
-    void findAndRemoveInitiativeOnTransaction() {
+    void removeInitiativeOnTransaction() {
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
                 .idTrxIssuer("IDTRXISSUER")
-                .status("REJECTED")
-                .initiativeRejectionReasons(getInitiativeRejectionReasons())
+                .status("CANCELLED")
                 .initiatives(List.of(INITIATIVE_ID)).build();
         rewardTransactionRepository.save(rt1).block();
-        rt3 = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("id3")
-                .idTrxIssuer("IDTRXISSUER")
-                .status("REWARDED")
-                .rewards(getReward())
-                .initiatives(List.of(INITIATIVE_ID)).build();
-        rewardTransactionRepository.save(rt3).block();
-        rt2 = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("id2")
-                .idTrxIssuer("IDTRXISSUER")
-                .status("REJECTED")
-                .initiativeRejectionReasons(getInitiativeRejectionReasons())
-                .initiatives(List.of("INITIATIVEID3")).build();
-        rewardTransactionRepository.save(rt2).block();
 
-        UpdateResult result = rewardTransactionRepository.findAndRemoveInitiativeOnTransaction(INITIATIVE_ID).block();
-        assertNotNull(result);
-        assertEquals(2, result.getModifiedCount());
-        RewardTransaction trx1 = rewardTransactionRepository.findById("id1").block();
-        RewardTransaction trx3 = rewardTransactionRepository.findById("id3").block();
-        assertNotNull(trx1);
-        assertNotNull(trx3);
-        assertFalse(trx1.getInitiatives().contains(INITIATIVE_ID));
-        assertFalse(trx3.getInitiatives().contains(INITIATIVE_ID));
-        assertTrue(trx1.getInitiativeRejectionReasons().isEmpty());
-        assertTrue(trx3.getRewards().isEmpty());
+        rewardTransactionRepository.removeInitiativeOnTransaction(rt1.getId(), INITIATIVE_ID).block();
 
+        RewardTransaction modifiedTrx = rewardTransactionRepository.findById(rt1.getId()).block();
+        assertTrue(modifiedTrx.getInitiatives().isEmpty());
         cleanDataPageable();
     }
 
