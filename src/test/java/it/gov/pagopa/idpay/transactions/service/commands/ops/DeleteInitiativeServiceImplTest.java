@@ -1,7 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service.commands.ops;
 
 import com.mongodb.MongoException;
-import it.gov.pagopa.idpay.transactions.dto.QueueCommandOperationDTO;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
@@ -16,10 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -33,25 +29,17 @@ class DeleteInitiativeServiceImplTest {
     private DeleteInitiativeService deleteInitiativeService;
 
     private static final String INITIATIVE_ID = "INITIATIVEID";
-    private static final String OPERATION_TYPE_DELETE_INITIATIVE = "DELETE_INITIATIVE";
-    private static final String PAGINATION_KEY = "pagination";
-    private static final String PAGINATION_VALUE = "100";
-    private static final String DELAY_KEY = "delay";
-    private static final String DELAY_VALUE = "1500";
-    private static final Map<String, String> ADDITIONAL_PARAMS = new HashMap<>() {{ put(PAGINATION_KEY, PAGINATION_VALUE); put(DELAY_KEY, DELAY_VALUE); }};
+    private static final int PAGE_SIZE = 100;
+    private static final long DELAY = 1500;
     private static final String TRANSACTION_ID = "TRANSACTION_ID";
-    private static final QueueCommandOperationDTO QUEUE_COMMAND_OPERATION_DTO = QueueCommandOperationDTO.builder()
-            .entityId(INITIATIVE_ID)
-            .operationTime(LocalDateTime.now().minusMinutes(5))
-            .operationType(OPERATION_TYPE_DELETE_INITIATIVE)
-            .additionalParams(ADDITIONAL_PARAMS)
-            .build();
 
     @BeforeEach
     void setUp() {
         deleteInitiativeService = new DeleteInitiativeServiceImpl(
                 rewardTransactionRepository,
-                auditUtilitiesMock);
+                auditUtilitiesMock,
+                PAGE_SIZE,
+                DELAY);
     }
 
     @Test
@@ -68,7 +56,7 @@ class DeleteInitiativeServiceImplTest {
         Mockito.when(rewardTransactionRepository.deleteById(anyString()))
                 .thenReturn(Mono.empty());
 
-        String result = deleteInitiativeService.execute(QUEUE_COMMAND_OPERATION_DTO).block();
+        String result = deleteInitiativeService.execute(INITIATIVE_ID).block();
 
         Assertions.assertNotNull(result);
         verify(rewardTransactionRepository, Mockito.times(1)).findOneByInitiativeId(anyString());
@@ -90,7 +78,7 @@ class DeleteInitiativeServiceImplTest {
         Mockito.when(rewardTransactionRepository.removeInitiativeOnTransaction(anyString(), anyString()))
                 .thenReturn(Mono.empty());
 
-        String result = deleteInitiativeService.execute(QUEUE_COMMAND_OPERATION_DTO).block();
+        String result = deleteInitiativeService.execute(INITIATIVE_ID).block();
 
         Assertions.assertNotNull(result);
         verify(rewardTransactionRepository, Mockito.times(1)).findOneByInitiativeId(anyString());
@@ -108,14 +96,14 @@ class DeleteInitiativeServiceImplTest {
         Mockito.when(rewardTransactionRepository.findOneByInitiativeId(initiativeId))
                 .thenReturn(Mono.just(trx));
 
-        Mockito.when(rewardTransactionRepository.findByInitiativesWithBatch(eq(INITIATIVE_ID), Mockito.anyInt()))
+        Mockito.when(rewardTransactionRepository.findByInitiativesWithBatch(eq(initiativeId), Mockito.anyInt()))
                 .thenReturn(Flux.just(trx));
 
         Mockito.when(rewardTransactionRepository.deleteById(trx.getId()))
                 .thenThrow(new MongoException("DUMMY_EXCEPTION"));
 
         try{
-            deleteInitiativeService.execute(QUEUE_COMMAND_OPERATION_DTO).block();
+            deleteInitiativeService.execute(initiativeId).block();
             Assertions.fail();
         }catch (Throwable t){
             Assertions.assertTrue(t instanceof  MongoException);

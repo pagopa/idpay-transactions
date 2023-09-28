@@ -1,9 +1,9 @@
 package it.gov.pagopa.idpay.transactions.service.commands.ops;
 
-import it.gov.pagopa.idpay.transactions.dto.QueueCommandOperationDTO;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -14,27 +14,29 @@ import java.time.Duration;
 public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
     private final RewardTransactionRepository rewardTransactionRepository;
     private final AuditUtilities auditUtilities;
-    private static final String PAGINATION_KEY = "pagination";
-    private static final String DELAY_KEY = "delay";
+    private final int pageSize;
+    private final long delay;
 
     @SuppressWarnings("squid:S00107") // suppressing too many parameters constructor alert
     public DeleteInitiativeServiceImpl(RewardTransactionRepository rewardTransactionRepository,
-                                       AuditUtilities auditUtilities) {
+                                       AuditUtilities auditUtilities,
+                                       @Value("${app.delete.paginationSize}")int pageSize,
+                                       @Value("${app.delete.delayTime}")long delay) {
         this.rewardTransactionRepository = rewardTransactionRepository;
         this.auditUtilities = auditUtilities;
+        this.pageSize = pageSize;
+        this.delay = delay;
     }
 
     @Override
-    public Mono<String> execute(QueueCommandOperationDTO payload) {
-        log.info("[DELETE_INITIATIVE] Starting handle delete initiative {}", payload.getEntityId());
-        return deleteTransactions(payload.getEntityId(),
-                Integer.parseInt(payload.getAdditionalParams().get(PAGINATION_KEY)),
-                Long.parseLong(payload.getAdditionalParams().get(DELAY_KEY)))
-                .then(Mono.just(payload.getEntityId()));
+    public Mono<String> execute(String initiativeId) {
+        log.info("[DELETE_INITIATIVE] Starting handle delete initiative {}", initiativeId);
+        return deleteTransactions(initiativeId)
+                .then(Mono.just(initiativeId));
     }
 
-    private Mono<Void> deleteTransactions(String initiativeId, int pageSize, long delayDuration){
-        Mono<Long> monoDelay = Mono.delay(Duration.ofMillis(delayDuration));
+    private Mono<Void> deleteTransactions(String initiativeId){
+        Mono<Long> monoDelay = Mono.delay(Duration.ofMillis(delay));
 
         return rewardTransactionRepository.findOneByInitiativeId(initiativeId)
                 .flatMap(trx -> {
