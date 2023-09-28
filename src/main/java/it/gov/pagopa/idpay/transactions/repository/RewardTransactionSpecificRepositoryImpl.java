@@ -1,7 +1,5 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
-import com.mongodb.client.result.DeleteResult;
-import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
@@ -101,19 +99,20 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Mono<DeleteResult> deleteByInitiativeId(String initiativeId) {
-        Criteria criteria = Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId);
-        return mongoTemplate.remove(Query.query(criteria), RewardTransaction.class);
-    }
-
-    @Override
-    public Mono<UpdateResult> findAndRemoveInitiativeOnTransaction(String initiativeId) {
-        Criteria criteria = Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId);
-        return mongoTemplate.updateMulti(Query.query(criteria),
+    public Mono<Void> removeInitiativeOnTransaction(String trxId, String initiativeId) {
+        Criteria criteria = Criteria.where(RewardTransaction.Fields.id).is(trxId);
+        return mongoTemplate.updateFirst(Query.query(criteria),
                 new Update()
                         .pull(RewardTransaction.Fields.initiatives, initiativeId)
                         .unset("%s.%s".formatted(RewardTransaction.Fields.rewards, initiativeId))
                         .unset("%s.%s".formatted(RewardTransaction.Fields.initiativeRejectionReasons, initiativeId)),
-                RewardTransaction.class);
+                RewardTransaction.class)
+                .then();
+    }
+
+    @Override
+    public Flux<RewardTransaction> findByInitiativesWithBatch(String initiativeId, int batchSize){
+        Query query = Query.query(Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId)).cursorBatchSize(batchSize);
+        return mongoTemplate.find(query, RewardTransaction.class);
     }
 }
