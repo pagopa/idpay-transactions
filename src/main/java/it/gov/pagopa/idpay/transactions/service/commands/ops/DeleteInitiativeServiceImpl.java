@@ -15,7 +15,7 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
     private final RewardTransactionRepository rewardTransactionRepository;
     private final AuditUtilities auditUtilities;
     private final int pageSize;
-    private final long delay;
+    private final Mono<Long> monoDelay;
 
     @SuppressWarnings("squid:S00107") // suppressing too many parameters constructor alert
     public DeleteInitiativeServiceImpl(RewardTransactionRepository rewardTransactionRepository,
@@ -25,7 +25,7 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
         this.rewardTransactionRepository = rewardTransactionRepository;
         this.auditUtilities = auditUtilities;
         this.pageSize = pageSize;
-        this.delay = delay;
+        this.monoDelay = Mono.delay(Duration.ofMillis(delay));
     }
 
     @Override
@@ -36,8 +36,6 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
     }
 
     private Mono<Void> deleteTransactions(String initiativeId){
-        Mono<Long> monoDelay = Mono.delay(Duration.ofMillis(delay));
-
         return rewardTransactionRepository.findOneByInitiativeId(initiativeId)
                 .flatMap(trx -> {
                     if ("QRCODE".equals(trx.getChannel())){
