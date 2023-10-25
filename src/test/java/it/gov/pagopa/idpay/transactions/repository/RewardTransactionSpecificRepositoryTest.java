@@ -5,7 +5,6 @@ import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.counters.RewardCounters;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -335,7 +334,6 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
         cleanDataPageable();
     }
 
-    @NotNull
     private static Map<String, Reward> getReward() {
         Map<String, Reward> reward = new HashMap<>();
         RewardCounters counter = RewardCounters.builder()
@@ -358,7 +356,6 @@ class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
         return reward;
     }
 
-    @NotNull
     private static Map<String, List<String>> getInitiativeRejectionReasons() {
         Map<String, List<String>> initiativeRejectionReasons = new HashMap<>();
         initiativeRejectionReasons.put(INITIATIVE_ID,  List.of("BUDGET_EXHAUSTED"));

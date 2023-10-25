@@ -136,10 +136,10 @@ spring:
 
 management:
   health:
-    probes.enabled: true
     mongo.enabled: ${HEALTH_MONGO_ENABLED:true}
   endpoint:
     health:
+      probes.enabled: true
       group:
         readiness.include: "*"
         liveness.include: livenessState,diskSpace,ping,binders,streams
@@ -157,7 +157,7 @@ logging:
     it.gov.pagopa.common.reactive.kafka.consumer: ${LOG_LEVEL_BASE_KAFKA_CONSUMER:INFO}
     it.gov.pagopa.idpay: ${LOG_LEVEL_IDPAY:INFO}
     it.gov.pagopa.transactions: ${LOG_LEVEL_TRANSACTIONS:INFO}
-    it.gov.pagopa.idpay.transactions.service.BaseKafkaConsumer: ${LOG_LEVEL_BASE_KAFKA_CONSUMER:INFO}
+    it.gov.pagopa.common.reactive.kafka.consumer.BaseKafkaConsumer: ${LOG_LEVEL_BASE_KAFKA_CONSUMER:INFO}
     org.springframework.integration: ${LOG_LEVEL_SPRING_INTEGRATION:INFO}
     org.springframework.security: ${LOG_LEVEL_SPRING_SECURITY:INFO}
     org.springframework.ws: ${LOG_LEVEL_SPRING_WS:INFO}
@@ -165,13 +165,12 @@ logging:
     org.springframework.data: ${LOG_LEVEL_SPRING_DATA:INFO}
     org.springframework.hateoas: ${LOG_LEVEL_SPRING_HATEOAS:INFO}
     org.springframework.boot: ${LOG_LEVEL_SPRING_BOOT:INFO}
+    org.springframework.boot.availability: ${LOG_LEVEL_SPRING_BOOT_AVAILABILITY:DEBUG}
     org.springframework.kafka: ${LOG_LEVEL_SPRING_KAFKA:INFO}
     org.springframework.batch: ${LOG_LEVEL_SPRING_BATCH:INFO}
     io.swagger: ${LOG_LEVEL_IO_SWAGGER:WARN}
     javax.persistence: ${LOG_LEVEL_JAVAX_PERSISTENCE:INFO}
     org.hibernate: ${LOG_LEVEL_ORG_HIBERNATE:INFO}
-    org.kie: ${LOG_LEVEL_ORG_KIE:WARN}
-    org.drools: ${LOG_LEVEL_ORG_DROOLS:WARN}
     org.mongodb.driver: ${LOG_LEVEL_MONGODB_DRIVER:WARN}
 
 app:

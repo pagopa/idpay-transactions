@@ -9,7 +9,6 @@ import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -43,7 +42,6 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 });
     }
 
-    @NotNull
     private Mono<Tuple2<List<MerchantTransactionDTO>, Long>> getMerchantTransactionDTOs2Count(String merchantId, String initiativeId, String fiscalCode, String status, Pageable pageable) {
         if (StringUtils.isNotBlank(fiscalCode)){
             return Mono.just(fiscalCode)
@@ -55,7 +53,6 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
         }
     }
 
-    @NotNull
     private Mono<Tuple2<List<MerchantTransactionDTO>, Long>> getMerchantTransactionDTOs(String merchantId, String initiativeId, String status, Pageable pageable, String userId, String fiscalCode) {
         return rewardTransactionRepository.findByFilter(merchantId, initiativeId, userId, status, pageable)
                 .flatMap(t -> createMerchantTransactionDTO(initiativeId, t, fiscalCode))
@@ -63,7 +60,6 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .zipWith(rewardTransactionRepository.getCount(merchantId, initiativeId, userId, status));
     }
 
-    @NotNull
     private Mono<MerchantTransactionDTO> createMerchantTransactionDTO(String initiativeId, RewardTransaction transaction, String fiscalCode) {
         MerchantTransactionDTO out = MerchantTransactionDTO.builder()
                 .trxId(transaction.getId())
