@@ -11,7 +11,6 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.counters.RewardCounters;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -124,7 +123,6 @@ class MerchantTransactionServiceImplTest {
         assertEquals(merchantTransactionsListDTO_expected, result);
     }
 
-    @NotNull
     private static Map<String, Reward> getReward() {
         Map<String, Reward> reward = new HashMap<>();
         RewardCounters counter = RewardCounters.builder()
