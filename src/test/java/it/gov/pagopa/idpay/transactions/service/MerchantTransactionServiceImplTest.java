@@ -66,6 +66,7 @@ class MerchantTransactionServiceImplTest {
                 .status(rt1.getStatus())
                 .elaborationDateTime(rt1.getElaborationDateTime())
                 .trxDate(rt1.getTrxDate())
+                .channel(rt1.getChannel())
                 .build();
 
         MerchantTransactionsListDTO merchantTransactionsListDTO_expected = MerchantTransactionsListDTO.builder()
@@ -103,6 +104,7 @@ class MerchantTransactionServiceImplTest {
                 .status(rt1.getStatus())
                 .elaborationDateTime(rt1.getElaborationDateTime())
                 .trxDate(rt1.getTrxDate())
+                .channel(rt1.getChannel())
                 .build();
 
         MerchantTransactionsListDTO merchantTransactionsListDTO_expected = MerchantTransactionsListDTO.builder()

@@ -68,6 +68,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .trxDate(transaction.getTrxDate())
                 .elaborationDateTime(transaction.getElaborationDateTime())
                 .status(transaction.getStatus())
+                .channel(transaction.getChannel())
                 .build();
         if (StringUtils.isNotBlank(fiscalCode)){
             out.setFiscalCode(fiscalCode);
