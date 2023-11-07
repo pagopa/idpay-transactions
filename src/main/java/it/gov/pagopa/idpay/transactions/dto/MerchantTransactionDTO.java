@@ -24,4 +24,5 @@ public class MerchantTransactionDTO {
     @JsonProperty("updateDate")
     LocalDateTime elaborationDateTime;
     String status;
+    String channel;
 }
