@@ -62,7 +62,7 @@ microservice-chart:
     DELETE_PAGINATION_SIZE: "45"
     DELETE_DELAY_TIME: "1000"
 
-  envConfigMapExternals:
+  externalConfigMapValues:
     idpay-common:
       TZ: TZ
     idpay-eventhub-01:
@@ -82,3 +82,9 @@ microservice-chart:
     KAFKA_ERRORS_SASL_JAAS_CONFIG: evh-idpay-errors-idpay-errors-producer-jaas-config-idpay-01
     KAFKA_COMMANDS_SASL_JAAS_CONFIG: evh-idpay-commands-idpay-commands-consumer-jaas-config-idpay-01
     PDV_DECRYPT_API_KEY: pdv-api-key
+
+  externalConfigMapFiles:
+    create: true
+    configMaps:
+      - name: appinsights-config
+        key: applicationinsights.json
