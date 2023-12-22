@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.controller;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -28,7 +29,7 @@ public class TransactionsControllerImpl implements TransactionsController{
         }else if(userId != null && trxDateStart != null && trxDateEnd != null){
             return rewardTransactionService.findByRange(userId, trxDateStart, trxDateEnd, amount, pageable);
         }else {
-            throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, "Error","Mandatory filters are missing. Insert one of the following options: 1) idTrxIssuer 2) userId, trxDateStart and trxDateEnd");
+            throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, ExceptionConstants.ExceptionCode.TRANSACTIONS_MISSING_MANDATORY_FILTERS,ExceptionConstants.ExceptionMessage.TRANSACTIONS_MISSING_MANDATORY_FILTERS);
         }
     }
 }

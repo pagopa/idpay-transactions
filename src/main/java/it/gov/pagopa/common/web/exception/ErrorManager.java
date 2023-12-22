@@ -5,30 +5,26 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ServerWebExchange;
+
+import java.util.Optional;
 
 
 @RestControllerAdvice
 @Slf4j
 public class ErrorManager {
-    private static final ErrorDTO defaultErrorDTO;
-    static {
-        defaultErrorDTO =new ErrorDTO("Error", "Something gone wrong");
+    private final ErrorDTO defaultErrorDTO;
+
+    public ErrorManager(@Nullable ErrorDTO defaultErrorDTO) {
+        this.defaultErrorDTO = Optional.ofNullable(defaultErrorDTO)
+                .orElse(new ErrorDTO("Error", "Something gone wrong"));
     }
     @ExceptionHandler(RuntimeException.class)
     protected ResponseEntity<ErrorDTO> handleException(RuntimeException error, ServerWebExchange exchange) {
-        if(!(error instanceof ClientException clientException) || clientException.isPrintStackTrace() || clientException.getCause() != null){
-            log.error("Something went wrong handling request {}", getRequestDetails(exchange), error);
-        } else {
-            log.info("A {} occurred handling request {}: HttpStatus {} - {} at {}",
-                    clientException.getClass().getSimpleName(),
-                    getRequestDetails(exchange),
-                    clientException.getHttpStatus(),
-                    clientException.getMessage(),
-                    clientException.getStackTrace().length > 0 ? clientException.getStackTrace()[0] : "UNKNOWN");
-        }
+        logClientException(error, exchange);
 
         if(error instanceof ClientExceptionNoBody clientExceptionNoBody){
             return ResponseEntity.status(clientExceptionNoBody.getHttpStatus()).build();
@@ -47,6 +43,27 @@ public class ErrorManager {
             return ResponseEntity.status(httpStatus)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(errorDTO);
+        }
+    }
+
+    public static void logClientException(RuntimeException error, ServerWebExchange exchange) {
+        String clientExceptionMessage = "";
+        if(error instanceof ClientException clientException) {
+            clientExceptionMessage = ": HttpStatus %s - %s%s".formatted(
+                    clientException.getHttpStatus(),
+                    (clientException instanceof ClientExceptionWithBody clientExceptionWithBody) ? clientExceptionWithBody.getCode() + ": " : "",
+                    clientException.getMessage()
+            );
+        }
+
+        if(!(error instanceof ClientException clientException) || clientException.isPrintStackTrace() || error.getCause() != null){
+            log.error("Something went wrong handling request {}{}", getRequestDetails(exchange), clientExceptionMessage, error);
+        } else {
+            log.info("A {} occurred handling request {}{} at {}",
+                    error.getClass().getSimpleName() ,
+                    getRequestDetails(exchange),
+                    clientExceptionMessage,
+                    error.getStackTrace().length > 0 ? error.getStackTrace()[0] : "UNKNOWN");
         }
     }
 

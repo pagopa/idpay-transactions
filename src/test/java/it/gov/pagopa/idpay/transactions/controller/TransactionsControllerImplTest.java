@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.controller;
 import it.gov.pagopa.common.web.dto.ErrorDTO;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -83,7 +84,7 @@ class TransactionsControllerImplTest {
                 .trxDate(now)
                 .amount(new BigDecimal("30.00")).build();
 
-        ErrorDTO expectedErrorDTO = new ErrorDTO("Error", "Mandatory filters are missing. Insert one of the following options: 1) idTrxIssuer 2) userId, trxDateStart and trxDateEnd");
+        ErrorDTO expectedErrorDTO = new ErrorDTO(ExceptionConstants.ExceptionCode.TRANSACTIONS_MISSING_MANDATORY_FILTERS, ExceptionConstants.ExceptionMessage.TRANSACTIONS_MISSING_MANDATORY_FILTERS);
 
         webClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
