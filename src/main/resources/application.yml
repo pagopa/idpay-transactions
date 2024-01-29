@@ -50,7 +50,7 @@ spring:
           type: kafka
           environment:
             spring.cloud.stream.kafka.binder:
-              brokers: ${KAFKA_TRANSACTIONS_BROKER:${KAFKA_BROKER:}}
+              brokers: ${KAFKA_BINDER_BROKER_ENDPOINT_REWARD_TRX:${KAFKA_BROKER:}}
               configuration:
                 sasl.jaas.config: ${EVH_CONNECTION_REWARD_RESPONSE:}
         kafka-errors:
@@ -75,7 +75,7 @@ spring:
             heartbeat.interval.ms: ${KAFKA_TRANSACTIONS_BINDER_CONFIGURATION_HEARTBEAT_INTERVAL_MS:3000}
             session.timeout.ms: ${KAFKA_TRANSACTIONS_BINDER_CONFIGURATION_SESSION_TIMEOUT_MS:60000}
             request.timeout.ms: ${KAFKA_CONFIG_REQUEST_TIMEOUT_MS:60000}
-            sasl.mechanism: ${KAFKA_TRANSACTIONS_SASL_MECHANISM_00:PLAIN}
+            sasl.mechanism: ${KAFKA_TRANSACTIONS_SASL_MECHANISM:PLAIN}
             security.protocol: ${KAFKA_TRANSACTIONS_SECURITY_PROTOCOL:SASL_SSL}
             connections.max.idle.ms: ${KAFKA_CONFIG_CONNECTION_MAX_IDLE_TIME:180000}
             metadata.max.idle.ms: ${KAFKA_CONFIG_METADATA_MAX_IDLE_MS:180000}
