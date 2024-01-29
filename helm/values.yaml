@@ -67,20 +67,23 @@ microservice-chart:
       TZ: TZ
     idpay-eventhub-01:
       KAFKA_BINDER_BROKER_ENDPOINT_REWARD_TRX: kafka_broker
-      KAFKA_TRANSACTIONS_SASL_MECHANISM: kafka_sasl_mechanism
       KAFKA_TRANSACTIONS_SECURITY_PROTOCOL: kafka_security_protocol
-      KAFKA_TRANSACTION_TOPIC: idpay_transaction_topic
-      KAFKA_TRANSACTION_GROUP_ID: idpay_transaction_consumer_group
       KAFKA_ERRORS_BROKER: kafka_broker
       KAFKA_ERRORS_TOPIC: idpay_error_topic
       KAFKA_COMMANDS_BROKER: kafka_broker
       KAFKA_COMMANDS_TOPIC: idpay_commands_topic
+    idpay-eventhub-00:
+      KAFKA_TRANSACTIONS_BROKER: kafka_broker
+      KAFKA_TRANSACTIONS_SASL_MECHANISM_00: kafka_sasl_mechanism
+      KAFKA_TRANSACTION_TOPIC: idpay_transaction_topic
+      KAFKA_TRANSACTION_GROUP_ID: idpay_transaction_consumer_group
+
     rest-client:
       PDV_BASE_URL: pdv_decrypt_base_url
 
   envSecret:
     MONGODB_URI: mongodb-connection-string
-    EVH_CONNECTION_REWARD_RESPONSE: evh-idpay-transaction-idpay-transaction-consumer-jaas-config-idpay-01
+    EVH_CONNECTION_REWARD_RESPONSE: evh-idpay-transaction-idpay-transaction-consumer-jaas-config-idpay-00
     KAFKA_ERRORS_SASL_JAAS_CONFIG: evh-idpay-errors-idpay-errors-producer-jaas-config-idpay-01
     KAFKA_COMMANDS_SASL_JAAS_CONFIG: evh-idpay-commands-idpay-commands-consumer-jaas-config-idpay-01
     PDV_DECRYPT_API_KEY: pdv-api-key
