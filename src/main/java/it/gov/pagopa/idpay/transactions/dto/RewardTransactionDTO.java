@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import it.gov.pagopa.idpay.transactions.model.RefundInfo;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import lombok.AllArgsConstructor;
@@ -20,6 +21,7 @@ import java.util.Map;
 @Builder
 public class RewardTransactionDTO {
 
+    @JsonAlias("_id")
     private String id;
     private String idTrxAcquirer;
     private String acquirerCode;
