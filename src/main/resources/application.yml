@@ -181,6 +181,11 @@ app:
     retry:
       delay-millis: ${PDV_RETRY_DELAY_MILLIS:2000}
       max-attempts: ${PDV_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:10}}
+  web-client:
+    connect.timeout.millis: ${CONNECT_TIMEOUT_MILLIS:10000}
+    response.timeout: ${RESPONSE_TIMEOUT:60000}
+    read.handler.timeout: ${READ_TIMEOUT_HANDLER:60000}
+    write.handler.timeout: ${WRITE_TIMEOUT_HANDLER:60000}
   delete:
     paginationSize: ${DELETE_PAGINATION_SIZE:45}
     delayTime: ${DELETE_DELAY_TIME:1000}

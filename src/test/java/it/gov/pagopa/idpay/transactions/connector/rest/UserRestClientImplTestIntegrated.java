@@ -1,12 +1,14 @@
 package it.gov.pagopa.idpay.transactions.connector.rest;
 
-import it.gov.pagopa.idpay.transactions.BaseIntegrationTest;
+import it.gov.pagopa.common.reactive.rest.config.WebClientConfig;
+import it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 
 /**
@@ -19,7 +21,12 @@ import org.springframework.test.context.TestPropertySource;
         properties = {
                 "app.pdv.base-url=https://api.uat.tokenizer.pdv.pagopa.it/tokenizer/v1"
         })
-class UserRestClientImplTestIntegrated extends BaseIntegrationTest {
+@ContextConfiguration(
+        classes = {
+                UserRestClientImpl.class,
+                WebClientConfig.class
+        })
+class UserRestClientImplTestIntegrated extends BaseWireMockTest {
 
     @Autowired
     private UserRestClient userRestClient;
