@@ -10,6 +10,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -67,5 +68,26 @@ class RewardTransactionServiceImplTest {
         RewardTransaction resultRT = result.toStream().findFirst().orElse(null);
         Assertions.assertNotNull(resultRT);
         Assertions.assertEquals(rt, resultRT);
+    }
+
+    @Test
+    void save(){
+        // Given
+        RewardTransaction rt = RewardTransaction.builder()
+                .userId("USERID")
+                .amount(new BigDecimal("30.00"))
+                .trxDate(LocalDateTime.of(2022, 9, 19, 15,43,39))
+                .idTrxIssuer("IDTRXISSUER")
+                .build();
+
+        Mockito.when(rewardTransactionRepository.save(rt)).thenReturn(Mono.just(rt));
+
+        //when
+        RewardTransaction result = rewardTransactionService.save(rt).block();
+
+        //Then
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(rt, result);
+        Mockito.verifyNoMoreInteractions(rewardTransactionRepository);
     }
 }

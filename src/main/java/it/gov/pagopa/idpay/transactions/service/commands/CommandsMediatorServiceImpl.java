@@ -26,10 +26,11 @@ public class CommandsMediatorServiceImpl extends BaseKafkaConsumer<QueueCommandO
     private final TransactionErrorNotifierService transactionErrorNotifierService;
     private final ObjectReader objectReader;
 
-    protected CommandsMediatorServiceImpl(
+    public CommandsMediatorServiceImpl(
             @Value("${spring.application.name}") String applicationName,
-            @Value("${spring.cloud.stream.kafka.bindings.consumerCommands-in-0.consumer.ackTime}")  long commitMillis,
-            DeleteInitiativeService deleteInitiativeService, TransactionErrorNotifierService transactionErrorNotifierService,
+            @Value("${spring.cloud.stream.kafka.bindings.consumerCommands-in-0.consumer.ackTime}") long commitMillis,
+            DeleteInitiativeService deleteInitiativeService,
+            TransactionErrorNotifierService transactionErrorNotifierService,
             ObjectMapper objectMapper) {
         super(applicationName);
         this.commitDelay = Duration.ofMillis(commitMillis);
