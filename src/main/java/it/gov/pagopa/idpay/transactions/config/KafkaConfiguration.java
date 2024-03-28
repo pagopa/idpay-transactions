@@ -24,7 +24,6 @@ public class KafkaConfiguration {
     @Getter
     @Setter
     @SuperBuilder
-    @AllArgsConstructor
     @NoArgsConstructor
     public static class BaseKafkaInfoDTO {
         private String destination;
@@ -36,8 +35,6 @@ public class KafkaConfiguration {
     @Getter
     @Setter
     @SuperBuilder
-    @EqualsAndHashCode(callSuper = true)
-    @AllArgsConstructor
     @NoArgsConstructor
     public static class KafkaInfoDTO extends BaseKafkaInfoDTO{
         private String binder;
