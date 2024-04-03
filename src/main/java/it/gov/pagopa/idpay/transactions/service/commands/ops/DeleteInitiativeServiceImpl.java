@@ -17,7 +17,6 @@ public class DeleteInitiativeServiceImpl implements DeleteInitiativeService{
     private final int pageSize;
     private final Mono<Long> monoDelay;
 
-    @SuppressWarnings("squid:S00107") // suppressing too many parameters constructor alert
     public DeleteInitiativeServiceImpl(RewardTransactionRepository rewardTransactionRepository,
                                        AuditUtilities auditUtilities,
                                        @Value("${app.delete.paginationSize}")int pageSize,

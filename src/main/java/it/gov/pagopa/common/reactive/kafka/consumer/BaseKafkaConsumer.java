@@ -58,7 +58,7 @@ public abstract class BaseKafkaConsumer<T, R> {
     record KafkaAcknowledgeResult<T> (Acknowledgment ack, Integer partition, Long offset, T result){
         public KafkaAcknowledgeResult(Message<?> message, T result) {
             this(
-                    CommonUtilities.getHeaderValue(message, KafkaHeaders.ACKNOWLEDGMENT),
+                    (Acknowledgment) CommonUtilities.getHeaderValue(message, KafkaHeaders.ACKNOWLEDGMENT),
                     getMessagePartitionId(message),
                     getMessageOffset(message),
                     result
@@ -67,11 +67,11 @@ public abstract class BaseKafkaConsumer<T, R> {
     }
 
     private static Integer getMessagePartitionId(Message<?> message) {
-        return CommonUtilities.getHeaderValue(message, KafkaHeaders.RECEIVED_PARTITION);
+        return (Integer) CommonUtilities.getHeaderValue(message, KafkaHeaders.RECEIVED_PARTITION);
     }
 
     private static Long getMessageOffset(Message<?> message) {
-        return CommonUtilities.getHeaderValue(message, KafkaHeaders.OFFSET);
+        return (Long) CommonUtilities.getHeaderValue(message, KafkaHeaders.OFFSET);
     }
 
     /** It will ask the superclass to handle the messages, then sequentially it will acknowledge them */
@@ -133,7 +133,7 @@ public abstract class BaseKafkaConsumer<T, R> {
                         return Mono.just(defaultAck);
                     }
                 })
-                .doOnNext(r -> doFinally(message, r.result, ctx))
+                .doOnNext(r -> doFinally(message, ctx))
 
                 .onErrorResume(e -> {
                     log.info("Retrying after reactive pipeline error: ", e);
@@ -142,8 +142,7 @@ public abstract class BaseKafkaConsumer<T, R> {
     }
 
     /** to perform some operation at the end of business logic execution, thus before to wait for commit. As default, it will perform an INFO logging with performance time */
-    @SuppressWarnings({"sonar:S1172", "unused"}) // suppressing unused parameters
-    protected void doFinally(Message<String> message, R r, Map<String, Object> ctx) {
+    protected void doFinally(Message<String> message, Map<String, Object> ctx) {
         Long startTime = (Long)ctx.get(CONTEXT_KEY_START_TIME);
         String msgId = (String)ctx.get(CONTEXT_KEY_MSG_ID);
         if(startTime != null){
