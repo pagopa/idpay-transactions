@@ -1,6 +1,6 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
-import it.gov.pagopa.idpay.transactions.BaseIntegrationTest;
+import it.gov.pagopa.common.reactive.mongo.MongoTest;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.counters.RewardCounters;
@@ -24,9 +24,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
-
 @DirtiesContext
-class RewardTransactionSpecificRepositoryTest extends BaseIntegrationTest {
+@MongoTest
+class RewardTransactionSpecificRepositoryTest {
     @Autowired
     protected RewardTransactionRepository rewardTransactionRepository;
 

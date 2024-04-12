@@ -75,8 +75,7 @@ public class MongoRequestRateTooLargeAutomaticRetryAspect {
 
     @Around("(inRepositoryClass() or inSpringRepositoryClass()) && returnFlux()")
     public Object decorateFluxRepositoryMethods(ProceedingJoinPoint pjp) throws Throwable {
-        @SuppressWarnings("unchecked") // only with Flux the compiler return error when using wildcard, so here we are using Object
-        Flux<Object> out = (Flux<Object>) pjp.proceed();
+        Flux<?> out = (Flux<?>) pjp.proceed();
         String flowName = pjp.getSignature().toShortString();
         return Flux.deferContextual(ctx -> decorateMethod(flowName, out, ctx));
     }

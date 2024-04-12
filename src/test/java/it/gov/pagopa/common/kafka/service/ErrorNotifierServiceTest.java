@@ -3,6 +3,7 @@ package it.gov.pagopa.common.kafka.service;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import it.gov.pagopa.common.kafka.utils.KafkaConstants;
+import it.gov.pagopa.idpay.transactions.config.KafkaConfiguration;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -85,7 +86,13 @@ class ErrorNotifierServiceTest {
         ))).thenReturn(expectedResult);
 
         // When
-        boolean result = service.notify(SRC_TYPE, SRC_SERVER, SRC_TOPIC, GROUP, message, DESCRIPTION, expectedRetryable, expectedResend, expectedException);
+        KafkaConfiguration.BaseKafkaInfoDTO baseKafkaInfoDTO = KafkaConfiguration.BaseKafkaInfoDTO.builder()
+                .type(SRC_TYPE)
+                .brokers(SRC_SERVER)
+                .destination(SRC_TOPIC)
+                .group(GROUP)
+                .build();
+        boolean result = service.notify(baseKafkaInfoDTO, message, DESCRIPTION, expectedRetryable, expectedResend, expectedException);
 
         // Then
         Assertions.assertEquals(expectedResult, result);

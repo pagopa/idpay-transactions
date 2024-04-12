@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.connector.rest;
 
-import it.gov.pagopa.idpay.transactions.BaseIntegrationTest;
+import it.gov.pagopa.common.reactive.rest.config.WebClientConfig;
+import it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import org.junit.jupiter.api.Assertions;
@@ -8,14 +9,28 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.web.reactive.function.client.WebClientException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.Exceptions;
-@TestPropertySource(properties = {
-        "logging.level.it.gov.pagopa.transactions.rest.UserRestClientImpl=WARN",
-})
-class UserRestClientImplTest extends BaseIntegrationTest {
+
+import static it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest.WIREMOCK_TEST_PROP2BASEPATH_MAP_PREFIX;
+
+//@TestPropertySource(properties = {
+//        "logging.level.it.gov.pagopa.transactions.rest.UserRestClientImpl=WARN",
+//})
+@ContextConfiguration(
+        classes = {
+                UserRestClientImpl.class,
+                WebClientConfig.class
+        })
+@TestPropertySource(
+        properties = {
+                WIREMOCK_TEST_PROP2BASEPATH_MAP_PREFIX + "app.pdv.base-url"
+        }
+)
+class UserRestClientImplTest extends BaseWireMockTest {
 
     @Autowired
     private UserRestClient userRestClient;
