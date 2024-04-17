@@ -6,8 +6,6 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 
-import java.math.BigDecimal;
-
 @Data
 @EqualsAndHashCode(callSuper = true)
 @AllArgsConstructor
@@ -15,5 +13,5 @@ import java.math.BigDecimal;
 @SuperBuilder
 public class RewardCounters extends Counters{
     private boolean exhaustedBudget;
-    private BigDecimal initiativeBudget;
+    private Long initiativeBudgetCents;
 }

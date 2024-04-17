@@ -16,8 +16,8 @@ import java.time.LocalDateTime;
 public class MerchantTransactionDTO {
     String trxId;
     String fiscalCode;
-    Long effectiveAmount;
-    Long rewardAmount;
+    Long effectiveAmountCents;
+    Long rewardAmountCents;
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     LocalDateTime trxDate;
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
