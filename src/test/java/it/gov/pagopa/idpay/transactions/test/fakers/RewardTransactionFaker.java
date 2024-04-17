@@ -5,8 +5,9 @@ import com.github.javafaker.service.RandomService;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 
-import java.math.BigDecimal;
-import java.time.*;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Locale;
 import java.util.Random;
 
@@ -55,7 +56,6 @@ public class RewardTransactionFaker {
                 .circuitType("CIRCUITTYPE%s".formatted(bias))
                 .idTrxIssuer("IDTRXISSUER%s".formatted(bias))
                 .correlationId("CORRELATIONID%s".formatted(bias))
-                .amount(BigDecimal.valueOf(getRandomPositiveNumber(bias, 200)))
                 .amountCents(getRandomPositiveNumber(bias, 200)*100L)
                 .amountCurrency("AMOUNTCURRENCY%s".formatted(bias))
                 .mcc("MCC%s".formatted(bias))
