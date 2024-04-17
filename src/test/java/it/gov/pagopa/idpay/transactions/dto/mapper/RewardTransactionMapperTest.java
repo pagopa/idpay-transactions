@@ -46,7 +46,7 @@ class RewardTransactionMapperTest {
         Assertions.assertNotNull(resultRejected);
         assertCommonFields(resultRejected, rejectedTrx);
         assertRejectedFields(resultRejected,rejectedTrx);
-        TestUtils.checkNotNullFields(resultRejected, "initiatives","rewards", "operationTypeTranscoded", "effectiveAmount","trxChargeDate","refundInfo");
+        TestUtils.checkNotNullFields(resultRejected, "initiatives","rewards", "operationTypeTranscoded", "effectiveAmountCents","trxChargeDate","refundInfo");
 
 
     }
