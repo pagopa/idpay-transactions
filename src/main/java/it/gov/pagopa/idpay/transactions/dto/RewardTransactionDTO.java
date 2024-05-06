@@ -9,7 +9,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -34,7 +33,6 @@ public class RewardTransactionDTO {
     private String correlationId;
 
     private Long amountCents;
-    private BigDecimal amount;
 
     private String amountCurrency;
     private String mcc;
@@ -58,7 +56,7 @@ public class RewardTransactionDTO {
     private String brandLogo;
 
     private String operationTypeTranscoded;
-    private BigDecimal effectiveAmount;
+    private Long effectiveAmountCents;
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private OffsetDateTime trxChargeDate;
     private RefundInfo refundInfo;

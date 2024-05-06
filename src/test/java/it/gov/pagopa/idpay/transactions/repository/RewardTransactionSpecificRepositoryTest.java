@@ -17,7 +17,6 @@ import org.springframework.test.annotation.DirtiesContext;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -44,12 +43,12 @@ class RewardTransactionSpecificRepositoryTest {
     @BeforeEach
     void setUp(){
         LocalDateTime date = LocalDateTime.of(2021, 9, 6, 17, 30, 25);
-        BigDecimal amount = new BigDecimal("30.00");
+        Long amountCents = 3000L;
         rt = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id_prova")
                 .idTrxIssuer("IDTRXISSUER1")
                 .trxDate(date)
-                .amount(amount).build();
+                .amountCents(amountCents).build();
         rewardTransactionRepository.save(rt).block();
     }
 
@@ -91,13 +90,13 @@ class RewardTransactionSpecificRepositoryTest {
         Assertions.assertEquals(resultTrxIssuerAndEndDateList, List.of(rt));
 
 
-        Flux<RewardTransaction> resultTrxIssuerAndAmount = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,null,null, rt.getAmount(), null);
+        Flux<RewardTransaction> resultTrxIssuerAndAmount = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,null,null, rt.getAmountCents(), null);
         Assertions.assertNotNull(resultTrxIssuerAndAmount);
         List<RewardTransaction> resultTrxIssuerAndAmountList = resultTrxIssuerAndAmount.toStream().toList();
         Assertions.assertEquals(1, resultTrxIssuerAndAmountList.size());
         Assertions.assertEquals(resultTrxIssuerAndAmountList, List.of(rt));
 
-        Flux<RewardTransaction> resultTrxIssuerAndRangeDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,startDate,endDate, rt.getAmount(), null);
+        Flux<RewardTransaction> resultTrxIssuerAndRangeDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,startDate,endDate, rt.getAmountCents(), null);
         Assertions.assertNotNull(resultTrxIssuerAndRangeDate);
         List<RewardTransaction> resultTrxIssuerAndRangeDateList = resultTrxIssuerAndRangeDate.toStream().toList();
         Assertions.assertEquals(1, resultTrxIssuerAndRangeDateList.size());
@@ -122,7 +121,7 @@ class RewardTransactionSpecificRepositoryTest {
         Assertions.assertEquals(1, resultUserIDAndRangeDateList.size());
         Assertions.assertEquals(resultUserIDAndRangeDateList, List.of(rt));
 
-        Flux<RewardTransaction> resultUserIDAndRangeDateAndAmount = rewardTransactionSpecificRepository.findByRange(rt.getUserId(), startDate ,endDate,rt.getAmount(), null);
+        Flux<RewardTransaction> resultUserIDAndRangeDateAndAmount = rewardTransactionSpecificRepository.findByRange(rt.getUserId(), startDate ,endDate,rt.getAmountCents(), null);
         Assertions.assertNotNull(resultUserIDAndRangeDateAndAmount);
         List<RewardTransaction> resultUserIDAndRangeDateAndAmountList = resultUserIDAndRangeDateAndAmount.toStream().toList();
         Assertions.assertEquals(1, resultUserIDAndRangeDateAndAmountList.size());
@@ -214,13 +213,13 @@ class RewardTransactionSpecificRepositoryTest {
     }
 
     void setUpPageable(LocalDateTime date, String userId){
-        BigDecimal amount = new BigDecimal("30.00");
+        Long amountCents = 3000L;
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
                 .idTrxIssuer("IDTRXISSUER")
                 .userId(userId)
                 .trxDate(date)
-                .amount(amount).build();
+                .amountCents(amountCents).build();
         rewardTransactionRepository.save(rt1).block();
 
         rt2 = RewardTransactionFaker.mockInstanceBuilder(2)
@@ -228,7 +227,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .idTrxIssuer("IDTRXISSUER")
                 .userId(userId)
                 .trxDate(date)
-                .amount(amount).build();
+                .amountCents(amountCents).build();
         rewardTransactionRepository.save(rt2).block();
 
         rt3 = RewardTransactionFaker.mockInstanceBuilder(3)
@@ -236,7 +235,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .idTrxIssuer("IDTRXISSUER")
                 .userId(userId)
                 .trxDate(date)
-                .amount(amount).build();
+                .amountCents(amountCents).build();
         rewardTransactionRepository.save(rt3).block();
     }
 
@@ -338,13 +337,13 @@ class RewardTransactionSpecificRepositoryTest {
         Map<String, Reward> reward = new HashMap<>();
         RewardCounters counter = RewardCounters.builder()
                 .exhaustedBudget(false)
-                .initiativeBudget(new BigDecimal("100.00"))
+                .initiativeBudgetCents(10000L)
                 .build();
         Reward rewardElement = Reward.builder()
                 .initiativeId(INITIATIVE_ID)
                 .organizationId("ORGANIZATIONID")
-                .providedReward(BigDecimal.TEN)
-                .accruedReward(BigDecimal.TEN)
+                .providedRewardCents(1000L)
+                .accruedRewardCents(1000L)
                 .capped(false)
                 .dailyCapped(false)
                 .monthlyCapped(false)

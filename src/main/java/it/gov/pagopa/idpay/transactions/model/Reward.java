@@ -6,8 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
-
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -17,9 +15,9 @@ public class Reward {
     private String organizationId;
 
     /** The ruleEngine reward calculated */
-    private BigDecimal providedReward;
+    private Long providedRewardCents;
     /** The effective reward after CAP evaluation */
-    private BigDecimal accruedReward;
+    private Long accruedRewardCents;
     /** True, if the reward has been capped due to budget threshold */
     private boolean capped;
 
