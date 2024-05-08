@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import reactor.core.publisher.Flux;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 
@@ -31,7 +30,7 @@ public interface TransactionsController {
             @RequestParam(value = "userId", required = false) String userId,
             @RequestParam(value = "trxDateStart", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime trxDateStart,
             @RequestParam(value = "trxDateEnd", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime trxDateEnd,
-            @RequestParam(value = "amount", required = false) BigDecimal amount,
+            @RequestParam(value = "amountCents", required = false) Long amountCents,
             @PageableDefault(size = 2000) Pageable pageable
     );
 }

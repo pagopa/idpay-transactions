@@ -6,7 +6,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -32,11 +31,10 @@ public class TransactionProcessed {
     private String correlationId;
 
     private Long amountCents;
-    private BigDecimal amount;
 
     private Map<String, Reward> rewards;
 
-    private BigDecimal effectiveAmount;
+    private Long effectiveAmountCents;
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime trxChargeDate;
     private String operationTypeTranscoded;

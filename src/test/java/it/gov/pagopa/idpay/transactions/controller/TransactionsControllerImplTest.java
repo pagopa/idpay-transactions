@@ -15,7 +15,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @WebFluxTest(controllers = {TransactionsController.class})
@@ -36,17 +35,17 @@ class TransactionsControllerImplTest {
                 .idTrxIssuer("IDTRXISSUER")
                 .userId("USERID")
                 .trxDate(now)
-                .amount(new BigDecimal("30.00")).build();
+                .amountCents(3000L).build();
 
         //idTrxIssuer present in request
-        Mockito.when(rewardTransactionService.findByIdTrxIssuer(Mockito.eq(rt.getIdTrxIssuer()),Mockito.eq(rt.getUserId()), Mockito.any(), Mockito.any(), Mockito.eq(rt.getAmount()), Mockito.any()))
+        Mockito.when(rewardTransactionService.findByIdTrxIssuer(Mockito.eq(rt.getIdTrxIssuer()),Mockito.eq(rt.getUserId()), Mockito.any(), Mockito.any(), Mockito.eq(rt.getAmountCents()), Mockito.any()))
                 .thenReturn(Flux.just(rt));
 
         webClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
                         .queryParam("idTrxIssuer", rt.getIdTrxIssuer())
                         .queryParam("userId", rt.getUserId())
-                        .queryParam("amount", rt.getAmount())
+                        .queryParam("amountCents", rt.getAmountCents())
                         .queryParam("trxDateStart", startDate)
                         .queryParam("trxDateEnd", endDate)
                         .build())
@@ -55,13 +54,13 @@ class TransactionsControllerImplTest {
                 .expectBodyList(RewardTransaction.class).contains(rt);
 
         //userId e range of date present in the request
-        Mockito.when(rewardTransactionService.findByRange(Mockito.eq(rt.getUserId()), Mockito.any(), Mockito.any(), Mockito.eq(rt.getAmount()), Mockito.any()))
+        Mockito.when(rewardTransactionService.findByRange(Mockito.eq(rt.getUserId()), Mockito.any(), Mockito.any(), Mockito.eq(rt.getAmountCents()), Mockito.any()))
                 .thenReturn(Flux.just(rt));
 
         webClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
                         .queryParam("userId", rt.getUserId())
-                        .queryParam("amount", rt.getAmount())
+                        .queryParam("amountCents", rt.getAmountCents())
                         .queryParam("trxDateStart", startDate)
                         .queryParam("trxDateEnd", endDate)
                         .build())
@@ -82,14 +81,14 @@ class TransactionsControllerImplTest {
                 .idTrxIssuer("IDTRXISSUER")
                 .userId("USERID")
                 .trxDate(now)
-                .amount(new BigDecimal("30.00")).build();
+                .amountCents(3000L).build();
 
         ErrorDTO expectedErrorDTO = new ErrorDTO(ExceptionConstants.ExceptionCode.TRANSACTIONS_MISSING_MANDATORY_FILTERS, ExceptionConstants.ExceptionMessage.TRANSACTIONS_MISSING_MANDATORY_FILTERS);
 
         webClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
                         .queryParam("userId", rt.getUserId())
-                        .queryParam("amount", rt.getAmount()).build())
+                        .queryParam("amountCents", rt.getAmountCents()).build())
                 .exchange()
                 .expectStatus().isBadRequest()
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
@@ -97,7 +96,7 @@ class TransactionsControllerImplTest {
         webClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
                         .queryParam("userId", rt.getUserId())
-                        .queryParam("amount", rt.getAmount())
+                        .queryParam("amountCents", rt.getAmountCents())
                         .queryParam("trxDateStart", startDate).build())
                 .exchange()
                 .expectStatus().isBadRequest()
@@ -106,7 +105,7 @@ class TransactionsControllerImplTest {
         webClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
                         .queryParam("userId", rt.getUserId())
-                        .queryParam("amount", rt.getAmount())
+                        .queryParam("amountCents", rt.getAmountCents())
                         .queryParam("trxDateEnd", endDate).build())
                 .exchange()
                 .expectStatus().isBadRequest()
@@ -114,7 +113,7 @@ class TransactionsControllerImplTest {
 
         webClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
-                        .queryParam("amount", rt.getAmount())
+                        .queryParam("amountCents", rt.getAmountCents())
                         .queryParam("trxDateStart", startDate)
                         .queryParam("trxDateEnd", endDate).build())
                 .exchange()
@@ -137,7 +136,7 @@ class TransactionsControllerImplTest {
 
         webClient.get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
-                        .queryParam("amount", rt.getAmount()).build())
+                        .queryParam("amountCents", rt.getAmountCents()).build())
                 .exchange()
                 .expectStatus().isBadRequest()
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
@@ -153,17 +152,17 @@ class TransactionsControllerImplTest {
         LocalDateTime endDate = now.plusMonths(8L);
         String userId = "USERID";
         String idTrxIssuer = "IDTRXISSUER";
-        BigDecimal amount = new BigDecimal("30.00");
+        Long amountCents = 3000L;
 
         RewardTransaction rt = RewardTransaction.builder()
                 .id("ID1")
                 .idTrxIssuer(idTrxIssuer)
                 .userId(userId)
                 .trxDate(now)
-                .amount(amount).build();
+                .amountCents(amountCents).build();
 
         //idTrxIssuer present in request
-        Mockito.when(rewardTransactionService.findByIdTrxIssuer(Mockito.any(),Mockito.any(), Mockito.any(), Mockito.any(), Mockito.eq(amount), Mockito.any()))
+        Mockito.when(rewardTransactionService.findByIdTrxIssuer(Mockito.any(),Mockito.any(), Mockito.any(), Mockito.any(), Mockito.eq(amountCents), Mockito.any()))
                 .thenReturn(Flux.just(rt));
 
         Pageable expectedPageable = PageRequest.of(2, 3, Sort.unsorted());
@@ -172,7 +171,7 @@ class TransactionsControllerImplTest {
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
                         .queryParam("idTrxIssuer", idTrxIssuer)
                         .queryParam("userId", userId)
-                        .queryParam("amount", amount)
+                        .queryParam("amountCents", amountCents)
                         .queryParam("trxDateStart", startDate)
                         .queryParam("trxDateEnd", endDate)
                         .queryParam("page", expectedPageable.getPageNumber())
@@ -188,7 +187,7 @@ class TransactionsControllerImplTest {
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
                         .queryParam("idTrxIssuer", "idTrxIssuer2")
                         .queryParam("userId", userId)
-                        .queryParam("amount", amount)
+                        .queryParam("amountCents", amountCents)
                         .queryParam("trxDateStart", startDate)
                         .queryParam("trxDateEnd", endDate)
                         .queryParam("page", expectedPageable2.getPageNumber())

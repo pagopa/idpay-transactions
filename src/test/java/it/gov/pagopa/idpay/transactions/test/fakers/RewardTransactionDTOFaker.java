@@ -8,7 +8,6 @@ import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.TransactionProcessed;
 import it.gov.pagopa.idpay.transactions.model.counters.RewardCounters;
 
-import java.math.BigDecimal;
 import java.time.*;
 import java.util.*;
 
@@ -60,7 +59,6 @@ public class RewardTransactionDTOFaker {
         out.circuitType("CIRCUITTYPE%d".formatted(bias));
         out.idTrxIssuer("IDTRXISSUER%d".formatted(bias));
         out.correlationId("CORRELATIONID%d".formatted(bias));
-        out.amount(BigDecimal.valueOf(getRandomPositiveNumber(bias, 200)));
         out.amountCents(getRandomPositiveNumber(bias, 200)*100L);
         out.amountCurrency("AMOUNTCURRENCY%d".formatted(bias));
         out.mcc("MCC%d".formatted(bias));
@@ -84,7 +82,7 @@ public class RewardTransactionDTOFaker {
     public static RewardTransactionDTO mockInstanceRefund(Integer bias){
         RewardTransactionDTO out = mockInstanceBuilder(bias).build();
         out.setOperationTypeTranscoded("OperationTypeTranscoded");
-        out.setEffectiveAmount(BigDecimal.TEN);
+        out.setEffectiveAmountCents(1000L);
         out.setTrxChargeDate(out.getTrxDate().minusDays(1));
         out.setStatus("STATUS%d".formatted(bias));
         String initiativeId = "INITIATIVEID%d".formatted(bias);
@@ -95,14 +93,14 @@ public class RewardTransactionDTOFaker {
 
         RewardCounters counter = RewardCounters.builder()
                 .exhaustedBudget(false)
-                .initiativeBudget(new BigDecimal("100.00"))
+                .initiativeBudgetCents(10000L)
                 .build();
 
         Reward rewardElement = Reward.builder()
                 .initiativeId(initiativeId)
                 .organizationId("ORGANIZATIONID")
-                .providedReward(BigDecimal.TEN)
-                .accruedReward(BigDecimal.TEN)
+                .providedRewardCents(1000L)
+                .accruedRewardCents(1000L)
                 .capped(false)
                 .dailyCapped(false)
                 .monthlyCapped(false)
@@ -124,15 +122,15 @@ public class RewardTransactionDTOFaker {
                 .userId(out.getUserId())
                 .correlationId(out.getCorrelationId())
                 .amountCents(1000L)
-                .amount(BigDecimal.TEN)
+                .amountCents(1000L)
                 .rewards(out.getRewards())
-                .effectiveAmount(BigDecimal.TEN)
+                .effectiveAmountCents(1000L)
                 .trxChargeDate(out.getTrxChargeDate().toLocalDateTime())
                 .operationTypeTranscoded(out.getOperationTypeTranscoded())
                 .timestamp(LocalDateTime.now())
                 .build();
         HashMap<String, RefundInfo.PreviousReward> previousRewards = new HashMap<>();
-        previousRewards.put("initiativeID", new RefundInfo.PreviousReward("initiativeID", "organizationID", BigDecimal.TEN));
+        previousRewards.put("initiativeID", new RefundInfo.PreviousReward("initiativeID", "organizationID", 1000L));
         RefundInfo refundInfo = RefundInfo.builder()
                 .previousTrxs(List.of(transactionProcessed))
                 .previousRewards(previousRewards)

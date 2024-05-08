@@ -1,6 +1,5 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import it.gov.pagopa.common.utils.CommonUtilities;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
@@ -63,8 +62,8 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
     private Mono<MerchantTransactionDTO> createMerchantTransactionDTO(String initiativeId, RewardTransaction transaction, String fiscalCode) {
         MerchantTransactionDTO out = MerchantTransactionDTO.builder()
                 .trxId(transaction.getId())
-                .effectiveAmount(transaction.getAmountCents())
-                .rewardAmount(Math.abs(CommonUtilities.euroToCents(transaction.getRewards().get(initiativeId).getAccruedReward())))
+                .effectiveAmountCents(transaction.getAmountCents())
+                .rewardAmountCents(transaction.getRewards().get(initiativeId).getAccruedRewardCents())
                 .trxDate(transaction.getTrxDate())
                 .elaborationDateTime(transaction.getElaborationDateTime())
                 .status(transaction.getStatus())

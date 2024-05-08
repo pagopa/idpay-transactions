@@ -1,6 +1,5 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import it.gov.pagopa.common.utils.CommonUtilities;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
@@ -23,7 +22,6 @@ import org.springframework.data.domain.Sort;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -60,8 +58,8 @@ class MerchantTransactionServiceImplTest {
 
         MerchantTransactionDTO merchantTransaction1 = MerchantTransactionDTO.builder()
                 .trxId(rt1.getId())
-                .effectiveAmount(rt1.getAmountCents())
-                .rewardAmount(CommonUtilities.euroToCents(rt1.getRewards().get(INITIATIVE_ID).getAccruedReward()))
+                .effectiveAmountCents(rt1.getAmountCents())
+                .rewardAmountCents(rt1.getRewards().get(INITIATIVE_ID).getAccruedRewardCents())
                 .fiscalCode(FISCAL_CODE)
                 .status(rt1.getStatus())
                 .elaborationDateTime(rt1.getElaborationDateTime())
@@ -98,8 +96,8 @@ class MerchantTransactionServiceImplTest {
 
         MerchantTransactionDTO merchantTransaction1 = MerchantTransactionDTO.builder()
                 .trxId(rt1.getId())
-                .effectiveAmount(rt1.getAmountCents())
-                .rewardAmount(CommonUtilities.euroToCents(rt1.getRewards().get(INITIATIVE_ID).getAccruedReward()))
+                .effectiveAmountCents(rt1.getAmountCents())
+                .rewardAmountCents(rt1.getRewards().get(INITIATIVE_ID).getAccruedRewardCents())
                 .fiscalCode(FISCAL_CODE)
                 .status(rt1.getStatus())
                 .elaborationDateTime(rt1.getElaborationDateTime())
@@ -129,13 +127,13 @@ class MerchantTransactionServiceImplTest {
         Map<String, Reward> reward = new HashMap<>();
         RewardCounters counter = RewardCounters.builder()
                 .exhaustedBudget(false)
-                .initiativeBudget(new BigDecimal("100.00"))
+                .initiativeBudgetCents(10000L)
                 .build();
         Reward rewardElement = Reward.builder()
                 .initiativeId(INITIATIVE_ID)
                 .organizationId("ORGANIZATIONID")
-                .providedReward(BigDecimal.TEN)
-                .accruedReward(BigDecimal.TEN)
+                .providedRewardCents(1000L)
+                .accruedRewardCents(1000L)
                 .capped(false)
                 .dailyCapped(false)
                 .monthlyCapped(false)

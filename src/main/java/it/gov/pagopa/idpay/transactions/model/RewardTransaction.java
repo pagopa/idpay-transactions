@@ -5,7 +5,6 @@ import lombok.experimental.FieldNameConstants;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +30,6 @@ public class RewardTransaction {
     private String correlationId;
 
     private Long amountCents;
-    private BigDecimal amount;
     private String amountCurrency;
 
     private String mcc;
@@ -55,7 +53,7 @@ public class RewardTransaction {
     private String brandLogo;
 
     private String operationTypeTranscoded;
-    private BigDecimal effectiveAmount;
+    private Long effectiveAmountCents;
     private LocalDateTime trxChargeDate;
     private RefundInfo refundInfo;
 

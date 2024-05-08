@@ -46,7 +46,7 @@ class RewardTransactionMapperTest {
         Assertions.assertNotNull(resultRejected);
         assertCommonFields(resultRejected, rejectedTrx);
         assertRejectedFields(resultRejected,rejectedTrx);
-        TestUtils.checkNotNullFields(resultRejected, "initiatives","rewards", "operationTypeTranscoded", "effectiveAmount","trxChargeDate","refundInfo");
+        TestUtils.checkNotNullFields(resultRejected, "initiatives","rewards", "operationTypeTranscoded", "effectiveAmountCents","trxChargeDate","refundInfo");
 
 
     }
@@ -112,7 +112,7 @@ class RewardTransactionMapperTest {
         Assertions.assertSame(result.getIdTrxIssuer(), rewardTrx.getIdTrxIssuer());
         Assertions.assertSame(result.getCorrelationId(), rewardTrx.getCorrelationId());
         Assertions.assertEquals(result.getAmountCents(), rewardTrx.getAmountCents());
-        Assertions.assertSame(result.getAmount(), rewardTrx.getAmount());
+        Assertions.assertSame(result.getAmountCents(), rewardTrx.getAmountCents());
         Assertions.assertSame(result.getAmountCurrency(), rewardTrx.getAmountCurrency());
         Assertions.assertSame(result.getMcc(), rewardTrx.getMcc());
         Assertions.assertSame(result.getAcquirerId(), rewardTrx.getAcquirerId());
@@ -135,7 +135,7 @@ class RewardTransactionMapperTest {
 
     private void assertRefundFields(RewardTransaction resultRefunded, RewardTransactionDTO refundedTrx) {
         Assertions.assertSame(resultRefunded.getOperationTypeTranscoded(), refundedTrx.getOperationTypeTranscoded());
-        Assertions.assertSame(resultRefunded.getEffectiveAmount(), refundedTrx.getEffectiveAmount());
+        Assertions.assertSame(resultRefunded.getEffectiveAmountCents(), refundedTrx.getEffectiveAmountCents());
         Assertions.assertEquals(resultRefunded.getTrxChargeDate(), refundedTrx.getTrxChargeDate().toLocalDateTime());
         Assertions.assertSame(resultRefunded.getRefundInfo(), refundedTrx.getRefundInfo());
         Assertions.assertSame(resultRefunded.getRewards(), refundedTrx.getRewards());
