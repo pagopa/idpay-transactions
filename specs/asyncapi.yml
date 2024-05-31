@@ -18,7 +18,9 @@ channels:
   transactions-delete-initiative-consumer:
     subscribe:
       message:
-        $ref: '#/components/messages/QueueCommandOperationDTO'
+        contentType: application/json
+        payload:
+          $ref: "https://raw.githubusercontent.com/pagopa/idpay-portal-welfare-backend-initiative/{{app.pdv.base-url}}/specs/asyncapi.yml#/components/schemas/QueueCommandOperationDTO"
       bindings:
         kafka:
           topic: idpay-commands
@@ -59,7 +61,7 @@ components:
         Event consumed from application when a delete initiative command has published
       summary: Delete documents of the initiative
       payload:
-        $ref: "#/components/schemas/QueueCommandOperationDTO"
+        $ref: "https://raw.githubusercontent.com/pagopa/idpay-portal-welfare-backend-initiative/IDP-2524-censimento-async-idpay-portal-welfare-backend-initiative/specs/asyncapi.yml#/components/schemas/QueueCommandOperationDTO"
     TransactionCommandsNotifyError:
       contentType: application/json
       description: >-
@@ -68,7 +70,7 @@ components:
       headers:
         $ref: "#/components/schemas/ErrorQueueHeader"
       payload:
-        $ref: "#/components/schemas/QueueCommandOperationDTO"
+        $ref: "https://raw.githubusercontent.com/pagopa/idpay-portal-welfare-backend-initiative/IDP-2524-censimento-async-idpay-portal-welfare-backend-initiative/specs/asyncapi.yml#/components/schemas/QueueCommandOperationDTO"
     TransactionNotifyError:
       contentType: application/json
       description: >-
@@ -86,22 +88,6 @@ components:
       payload:
         $ref: "#/components/schemas/RewardTransactionDTO"
   schemas:
-    QueueCommandOperationDTO:
-      type: object
-      properties:
-        operationType:
-          type: string
-          description: Constant that define operation type
-          example: DELETE_INITIATIVE
-        entityId:
-          type: string
-          description: Entity to be handled with operationType
-          example: 661626073785876cb5aa7601
-        operationTime:
-          type: string
-          format: date-time
-          description: operation time
-          example: "2024-04-11T07:23:08.874869466"
     ErrorQueueHeader:
       type: object
       required:
