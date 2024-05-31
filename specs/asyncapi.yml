@@ -18,9 +18,7 @@ channels:
   transactions-delete-initiative-consumer:
     subscribe:
       message:
-        contentType: application/json
-        payload:
-          $ref: "https://raw.githubusercontent.com/pagopa/idpay-portal-welfare-backend-initiative/IDP-2524-censimento-async-idpay-portal-welfare-backend-initiative/specs/asyncapi.yml#/components/schemas/QueueCommandOperationDTO"
+        $ref: '#/components/messages/QueueCommandOperationDTO'
       bindings:
         kafka:
           topic: idpay-commands
@@ -55,6 +53,13 @@ channels:
         - name: "saveTransaction"
 components:
   messages:
+    QueueCommandOperationDTO:
+      contentType: application/json
+      description: >-
+        Event consumed from application when a delete initiative command has published
+      summary: Delete documents of the initiative
+      payload:
+        $ref: "https://raw.githubusercontent.com/pagopa/idpay-portal-welfare-backend-initiative/IDP-2524-censimento-async-idpay-portal-welfare-backend-initiative/specs/asyncapi.yml#/components/schemas/QueueCommandOperationDTO"
     TransactionCommandsNotifyError:
       contentType: application/json
       description: >-
