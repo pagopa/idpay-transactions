@@ -71,9 +71,8 @@ components:
         $ref: "https://raw.githubusercontent.com/pagopa/idpay-portal-welfare-backend-initiative/main/specs/asyncapi.yml#/components/schemas/QueueCommandOperationDTO"
     TransactionNotifyError:
       contentType: application/json
-      description: >-
-        An error occurred during notify transaction
-      summary: Informs of notify transaction error
+      description: Send error notification during transaction persistence
+      summary: Information about an error on transaction processing
       headers:
         $ref: "#/components/schemas/ErrorQueueHeader"
       payload:
