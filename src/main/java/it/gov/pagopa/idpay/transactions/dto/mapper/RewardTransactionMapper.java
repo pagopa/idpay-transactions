@@ -35,7 +35,6 @@ public class RewardTransactionMapper {
             rewardTrx.setIdTrxIssuer(rewardTrxDto.getIdTrxIssuer());
             rewardTrx.setCorrelationId(rewardTrxDto.getCorrelationId());
             rewardTrx.setAmountCents(rewardTrxDto.getAmountCents());
-            rewardTrx.setAmount(rewardTrxDto.getAmount());
             rewardTrx.setAmountCurrency(rewardTrxDto.getAmountCurrency());
             rewardTrx.setMcc(rewardTrxDto.getMcc());
             rewardTrx.setAcquirerId(rewardTrxDto.getAcquirerId());
@@ -56,7 +55,7 @@ public class RewardTransactionMapper {
             rewardTrx.setMaskedPan(rewardTrxDto.getMaskedPan());
             rewardTrx.setBrandLogo(rewardTrxDto.getBrandLogo());
             rewardTrx.setOperationTypeTranscoded(rewardTrxDto.getOperationTypeTranscoded());
-            rewardTrx.setEffectiveAmount(rewardTrxDto.getEffectiveAmount());
+            rewardTrx.setEffectiveAmountCents(rewardTrxDto.getEffectiveAmountCents());
             rewardTrx.setTrxChargeDate(rewardTrxDto.getTrxChargeDate() != null ? toLocalDateTime(rewardTrxDto.getTrxChargeDate()) : null);
             rewardTrx.setRefundInfo(rewardTrxDto.getRefundInfo());
 

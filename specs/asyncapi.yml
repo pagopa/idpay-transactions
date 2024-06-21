@@ -1,0 +1,148 @@
+asyncapi: 2.0.0
+info:
+  title: Transactions Service
+  version: 1.0.0
+  description: >-
+    Its purpose is to notify allowed citizen notification and cancellation of an initiative
+tags:
+  - name: "deleteInitiative"
+    description: "Delete the initiative"
+  - name: "notifyTransactionError"
+    description: "notify transaction error"
+  - name: "notifyTransactionCommandsError"
+    description: "notify transaction commands error"
+  - name: "saveTransaction"
+    description: "save transaction history"
+
+channels:
+  transactions-delete-initiative-consumer:
+    subscribe:
+      message:
+        $ref: '#/components/messages/DeleteInitiative'
+      bindings:
+        kafka:
+          topic: idpay-commands
+      tags:
+        - name: "deleteInitiative"
+  transactions-notify-transaction-error:
+    publish:
+      message:
+        $ref: '#/components/messages/TransactionNotifyError'
+      bindings:
+        kafka:
+          topic: idpay-errors
+      tags:
+        - name: "notifyTransactionError"
+  transactions-notify-transaction-commands-error:
+    publish:
+      message:
+        $ref: '#/components/messages/TransactionCommandsNotifyError'
+      bindings:
+        kafka:
+          topic: idpay-errors
+      tags:
+        - name: "notifyTransactionCommandsError"
+  transactions-save-reward-trx:
+    subscribe:
+      message:
+        $ref: '#/components/messages/SaveTransaction'
+      bindings:
+        kafka:
+          topic: idpay-transaction
+      tags:
+        - name: "saveTransaction"
+components:
+  messages:
+    DeleteInitiative:
+      contentType: application/json
+      description: >-
+        Event consumed from application when a delete initiative command has published
+      summary: Delete documents of the initiative
+      payload:
+        $ref: "https://raw.githubusercontent.com/pagopa/idpay-portal-welfare-backend-initiative/main/specs/asyncapi.yml#/components/schemas/QueueCommandOperationDTO"
+    TransactionCommandsNotifyError:
+      contentType: application/json
+      description: >-
+        An error occurred during notify transaction commands
+      summary: Informs of notify transaction commands error
+      headers:
+        $ref: "#/components/schemas/ErrorQueueHeader"
+      payload:
+        $ref: "https://raw.githubusercontent.com/pagopa/idpay-portal-welfare-backend-initiative/main/specs/asyncapi.yml#/components/schemas/QueueCommandOperationDTO"
+    TransactionNotifyError:
+      contentType: application/json
+      description: Send error notification during transaction persistence
+      summary: Information about an error on transaction processing
+      headers:
+        $ref: "#/components/schemas/ErrorQueueHeader"
+      payload:
+        oneOf:
+          - $ref: 'https://raw.githubusercontent.com/pagopa/idpay-payment/main/specs/asyncapi.yml#/components/schemas/TransactionInProgress'
+          - $ref: 'https://raw.githubusercontent.com/pagopa/idpay-reward-calculator/main/specs/asyncapi.yaml#/components/schemas/TransactionProcessed'
+          - $ref: 'https://raw.githubusercontent.com/pagopa/idpay-reward-user-id-splitter/main/specs/asyncapi.yaml#/components/schemas/TransactionRejectedDTO'
+    SaveTransaction:
+      contentType: application/json
+      description: >-
+        Save RewardTransactionDTO information
+      summary: Save transaction history
+      payload:
+        oneOf:
+          - $ref: 'https://raw.githubusercontent.com/pagopa/idpay-payment/main/specs/asyncapi.yml#/components/schemas/TransactionInProgress'
+          - $ref: 'https://raw.githubusercontent.com/pagopa/idpay-reward-calculator/main/specs/asyncapi.yaml#/components/schemas/TransactionProcessed'
+          - $ref: 'https://raw.githubusercontent.com/pagopa/idpay-reward-user-id-splitter/main/specs/asyncapi.yaml#/components/schemas/TransactionRejectedDTO'
+  schemas:
+    ErrorQueueHeader:
+      type: object
+      required:
+        - srcType
+        - srcServer
+        - srcTopic
+        - description
+        - retryable
+        - stacktrace
+        - rootCauseClass
+        - rootCauseMessage
+      properties:
+        srcType:
+          type: string
+          description: The type of the source of the error message.
+          example: "kafka"
+        srcServer:
+          type: string
+          description: The source server of the error message.
+          example: "kafka-broker-1.example.com:9092"
+        srcTopic:
+          type: string
+          description: The Kafka topic of the source of the error message.
+          example: "idpay-commands"
+        description:
+          type: string
+          description: Description of the error.
+          example: "[TRANSACTIONS_COMMANDS] An error occurred evaluating commands"
+        retryable:
+          type: boolean
+          description: Indicates whether the error is retryable or not.
+        stacktrace:
+          type: string
+          description: The stack trace of the error.
+          example: "TransactionsException -> Error occurred during handling of transactions service"
+        rootCauseClass:
+          type: string
+          description: Cause of the error.
+          example: "com.example.Exception"
+        rootCauseMessage:
+          type: string
+          description: Message of the error.
+          example: "Unexpected JSON"
+        kafka_messageKey:
+          type: string
+          description: The header containing the record key from the received message.
+          example: 0
+        applicationName:
+          type: string
+          description: The name of the application that generated the error.
+          example: "idpay-transactions"
+        group:
+          type: string
+          description: The Kafka group to which the error message belongs.
+          example: "idpay-commands-transactions-consumer-group"

@@ -10,7 +10,6 @@ import org.springframework.data.mongodb.core.query.Update;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Slf4j
@@ -22,10 +21,10 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Flux<RewardTransaction> findByIdTrxIssuer(String idTrxIssuer, String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, BigDecimal amount, Pageable pageable) {
+    public Flux<RewardTransaction> findByIdTrxIssuer(String idTrxIssuer, String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, Long amountCents, Pageable pageable) {
         Criteria criteria = Criteria.where(RewardTransaction.Fields.idTrxIssuer).is(idTrxIssuer);
         if (userId != null) {criteria.and(RewardTransaction.Fields.userId).is(userId);}
-        if (amount != null) {criteria.and(RewardTransaction.Fields.amount).is(amount);}
+        if (amountCents != null) {criteria.and(RewardTransaction.Fields.amountCents).is(amountCents);}
         if(trxDateStart != null && trxDateEnd != null){
             criteria.and(RewardTransaction.Fields.trxDate)
                 .gte(trxDateStart)
@@ -45,13 +44,13 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Flux<RewardTransaction> findByRange(String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, BigDecimal amount, Pageable pageable) {
+    public Flux<RewardTransaction> findByRange(String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, Long amountCents, Pageable pageable) {
         Criteria criteria = Criteria
                 .where(RewardTransaction.Fields.userId).is(userId)
                 .and(RewardTransaction.Fields.trxDate)
                 .gte(trxDateStart)
                 .lte(trxDateEnd);
-        if(amount != null){criteria.and(RewardTransaction.Fields.amount).is(amount);}
+        if(amountCents != null){criteria.and(RewardTransaction.Fields.amountCents).is(amountCents);}
 
         return mongoTemplate.find(
                 Query.query(criteria)

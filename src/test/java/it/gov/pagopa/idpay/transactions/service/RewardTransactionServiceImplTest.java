@@ -12,7 +12,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @ExtendWith(MockitoExtension.class)
@@ -30,7 +29,7 @@ class RewardTransactionServiceImplTest {
         // Given
         RewardTransaction rt = RewardTransaction.builder()
                 .userId("USERID")
-                .amount(new BigDecimal("30.00"))
+                .amountCents(3000L)
                 .trxDate(LocalDateTime.of(2022, 9, 19, 15,43,39))
                 .idTrxIssuer("IDTRXISSUER")
                 .build();
@@ -55,7 +54,7 @@ class RewardTransactionServiceImplTest {
 
         RewardTransaction rt = RewardTransaction.builder()
                 .userId("USERID")
-                .amount(new BigDecimal("30.00"))
+                .amountCents(3000L)
                 .trxDate(date)
                 .idTrxIssuer("IDTRXISSUER")
                 .build();
@@ -75,7 +74,7 @@ class RewardTransactionServiceImplTest {
         // Given
         RewardTransaction rt = RewardTransaction.builder()
                 .userId("USERID")
-                .amount(new BigDecimal("30.00"))
+                .amountCents(3000L)
                 .trxDate(LocalDateTime.of(2022, 9, 19, 15,43,39))
                 .idTrxIssuer("IDTRXISSUER")
                 .build();
