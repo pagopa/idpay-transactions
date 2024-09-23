@@ -1,13 +1,10 @@
 package it.gov.pagopa.common.kafka;
 
-import ch.qos.logback.classic.LoggerContext;
-import ch.qos.logback.classic.spi.ILoggingEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import it.gov.pagopa.common.kafka.utils.KafkaConstants;
-import it.gov.pagopa.common.reactive.kafka.consumer.BaseKafkaConsumer;
-import it.gov.pagopa.common.utils.MemoryAppender;
 import it.gov.pagopa.common.utils.TestUtils;
+import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.admin.TopicListing;
@@ -20,7 +17,6 @@ import org.apache.kafka.common.header.internals.RecordHeaders;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.Assertions;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -83,28 +79,30 @@ public class KafkaTestUtilitiesService {
 
     @AfterTestClass
     void clearTopics() {
-        kafkaBroker.doWithAdmin(admin -> {
-            try {
-                Collection<TopicListing> topics = admin.listTopics().listings().get();
-                admin.deleteRecords(
-                                admin.listOffsets(
-                                                topics.stream()
-                                                        .filter(topicListing -> !topicListing.isInternal())
-                                                        .flatMap(t -> IntStream.range(0, kafkaBroker.getPartitionsPerTopic())
-                                                                .boxed()
-                                                                .map(p -> new TopicPartition(t.name(), p)))
-                                                        .collect(Collectors.toMap(tp -> tp,
-                                                                tp -> OffsetSpec.latest()))
-                                        ).all().get().entrySet().stream()
-                                        .filter(e -> e.getValue().offset() > 0)
-                                        .collect(Collectors.toMap(Map.Entry::getKey,
-                                                e -> RecordsToDelete.beforeOffset(e.getValue().offset()))))
-                        .all().get();
+        Map<String, Object> brokerConfig = Map.of(
+                "bootstrap.servers", kafkaBroker.getBrokersAsString()
+        );
 
-            } catch (InterruptedException | ExecutionException e) {
-                throw new IllegalStateException("Something gone wrong while emptying topics", e);
-            }
-        });
+        try (AdminClient admin = AdminClient.create(brokerConfig)) {
+            Collection<TopicListing> topics = admin.listTopics().listings().get();
+            admin.deleteRecords(
+                            admin.listOffsets(
+                                            topics.stream()
+                                                    .filter(topicListing -> !topicListing.isInternal())
+                                                    .flatMap(t -> IntStream.range(0, kafkaBroker.getPartitionsPerTopic())
+                                                            .boxed()
+                                                            .map(p -> new TopicPartition(t.name(), p)))
+                                                    .collect(Collectors.toMap(tp -> tp,
+                                                            tp -> OffsetSpec.latest()))
+                                    ).all().get().entrySet().stream()
+                                    .filter(e -> e.getValue().offset() > 0)
+                                    .collect(Collectors.toMap(Map.Entry::getKey,
+                                            e -> RecordsToDelete.beforeOffset(e.getValue().offset()))))
+                    .all().get();
+
+        } catch (InterruptedException | ExecutionException e) {
+            throw new IllegalStateException("Something went wrong while clearing topics", e);
+        }
     }
 
     /** It will return usefull URLs related to embedded kafka */
@@ -223,10 +221,10 @@ public class KafkaTestUtilitiesService {
             headers = Stream.concat(
                             Arrays.stream(additionalHeaders),
                             StreamSupport.stream(headers.spliterator(), false))
-                    .collect(Collectors.toList());
+                    .toList();
         }
-        ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(topic, partition, key == null ? null : key.getBytes(StandardCharsets.UTF_8), payload.getBytes(StandardCharsets.UTF_8), headers);
-        template.send(record);
+        ProducerRecord<byte[], byte[]> rec = new ProducerRecord<>(topic, partition, key == null ? null : key.getBytes(StandardCharsets.UTF_8), payload.getBytes(StandardCharsets.UTF_8), headers);
+        template.send(rec);
     }
 //endregion
 
@@ -279,55 +277,16 @@ public class KafkaTestUtilitiesService {
     }
 //endregion
 
-//region check commit by logs
-    protected MemoryAppender commitLogMemoryAppender;
-    /** To be called before each test in order to perform the asserts on {@link #assertCommitOrder(String, int)} */
-    public void setupCommitLogMemoryAppender() {
-        ch.qos.logback.classic.Logger logger = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(BaseKafkaConsumer.class.getName());
-        commitLogMemoryAppender = new MemoryAppender();
-        commitLogMemoryAppender.setContext((LoggerContext) LoggerFactory.getILoggerFactory());
-        logger.setLevel(ch.qos.logback.classic.Level.INFO);
-        logger.addAppender(commitLogMemoryAppender);
-        commitLogMemoryAppender.start();
-    }
-
-    private final Pattern partitionCommitsPattern = Pattern.compile("partition (\\d+): (\\d+) - (\\d+)");
-    /** It will assert the right offset commit and the total messages by the provided {@link BaseKafkaConsumer#getFlowName()}.<br />
-     * In order to be used, you have to call {@link #setupCommitLogMemoryAppender()} before each test */
-    public void assertCommitOrder(String flowName, int totalSendMessages) {
-        Map<Integer, Integer> partition2last = new HashMap<>(Map.of(0, -1, 1, -1));
-        for (ILoggingEvent loggedEvent : commitLogMemoryAppender.getLoggedEvents()) {
-            if(loggedEvent.getMessage().equals("[KAFKA_COMMIT][{}] Committing {} messages: {}") && flowName.equals(loggedEvent.getArgumentArray()[0])){
-                Arrays.stream(((String)loggedEvent.getArgumentArray()[2]).split(";"))
-                        .forEach(s -> {
-                            Matcher matcher = partitionCommitsPattern.matcher(s);
-                            Assertions.assertTrue(matcher.matches(), "Unexpected partition commit string: " + s);
-                            int partition = Integer.parseInt(matcher.group(1));
-                            int startOffset = Integer.parseInt(matcher.group(2));
-                            int endOffset = Integer.parseInt(matcher.group(3));
-                            Assertions.assertTrue(endOffset>=startOffset, "EndOffset less than StartOffset!: " + s);
-
-                            Integer lastCommittedOffset = partition2last.get(partition);
-                            Assertions.assertEquals(lastCommittedOffset, startOffset-1);
-                            partition2last.put(partition, endOffset);
-                        });
-            }
-        }
-
-        Assertions.assertEquals(totalSendMessages, partition2last.values().stream().mapToInt(x->x+1).sum());
-    }
-//endregion
-
     //region error topic
     public void checkErrorsPublished(String topicErrors, Pattern errorUseCaseIdPatternMatch, int expectedErrorMessagesNumber, long maxWaitingMs, List<Pair<Supplier<String>, java.util.function.Consumer<ConsumerRecord<String, String>>>> errorUseCases) {
         final List<ConsumerRecord<String, String>> errors = consumeMessages(topicErrors, expectedErrorMessagesNumber, maxWaitingMs);
-        for (final ConsumerRecord<String, String> record : errors) {
-            final Matcher matcher = errorUseCaseIdPatternMatch.matcher(record.value());
+        for (final ConsumerRecord<String, String> rec : errors) {
+            final Matcher matcher = errorUseCaseIdPatternMatch.matcher(rec.value());
             int useCaseId = matcher.find() ? Integer.parseInt(matcher.group(1)) : -1;
             if (useCaseId == -1) {
-                throw new IllegalStateException("UseCaseId not recognized! " + record.value());
+                throw new IllegalStateException("UseCaseId not recognized! " + rec.value());
             }
-            errorUseCases.get(useCaseId).getSecond().accept(record);
+            errorUseCases.get(useCaseId).getSecond().accept(rec);
         }
     }
 
