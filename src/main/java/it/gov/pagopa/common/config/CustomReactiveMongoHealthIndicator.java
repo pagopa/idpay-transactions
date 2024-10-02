@@ -1,4 +1,4 @@
-package it.gov.pagopa.common.mongo.config;
+package it.gov.pagopa.common.config;
 
 import org.bson.Document;
 import org.springframework.boot.actuate.health.AbstractReactiveHealthIndicator;
@@ -7,9 +7,9 @@ import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.util.Assert;
 import reactor.core.publisher.Mono;
 
-public class CustomMongoHealthIndicator extends AbstractReactiveHealthIndicator {
+public class CustomReactiveMongoHealthIndicator extends AbstractReactiveHealthIndicator {
     private final ReactiveMongoTemplate reactiveMongoTemplate;
-    public CustomMongoHealthIndicator(ReactiveMongoTemplate reactiveMongoTemplate) {
+    public CustomReactiveMongoHealthIndicator(ReactiveMongoTemplate reactiveMongoTemplate) {
         super("Mongo health check failed");
         Assert.notNull(reactiveMongoTemplate, "ReactiveMongoTemplate must not be null");
         this.reactiveMongoTemplate = reactiveMongoTemplate;
