@@ -69,6 +69,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .status(transaction.getStatus())
                 .channel(transaction.getChannel())
                 .build();
+
         if (StringUtils.isNotBlank(fiscalCode)){
             out.setFiscalCode(fiscalCode);
             return Mono.just(out);
