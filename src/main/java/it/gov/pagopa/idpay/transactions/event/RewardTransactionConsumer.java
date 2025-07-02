@@ -15,6 +15,8 @@ public class RewardTransactionConsumer {
 
     @Bean
     public Consumer<Flux<Message<String>>> rewardTrxConsumer(PersistenceTransactionMediator persistenceTransactionMediator) {
+
         return persistenceTransactionMediator::execute;
+
     }
 }
