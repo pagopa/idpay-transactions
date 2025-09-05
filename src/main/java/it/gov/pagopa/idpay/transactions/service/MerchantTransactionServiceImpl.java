@@ -53,10 +53,10 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
     }
 
     private Mono<Tuple2<List<MerchantTransactionDTO>, Long>> getMerchantTransactionDTOs(String merchantId, String initiativeId, String status, Pageable pageable, String userId, String fiscalCode) {
-        return rewardTransactionRepository.findByFilter(merchantId, initiativeId, userId, status, pageable)
+        return rewardTransactionRepository.findByFilter(merchantId, initiativeId, null, userId, status, pageable)
                 .flatMap(t -> createMerchantTransactionDTO(initiativeId, t, fiscalCode))
                 .collectSortedList(Comparator.comparing(MerchantTransactionDTO::getElaborationDateTime).reversed())
-                .zipWith(rewardTransactionRepository.getCount(merchantId, initiativeId, userId, status));
+                .zipWith(rewardTransactionRepository.getCount(merchantId, initiativeId, null, userId, status));
     }
 
     private Mono<MerchantTransactionDTO> createMerchantTransactionDTO(String initiativeId, RewardTransaction transaction, String fiscalCode) {
