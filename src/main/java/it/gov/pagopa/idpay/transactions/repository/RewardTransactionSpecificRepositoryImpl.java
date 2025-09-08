@@ -62,23 +62,19 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                 RewardTransaction.class);
     }
 
-    private Pageable getPageable(Pageable pageable) {
+    private Pageable getPageableTrx(Pageable pageable) {
         if (pageable == null || pageable.getSort().isUnsorted()) {
-            return PageRequest.of(
-                pageable != null ? pageable.getPageNumber() : 0,
-                pageable != null ? pageable.getPageSize() : 10,
-                Sort.by("elaborationDateTime").descending()
-            );
+           return PageRequest.of(0, 10, Sort.by("elaborationDateTime").descending());
         }
-
-        Sort sort = pageable.getSort().stream()
-            .filter(order -> !"fiscalCode".equals(order.getProperty()))
-            .map(Sort::by)
-            .reduce(Sort.unsorted(), Sort::and);
-
-        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort());
     }
 
+    private Pageable getPageable(Pageable pageable){
+        if (pageable == null) {
+            pageable = Pageable.unpaged();
+        }
+        return pageable;
+    }
 
     private Criteria getCriteria(String merchantId, String initiativeId, String pointOfSaleId, String userId, String status) {
         Criteria criteria = Criteria.where(RewardTransaction.Fields.merchantId).is(merchantId)
@@ -98,11 +94,17 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Flux<RewardTransaction> findByFilter(String merchantId, String initiativeId, String pointOfSaleId, String userId, String status, Pageable pageable){
+    public Flux<RewardTransaction> findByFilter(String merchantId, String initiativeId, String userId, String status, Pageable pageable){
+        Criteria criteria = getCriteria(merchantId, initiativeId, null, userId, status);
+        return mongoTemplate.find(Query.query(criteria).with(getPageable(pageable)), RewardTransaction.class);
+    }
+
+    @Override
+    public Flux<RewardTransaction> findByFilterTrx(String merchantId, String initiativeId, String pointOfSaleId, String userId, String status, Pageable pageable){
         Criteria criteria = getCriteria(merchantId, initiativeId, pointOfSaleId, userId, status);
         Query query = Query.query(criteria);
         if (pageable != null) {
-            query.with(getPageable(pageable));
+            query.with(getPageableTrx(pageable));
         }
         return mongoTemplate.find(query, RewardTransaction.class);
     }

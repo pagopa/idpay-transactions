@@ -7,7 +7,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
-@RequestMapping("/idpay/merchant/portal")
+@RequestMapping("/idpay")
 public interface PointOfSaleTransactionController {
 
   @GetMapping("/initiatives/{initiativeId}/point-of-sales/{pointOfSaleId}/transactions/processed")
@@ -18,5 +18,4 @@ public interface PointOfSaleTransactionController {
       @RequestParam(required = false) String fiscalCode,
       @RequestParam(required = false) String status,
       @PageableDefault(sort = "elaborationDateTime", direction = Sort.Direction.DESC) Pageable pageable);
-
 }
