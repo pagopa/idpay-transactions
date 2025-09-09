@@ -28,13 +28,13 @@ import reactor.util.function.Tuples;
 class PointOfSaleTransactionControllerImplTest {
 
   @Autowired
-  private WebTestClient webClient;
+  protected WebTestClient webClient;
 
   @MockBean
-  private PointOfSaleTransactionService pointOfSaleTransactionService;
+  PointOfSaleTransactionService pointOfSaleTransactionService;
 
   @MockBean
-  private PointOfSaleTransactionMapper mapper;
+  PointOfSaleTransactionMapper mapper;
 
   private static final String INITIATIVE_ID = "INITIATIVE_ID";
   private static final String POINT_OF_SALE_ID = "POINT_OF_SALE_ID";
