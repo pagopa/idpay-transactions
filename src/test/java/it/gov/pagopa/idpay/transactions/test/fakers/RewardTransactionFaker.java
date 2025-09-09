@@ -29,10 +29,10 @@ public class RewardTransactionFaker {
         return Math.abs(getRandom(bias).nextInt(bound));
     }
 
-    private static final FakeValuesService fakeValuesServiceGlobal = new FakeValuesService(new Locale("it"), new RandomService(null));
+    private static final FakeValuesService fakeValuesServiceGlobal = new FakeValuesService(Locale.ITALIAN, new RandomService(null));
 
     private static FakeValuesService getFakeValuesService(Integer bias) {
-        return bias == null ? fakeValuesServiceGlobal : new FakeValuesService(new Locale("it"), new RandomService(getRandom(bias)));
+        return bias == null ? fakeValuesServiceGlobal : new FakeValuesService(Locale.ITALIAN, new RandomService(getRandom(bias)));
     }
 
     /**
@@ -61,6 +61,7 @@ public class RewardTransactionFaker {
                 .mcc("MCC%s".formatted(bias))
                 .acquirerId("ACQUIRERID%s".formatted(bias))
                 .merchantId("MERCHANTID%s".formatted(bias))
+                .pointOfSaleId("POINTOFSALEID%s".formatted(bias))
                 .terminalId("TERMINALID%s".formatted(bias))
                 .bin("BIN%s".formatted(bias))
                 .senderCode("SENDERCODE%s".formatted(bias))

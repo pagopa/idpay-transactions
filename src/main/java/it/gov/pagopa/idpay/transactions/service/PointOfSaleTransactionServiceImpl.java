@@ -36,15 +36,14 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
   }
 
   private Mono<Tuple2<List<RewardTransaction>, Long>> getTransactions(String merchantId, String initiativeId, String pointOfSaleId, String userId, String status, Pageable pageable) {
-    Pageable repoPageable;
-    if (pageable != null && pageable.getSort().getOrderFor("fiscalCode") != null) {
-      repoPageable = null;
-    } else {
-      repoPageable = pageable;
-    }
+    Pageable repoPageable = isSortOnFiscalCode(pageable) ? null : pageable;
 
     return rewardTransactionRepository.findByFilterTrx(merchantId, initiativeId, pointOfSaleId, userId, status, repoPageable)
           .collectList()
           .zipWith(rewardTransactionRepository.getCount(merchantId, initiativeId, pointOfSaleId, userId, status));
+  }
+
+  private boolean isSortOnFiscalCode(Pageable pageable) {
+    return pageable != null && pageable.getSort().getOrderFor("fiscalCode") != null;
   }
 }
