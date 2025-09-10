@@ -4,12 +4,12 @@ import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
-import java.util.List;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
-import reactor.util.function.Tuple2;
 
 @Service
 public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransactionService {
@@ -24,7 +24,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
   }
 
   @Override
-  public Mono<Tuple2<List<RewardTransaction>, Long>> getPointOfSaleTransactions(String merchantId, String initiativeId, String pointOfSaleId, String fiscalCode, String status, Pageable pageable) {
+  public Mono<Page<RewardTransaction>> getPointOfSaleTransactions(String merchantId, String initiativeId, String pointOfSaleId, String fiscalCode, String status, Pageable pageable) {
     if (StringUtils.isNotBlank(fiscalCode)) {
       return userRestClient.retrieveFiscalCodeInfo(fiscalCode)
           .map(FiscalCodeInfoPDV::getToken)
@@ -35,15 +35,10 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     }
   }
 
-  private Mono<Tuple2<List<RewardTransaction>, Long>> getTransactions(String merchantId, String initiativeId, String pointOfSaleId, String userId, String status, Pageable pageable) {
-    Pageable repoPageable = isSortOnFiscalCode(pageable) ? null : pageable;
-
-    return rewardTransactionRepository.findByFilterTrx(merchantId, initiativeId, pointOfSaleId, userId, status, repoPageable)
+  private Mono<Page<RewardTransaction>> getTransactions(String merchantId, String initiativeId, String pointOfSaleId, String userId, String status, Pageable pageable) {
+    return rewardTransactionRepository.findByFilterTrx(merchantId, initiativeId, pointOfSaleId, userId, status, pageable)
           .collectList()
-          .zipWith(rewardTransactionRepository.getCount(merchantId, initiativeId, pointOfSaleId, userId, status));
-  }
-
-  private boolean isSortOnFiscalCode(Pageable pageable) {
-    return pageable != null && pageable.getSort().getOrderFor("fiscalCode") != null;
+          .zipWith(rewardTransactionRepository.getCount(merchantId, initiativeId, pointOfSaleId, userId, status))
+          .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
   }
 }
