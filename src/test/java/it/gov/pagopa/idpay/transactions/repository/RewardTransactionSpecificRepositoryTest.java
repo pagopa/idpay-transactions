@@ -39,6 +39,7 @@ class RewardTransactionSpecificRepositoryTest {
     private static final String INITIATIVE_ID = "INITIATIVEID1";
     private static final String MERCHANT_ID = "MERCHANTID1";
     private static final String USER_ID = "USERID1";
+    private static final String POINT_OF_SALE_ID = "POINTOFSALEID1";
 
     @BeforeEach
     void setUp(){
@@ -262,6 +263,84 @@ class RewardTransactionSpecificRepositoryTest {
     }
 
     @Test
+    void findByFilterTrx_withSortedPageable_shouldUseProvidedSorting() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .idTrxIssuer("IDTRXISSUER")
+            .status("REWARDED")
+            .initiatives(List.of(INITIATIVE_ID)).build();
+        rewardTransactionRepository.save(rt1).block();
+
+        Pageable sorted = PageRequest.of(0, 10, Sort.by("elaborationDateTime").descending());
+
+        Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findByFilterTrx(
+            MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "REWARDED", sorted);
+
+        List<RewardTransaction> list = result.toStream().toList();
+        assertEquals(1, list.size());
+        assertEquals(rt1.getId(), list.getFirst().getId());
+
+        cleanDataPageable();
+    }
+
+    @Test
+    void findByFilterTrx_withUnsortedPageable_shouldUseDefaultSorting() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .idTrxIssuer("IDTRXISSUER")
+            .status("REWARDED")
+            .initiatives(List.of(INITIATIVE_ID)).build();
+        rewardTransactionRepository.save(rt1).block();
+
+        Pageable unsorted = PageRequest.of(0, 10);
+        Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findByFilterTrx(
+            MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "REWARDED", unsorted);
+
+        List<RewardTransaction> list = result.toStream().toList();
+        assertEquals(1, list.size());
+        assertEquals(rt1.getId(), list.getFirst().getId());
+
+        cleanDataPageable();
+    }
+
+    @Test
+    void findByFilterTrx() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .idTrxIssuer("IDTRXISSUER")
+            .status("REWARDED")
+            .initiatives(List.of(INITIATIVE_ID)).build();
+        rewardTransactionRepository.save(rt1).block();
+
+        Pageable pageable = PageRequest.of(0, 10, Sort.by(RewardTransaction.Fields.elaborationDateTime).descending());
+        Flux<RewardTransaction> result = rewardTransactionRepository.findByFilterTrx(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "REWARDED", pageable);
+        List<RewardTransaction> list = result.toStream().toList();
+        assertEquals(1, list.size());
+        assertEquals(rt1.getId(), list.getFirst().getId());
+
+        cleanDataPageable();
+    }
+
+    @Test
+    void findByFilterTrx_withoutPageable_shouldNotApplySorting() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .idTrxIssuer("IDTRXISSUER")
+            .status("REWARDED")
+            .initiatives(List.of(INITIATIVE_ID)).build();
+        rewardTransactionRepository.save(rt1).block();
+
+        Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findByFilterTrx(
+            MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "REWARDED", null);
+
+        List<RewardTransaction> list = result.toStream().toList();
+        assertEquals(1, list.size());
+        assertEquals(rt1.getId(), list.getFirst().getId());
+
+        cleanDataPageable();
+    }
+
+    @Test
     void getCount() {
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
@@ -269,7 +348,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .status("REWARDED")
                 .initiatives(List.of(INITIATIVE_ID)).build();
         rewardTransactionRepository.save(rt1).block();
-        Mono<Long> count = rewardTransactionRepository.getCount(MERCHANT_ID, INITIATIVE_ID, null, null);
+        Mono<Long> count = rewardTransactionRepository.getCount(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, null, null);
         assertEquals(1, count.block());
 
         cleanDataPageable();
