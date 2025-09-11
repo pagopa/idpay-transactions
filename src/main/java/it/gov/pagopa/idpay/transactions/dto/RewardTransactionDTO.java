@@ -38,6 +38,7 @@ public class RewardTransactionDTO {
     private String mcc;
     private String acquirerId;
     private String merchantId;
+    private String pointOfSaleId;
     private String terminalId;
     private String bin;
     private String senderCode;
