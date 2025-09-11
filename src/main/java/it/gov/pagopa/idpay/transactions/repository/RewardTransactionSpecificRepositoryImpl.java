@@ -1,8 +1,12 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -58,6 +62,13 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                 RewardTransaction.class);
     }
 
+    private Pageable getPageableTrx(Pageable pageable) {
+        if (pageable == null || pageable.getSort().isUnsorted()) {
+           return PageRequest.of(0, 10, Sort.by("elaborationDateTime").descending());
+        }
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort());
+    }
+
     private Pageable getPageable(Pageable pageable){
         if (pageable == null) {
             pageable = Pageable.unpaged();
@@ -65,13 +76,16 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         return pageable;
     }
 
-    private Criteria getCriteria(String merchantId, String initiativeId, String userId, String status) {
+    private Criteria getCriteria(String merchantId, String initiativeId, String pointOfSaleId, String userId, String status) {
         Criteria criteria = Criteria.where(RewardTransaction.Fields.merchantId).is(merchantId)
                 .and(RewardTransaction.Fields.initiatives).is(initiativeId);
         if (userId != null) {
             criteria.and(RewardTransaction.Fields.userId).is(userId);
         }
-        if (status != null) {
+        if (pointOfSaleId != null) {
+            criteria.and(Fields.pointOfSaleId).is(pointOfSaleId);
+        }
+        if (StringUtils.isNotBlank(status)) {
             criteria.and(RewardTransaction.Fields.status).is(status);
         } else {
             criteria.and(RewardTransaction.Fields.status).in("CANCELLED", "REWARDED");
@@ -81,13 +95,23 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
     @Override
     public Flux<RewardTransaction> findByFilter(String merchantId, String initiativeId, String userId, String status, Pageable pageable){
-        Criteria criteria = getCriteria(merchantId, initiativeId, userId, status);
+        Criteria criteria = getCriteria(merchantId, initiativeId, null, userId, status);
         return mongoTemplate.find(Query.query(criteria).with(getPageable(pageable)), RewardTransaction.class);
     }
 
     @Override
-    public Mono<Long> getCount(String merchantId, String initiativeId, String userId, String status) {
-        Criteria criteria = getCriteria(merchantId, initiativeId, userId, status);
+    public Flux<RewardTransaction> findByFilterTrx(String merchantId, String initiativeId, String pointOfSaleId, String userId, String status, Pageable pageable){
+        Criteria criteria = getCriteria(merchantId, initiativeId, pointOfSaleId, userId, status);
+        Query query = Query.query(criteria);
+        if (pageable != null) {
+            query.with(getPageableTrx(pageable));
+        }
+        return mongoTemplate.find(query, RewardTransaction.class);
+    }
+
+    @Override
+    public Mono<Long> getCount(String merchantId, String initiativeId, String pointOfSaleId, String userId, String status) {
+        Criteria criteria = getCriteria(merchantId, initiativeId, pointOfSaleId, userId, status);
         return mongoTemplate.count(Query.query(criteria), RewardTransaction.class);
     }
 
