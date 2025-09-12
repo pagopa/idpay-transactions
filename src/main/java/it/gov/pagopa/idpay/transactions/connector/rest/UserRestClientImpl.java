@@ -55,7 +55,9 @@ public class UserRestClientImpl implements UserRestClient {
                 .map(HttpEntity::getBody)
                 .retryWhen(Retry.fixedDelay(pdvMaxAttempts, Duration.ofMillis(pdvRetryDelay))
                         .filter(ex -> {
-                            boolean retry = (ex instanceof WebClientResponseException.TooManyRequests) || ex.getMessage().startsWith("Connection refused");
+                            boolean retry = (ex instanceof WebClientResponseException.TooManyRequests)
+                                || ex.getMessage().startsWith("Connection refused")
+                                || ex.getMessage().contains("Connection reset by peer");
                             if (retry) {
                                 log.info("[PDV_INTEGRATION] Retrying invocation due to exception: {}: {}", ex.getClass().getSimpleName(), ex.getMessage());
                             }
@@ -89,7 +91,9 @@ public class UserRestClientImpl implements UserRestClient {
                 .map(HttpEntity::getBody)
                 .retryWhen(Retry.fixedDelay(pdvMaxAttempts, Duration.ofMillis(pdvRetryDelay))
                         .filter(ex -> {
-                            boolean retry = (ex instanceof WebClientResponseException.TooManyRequests) || ex.getMessage().startsWith("Connection refused");
+                            boolean retry = (ex instanceof WebClientResponseException.TooManyRequests)
+                                || ex.getMessage().startsWith("Connection refused")
+                                || ex.getMessage().contains("Connection reset by peer");
                             if (retry) {
                                 log.info("[PDV_INTEGRATION] Retrying invocation due to exception: {}: {}", ex.getClass().getSimpleName(), ex.getMessage());
                             }
