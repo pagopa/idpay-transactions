@@ -8,6 +8,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
 import it.gov.pagopa.idpay.transactions.utils.AggregationConstants;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
+
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -146,6 +147,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         if (isSortedBy(mappedSort, FIELD_PRODUCT_CATEGORY)) {
             return buildCategoryAggregation(criteria, mappedSort, pageable);
         }
+
         return null;
     }
 

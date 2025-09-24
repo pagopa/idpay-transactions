@@ -348,6 +348,7 @@ class RewardTransactionSpecificRepositoryTest {
 
         List<RewardTransaction> ascResult = rewardTransactionSpecificRepository.findByFilterTrx(
             MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "", null, ascSort
+
         ).toStream().toList();
 
         assertEquals(
@@ -358,6 +359,7 @@ class RewardTransactionSpecificRepositoryTest {
         Pageable descSort = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "status"));
         List<RewardTransaction> descResult = rewardTransactionSpecificRepository.findByFilterTrx(
             MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "", null, descSort
+
         ).toStream().toList();
 
         assertEquals(
