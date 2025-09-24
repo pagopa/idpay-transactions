@@ -24,21 +24,21 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
   }
 
   @Override
-  public Mono<Page<RewardTransaction>> getPointOfSaleTransactions(String merchantId, String initiativeId, String pointOfSaleId, String fiscalCode, String status, Pageable pageable) {
+  public Mono<Page<RewardTransaction>> getPointOfSaleTransactions(String merchantId, String initiativeId, String pointOfSaleId, String productGtin, String fiscalCode, String status, Pageable pageable) {
     if (StringUtils.isNotBlank(fiscalCode)) {
       return userRestClient.retrieveFiscalCodeInfo(fiscalCode)
           .map(FiscalCodeInfoPDV::getToken)
           .flatMap(userId ->
-             getTransactions(merchantId, initiativeId, pointOfSaleId, userId, status, pageable));
+              getTransactions(merchantId, initiativeId, pointOfSaleId, userId, productGtin, status, pageable));
     } else {
-      return getTransactions(merchantId, initiativeId, pointOfSaleId, null, status, pageable);
+      return getTransactions(merchantId, initiativeId, pointOfSaleId, null, productGtin, status, pageable);
     }
   }
 
-  private Mono<Page<RewardTransaction>> getTransactions(String merchantId, String initiativeId, String pointOfSaleId, String userId, String status, Pageable pageable) {
-    return rewardTransactionRepository.findByFilterTrx(merchantId, initiativeId, pointOfSaleId, userId, status, pageable)
-          .collectList()
-          .zipWith(rewardTransactionRepository.getCount(merchantId, initiativeId, pointOfSaleId, userId, status))
-          .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
+  private Mono<Page<RewardTransaction>> getTransactions(String merchantId, String initiativeId, String pointOfSaleId, String userId, String productGtin, String status, Pageable pageable) {
+    return rewardTransactionRepository.findByFilterTrx(merchantId, initiativeId, pointOfSaleId, userId, productGtin, status, pageable)
+        .collectList()
+        .zipWith(rewardTransactionRepository.getCount(merchantId, initiativeId, pointOfSaleId, userId, productGtin, status))
+        .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
   }
 }

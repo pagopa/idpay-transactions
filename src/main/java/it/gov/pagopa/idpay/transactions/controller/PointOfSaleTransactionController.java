@@ -15,6 +15,7 @@ public interface PointOfSaleTransactionController {
       @RequestHeader("x-merchant-id") String merchantId,
       @PathVariable("initiativeId") String initiativeId,
       @PathVariable("pointOfSaleId") String pointOfSaleId,
+      @RequestParam(required = false) String productGtin,
       @RequestParam(required = false) String fiscalCode,
       @RequestParam(required = false) String status,
       @PageableDefault(sort = "elaborationDateTime", direction = Sort.Direction.DESC) Pageable pageable);

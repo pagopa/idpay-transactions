@@ -71,7 +71,7 @@ class PointOfSaleTransactionMapperTest {
         .rewards(getReward())
         .build();
 
-    PointOfSaleTransactionDTO result = mapper.toDTO(trx, INITIATIVE_ID, FISCAL_CODE).block();
+    PointOfSaleTransactionDTO result = mapper.toDTO(trx, INITIATIVE_ID, null).block();
 
     assertNotNull(result);
     assertEquals(trx.getId(), result.getTrxId());
