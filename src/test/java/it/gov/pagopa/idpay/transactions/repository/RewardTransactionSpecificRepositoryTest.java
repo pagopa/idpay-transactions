@@ -43,6 +43,7 @@ class RewardTransactionSpecificRepositoryTest {
     private static final String MERCHANT_ID = "MERCHANTID1";
     private static final String USER_ID = "USERID1";
     private static final String POINT_OF_SALE_ID = "POINTOFSALEID1";
+    private static final String PRODUCT_GTIN = "PRODUCTGTIN1";
 
     @BeforeEach
     void setUp(){
@@ -313,10 +314,15 @@ class RewardTransactionSpecificRepositoryTest {
             .idTrxIssuer("IDTRXISSUER")
             .status("REWARDED")
             .initiatives(List.of(INITIATIVE_ID)).build();
+
+        Map<String,String> additionalProperties = Map.of("productGtin", PRODUCT_GTIN);
+
+        rt1.setAdditionalProperties(additionalProperties);
+
         rewardTransactionRepository.save(rt1).block();
 
         Pageable pageable = PageRequest.of(0, 10, Sort.by(RewardTransaction.Fields.elaborationDateTime).descending());
-        Flux<RewardTransaction> result = rewardTransactionRepository.findByFilterTrx(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "", "REWARDED", pageable);
+        Flux<RewardTransaction> result = rewardTransactionRepository.findByFilterTrx(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, PRODUCT_GTIN, "REWARDED", pageable);
         List<RewardTransaction> list = result.toStream().toList();
         assertEquals(1, list.size());
         assertEquals(rt1.getId(), list.getFirst().getId());
@@ -485,6 +491,53 @@ class RewardTransactionSpecificRepositoryTest {
         assertNotNull(aggregation);
         String expectedAggregation = "{ \"aggregate\" : \"__collection__\", \"pipeline\" : [{ \"$addFields\" : { \"categoryIt\" : { \"$switch\" : { \"branches\" : [{ \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"WASHINGMACHINES\"]}, \"then\" : \"Lavatrice\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"WASHERDRIERS\"]}, \"then\" : \"Lavasciuga\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"OVENS\"]}, \"then\" : \"Forno\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"RANGEHOODS\"]}, \"then\" : \"Cappa\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"DISHWASHERS\"]}, \"then\" : \"Lavastoviglie\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"TUMBLEDRYERS\"]}, \"then\" : \"Asciugatrice\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"REFRIGERATINGAPPL\"]}, \"then\" : \"Frigorifero\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"COOKINGHOBS\"]}, \"then\" : \"Piano cottura\"}], \"default\" : \"Altro\"}}}}, { \"$match\" : { \"userId\" : \"USER_ID_3\"}}, { \"$sort\" : { \"categoryIt\" : 1}}, { \"$skip\" : 0}, { \"$limit\" : 20}]}";
         assertEquals(expectedAggregation, aggregationString);
+    }
+
+    @Test
+    void findByFilterTrxWithProductCategorySortingShouldUseCategoryAggregation() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .idTrxIssuer("IDTRXISSUER")
+            .status("REWARDED")
+            .initiatives(List.of(INITIATIVE_ID))
+            .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        Pageable sortedByCategory = PageRequest.of(0, 10, Sort.by("productCategory"));
+
+        List<RewardTransaction> result = rewardTransactionSpecificRepository.findByFilterTrx(
+            MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "", "REWARDED", sortedByCategory
+        ).toStream().toList();
+
+        assertEquals(1, result.size());
+        assertEquals(rt1.getId(), result.get(0).getId());
+
+        cleanDataPageable();
+    }
+
+    @Test
+    void findByFilterTrx_withUpdateDateSorting_shouldMapToElaborationDateTime() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .idTrxIssuer("IDTRXISSUER")
+            .status("REWARDED")
+            .initiatives(List.of(INITIATIVE_ID))
+            .trxDate(LocalDateTime.now())
+            .elaborationDateTime(LocalDateTime.now().plusMinutes(5))
+            .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "updateDate"));
+
+        Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findByFilterTrx(
+            MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "", "REWARDED", pageable);
+
+        List<RewardTransaction> list = result.toStream().toList();
+
+        assertEquals(1, list.size());
+        assertEquals(rt1.getId(), list.get(0).getId());
+
+        cleanDataPageable();
     }
 
     private static Map<String, Reward> getReward() {
