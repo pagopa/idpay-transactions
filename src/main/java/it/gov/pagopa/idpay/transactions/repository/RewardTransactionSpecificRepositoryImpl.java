@@ -7,9 +7,8 @@ import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
 import it.gov.pagopa.idpay.transactions.utils.AggregationConstants;
-import it.gov.pagopa.idpay.transactions.utils.Utilities;
-
 import java.util.Optional;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.PageRequest;
@@ -175,7 +174,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         );
     }
 
-    private Aggregation buildCategoryAggregation(Criteria criteria, Sort sort, Pageable pageable) {
+     Aggregation buildCategoryAggregation(Criteria criteria, Sort sort, Pageable pageable) {
         Sort.Direction direction = sort.stream()
             .filter(order -> order.getProperty().equals(FIELD_PRODUCT_CATEGORY))
             .map(Sort.Order::getDirection)
