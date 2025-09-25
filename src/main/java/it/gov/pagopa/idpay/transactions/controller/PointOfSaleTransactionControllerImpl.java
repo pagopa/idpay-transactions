@@ -24,10 +24,10 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
   }
 
   @Override
-  public Mono<PointOfSaleTransactionsListDTO> getPointOfSaleTransactions(String merchantId, String initiativeId, String pointOfSaleId, String fiscalCode, String status, Pageable pageable) {
+  public Mono<PointOfSaleTransactionsListDTO> getPointOfSaleTransactions(String merchantId, String initiativeId, String pointOfSaleId, String productGtin, String fiscalCode, String status, Pageable pageable) {
     log.info("[GET_POINT-OF-SALE_TRANSACTIONS] Point Of Sale {} requested to retrieve transactions", Utilities.sanitizeString(pointOfSaleId));
 
-    return pointOfSaleTransactionService.getPointOfSaleTransactions(merchantId, initiativeId, pointOfSaleId, fiscalCode, status, pageable)
+    return pointOfSaleTransactionService.getPointOfSaleTransactions(merchantId, initiativeId, pointOfSaleId, productGtin, fiscalCode, status, pageable)
         .flatMap(page ->
             Flux.fromIterable(page.getContent())
                 .flatMapSequential(trx -> mapper.toDTO(trx, initiativeId, fiscalCode))

@@ -51,13 +51,14 @@ class PointOfSaleTransactionServiceImplTest {
 
     when(userRestClient.retrieveFiscalCodeInfo(FISCAL_CODE)).thenReturn(Mono.just(new FiscalCodeInfoPDV(USER_ID)));
 
-    when(rewardTransactionRepository.findByFilterTrx(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, STATUS, pageable)).thenReturn(Flux.just(trx));
+    when(rewardTransactionRepository.findByFilterTrx(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "", STATUS, pageable))
+        .thenReturn(Flux.just(trx));
 
-    when(rewardTransactionRepository.getCount(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, STATUS))
+    when(rewardTransactionRepository.getCount(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "", STATUS))
         .thenReturn(Mono.just(1L));
 
     Mono<Page<RewardTransaction>> result = pointOfSaleTransactionService
-        .getPointOfSaleTransactions(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, FISCAL_CODE, STATUS, pageable);
+        .getPointOfSaleTransactions(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, "", FISCAL_CODE, STATUS, pageable);
 
     StepVerifier.create(result)
         .assertNext(page -> {
@@ -72,14 +73,14 @@ class PointOfSaleTransactionServiceImplTest {
   void getPointOfSaleTransactionsWithoutFiscalCode() {
     RewardTransaction trx = RewardTransactionFaker.mockInstance(2);
 
-    when(rewardTransactionRepository.findByFilterTrx(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, null, STATUS, pageable))
+    when(rewardTransactionRepository.findByFilterTrx(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID,  null, null, STATUS, pageable))
         .thenReturn(Flux.just(trx));
 
-    when(rewardTransactionRepository.getCount(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, null, STATUS))
+    when(rewardTransactionRepository.getCount(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, null, null, STATUS))
         .thenReturn(Mono.just(1L));
 
     Mono<Page<RewardTransaction>> result = pointOfSaleTransactionService
-        .getPointOfSaleTransactions(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, null, STATUS, pageable);
+        .getPointOfSaleTransactions(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, null, null, STATUS, pageable);
 
     StepVerifier.create(result)
         .assertNext(page -> {

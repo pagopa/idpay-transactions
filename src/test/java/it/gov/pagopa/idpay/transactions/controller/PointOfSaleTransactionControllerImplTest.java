@@ -18,11 +18,11 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
@@ -32,10 +32,10 @@ class PointOfSaleTransactionControllerImplTest {
   @Autowired
   protected WebTestClient webClient;
 
-  @MockBean
+  @MockitoBean
   PointOfSaleTransactionService pointOfSaleTransactionService;
 
-  @MockBean
+  @MockitoBean
   PointOfSaleTransactionMapper mapper;
 
   private static final String INITIATIVE_ID = "INITIATIVE_ID";
@@ -57,7 +57,7 @@ class PointOfSaleTransactionControllerImplTest {
     PointOfSaleTransactionDTO dto = PointOfSaleTransactionDTOFaker.mockInstance(trx, INITIATIVE_ID, FISCAL_CODE);
 
     when(pointOfSaleTransactionService.getPointOfSaleTransactions(
-        eq(MERCHANT_ID), eq(INITIATIVE_ID), eq(POINT_OF_SALE_ID), isNull(), isNull(), any(Pageable.class)))
+        eq(MERCHANT_ID), eq(INITIATIVE_ID), eq(POINT_OF_SALE_ID), isNull(), isNull(), isNull(), any(Pageable.class)))
         .thenReturn(Mono.just(page));
 
     when(mapper.toDTO(eq(trx), eq(INITIATIVE_ID), isNull()))

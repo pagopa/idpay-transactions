@@ -16,12 +16,15 @@ import org.springframework.data.domain.Sort;
 import org.springframework.test.annotation.DirtiesContext;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.query.Criteria;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_CATEGORY;
 import static org.junit.jupiter.api.Assertions.*;
 @DirtiesContext
 @MongoTest
@@ -40,6 +43,7 @@ class RewardTransactionSpecificRepositoryTest {
     private static final String MERCHANT_ID = "MERCHANTID1";
     private static final String USER_ID = "USERID1";
     private static final String POINT_OF_SALE_ID = "POINTOFSALEID1";
+    private static final String PRODUCT_GTIN = "PRODUCTGTIN1";
 
     @BeforeEach
     void setUp(){
@@ -274,7 +278,7 @@ class RewardTransactionSpecificRepositoryTest {
         Pageable sorted = PageRequest.of(0, 10, Sort.by("elaborationDateTime").descending());
 
         Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findByFilterTrx(
-            MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "REWARDED", sorted);
+            MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID,"", "REWARDED", sorted);
 
         List<RewardTransaction> list = result.toStream().toList();
         assertEquals(1, list.size());
@@ -294,7 +298,7 @@ class RewardTransactionSpecificRepositoryTest {
 
         Pageable unsorted = PageRequest.of(0, 10);
         Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findByFilterTrx(
-            MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "REWARDED", unsorted);
+            MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "", "REWARDED", unsorted);
 
         List<RewardTransaction> list = result.toStream().toList();
         assertEquals(1, list.size());
@@ -310,10 +314,15 @@ class RewardTransactionSpecificRepositoryTest {
             .idTrxIssuer("IDTRXISSUER")
             .status("REWARDED")
             .initiatives(List.of(INITIATIVE_ID)).build();
+
+        Map<String,String> additionalProperties = Map.of("productGtin", PRODUCT_GTIN);
+
+        rt1.setAdditionalProperties(additionalProperties);
+
         rewardTransactionRepository.save(rt1).block();
 
         Pageable pageable = PageRequest.of(0, 10, Sort.by(RewardTransaction.Fields.elaborationDateTime).descending());
-        Flux<RewardTransaction> result = rewardTransactionRepository.findByFilterTrx(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "REWARDED", pageable);
+        Flux<RewardTransaction> result = rewardTransactionRepository.findByFilterTrx(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, PRODUCT_GTIN, "REWARDED", pageable);
         List<RewardTransaction> list = result.toStream().toList();
         assertEquals(1, list.size());
         assertEquals(rt1.getId(), list.getFirst().getId());
@@ -347,7 +356,8 @@ class RewardTransactionSpecificRepositoryTest {
         Pageable ascSort = PageRequest.of(0, 10, Sort.by("status"));
 
         List<RewardTransaction> ascResult = rewardTransactionSpecificRepository.findByFilterTrx(
-            MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, null, ascSort
+            MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "", null, ascSort
+
         ).toStream().toList();
 
         assertEquals(
@@ -357,7 +367,8 @@ class RewardTransactionSpecificRepositoryTest {
 
         Pageable descSort = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "status"));
         List<RewardTransaction> descResult = rewardTransactionSpecificRepository.findByFilterTrx(
-            MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, null, descSort
+            MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "", null, descSort
+
         ).toStream().toList();
 
         assertEquals(
@@ -376,7 +387,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .status("REWARDED")
                 .initiatives(List.of(INITIATIVE_ID)).build();
         rewardTransactionRepository.save(rt1).block();
-        Mono<Long> count = rewardTransactionRepository.getCount(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, null, null);
+        Mono<Long> count = rewardTransactionRepository.getCount(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, null, null, null);
         assertEquals(1, count.block());
 
         cleanDataPageable();
@@ -437,6 +448,95 @@ class RewardTransactionSpecificRepositoryTest {
 
         RewardTransaction modifiedTrx = rewardTransactionRepository.findById(rt1.getId()).block();
         assertTrue(modifiedTrx.getInitiatives().isEmpty());
+        cleanDataPageable();
+    }
+
+    @Test
+    void buildCategoryAggregationWithAscSort() {
+        Criteria criteria = Criteria.where("initiativeId").is("INITIATIVE_ID_1");
+        Sort sort = Sort.by(Sort.Direction.ASC, FIELD_PRODUCT_CATEGORY);
+        Pageable pageable = PageRequest.of(0, 10);
+
+        Aggregation aggregation = rewardTransactionSpecificRepository.buildCategoryAggregation(criteria, sort, pageable);
+        String aggregationString = aggregation.toString();
+
+        assertNotNull(aggregation);
+        String expectedAggregation = "{ \"aggregate\" : \"__collection__\", \"pipeline\" : [{ \"$addFields\" : { \"categoryIt\" : { \"$switch\" : { \"branches\" : [{ \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"WASHINGMACHINES\"]}, \"then\" : \"Lavatrice\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"WASHERDRIERS\"]}, \"then\" : \"Lavasciuga\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"OVENS\"]}, \"then\" : \"Forno\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"RANGEHOODS\"]}, \"then\" : \"Cappa\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"DISHWASHERS\"]}, \"then\" : \"Lavastoviglie\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"TUMBLEDRYERS\"]}, \"then\" : \"Asciugatrice\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"REFRIGERATINGAPPL\"]}, \"then\" : \"Frigorifero\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"COOKINGHOBS\"]}, \"then\" : \"Piano cottura\"}], \"default\" : \"Altro\"}}}}, { \"$match\" : { \"initiativeId\" : \"INITIATIVE_ID_1\"}}, { \"$sort\" : { \"categoryIt\" : 1}}, { \"$skip\" : 0}, { \"$limit\" : 10}]}";
+        assertEquals(expectedAggregation, aggregationString);
+    }
+
+    @Test
+    void buildCategoryAggregationWithDescSort() {
+        Criteria criteria = Criteria.where("initiativeId").is("INITIATIVE_ID_2");
+        Sort sort = Sort.by(Sort.Direction.DESC, FIELD_PRODUCT_CATEGORY);
+        Pageable pageable = PageRequest.of(2, 5); // Page 2, size 5
+
+        Aggregation aggregation = rewardTransactionSpecificRepository.buildCategoryAggregation(criteria, sort, pageable);
+        String aggregationString = aggregation.toString();
+
+        assertNotNull(aggregation);
+        String expectedAggregation = "{ \"aggregate\" : \"__collection__\", \"pipeline\" : [{ \"$addFields\" : { \"categoryIt\" : { \"$switch\" : { \"branches\" : [{ \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"WASHINGMACHINES\"]}, \"then\" : \"Lavatrice\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"WASHERDRIERS\"]}, \"then\" : \"Lavasciuga\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"OVENS\"]}, \"then\" : \"Forno\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"RANGEHOODS\"]}, \"then\" : \"Cappa\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"DISHWASHERS\"]}, \"then\" : \"Lavastoviglie\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"TUMBLEDRYERS\"]}, \"then\" : \"Asciugatrice\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"REFRIGERATINGAPPL\"]}, \"then\" : \"Frigorifero\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"COOKINGHOBS\"]}, \"then\" : \"Piano cottura\"}], \"default\" : \"Altro\"}}}}, { \"$match\" : { \"initiativeId\" : \"INITIATIVE_ID_2\"}}, { \"$sort\" : { \"categoryIt\" : -1}}, { \"$skip\" : 10}, { \"$limit\" : 5}]}";
+        assertEquals(expectedAggregation, aggregationString);
+    }
+
+    @Test
+    void buildCategoryAggregationWithDefaultSort() {
+        Criteria criteria = Criteria.where("userId").is("USER_ID_3");
+        Sort sort = Sort.by(Sort.Direction.DESC, "anotherField");
+        Pageable pageable = PageRequest.of(0, 20);
+
+        Aggregation aggregation = rewardTransactionSpecificRepository.buildCategoryAggregation(criteria, sort, pageable);
+        String aggregationString = aggregation.toString();
+
+        assertNotNull(aggregation);
+        String expectedAggregation = "{ \"aggregate\" : \"__collection__\", \"pipeline\" : [{ \"$addFields\" : { \"categoryIt\" : { \"$switch\" : { \"branches\" : [{ \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"WASHINGMACHINES\"]}, \"then\" : \"Lavatrice\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"WASHERDRIERS\"]}, \"then\" : \"Lavasciuga\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"OVENS\"]}, \"then\" : \"Forno\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"RANGEHOODS\"]}, \"then\" : \"Cappa\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"DISHWASHERS\"]}, \"then\" : \"Lavastoviglie\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"TUMBLEDRYERS\"]}, \"then\" : \"Asciugatrice\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"REFRIGERATINGAPPL\"]}, \"then\" : \"Frigorifero\"}, { \"case\" : { \"$eq\" : [\"$additionalProperties.productCategory\", \"COOKINGHOBS\"]}, \"then\" : \"Piano cottura\"}], \"default\" : \"Altro\"}}}}, { \"$match\" : { \"userId\" : \"USER_ID_3\"}}, { \"$sort\" : { \"categoryIt\" : 1}}, { \"$skip\" : 0}, { \"$limit\" : 20}]}";
+        assertEquals(expectedAggregation, aggregationString);
+    }
+
+    @Test
+    void findByFilterTrxWithProductCategorySortingShouldUseCategoryAggregation() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .idTrxIssuer("IDTRXISSUER")
+            .status("REWARDED")
+            .initiatives(List.of(INITIATIVE_ID))
+            .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        Pageable sortedByCategory = PageRequest.of(0, 10, Sort.by("productCategory"));
+
+        List<RewardTransaction> result = rewardTransactionSpecificRepository.findByFilterTrx(
+            MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "", "REWARDED", sortedByCategory
+        ).toStream().toList();
+
+        assertEquals(1, result.size());
+        assertEquals(rt1.getId(), result.get(0).getId());
+
+        cleanDataPageable();
+    }
+
+    @Test
+    void findByFilterTrx_withUpdateDateSorting_shouldMapToElaborationDateTime() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .idTrxIssuer("IDTRXISSUER")
+            .status("REWARDED")
+            .initiatives(List.of(INITIATIVE_ID))
+            .trxDate(LocalDateTime.now())
+            .elaborationDateTime(LocalDateTime.now().plusMinutes(5))
+            .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "updateDate"));
+
+        Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findByFilterTrx(
+            MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "", "REWARDED", pageable);
+
+        List<RewardTransaction> list = result.toStream().toList();
+
+        assertEquals(1, list.size());
+        assertEquals(rt1.getId(), list.get(0).getId());
+
         cleanDataPageable();
     }
 
