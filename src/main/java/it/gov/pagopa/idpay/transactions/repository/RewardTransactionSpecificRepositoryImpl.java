@@ -1,10 +1,14 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
+import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_CATEGORY;
+import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_CATEGORY_IT;
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
 
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
+import it.gov.pagopa.idpay.transactions.utils.AggregationConstants;
 import java.util.Optional;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.PageRequest;
@@ -106,8 +110,13 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Flux<RewardTransaction> findByFilterTrx(String merchantId, String initiativeId, String pointOfSaleId, String userId, String status, Pageable pageable){
+    public Flux<RewardTransaction> findByFilterTrx(String merchantId, String initiativeId, String pointOfSaleId, String userId, String productGtin, String status, Pageable pageable){
         Criteria criteria = getCriteria(merchantId, initiativeId, pointOfSaleId, userId, status);
+
+        if (StringUtils.isNotBlank(productGtin)) {
+            criteria.and(AggregationConstants.FIELD_PRODUCT_GTIN).is(productGtin);
+        }
+
         Aggregation aggregation = buildAggregation(criteria, pageable);
 
         if (aggregation != null) {
@@ -120,11 +129,24 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     private Aggregation buildAggregation(Criteria criteria, Pageable pageable) {
-        Sort sort =pageable.getSort();
+        Sort mappedSort = Sort.by(
+            pageable.getSort().stream()
+                .map(order -> {
+                    if ("productCategory".equalsIgnoreCase(order.getProperty())) {
+                        return order.withProperty(FIELD_PRODUCT_CATEGORY);
+                    }
+                    return order;
+                })
+                .toList()
+        );
 
-        if (isSortedBy(sort, FIELD_STATUS)) {
+        if (isSortedBy(mappedSort, FIELD_STATUS)) {
             return buildStatusAggregation(criteria, pageable);
         }
+        if (isSortedBy(mappedSort, FIELD_PRODUCT_CATEGORY)) {
+            return buildCategoryAggregation(criteria, mappedSort, pageable);
+        }
+
         return null;
     }
 
@@ -152,6 +174,36 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         );
     }
 
+     Aggregation buildCategoryAggregation(Criteria criteria, Sort sort, Pageable pageable) {
+        Sort.Direction direction = sort.stream()
+            .filter(order -> order.getProperty().equals(FIELD_PRODUCT_CATEGORY))
+            .map(Sort.Order::getDirection)
+            .findFirst()
+            .orElse(Sort.Direction.ASC);
+
+        return Aggregation.newAggregation(
+            Aggregation.addFields()
+                .addField(FIELD_PRODUCT_CATEGORY_IT)
+                .withValue(
+                    ConditionalOperators.switchCases(
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("WASHINGMACHINES")).then("Lavatrice"),
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("WASHERDRIERS")).then("Lavasciuga"),
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("OVENS")).then("Forno"),
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("RANGEHOODS")).then("Cappa"),
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("DISHWASHERS")).then("Lavastoviglie"),
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("TUMBLEDRYERS")).then("Asciugatrice"),
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("REFRIGERATINGAPPL")).then("Frigorifero"),
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("COOKINGHOBS")).then("Piano cottura")
+                    ).defaultTo("Altro")
+                ).build(),
+            Aggregation.match(criteria),
+            Aggregation.sort(Sort.by(direction, FIELD_PRODUCT_CATEGORY_IT)),
+            Aggregation.skip(pageable.getOffset()),
+            Aggregation.limit(pageable.getPageSize())
+        );
+    }
+
+
     private Sort.Direction getSortDirection(Pageable pageable, String property) {
         return Optional.ofNullable(pageable.getSort().getOrderFor(property))
             .map(Sort.Order::getDirection)
@@ -159,8 +211,13 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Mono<Long> getCount(String merchantId, String initiativeId, String pointOfSaleId, String userId, String status) {
+    public Mono<Long> getCount(String merchantId, String initiativeId, String pointOfSaleId, String productGtin, String userId, String status) {
         Criteria criteria = getCriteria(merchantId, initiativeId, pointOfSaleId, userId, status);
+
+        if (StringUtils.isNotBlank(productGtin)) {
+            criteria.and(AggregationConstants.FIELD_PRODUCT_GTIN).is(productGtin);
+        }
+
         return mongoTemplate.count(Query.query(criteria), RewardTransaction.class);
     }
 
