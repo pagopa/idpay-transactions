@@ -207,10 +207,10 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                         ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("WASHINGMACHINES")).then("Lavatrice"),
                         ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("WASHERDRIERS")).then("Lavasciuga"),
                         ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("OVENS")).then("Forno"),
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("RANGEHOODS")).then("Cappa"),
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("RANGEHOODS")).then("Cappa da cucina"),
                         ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("DISHWASHERS")).then("Lavastoviglie"),
                         ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("TUMBLEDRYERS")).then("Asciugatrice"),
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("REFRIGERATINGAPPL")).then("Frigorifero"),
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("REFRIGERATINGAPPL")).then("Apparecchio di refrigerazione"),
                         ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("COOKINGHOBS")).then("Piano cottura")
                     ).defaultTo("Altro")
                 ).build(),
