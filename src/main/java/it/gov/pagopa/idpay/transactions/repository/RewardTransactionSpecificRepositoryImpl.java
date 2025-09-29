@@ -1,7 +1,6 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_CATEGORY;
-import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_CATEGORY_IT;
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
 
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
@@ -138,6 +137,9 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                     if ("updateDate".equalsIgnoreCase(order.getProperty())) {
                         return new Sort.Order(order.getDirection(), "elaborationDateTime");
                     }
+                    if ("productCategory".equalsIgnoreCase(order.getProperty())) {
+                        return new Sort.Order(order.getDirection(), FIELD_PRODUCT_CATEGORY);
+                    }
                     return order;
                 })
                 .toList()
@@ -147,24 +149,11 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     private Aggregation buildAggregation(Criteria criteria, Pageable pageable) {
-        Sort mappedSort = Sort.by(
-            pageable.getSort().stream()
-                .map(order -> {
-                    if ("productCategory".equalsIgnoreCase(order.getProperty())) {
-                        return order.withProperty(FIELD_PRODUCT_CATEGORY);
-                    }
-                    return order;
-                })
-                .toList()
-        );
+        Sort sort = pageable.getSort();
 
-        if (isSortedBy(mappedSort, FIELD_STATUS)) {
+        if (isSortedBy(sort, FIELD_STATUS)) {
             return buildStatusAggregation(criteria, pageable);
         }
-        if (isSortedBy(mappedSort, FIELD_PRODUCT_CATEGORY)) {
-            return buildCategoryAggregation(criteria, mappedSort, pageable);
-        }
-
         return null;
     }
 
@@ -191,36 +180,6 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
             Aggregation.limit(pageable.getPageSize())
         );
     }
-
-     Aggregation buildCategoryAggregation(Criteria criteria, Sort sort, Pageable pageable) {
-        Sort.Direction direction = sort.stream()
-            .filter(order -> order.getProperty().equals(FIELD_PRODUCT_CATEGORY))
-            .map(Sort.Order::getDirection)
-            .findFirst()
-            .orElse(Sort.Direction.ASC);
-
-        return Aggregation.newAggregation(
-            Aggregation.addFields()
-                .addField(FIELD_PRODUCT_CATEGORY_IT)
-                .withValue(
-                    ConditionalOperators.switchCases(
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("WASHINGMACHINES")).then("Lavatrice"),
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("WASHERDRIERS")).then("Lavasciuga"),
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("OVENS")).then("Forno"),
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("RANGEHOODS")).then("Cappa da cucina"),
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("DISHWASHERS")).then("Lavastoviglie"),
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("TUMBLEDRYERS")).then("Asciugatrice"),
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("REFRIGERATINGAPPL")).then("Apparecchio di refrigerazione"),
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_PRODUCT_CATEGORY).equalToValue("COOKINGHOBS")).then("Piano cottura")
-                    ).defaultTo("Altro")
-                ).build(),
-            Aggregation.match(criteria),
-            Aggregation.sort(Sort.by(direction, FIELD_PRODUCT_CATEGORY_IT)),
-            Aggregation.skip(pageable.getOffset()),
-            Aggregation.limit(pageable.getPageSize())
-        );
-    }
-
 
     private Sort.Direction getSortDirection(Pageable pageable, String property) {
         return Optional.ofNullable(pageable.getSort().getOrderFor(property))
