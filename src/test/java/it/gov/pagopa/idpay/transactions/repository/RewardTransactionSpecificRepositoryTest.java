@@ -474,7 +474,7 @@ class RewardTransactionSpecificRepositoryTest {
     }
 
     @Test
-    void findByFilterTrx_withProductCategorySorting_shouldMapToAdditionalPropertiesProductCategory() {
+    void findByFilterTrx_withProductNameSorting_shouldMapToAdditionalPropertiesProductName() {
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
             .id("id1")
             .idTrxIssuer("IDTRXISSUER")
@@ -485,7 +485,7 @@ class RewardTransactionSpecificRepositoryTest {
             .build();
         rewardTransactionRepository.save(rt1).block();
 
-        Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "productCategory"));
+        Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "productName"));
 
         Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findByFilterTrx(
             MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "", "REWARDED", pageable);

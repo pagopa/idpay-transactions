@@ -1,6 +1,6 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
-import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_CATEGORY;
+import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_NAME;
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
 
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
@@ -137,8 +137,8 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                     if ("updateDate".equalsIgnoreCase(order.getProperty())) {
                         return new Sort.Order(order.getDirection(), "elaborationDateTime");
                     }
-                    if ("productCategory".equalsIgnoreCase(order.getProperty())) {
-                        return new Sort.Order(order.getDirection(), FIELD_PRODUCT_CATEGORY);
+                    if ("productName".equalsIgnoreCase(order.getProperty())) {
+                        return new Sort.Order(order.getDirection(), FIELD_PRODUCT_NAME);
                     }
                     return order;
                 })
