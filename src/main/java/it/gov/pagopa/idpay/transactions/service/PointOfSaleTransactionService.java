@@ -8,5 +8,4 @@ import reactor.core.publisher.Mono;
 public interface PointOfSaleTransactionService {
 
   Mono<Page<RewardTransaction>> getPointOfSaleTransactions(String merchantId, String initiativeId, String pointOfSaleId, String productGtin, String fiscalCode, String status, Pageable pageable);
-
 }

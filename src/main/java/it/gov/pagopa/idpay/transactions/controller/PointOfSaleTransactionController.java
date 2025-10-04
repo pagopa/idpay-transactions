@@ -1,9 +1,11 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionsListDTO;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
@@ -19,4 +21,12 @@ public interface PointOfSaleTransactionController {
       @RequestParam(required = false) String fiscalCode,
       @RequestParam(required = false) String status,
       @PageableDefault(sort = "elaborationDateTime", direction = Sort.Direction.DESC) Pageable pageable);
+
+  @GetMapping("/initiatives/{initiativeId}/point-of-sales/{pointOfSaleId}/transactions/{transactionId}/download")
+  DownloadInvoiceResponseDTO downloadInvoiceFile(
+      @RequestHeader("x-merchant-id") String merchantId,
+      @PathVariable("initiativeId") String initiativeId,
+      @PathVariable("pointOfSaleId") String pointOfSaleId,
+      @PathVariable("transactionId") String transactionId);
+
 }
