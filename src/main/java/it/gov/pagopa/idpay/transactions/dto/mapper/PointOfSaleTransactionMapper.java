@@ -28,6 +28,7 @@ public class PointOfSaleTransactionMapper {
         .channel(trx.getChannel())
         .fiscalCode(fiscalCode)
         .additionalProperties(trx.getAdditionalProperties())
+        .invoiceFile(trx.getInvoiceFile())
         .build();
 
     if (StringUtils.isNotBlank(fiscalCode)){

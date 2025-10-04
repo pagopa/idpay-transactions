@@ -41,12 +41,12 @@ class RewardTransactionMapperTest {
         assertCommonFields(resultRefund, refundTrx);
         checkNotNullRewardField(resultRefund.getRewards());
         assertRefundFields(resultRefund,refundTrx);
-        TestUtils.checkNotNullFields(resultRefund, "rejectionReasons", "initiativeRejectionReasons", "additionalProperties");
+        TestUtils.checkNotNullFields(resultRefund, "rejectionReasons", "initiativeRejectionReasons", "additionalProperties", "invoiceFile");
 
         Assertions.assertNotNull(resultRejected);
         assertCommonFields(resultRejected, rejectedTrx);
         assertRejectedFields(resultRejected,rejectedTrx);
-        TestUtils.checkNotNullFields(resultRejected, "initiatives","rewards", "operationTypeTranscoded", "effectiveAmountCents","trxChargeDate","refundInfo", "additionalProperties");
+        TestUtils.checkNotNullFields(resultRejected, "initiatives","rewards", "operationTypeTranscoded", "effectiveAmountCents","trxChargeDate","refundInfo", "additionalProperties", "invoiceFile");
 
 
     }
@@ -63,7 +63,7 @@ class RewardTransactionMapperTest {
         //Then
         Assertions.assertNotNull(result);
         assertCommonFields(result, rewardTrx);
-        TestUtils.checkNotNullFields(result, "rejectionReasons", "initiativeRejectionReasons", "additionalProperties");
+        TestUtils.checkNotNullFields(result, "rejectionReasons", "initiativeRejectionReasons", "additionalProperties", "invoiceFile");
 
         String expectedId = rewardTrx.getIdTrxAcquirer()
                 .concat(rewardTrx.getAcquirerCode())
@@ -87,7 +87,7 @@ class RewardTransactionMapperTest {
         Assertions.assertNotNull(result);
         assertCommonFields(result, rewardTrx);
 
-        TestUtils.checkNotNullFields(result, "rejectionReasons", "initiativeRejectionReasons", "additionalProperties");
+        TestUtils.checkNotNullFields(result, "rejectionReasons", "initiativeRejectionReasons", "additionalProperties", "invoiceFile");
         checkNotNullRewardField(result.getRewards());
         TestUtils.checkNotNullFields(result.getRefundInfo());
     }
