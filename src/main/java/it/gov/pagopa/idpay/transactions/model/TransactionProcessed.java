@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.model;
 
+import it.gov.pagopa.idpay.transactions.dto.InvoiceFile;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -41,5 +42,6 @@ public class TransactionProcessed {
 
     private LocalDateTime timestamp;
     private Map<String, String> additionalProperties;
+    private InvoiceFile invoiceFile;
 }
 
