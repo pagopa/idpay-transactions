@@ -16,4 +16,14 @@ public interface RewardTransactionSpecificRepository {
     Mono<Void> removeInitiativeOnTransaction(String trxId, String initiativeId);
     Flux<RewardTransaction> findByInitiativesWithBatch(String initiativeId, int batchSize);
     Flux<RewardTransaction> findByFilterTrx(String merchantId, String initiativeId, String pointOfSaleId, String userId, String productGtin, String status, Pageable pageable);
+
+    /**
+     * Retrieves a transaction in status REWARDED or REFUNDED using the provided paramaters
+     * @param merchantId
+     * @param initiativeId
+     * @param pointOfSaleId
+     * @param transactionId
+     * @return Mono containing a transaction, or empty if no document matches the criteria
+     */
+    Mono<RewardTransaction> findTransaction(String merchantId, String initiativeId, String pointOfSaleId, String transactionId);
 }

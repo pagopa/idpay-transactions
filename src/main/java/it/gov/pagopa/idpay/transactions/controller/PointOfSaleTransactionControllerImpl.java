@@ -44,8 +44,11 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
   }
 
   @Override
-  public DownloadInvoiceResponseDTO downloadInvoiceFile(String merchantId, String initiativeId, String pointOfSaleId, String transactionId) {
-    return null;
+  public Mono<DownloadInvoiceResponseDTO> downloadInvoiceFile(
+          String merchantId, String initiativeId, String pointOfSaleId, String transactionId) {
+    log.info("[DOWNLOAD_TRANSACTION] Requested to download invoice for transaction {}",
+            Utilities.sanitizeString(transactionId));
+    return pointOfSaleTransactionService.downloadTransactionInvoice(merchantId, initiativeId, pointOfSaleId, transactionId);
   }
 
 

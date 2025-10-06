@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.MissingRequestValueException;
 import org.springframework.web.server.ServerWebExchange;
 
 import java.util.Optional;
@@ -22,6 +23,14 @@ public class ErrorManager {
         this.defaultErrorDTO = Optional.ofNullable(defaultErrorDTO)
                 .orElse(new ErrorDTO("Error", "Something gone wrong"));
     }
+
+    @ExceptionHandler(MissingRequestValueException.class)
+    protected ResponseEntity<ErrorDTO> handleRequestValueException(
+            MissingRequestValueException error, ServerWebExchange exchange) {
+        logClientException(error, exchange);
+        return ResponseEntity.badRequest().body(new ErrorDTO("INVALID_REQUEST",  error.getMessage()));
+    }
+
     @ExceptionHandler(RuntimeException.class)
     protected ResponseEntity<ErrorDTO> handleException(RuntimeException error, ServerWebExchange exchange) {
         logClientException(error, exchange);

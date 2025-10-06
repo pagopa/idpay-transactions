@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.repository;
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_NAME;
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
 
+import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
 import it.gov.pagopa.idpay.transactions.utils.AggregationConstants;
@@ -126,6 +127,18 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                 Query.query(criteria).with(getPageableTrx(mappedPageable)),
                 RewardTransaction.class);
         }
+    }
+
+    @Override
+    public Mono<RewardTransaction> findTransaction(
+            String merchantId, String initiativeId, String pointOfSaleId, String transactionId) {
+        Criteria criteria = Criteria
+                .where(Fields.initiatives).is(initiativeId)
+                .and(Fields.merchantId).is(merchantId)
+                .and(Fields.pointOfSaleId).is(pointOfSaleId)
+                .and(Fields.id).is(transactionId)
+                .and(Fields.status).in(SyncTrxStatus.REWARDED,SyncTrxStatus.REFUNDED);
+        return mongoTemplate.findOne(Query.query(criteria), RewardTransaction.class);
     }
 
     private Pageable mapSort(Pageable pageable) {
