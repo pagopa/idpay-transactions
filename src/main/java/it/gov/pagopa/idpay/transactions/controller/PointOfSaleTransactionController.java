@@ -5,7 +5,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import it.gov.pagopa.common.web.dto.ErrorDTO;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionsListDTO;
@@ -13,7 +12,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
@@ -32,9 +30,9 @@ public interface PointOfSaleTransactionController {
 
   /**
    * Provides method to download an invoice file of a rewarded transaction
-   * @param merchantId obtained through an header parameter, used to check if the transaction required is referred to the same merchant
-   * @param initiativeId obtained through an header parameter, used to check if the transaction required is referred to the same initiative
-   * @param pointOfSaleId obtained through an header parameter, used to check if the transaction required is referred to the same point of sale
+   * @param merchantId obtained through a header parameter, used to check if the transaction required is referred to the same merchant
+   * @param initiativeId obtained through a header parameter, used to check if the transaction required is referred to the same initiative
+   * @param pointOfSaleId obtained through a header parameter, used to check if the transaction required is referred to the same point of sale
    * @param transactionId
    * @return Mono containing an instance of DownloadInvoiceResponseDTO, containing the invoice url
    */

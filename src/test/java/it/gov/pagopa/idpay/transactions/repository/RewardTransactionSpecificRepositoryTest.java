@@ -498,6 +498,32 @@ class RewardTransactionSpecificRepositoryTest {
         cleanDataPageable();
     }
 
+    @Test
+    void findTransaction_shouldReturnMatchingTransaction_whenStatusIsRewardedOrRefunded() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .merchantId(MERCHANT_ID)
+            .pointOfSaleId(POINT_OF_SALE_ID)
+            .status("REWARDED")
+            .initiatives(List.of(INITIATIVE_ID))
+            .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        Mono<RewardTransaction> resultMono = rewardTransactionSpecificRepository.findTransaction(
+            MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, rt1.getId()
+        );
+
+        RewardTransaction result = resultMono.block();
+
+        assertNotNull(result);
+        assertEquals(rt1.getId(), result.getId());
+        assertEquals(MERCHANT_ID, result.getMerchantId());
+        assertEquals(POINT_OF_SALE_ID, result.getPointOfSaleId());
+        assertEquals("REWARDED", result.getStatus());
+
+        cleanDataPageable();
+    }
+
     private static Map<String, Reward> getReward() {
         Map<String, Reward> reward = new HashMap<>();
         RewardCounters counter = RewardCounters.builder()

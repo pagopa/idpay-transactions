@@ -46,7 +46,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
   }
 
   /**
-   * Method to generate a download url on an invoice of a rewardTransaction in status REWARDED or REFUNDED,
+   * Method to generate a download url of an invoice for a rewardTransaction in status REWARDED or REFUNDED,
    * the url will be provided with a Shared Access Signature token for the resource
    * @param merchantId
    * @param initiativeId
@@ -62,12 +62,12 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
               .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
               .map(rewardTransaction -> {
                 if (rewardTransaction.getInvoiceFile() == null ||
-                        rewardTransaction.getInvoiceFile().getFileName() == null) {
-                  throw  new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE);
+                        rewardTransaction.getInvoiceFile().getFilename() == null) {
+                  throw new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE);
                 }
                 return DownloadInvoiceResponseDTO.builder()
                           .invoiceUrl(invoiceStorageClient.getFileSignedUrl(
-                                  rewardTransaction.getInvoiceFile().getFileName()))
+                                  rewardTransaction.getInvoiceFile().getFilename()))
                           .build();
               });
   }

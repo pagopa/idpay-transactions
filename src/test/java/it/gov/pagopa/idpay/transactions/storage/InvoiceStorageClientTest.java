@@ -23,7 +23,7 @@ class InvoiceStorageClientTest {
     private InvoiceStorageClient invoiceStorageClient;
 
     @BeforeEach
-    public void init() {
+    void init() {
         blobContainerClient = mock(BlobContainerClient.class);
         blobServiceClient = mock(BlobServiceClient.class);
 
@@ -52,4 +52,17 @@ class InvoiceStorageClientTest {
                 .getFileSignedUrl( "fileId"));
     }
 
+    @Test
+    void springConstructorShouldInitializeFields() {
+        InvoiceStorageClient client = new InvoiceStorageClient(
+            "https://endpoint",
+            "tenantId",
+            "clientId",
+            "clientSecret",
+            "containerName",
+            "folderId",
+            60);
+
+        assertNotNull(client);
+    }
 }
