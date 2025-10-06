@@ -28,4 +28,5 @@ public class PointOfSaleTransactionDTO {
   String status;
   String channel;
   Map<String, String> additionalProperties;
+  InvoiceFile invoiceFile;
 }
