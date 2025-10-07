@@ -40,5 +40,6 @@ public class TransactionProcessed {
     private String operationTypeTranscoded;
 
     private LocalDateTime timestamp;
+    private Map<String, String> additionalProperties;
 }
 

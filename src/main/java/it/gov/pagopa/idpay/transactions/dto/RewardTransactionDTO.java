@@ -38,6 +38,7 @@ public class RewardTransactionDTO {
     private String mcc;
     private String acquirerId;
     private String merchantId;
+    private String pointOfSaleId;
     private String terminalId;
     private String bin;
     private String senderCode;
@@ -64,4 +65,5 @@ public class RewardTransactionDTO {
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime elaborationDateTime;
     private String channel;
+    private Map<String, String> additionalProperties;
 }

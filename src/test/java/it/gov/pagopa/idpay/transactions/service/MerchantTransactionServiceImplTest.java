@@ -76,7 +76,7 @@ class MerchantTransactionServiceImplTest {
 
         Mockito.when(userRestClient.retrieveFiscalCodeInfo(anyString())).thenReturn(Mono.just(fiscalCode));
         Mockito.when(rewardTransactionRepository.findByFilter(MERCHANT_ID, INITIATIVE_ID, USER_ID, null, paging)).thenReturn(Flux.just(rt1));
-        Mockito.when(rewardTransactionRepository.getCount(MERCHANT_ID, INITIATIVE_ID, USER_ID, null)).thenReturn(Mono.just(1L));
+        Mockito.when(rewardTransactionRepository.getCount(MERCHANT_ID, INITIATIVE_ID, null, null, USER_ID, null)).thenReturn(Mono.just(1L));
 
         Mono<MerchantTransactionsListDTO> resultMono = merchantTransactionService.getMerchantTransactions(MERCHANT_ID, INITIATIVE_ID, FISCAL_CODE, null, paging);
 
@@ -114,7 +114,7 @@ class MerchantTransactionServiceImplTest {
 
         Mockito.when(userRestClient.retrieveUserInfo(anyString())).thenReturn(Mono.just(userId));
         Mockito.when(rewardTransactionRepository.findByFilter(MERCHANT_ID, INITIATIVE_ID, null, null, paging)).thenReturn(Flux.just(rt1));
-        Mockito.when(rewardTransactionRepository.getCount(MERCHANT_ID, INITIATIVE_ID, null, null)).thenReturn(Mono.just(1L));
+        Mockito.when(rewardTransactionRepository.getCount(MERCHANT_ID, INITIATIVE_ID, null, null, null, null)).thenReturn(Mono.just(1L));
 
         Mono<MerchantTransactionsListDTO> resultMono = merchantTransactionService.getMerchantTransactions(MERCHANT_ID, INITIATIVE_ID, null, null, paging);
 

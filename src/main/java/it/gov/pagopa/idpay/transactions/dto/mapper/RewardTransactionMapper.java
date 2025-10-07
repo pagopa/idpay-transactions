@@ -39,6 +39,7 @@ public class RewardTransactionMapper {
             rewardTrx.setMcc(rewardTrxDto.getMcc());
             rewardTrx.setAcquirerId(rewardTrxDto.getAcquirerId());
             rewardTrx.setMerchantId(rewardTrxDto.getMerchantId());
+            rewardTrx.setPointOfSaleId(rewardTrxDto.getPointOfSaleId());
             rewardTrx.setTerminalId(rewardTrxDto.getTerminalId());
             rewardTrx.setBin(rewardTrxDto.getBin());
             rewardTrx.setSenderCode(rewardTrxDto.getSenderCode());
@@ -61,6 +62,7 @@ public class RewardTransactionMapper {
 
             rewardTrx.setElaborationDateTime(rewardTrxDto.getElaborationDateTime());
             rewardTrx.setChannel(rewardTrxDto.getChannel());
+            rewardTrx.setAdditionalProperties(rewardTrxDto.getAdditionalProperties());
         }
 
         return rewardTrx;

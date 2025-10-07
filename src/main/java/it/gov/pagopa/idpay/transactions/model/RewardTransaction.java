@@ -35,6 +35,7 @@ public class RewardTransaction {
     private String mcc;
     private String acquirerId;
     private String merchantId;
+    private String pointOfSaleId;
     private String terminalId;
     private String bin;
     private String senderCode;
@@ -59,4 +60,5 @@ public class RewardTransaction {
 
     private LocalDateTime elaborationDateTime;
     private String channel;
+    private Map<String, String> additionalProperties;
 }
