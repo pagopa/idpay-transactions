@@ -108,4 +108,58 @@ class PointOfSaleTransactionMapperTest {
 
     verify(userRestClient, times(1)).retrieveUserInfo(USER_ID);
   }
+
+  @Test
+  void toDTO_shouldHandleNullRewards() {
+    RewardTransaction trx = RewardTransactionFaker.mockInstanceBuilder(1)
+        .id("trx3")
+        .userId(USER_ID)
+        .amountCents(8000L)
+        .status("CANCELLED")
+        .elaborationDateTime(LocalDateTime.now())
+        .rewards(null)
+        .build();
+
+    PointOfSaleTransactionDTO result = mapper.toDTO(trx, INITIATIVE_ID, FISCAL_CODE).block();
+
+    assertNotNull(result);
+    assertEquals(trx.getId(), result.getTrxId());
+    assertEquals(8000L, result.getEffectiveAmountCents());
+    assertEquals(0L, result.getRewardAmountCents());
+    assertEquals(8000L, result.getAuthorizedAmountCents());
+    assertEquals("CANCELLED", result.getStatus());
+    assertEquals(FISCAL_CODE, result.getFiscalCode());
+
+    verifyNoInteractions(userRestClient);
+  }
+
+  @Test
+  void toDTO_shouldHandleMissingInitiativeReward() {
+    Map<String, Reward> rewards = new HashMap<>();
+    Reward reward = Reward.builder()
+        .initiativeId("OTHER_INITIATIVE")
+        .accruedRewardCents(2000L)
+        .build();
+    rewards.put("OTHER_INITIATIVE", reward);
+
+    RewardTransaction trx = RewardTransactionFaker.mockInstanceBuilder(1)
+        .id("trx4")
+        .userId(USER_ID)
+        .amountCents(10000L)
+        .status("CANCELLED")
+        .elaborationDateTime(LocalDateTime.now())
+        .rewards(rewards)
+        .build();
+
+    PointOfSaleTransactionDTO result = mapper.toDTO(trx, INITIATIVE_ID, FISCAL_CODE).block();
+
+    assertNotNull(result);
+    assertEquals(10000L, result.getEffectiveAmountCents());
+    assertEquals(0L, result.getRewardAmountCents());
+    assertEquals(10000L, result.getAuthorizedAmountCents());
+    assertEquals("CANCELLED", result.getStatus());
+    assertEquals(FISCAL_CODE, result.getFiscalCode());
+
+    verifyNoInteractions(userRestClient);
+  }
 }
