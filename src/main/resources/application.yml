@@ -134,9 +134,9 @@ spring:
           maxConnectionIdleTimeMS: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTION_IDLE_MS:120000}
           maxConnecting: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTING:2}
   azure:
-    blob:
-      storage:
-        invoices:
+    storage:
+      blob:
+        invoice:
           storageAccountName: ${BLOB_STORAGE_ACCOUNT_NAME}
           containerName: ${BLOB_STORAGE_CONTAINER_REFERENCE:invoices}
           invoiceTokenDurationSeconds: ${INVOICE_STORAGE_SAS_DURATION_SECONDS:60}
