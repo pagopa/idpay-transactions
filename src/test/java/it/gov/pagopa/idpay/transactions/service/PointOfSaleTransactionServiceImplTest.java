@@ -176,7 +176,7 @@ class PointOfSaleTransactionServiceImplTest {
             .build();
     doReturn(Mono.just(rewardTransaction)).when(rewardTransactionRepository).findTransaction(
             eq(MERCHANT_ID),eq(INITIATIVE_ID),eq(POINT_OF_SALE_ID),eq(TRX_ID));
-    lenient().doReturn("tokenUrl").when(invoiceStorageClient).getFileSignedUrl(eq("filename"));
+    lenient().doReturn("tokenUrl").when(invoiceStorageClient).getFileSignedUrl(eq("invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/filename"));
     Mono<DownloadInvoiceResponseDTO> downloadInvoiceResponseDTOMono =
             assertDoesNotThrow(() ->
                     pointOfSaleTransactionService.downloadTransactionInvoice(
@@ -189,7 +189,7 @@ class PointOfSaleTransactionServiceImplTest {
             }).verifyComplete();
     verify(rewardTransactionRepository).findTransaction(
             eq(MERCHANT_ID),eq(INITIATIVE_ID),eq(POINT_OF_SALE_ID),eq(TRX_ID));
-    verify(invoiceStorageClient).getFileSignedUrl(eq("filename"));
+    verify(invoiceStorageClient).getFileSignedUrl(eq("invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/filename"));
   }
 
   @Test
@@ -277,29 +277,30 @@ class PointOfSaleTransactionServiceImplTest {
   @Test
   void shouldThrowMissingErrorOnFileUrlRecoveryError() {
     RewardTransaction rewardTransaction = RewardTransaction.builder()
-            .invoiceFile(InvoiceFile.builder().filename("filename").build())
-            .build();
+        .invoiceFile(InvoiceFile.builder().filename("filename").build())
+        .build();
     doReturn(Mono.just(rewardTransaction)).when(rewardTransactionRepository).findTransaction(
-            eq(MERCHANT_ID),eq(INITIATIVE_ID),eq(POINT_OF_SALE_ID),eq("AAAA"));
-    doAnswer(item -> {
-      throw new ClientException(HttpStatus.INTERNAL_SERVER_ERROR,
-              ERROR_ON_GET_FILE_URL_REQUEST);
-    }).when(invoiceStorageClient).getFileSignedUrl(eq("filename"));
+        eq(MERCHANT_ID), eq(INITIATIVE_ID), eq(POINT_OF_SALE_ID), eq("AAAA"));
+    doThrow(new ClientException(HttpStatus.INTERNAL_SERVER_ERROR, ERROR_ON_GET_FILE_URL_REQUEST))
+        .when(invoiceStorageClient).getFileSignedUrl(anyString());
+
     Mono<DownloadInvoiceResponseDTO> responseDTOMono =
-            pointOfSaleTransactionService.downloadTransactionInvoice(
-                    MERCHANT_ID,INITIATIVE_ID,POINT_OF_SALE_ID,"AAAA");
+        pointOfSaleTransactionService.downloadTransactionInvoice(
+            MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, "AAAA");
+
     StepVerifier.create(responseDTOMono)
-              .expectErrorMatches(throwable -> {
-                  assert throwable instanceof ClientException;
-                  Boolean isRightCode = ((ClientException) throwable)
-                          .getHttpStatus().equals(HttpStatus.INTERNAL_SERVER_ERROR);
-                  Boolean isRightMessage = throwable.getMessage().equals(ERROR_ON_GET_FILE_URL_REQUEST);
-                  return isRightMessage && isRightCode;
-              })
-              .verify();
+        .expectErrorSatisfies(throwable -> {
+          assertTrue(throwable instanceof ClientException);
+          ClientException ex = (ClientException) throwable;
+          assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, ex.getHttpStatus());
+          assertEquals(ERROR_ON_GET_FILE_URL_REQUEST, ex.getMessage());
+        })
+        .verify();
+
     verify(rewardTransactionRepository).findTransaction(
-            eq(MERCHANT_ID),eq(INITIATIVE_ID),eq(POINT_OF_SALE_ID),eq("AAAA"));
-    verify(invoiceStorageClient).getFileSignedUrl(eq("filename"));
+        eq(MERCHANT_ID), eq(INITIATIVE_ID), eq(POINT_OF_SALE_ID), eq("AAAA"));
+    verify(invoiceStorageClient).getFileSignedUrl(anyString());
   }
+
 
 }
