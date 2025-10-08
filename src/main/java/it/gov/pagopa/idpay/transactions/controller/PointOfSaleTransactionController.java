@@ -31,7 +31,6 @@ public interface PointOfSaleTransactionController {
   /**
    * Provides method to download an invoice file of a rewarded transaction
    * @param merchantId obtained through a header parameter, used to check if the transaction required is referred to the same merchant
-   * @param initiativeId obtained through a header parameter, used to check if the transaction required is referred to the same initiative
    * @param pointOfSaleId obtained through a header parameter, used to check if the transaction required is referred to the same point of sale
    * @param transactionId
    * @return Mono containing an instance of DownloadInvoiceResponseDTO, containing the invoice url
@@ -66,8 +65,6 @@ public interface PointOfSaleTransactionController {
   @GetMapping("/transactions/{transactionId}/download")
   Mono<DownloadInvoiceResponseDTO> downloadInvoiceFile(
       @RequestHeader("x-merchant-id") String merchantId,
-      @RequestHeader("x-initiative-id") String initiativeId,
       @RequestHeader("x-point-of-sale-id") String pointOfSaleId,
       @PathVariable("transactionId") String transactionId);
-
 }

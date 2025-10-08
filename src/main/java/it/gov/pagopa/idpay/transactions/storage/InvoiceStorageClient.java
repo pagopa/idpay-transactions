@@ -1,11 +1,8 @@
 package it.gov.pagopa.idpay.transactions.storage;
 
-import com.azure.identity.DefaultAzureCredential;
-import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
-import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.models.UserDelegationKey;
 import com.azure.storage.blob.sas.BlobSasPermission;
@@ -13,8 +10,6 @@ import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import it.gov.pagopa.common.web.exception.ClientException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
@@ -29,35 +24,15 @@ import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.Exceptio
 public class InvoiceStorageClient {
 
     private final BlobContainerClient blobContainerClient;
-
     private final BlobServiceClient blobServiceClient;
-
     private final Integer sasDurationSeconds;
 
-    @Autowired
-    public InvoiceStorageClient(
-            @Value("${blobStorage.storageAccountName}") String storageAccountName,
-            @Value("${blobStorage.containerReference}") String containerReference,
-            @Value("${blobStorage.invoiceTokenDurationSeconds}") Integer sasDurationSeconds) {
-
-            DefaultAzureCredential credential = new DefaultAzureCredentialBuilder().build();
-
-            blobServiceClient = new BlobServiceClientBuilder()
-                    .endpoint("https://" + storageAccountName + ".blob.core.windows.net")
-                    .credential(credential)
-                    .buildClient();
-
-            blobContainerClient = blobServiceClient.getBlobContainerClient(containerReference);
-            this.sasDurationSeconds = sasDurationSeconds;
-    }
-
-    public InvoiceStorageClient(
-            BlobServiceClient blobServiceClient,
-            BlobContainerClient blobContainerClient,
-            Integer sasDurationSeconds) {
+    public InvoiceStorageClient(BlobServiceClient blobServiceClient,
+        BlobContainerClient blobContainerClient,
+        BlobStorageProperties properties) {
         this.blobServiceClient = blobServiceClient;
         this.blobContainerClient = blobContainerClient;
-        this.sasDurationSeconds = sasDurationSeconds;
+        this.sasDurationSeconds = properties.getInvoiceTokenDurationSeconds();
     }
 
     /**

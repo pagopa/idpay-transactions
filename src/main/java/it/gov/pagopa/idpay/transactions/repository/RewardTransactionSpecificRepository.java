@@ -20,10 +20,9 @@ public interface RewardTransactionSpecificRepository {
     /**
      * Retrieves a transaction in status REWARDED or REFUNDED using the provided paramaters
      * @param merchantId
-     * @param initiativeId
      * @param pointOfSaleId
      * @param transactionId
      * @return Mono containing a transaction, or empty if no document matches the criteria
      */
-    Mono<RewardTransaction> findTransaction(String merchantId, String initiativeId, String pointOfSaleId, String transactionId);
+    Mono<RewardTransaction> findTransaction(String merchantId, String pointOfSaleId, String transactionId);
 }

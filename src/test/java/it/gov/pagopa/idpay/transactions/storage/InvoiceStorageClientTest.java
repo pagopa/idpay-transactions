@@ -8,6 +8,7 @@ import it.gov.pagopa.common.web.exception.ClientException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -17,20 +18,27 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class InvoiceStorageClientTest {
 
-    private static BlobClient blobClientMock;
-    private static BlobServiceClient blobServiceClient;
+    @Mock
+    private BlobClient blobClientMock;
+    @Mock
+    private BlobServiceClient blobServiceClient;
+    @Mock
     private BlobContainerClient blobContainerClient;
+    @Mock
+    private BlobStorageProperties propertiesMock;
+
     private InvoiceStorageClient invoiceStorageClient;
 
     @BeforeEach
     void init() {
-        blobContainerClient = mock(BlobContainerClient.class);
-        blobServiceClient = mock(BlobServiceClient.class);
+        when(propertiesMock.getInvoiceTokenDurationSeconds()).thenReturn(60);
+        lenient().doReturn(blobClientMock).when(blobContainerClient).getBlobClient(anyString());
 
         invoiceStorageClient = new InvoiceStorageClient(
-                blobServiceClient, blobContainerClient, 60);
-        blobClientMock = mock(BlobClient.class);
-        lenient().doReturn(blobClientMock).when(blobContainerClient).getBlobClient(anyString());
+            blobServiceClient,
+            blobContainerClient,
+            propertiesMock
+        );
     }
 
 
@@ -50,15 +58,5 @@ class InvoiceStorageClientTest {
         });
         assertThrows(ClientException.class, () -> invoiceStorageClient
                 .getFileSignedUrl( "fileId"));
-    }
-
-    @Test
-    void springConstructorShouldInitializeFields() {
-        InvoiceStorageClient client = new InvoiceStorageClient(
-            "storageAccountName",
-            "containerName",
-            60);
-
-        assertNotNull(client);
     }
 }

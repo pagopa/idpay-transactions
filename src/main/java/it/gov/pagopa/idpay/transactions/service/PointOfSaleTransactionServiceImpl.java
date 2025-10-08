@@ -49,7 +49,6 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
    * Method to generate a download url of an invoice for a rewardTransaction in status REWARDED or REFUNDED,
    * the url will be provided with a Shared Access Signature token for the resource
    * @param merchantId
-   * @param initiativeId
    * @param pointOfSaleId
    * @param transactionId
    * @return Mono containing the invoiceUrl, error if parameters do not match an existing transaction, or the invoice
@@ -57,8 +56,8 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
    */
   @Override
   public Mono<DownloadInvoiceResponseDTO> downloadTransactionInvoice(
-          String merchantId, String initiativeId, String pointOfSaleId, String transactionId) {
-      return rewardTransactionRepository.findTransaction(merchantId, initiativeId, pointOfSaleId, transactionId)
+          String merchantId, String pointOfSaleId, String transactionId) {
+      return rewardTransactionRepository.findTransaction(merchantId, pointOfSaleId, transactionId)
               .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
               .map(rewardTransaction -> {
                 if (rewardTransaction.getInvoiceFile() == null ||

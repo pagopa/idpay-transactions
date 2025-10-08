@@ -7,7 +7,6 @@ import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -45,11 +44,9 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
 
   @Override
   public Mono<DownloadInvoiceResponseDTO> downloadInvoiceFile(
-          String merchantId, String initiativeId, String pointOfSaleId, String transactionId) {
+          String merchantId, String pointOfSaleId, String transactionId) {
     log.info("[DOWNLOAD_TRANSACTION] Requested to download invoice for transaction {}",
             Utilities.sanitizeString(transactionId));
-    return pointOfSaleTransactionService.downloadTransactionInvoice(merchantId, initiativeId, pointOfSaleId, transactionId);
+    return pointOfSaleTransactionService.downloadTransactionInvoice(merchantId, pointOfSaleId, transactionId);
   }
-
-
 }

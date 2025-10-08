@@ -7,7 +7,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
-import it.gov.pagopa.common.web.exception.ClientException;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionDTO;
@@ -61,10 +60,12 @@ class PointOfSaleTransactionControllerImplTest {
         PageRequest.of(0, 10), 1
     );
 
-    PointOfSaleTransactionDTO dto = PointOfSaleTransactionDTOFaker.mockInstance(trx, INITIATIVE_ID, FISCAL_CODE);
+    PointOfSaleTransactionDTO dto = PointOfSaleTransactionDTOFaker.mockInstance(trx, INITIATIVE_ID,
+        FISCAL_CODE);
 
     when(pointOfSaleTransactionService.getPointOfSaleTransactions(
-        eq(MERCHANT_ID), eq(INITIATIVE_ID), eq(POINT_OF_SALE_ID), isNull(), isNull(), isNull(), any(Pageable.class)))
+        eq(MERCHANT_ID), eq(INITIATIVE_ID), eq(POINT_OF_SALE_ID), isNull(), isNull(), isNull(),
+        any(Pageable.class)))
         .thenReturn(Mono.just(page));
 
     when(mapper.toDTO(eq(trx), eq(INITIATIVE_ID), isNull()))
@@ -72,7 +73,8 @@ class PointOfSaleTransactionControllerImplTest {
 
     webClient.get()
         .uri(uriBuilder -> uriBuilder
-            .path("/idpay/initiatives/{initiativeId}/point-of-sales/{pointOfSaleId}/transactions/processed")
+            .path(
+                "/idpay/initiatives/{initiativeId}/point-of-sales/{pointOfSaleId}/transactions/processed")
             .build(INITIATIVE_ID, POINT_OF_SALE_ID))
         .header("x-merchant-id", MERCHANT_ID)
         .exchange()
@@ -89,83 +91,66 @@ class PointOfSaleTransactionControllerImplTest {
         });
   }
 
-    @Test
-    void downloadInvoiceShouldReturnUrl() {
-        doReturn(Mono.just(DownloadInvoiceResponseDTO.builder().invoiceUrl("testUrl").build()))
-                .when(pointOfSaleTransactionService).downloadTransactionInvoice(
-                        eq(MERCHANT_ID), eq(INITIATIVE_ID), eq(POINT_OF_SALE_ID), eq(TRX_ID));
-        webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/transactions/{transactionId}/download")
-                        .build(TRX_ID))
-                .header("x-merchant-id", MERCHANT_ID)
-                .header("x-initiative-id", INITIATIVE_ID)
-                .header("x-point-of-sale-id", POINT_OF_SALE_ID)
-          .exchange()
-                .expectStatus().isOk()
-                .expectBody(DownloadInvoiceResponseDTO.class)
-                .value(res -> {
-                   assertNotNull(res);
-                   assertNotNull(res.getInvoiceUrl());
-                   assertEquals("testUrl", res.getInvoiceUrl());
-                   verify(pointOfSaleTransactionService).downloadTransactionInvoice(
-                            eq(MERCHANT_ID), eq(INITIATIVE_ID), eq(POINT_OF_SALE_ID), eq(TRX_ID));
-                });
+  @Test
+  void downloadInvoiceShouldReturnUrl() {
+    doReturn(Mono.just(DownloadInvoiceResponseDTO.builder().invoiceUrl("testUrl").build()))
+        .when(pointOfSaleTransactionService).downloadTransactionInvoice(
+            MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+    webClient.get()
+        .uri(uriBuilder -> uriBuilder
+            .path("/idpay/transactions/{transactionId}/download")
+            .build(TRX_ID))
+        .header("x-merchant-id", MERCHANT_ID)
+        .header("x-point-of-sale-id", POINT_OF_SALE_ID)
+        .exchange()
+        .expectStatus().isOk()
+        .expectBody(DownloadInvoiceResponseDTO.class)
+        .value(res -> {
+          assertNotNull(res);
+          assertNotNull(res.getInvoiceUrl());
+          assertEquals("testUrl", res.getInvoiceUrl());
+          verify(pointOfSaleTransactionService).downloadTransactionInvoice(
+              MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+        });
 
-    }
+  }
 
-    @Test
-    void downloadInvoiceShouldErrorOnServiceKO() {
-        doReturn(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST,
-                ExceptionConstants.ExceptionMessage.TRANSACTION_MISSING_INVOICE)))
-                .when(pointOfSaleTransactionService).downloadTransactionInvoice(
-                        eq(MERCHANT_ID), eq(INITIATIVE_ID), eq(POINT_OF_SALE_ID), eq(TRX_ID));
-        webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/transactions/{transactionId}/download")
-                        .build(TRX_ID))
-                .header("x-merchant-id", MERCHANT_ID)
-                .header("x-initiative-id", INITIATIVE_ID)
-                .header("x-point-of-sale-id", POINT_OF_SALE_ID)
-                .exchange()
-                .expectStatus().isBadRequest();
+  @Test
+  void downloadInvoiceShouldErrorOnServiceKO() {
+    doReturn(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST,
+        ExceptionConstants.ExceptionMessage.TRANSACTION_MISSING_INVOICE)))
+        .when(pointOfSaleTransactionService).downloadTransactionInvoice(
+            MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+    webClient.get()
+        .uri(uriBuilder -> uriBuilder
+            .path("/idpay/transactions/{transactionId}/download")
+            .build(TRX_ID))
+        .header("x-merchant-id", MERCHANT_ID)
+        .header("x-point-of-sale-id", POINT_OF_SALE_ID)
+        .exchange()
+        .expectStatus().isBadRequest();
 
-    }
+  }
 
-    @Test
-    void downloadInvoiceShouldReturnKOOnMissingMerchHeader() {
-        webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/transactions/{transactionId}/download")
-                        .build(TRX_ID))
-                .header("x-initiative-id", INITIATIVE_ID)
-                .header("x-point-of-sale-id", POINT_OF_SALE_ID)
-                .exchange()
-                .expectStatus().isBadRequest();
-    }
+  @Test
+  void downloadInvoiceShouldReturnKOOnMissingMerchHeader() {
+    webClient.get()
+        .uri(uriBuilder -> uriBuilder
+            .path("/idpay/transactions/{transactionId}/download")
+            .build(TRX_ID))
+        .header("x-point-of-sale-id", POINT_OF_SALE_ID)
+        .exchange()
+        .expectStatus().isBadRequest();
+  }
 
-    @Test
-    void downloadInvoiceShouldReturnKOOnMissingInitHeader() {
-        webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/transactions/{transactionId}/download")
-                        .build(TRX_ID))
-                .header("x-merchant-id", MERCHANT_ID)
-                .header("x-point-of-sale-id", POINT_OF_SALE_ID)
-                .exchange()
-                .expectStatus().isBadRequest();
-    }
-
-    @Test
-    void downloadInvoiceShouldReturnKOOnMissingPoSHeader() {
-        webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/transactions/{transactionId}/download")
-                        .build(TRX_ID))
-                .header("x-merchant-id", MERCHANT_ID)
-                .header("x-initiative-id", INITIATIVE_ID)
-                .exchange()
-                .expectStatus().isBadRequest();
-    }
-
+  @Test
+  void downloadInvoiceShouldReturnKOOnMissingPoSHeader() {
+    webClient.get()
+        .uri(uriBuilder -> uriBuilder
+            .path("/idpay/transactions/{transactionId}/download")
+            .build(TRX_ID))
+        .header("x-merchant-id", MERCHANT_ID)
+        .exchange()
+        .expectStatus().isBadRequest();
+  }
 }
