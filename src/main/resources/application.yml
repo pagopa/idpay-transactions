@@ -18,6 +18,11 @@ reactor:
 
 springdoc.swagger-ui.path: "/swagger-ui/index.html"
 
+blobStorage:
+  storageAccountName: ${BLOB_STORAGE_ACCOUNT_NAME:}
+  containerReference: ${BLOB_STORAGE_CONTAINER_REFERENCE:}
+  invoiceTokenDurationSeconds: ${INVOICE_STORAGE_SAS_DURATION_SECONDS:60}
+
 spring:
   application:
     name: "@project.artifactId@"
@@ -133,13 +138,7 @@ spring:
           maxConnectionLifeTimeMS: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTION_LIFE_MS:0}
           maxConnectionIdleTimeMS: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTION_IDLE_MS:120000}
           maxConnecting: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTING:2}
-  azure:
-    storage:
-      blob:
-        invoice:
-          storageAccountName: ${BLOB_STORAGE_ACCOUNT_NAME}
-          containerName: ${BLOB_STORAGE_CONTAINER_REFERENCE:invoices}
-          invoiceTokenDurationSeconds: ${INVOICE_STORAGE_SAS_DURATION_SECONDS:60}
+
 management:
   health:
     mongo.enabled: ${HEALTH_MONGO_ENABLED:true}

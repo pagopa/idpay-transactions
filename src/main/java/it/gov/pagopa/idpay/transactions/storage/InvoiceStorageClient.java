@@ -36,9 +36,9 @@ public class InvoiceStorageClient {
 
     @Autowired
     public InvoiceStorageClient(
-            @Value("${spring.cloud.azure.storage.blob.invoice.storageAccountName}") String storageAccountName,
-            @Value("${spring.cloud.azure.storage.blob.invoice.containerName}") String containerName,
-            @Value("${spring.cloud.azure.storage.blob.invoice.invoiceTokenDurationSeconds}") Integer sasDurationSeconds) {
+            @Value("${blobStorage.storageAccountName}") String storageAccountName,
+            @Value("${blobStorage.containerReference}") String containerReference,
+            @Value("${blobStorage.invoiceTokenDurationSeconds}") Integer sasDurationSeconds) {
 
             DefaultAzureCredential credential = new DefaultAzureCredentialBuilder().build();
 
@@ -47,7 +47,7 @@ public class InvoiceStorageClient {
                     .credential(credential)
                     .buildClient();
 
-            blobContainerClient = blobServiceClient.getBlobContainerClient(containerName);
+            blobContainerClient = blobServiceClient.getBlobContainerClient(containerReference);
             this.sasDurationSeconds = sasDurationSeconds;
     }
 
