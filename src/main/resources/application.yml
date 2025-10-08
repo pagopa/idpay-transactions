@@ -137,12 +137,8 @@ spring:
     blob:
       storage:
         invoices:
-          endpoint: ${INVOICE_STORAGE_ENDPOINT:TBD}
-          clientId: ${INVOICE_STORAGE_CLIENT_ID:TBD}
-          tenantId: ${INVOICE_STORAGE_TENANT_ID:TBD}
-          clientSecret: ${INVOICE_CLIENT_SECRET:TBD}
-          containerName: ${INVOICE_STORAGE_CONTAINER_NAME:invoices}
-          invoiceFolderId: ${INVOICE_STORAGE_FOLDER_ID:}
+          storageAccountName: ${BLOB_STORAGE_ACCOUNT_NAME}
+          containerName: ${BLOB_STORAGE_CONTAINER_REFERENCE:invoices}
           invoiceTokenDurationSeconds: ${INVOICE_STORAGE_SAS_DURATION_SECONDS:60}
 management:
   health:

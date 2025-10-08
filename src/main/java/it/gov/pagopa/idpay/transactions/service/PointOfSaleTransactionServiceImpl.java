@@ -65,9 +65,13 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                         rewardTransaction.getInvoiceFile().getFilename() == null) {
                   throw new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE);
                 }
+                String filename = rewardTransaction.getInvoiceFile().getFilename();
+
+                String blobPath = String.format("invoices/merchant/%s/pos/%s/transaction/%s/%s",
+                    merchantId, pointOfSaleId, transactionId, filename);
+
                 return DownloadInvoiceResponseDTO.builder()
-                          .invoiceUrl(invoiceStorageClient.getFileSignedUrl(
-                                  rewardTransaction.getInvoiceFile().getFilename()))
+                          .invoiceUrl(invoiceStorageClient.getFileSignedUrl(blobPath))
                           .build();
               });
   }

@@ -28,7 +28,7 @@ class InvoiceStorageClientTest {
         blobServiceClient = mock(BlobServiceClient.class);
 
         invoiceStorageClient = new InvoiceStorageClient(
-                blobServiceClient, blobContainerClient, "testurl", 60);
+                blobServiceClient, blobContainerClient, 60);
         blobClientMock = mock(BlobClient.class);
         lenient().doReturn(blobClientMock).when(blobContainerClient).getBlobClient(anyString());
     }
@@ -55,12 +55,8 @@ class InvoiceStorageClientTest {
     @Test
     void springConstructorShouldInitializeFields() {
         InvoiceStorageClient client = new InvoiceStorageClient(
-            "https://endpoint",
-            "tenantId",
-            "clientId",
-            "clientSecret",
+            "storageAccountName",
             "containerName",
-            "folderId",
             60);
 
         assertNotNull(client);

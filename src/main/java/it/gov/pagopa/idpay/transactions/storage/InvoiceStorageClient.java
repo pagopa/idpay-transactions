@@ -1,7 +1,7 @@
 package it.gov.pagopa.idpay.transactions.storage;
 
-import com.azure.core.credential.TokenCredential;
-import com.azure.identity.ClientSecretCredentialBuilder;
+import com.azure.identity.DefaultAzureCredential;
+import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
@@ -28,53 +28,45 @@ import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.Exceptio
 @Slf4j
 public class InvoiceStorageClient {
 
-    private BlobContainerClient blobContainerClient;
+    private final BlobContainerClient blobContainerClient;
 
-    private BlobServiceClient blobServiceClient;
+    private final BlobServiceClient blobServiceClient;
 
-    private String invoiceFolderId;
-
-    private Integer sasDurationSeconds;
+    private final Integer sasDurationSeconds;
 
     @Autowired
     public InvoiceStorageClient(
-            @Value("${spring.cloud.azure.storage.blob.invoice.endpoint}") String endpoint,
-            @Value("${spring.cloud.azure.storage.blob.invoice.tenantId}") String tenantId,
-            @Value("${spring.cloud.azure.storage.blob.invoice.clientId}") String clientId,
-            @Value("${spring.cloud.azure.storage.blob.invoice.clientSecret}") String clientSecret,
+            @Value("${spring.cloud.azure.storage.blob.invoice.storageAccountName}") String storageAccountName,
             @Value("${spring.cloud.azure.storage.blob.invoice.containerName}") String containerName,
-            @Value("${spring.cloud.azure.storage.blob.invoice.invoiceFolderId}") String invoiceFolderId,
             @Value("${spring.cloud.azure.storage.blob.invoice.invoiceTokenDurationSeconds}") Integer sasDurationSeconds) {
-            TokenCredential clientSecretCredential = new ClientSecretCredentialBuilder()
-                    .tenantId(tenantId)
-                    .clientId(clientId)
-                    .clientSecret(clientSecret)
-                    .build();
+
+            DefaultAzureCredential credential = new DefaultAzureCredentialBuilder().build();
+
             blobServiceClient = new BlobServiceClientBuilder()
-                    .endpoint(endpoint).credential(clientSecretCredential).buildClient();
+                    .endpoint("https://" + storageAccountName + ".blob.core.windows.net")
+                    .credential(credential)
+                    .buildClient();
+
             blobContainerClient = blobServiceClient.getBlobContainerClient(containerName);
-            this.invoiceFolderId = invoiceFolderId;
             this.sasDurationSeconds = sasDurationSeconds;
     }
 
     public InvoiceStorageClient(
             BlobServiceClient blobServiceClient,
             BlobContainerClient blobContainerClient,
-            String invoiceFolderId,
             Integer sasDurationSeconds) {
         this.blobServiceClient = blobServiceClient;
         this.blobContainerClient = blobContainerClient;
-        this.invoiceFolderId = invoiceFolderId;
         this.sasDurationSeconds = sasDurationSeconds;
     }
 
     /**
-     * Method to obtain a signedUrl for the file, given the filename, from the configured containerName and invoiceFolderId,
+     * Method to obtain a signedUrl for the file, given the blobPath, from the configured containerName,
      * and valid for the number of seconds provided as the sasDurationMinutes property
-     * @param fileId filename identifying the resource for which is required a signed url
+     * @param blobPath identifying the resource for which is required a signed url
      * @return url containing the generated token, if an error is encountered will throw ClientException
      */
-    public String getFileSignedUrl(String fileId) {
+    public String getFileSignedUrl(String blobPath) {
 
         // Create a SAS token that's valid for a limited amount of minutes
         OffsetDateTime expiryTime = OffsetDateTime.now().plusSeconds(sasDurationSeconds);
@@ -87,8 +79,7 @@ public class InvoiceStorageClient {
         BlobSasPermission sasPermission = new BlobSasPermission()
                 .setReadPermission(true);
 
-        BlobClient blobClient = blobContainerClient.getBlobClient(
-                String.join("/", invoiceFolderId, fileId));
+        BlobClient blobClient = blobContainerClient.getBlobClient(blobPath);
         BlobServiceSasSignatureValues sasSignatureValues = new BlobServiceSasSignatureValues
                 (expiryTime, sasPermission);
 
@@ -101,7 +92,5 @@ public class InvoiceStorageClient {
             throw new ClientException(
                     HttpStatus.INTERNAL_SERVER_ERROR, ERROR_ON_GET_FILE_URL_REQUEST, blobStorageException);
         }
-
     }
-
 }
