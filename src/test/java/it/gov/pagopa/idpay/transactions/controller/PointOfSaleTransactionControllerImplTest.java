@@ -98,10 +98,9 @@ class PointOfSaleTransactionControllerImplTest {
             MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
     webClient.get()
         .uri(uriBuilder -> uriBuilder
-            .path("/idpay/transactions/{transactionId}/download")
-            .build(TRX_ID))
+            .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
+            .build(POINT_OF_SALE_ID, TRX_ID))
         .header("x-merchant-id", MERCHANT_ID)
-        .header("x-point-of-sale-id", POINT_OF_SALE_ID)
         .exchange()
         .expectStatus().isOk()
         .expectBody(DownloadInvoiceResponseDTO.class)
@@ -123,10 +122,9 @@ class PointOfSaleTransactionControllerImplTest {
             MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
     webClient.get()
         .uri(uriBuilder -> uriBuilder
-            .path("/idpay/transactions/{transactionId}/download")
-            .build(TRX_ID))
+            .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
+            .build(POINT_OF_SALE_ID, TRX_ID))
         .header("x-merchant-id", MERCHANT_ID)
-        .header("x-point-of-sale-id", POINT_OF_SALE_ID)
         .exchange()
         .expectStatus().isBadRequest();
 
@@ -136,20 +134,8 @@ class PointOfSaleTransactionControllerImplTest {
   void downloadInvoiceShouldReturnKOOnMissingMerchHeader() {
     webClient.get()
         .uri(uriBuilder -> uriBuilder
-            .path("/idpay/transactions/{transactionId}/download")
-            .build(TRX_ID))
-        .header("x-point-of-sale-id", POINT_OF_SALE_ID)
-        .exchange()
-        .expectStatus().isBadRequest();
-  }
-
-  @Test
-  void downloadInvoiceShouldReturnKOOnMissingPoSHeader() {
-    webClient.get()
-        .uri(uriBuilder -> uriBuilder
-            .path("/idpay/transactions/{transactionId}/download")
-            .build(TRX_ID))
-        .header("x-merchant-id", MERCHANT_ID)
+            .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
+            .build(POINT_OF_SALE_ID, TRX_ID))
         .exchange()
         .expectStatus().isBadRequest();
   }
