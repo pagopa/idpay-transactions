@@ -62,9 +62,9 @@ public interface PointOfSaleTransactionController {
                   content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                           schema = @Schema(implementation = ErrorDTO.class)))
   })
-  @GetMapping("/transactions/{transactionId}/download")
+  @GetMapping("/{pointOfSaleId}/transactions/{transactionId}/download")
   Mono<DownloadInvoiceResponseDTO> downloadInvoiceFile(
       @RequestHeader("x-merchant-id") String merchantId,
-      @RequestHeader("x-point-of-sale-id") String pointOfSaleId,
+      @PathVariable("pointOfSaleId") String pointOfSaleId,
       @PathVariable("transactionId") String transactionId);
 }
