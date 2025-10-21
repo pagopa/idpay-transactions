@@ -1,9 +1,7 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
-import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
-import it.gov.pagopa.idpay.transactions.model.counters.RewardCounters;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -18,7 +16,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -498,31 +495,28 @@ class RewardTransactionSpecificRepositoryTest {
         cleanDataPageable();
     }
 
-    private static Map<String, Reward> getReward() {
-        Map<String, Reward> reward = new HashMap<>();
-        RewardCounters counter = RewardCounters.builder()
-                .exhaustedBudget(false)
-                .initiativeBudgetCents(10000L)
-                .build();
-        Reward rewardElement = Reward.builder()
-                .initiativeId(INITIATIVE_ID)
-                .organizationId("ORGANIZATIONID")
-                .providedRewardCents(1000L)
-                .accruedRewardCents(1000L)
-                .capped(false)
-                .dailyCapped(false)
-                .monthlyCapped(false)
-                .yearlyCapped(false)
-                .weeklyCapped(false)
-                .counters(counter)
-                .build();
-        reward.put(INITIATIVE_ID, rewardElement);
-        return reward;
-    }
+    @Test
+    void findTransaction_shouldReturnMatchingTransaction_whenStatusIsRewardedOrRefunded() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .merchantId(MERCHANT_ID)
+            .pointOfSaleId(POINT_OF_SALE_ID)
+            .status("REWARDED")
+            .build();
+        rewardTransactionRepository.save(rt1).block();
 
-    private static Map<String, List<String>> getInitiativeRejectionReasons() {
-        Map<String, List<String>> initiativeRejectionReasons = new HashMap<>();
-        initiativeRejectionReasons.put(INITIATIVE_ID,  List.of("BUDGET_EXHAUSTED"));
-        return initiativeRejectionReasons;
+        Mono<RewardTransaction> resultMono = rewardTransactionSpecificRepository.findTransaction(
+            MERCHANT_ID, POINT_OF_SALE_ID, rt1.getId()
+        );
+
+        RewardTransaction result = resultMono.block();
+
+        assertNotNull(result);
+        assertEquals(rt1.getId(), result.getId());
+        assertEquals(MERCHANT_ID, result.getMerchantId());
+        assertEquals(POINT_OF_SALE_ID, result.getPointOfSaleId());
+        assertEquals("REWARDED", result.getStatus());
+
+        cleanDataPageable();
     }
 }

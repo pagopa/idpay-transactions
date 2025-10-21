@@ -20,6 +20,7 @@ public class PointOfSaleTransactionDTO {
   String fiscalCode;
   Long effectiveAmountCents;
   Long rewardAmountCents;
+  Long authorizedAmountCents;
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   LocalDateTime trxDate;
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
@@ -28,4 +29,5 @@ public class PointOfSaleTransactionDTO {
   String status;
   String channel;
   Map<String, String> additionalProperties;
+  InvoiceFile invoiceFile;
 }

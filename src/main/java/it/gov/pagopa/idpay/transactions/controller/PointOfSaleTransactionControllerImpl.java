@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionsListDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
@@ -39,5 +40,13 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
                     (int) page.getTotalElements(),
                     page.getTotalPages()))
         );
+  }
+
+  @Override
+  public Mono<DownloadInvoiceResponseDTO> downloadInvoiceFile(
+          String merchantId, String pointOfSaleId, String transactionId) {
+    log.info("[DOWNLOAD_TRANSACTION] Requested to download invoice for transaction {}",
+            Utilities.sanitizeString(transactionId));
+    return pointOfSaleTransactionService.downloadTransactionInvoice(merchantId, pointOfSaleId, transactionId);
   }
 }

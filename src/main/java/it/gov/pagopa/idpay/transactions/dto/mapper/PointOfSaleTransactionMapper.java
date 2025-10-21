@@ -18,16 +18,29 @@ public class PointOfSaleTransactionMapper {
   }
 
   public Mono<PointOfSaleTransactionDTO> toDTO(RewardTransaction trx, String initiativeId, String fiscalCode) {
+
+    Long totalAmount = trx.getAmountCents();
+
+    Long rewardAmount = 0L;
+
+    if (trx.getRewards() != null && trx.getRewards().get(initiativeId) != null) {
+      rewardAmount = Math.abs(trx.getRewards().get(initiativeId).getAccruedRewardCents());
+    }
+
+    Long authorizedAmount = totalAmount - rewardAmount;
+
     PointOfSaleTransactionDTO dto = PointOfSaleTransactionDTO.builder()
         .trxId(trx.getId())
         .effectiveAmountCents(trx.getAmountCents())
-        .rewardAmountCents(trx.getRewards().get(initiativeId).getAccruedRewardCents())
+        .rewardAmountCents(rewardAmount)
+        .authorizedAmountCents(authorizedAmount)
         .trxDate(trx.getTrxDate())
         .elaborationDateTime(trx.getElaborationDateTime())
         .status(trx.getStatus())
         .channel(trx.getChannel())
         .fiscalCode(fiscalCode)
         .additionalProperties(trx.getAdditionalProperties())
+        .invoiceFile(trx.getInvoiceFile())
         .build();
 
     if (StringUtils.isNotBlank(fiscalCode)){
