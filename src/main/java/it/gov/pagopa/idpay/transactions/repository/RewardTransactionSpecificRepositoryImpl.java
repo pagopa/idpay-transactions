@@ -9,6 +9,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
 import it.gov.pagopa.idpay.transactions.utils.AggregationConstants;
 import java.util.Optional;
 
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.PageRequest;
@@ -96,7 +97,8 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
             criteria.and(Fields.pointOfSaleId).is(pointOfSaleId);
         }
         if (StringUtils.isNotBlank(productGtin)) {
-            criteria.and(AggregationConstants.FIELD_PRODUCT_GTIN).is(productGtin);
+          criteria.and(AggregationConstants.FIELD_PRODUCT_GTIN)
+              .regex(".*" + Pattern.quote(productGtin) + ".*", "i");
         }
         if (StringUtils.isNotBlank(status)) {
             criteria.and(RewardTransaction.Fields.status).is(status);
