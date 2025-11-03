@@ -100,7 +100,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         if (StringUtils.isNotBlank(status)) {
             criteria.and(RewardTransaction.Fields.status).is(status);
         } else {
-            criteria.and(RewardTransaction.Fields.status).in("CANCELLED", "REWARDED", "REFUNDED");
+            criteria.and(RewardTransaction.Fields.status).in("CANCELLED", "REWARDED", "REFUNDED", "INVOICED");
         }
         return criteria;
     }
@@ -171,7 +171,8 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                     ConditionalOperators.switchCases(
                         ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("CANCELLED")).then(1),
                         ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REWARDED")).then(2),
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REFUNDED")).then(3)
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REFUNDED")).then(3),
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("INVOICED")).then(4)
                     ).defaultTo(99)
                 ).build(),
             Aggregation.match(criteria),
