@@ -46,7 +46,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
   }
 
   /**
-   * Method to generate a download url of an invoice for a rewardTransaction in status REWARDED or REFUNDED,
+   * Method to generate a download url of an invoice for a rewardTransaction in status REWARDED, REFUNDED or INVOICED,
    * the url will be provided with a Shared Access Signature token for the resource
    * @param merchantId
    * @param pointOfSaleId

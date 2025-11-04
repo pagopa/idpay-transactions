@@ -138,7 +138,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                 .where(Fields.merchantId).is(merchantId)
                 .and(Fields.pointOfSaleId).is(pointOfSaleId)
                 .and(Fields.id).is(transactionId)
-                .and(Fields.status).in(SyncTrxStatus.REWARDED,SyncTrxStatus.REFUNDED);
+                .and(Fields.status).in(SyncTrxStatus.REWARDED,SyncTrxStatus.REFUNDED, SyncTrxStatus.INVOICED);
         return mongoTemplate.findOne(Query.query(criteria), RewardTransaction.class);
     }
 
