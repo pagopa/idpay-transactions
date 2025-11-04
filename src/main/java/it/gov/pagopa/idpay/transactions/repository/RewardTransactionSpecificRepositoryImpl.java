@@ -186,7 +186,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                         ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("CANCELLED")).then(1), //ANNULLATO
                         ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("INVOICED")).then(2),  //PRESO IN CARICO
                         ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REWARDED")).then(3),  //RIMBORSO RICHIESTO
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REFUNDED")).then(4),  //STORNATO                                                                  
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REFUNDED")).then(4)   //STORNATO
                     ).defaultTo(99)
                 ).build(),
             Aggregation.match(criteria),
