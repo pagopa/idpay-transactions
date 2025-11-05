@@ -24,6 +24,8 @@ public class PointOfSaleTransactionDTO {
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   LocalDateTime trxDate;
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+  LocalDateTime trxChargeDate;
+  @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   @JsonProperty("updateDate")
   LocalDateTime elaborationDateTime;
   String status;

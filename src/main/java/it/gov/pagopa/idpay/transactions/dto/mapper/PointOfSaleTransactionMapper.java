@@ -35,6 +35,7 @@ public class PointOfSaleTransactionMapper {
         .rewardAmountCents(rewardAmount)
         .authorizedAmountCents(authorizedAmount)
         .trxDate(trx.getTrxDate())
+        .trxChargeDate(trx.getTrxChargeDate())
         .elaborationDateTime(trx.getElaborationDateTime())
         .status(trx.getStatus())
         .channel(trx.getChannel())
