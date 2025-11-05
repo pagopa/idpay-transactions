@@ -75,7 +75,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
     private Pageable getPageableTrx(Pageable pageable) {
         if (pageable == null || pageable.getSort().isUnsorted()) {
-           return PageRequest.of(0, 10, Sort.by("elaborationDateTime").descending());
+           return PageRequest.of(0, 10, Sort.by("trxChargeDate").descending());
         }
         return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort());
     }
@@ -138,7 +138,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                 .where(Fields.merchantId).is(merchantId)
                 .and(Fields.pointOfSaleId).is(pointOfSaleId)
                 .and(Fields.id).is(transactionId)
-                .and(Fields.status).in(SyncTrxStatus.REWARDED,SyncTrxStatus.REFUNDED, SyncTrxStatus.INVOICED);
+                .and(Fields.status).in(SyncTrxStatus.REWARDED, SyncTrxStatus.REFUNDED, SyncTrxStatus.INVOICED);
         return mongoTemplate.findOne(Query.query(criteria), RewardTransaction.class);
     }
 
@@ -148,9 +148,6 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         Sort mappedSort = Sort.by(
             basePageable.getSort().stream()
                 .map(order -> {
-                    if ("updateDate".equalsIgnoreCase(order.getProperty())) {
-                        return new Sort.Order(order.getDirection(), "elaborationDateTime");
-                    }
                     if ("productName".equalsIgnoreCase(order.getProperty())) {
                         return new Sort.Order(order.getDirection(), FIELD_PRODUCT_NAME);
                     }
