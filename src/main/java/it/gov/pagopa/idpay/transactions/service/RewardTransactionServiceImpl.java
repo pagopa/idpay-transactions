@@ -36,5 +36,9 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
         return rewardTrxRepository.findByRange(userId, trxDateStart, trxDateEnd, amountCents, pageable);
     }
 
+    @Override
+    public Mono<RewardTransaction> findByTrxIdAndUserId(String trxId, String userId){
+        return rewardTrxRepository.findByTrxIdAndUserId(trxId, userId);
+    }
 
 }
