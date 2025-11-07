@@ -229,4 +229,14 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         Query query = Query.query(Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId)).cursorBatchSize(batchSize);
         return mongoTemplate.find(query, RewardTransaction.class);
     }
+
+    @Override
+    public Mono<RewardTransaction> findByTrxIdAndUserId(String trxId, String userId) {
+        Criteria criteria = Criteria.where(RewardTransaction.Fields.id).is(trxId);
+        criteria.and(RewardTransaction.Fields.userId).is(userId);
+
+        return mongoTemplate.findOne(
+                Query.query(criteria),
+                RewardTransaction.class);
+    }
 }

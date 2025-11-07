@@ -25,4 +25,6 @@ public interface RewardTransactionSpecificRepository {
      * @return Mono containing a transaction, or empty if no document matches the criteria
      */
     Mono<RewardTransaction> findTransaction(String merchantId, String pointOfSaleId, String transactionId);
+
+    Mono<RewardTransaction> findByTrxIdAndUserId(String trxId, String userId);
 }
