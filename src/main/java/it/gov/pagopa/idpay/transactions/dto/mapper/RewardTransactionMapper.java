@@ -63,7 +63,8 @@ public class RewardTransactionMapper {
             rewardTrx.setElaborationDateTime(rewardTrxDto.getElaborationDateTime());
             rewardTrx.setChannel(rewardTrxDto.getChannel());
             rewardTrx.setAdditionalProperties(rewardTrxDto.getAdditionalProperties());
-            rewardTrx.setInvoiceFile(rewardTrxDto.getInvoiceFile());
+            rewardTrx.setInvoiceData(rewardTrxDto.getInvoiceData());
+            rewardTrx.setCreditNoteData(rewardTrxDto.getCreditNoteData());
         }
 
         return rewardTrx;

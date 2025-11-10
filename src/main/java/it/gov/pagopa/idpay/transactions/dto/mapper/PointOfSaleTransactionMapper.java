@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.dto.mapper;
 
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
+import it.gov.pagopa.idpay.transactions.dto.InvoiceFile;
 import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionDTO;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.apache.commons.lang3.StringUtils;
@@ -17,7 +18,8 @@ public class PointOfSaleTransactionMapper {
     this.userRestClient = userRestClient;
   }
 
-  public Mono<PointOfSaleTransactionDTO> toDTO(RewardTransaction trx, String initiativeId, String fiscalCode) {
+  public Mono<PointOfSaleTransactionDTO> toDTO(RewardTransaction trx, String initiativeId,
+      String fiscalCode) {
 
     Long totalAmount = trx.getAmountCents();
 
@@ -28,6 +30,23 @@ public class PointOfSaleTransactionMapper {
     }
 
     Long authorizedAmount = totalAmount - rewardAmount;
+
+    InvoiceFile invoiceFile = null;
+
+    if (("INVOICED".equalsIgnoreCase(trx.getStatus()) || "REWARDED".equalsIgnoreCase(
+        trx.getStatus()))
+        && trx.getInvoiceData() != null) {
+      invoiceFile = InvoiceFile.builder()
+          .filename(trx.getInvoiceData().getFilename())
+          .docNumber(trx.getInvoiceData().getDocNumber())
+          .build();
+    } else if ("REFUNDED".equalsIgnoreCase(trx.getStatus()) && trx.getCreditNoteData() != null) {
+      invoiceFile = InvoiceFile.builder()
+          .filename(trx.getCreditNoteData().getFilename())
+          .docNumber(trx.getCreditNoteData().getDocNumber())
+          .build();
+
+    }
 
     PointOfSaleTransactionDTO dto = PointOfSaleTransactionDTO.builder()
         .trxId(trx.getId())
@@ -41,10 +60,10 @@ public class PointOfSaleTransactionMapper {
         .channel(trx.getChannel())
         .fiscalCode(fiscalCode)
         .additionalProperties(trx.getAdditionalProperties())
-        .invoiceFile(trx.getInvoiceFile())
+        .invoiceFile(invoiceFile)
         .build();
 
-    if (StringUtils.isNotBlank(fiscalCode)){
+    if (StringUtils.isNotBlank(fiscalCode)) {
       dto.setFiscalCode(fiscalCode);
       return Mono.just(dto);
     } else {
