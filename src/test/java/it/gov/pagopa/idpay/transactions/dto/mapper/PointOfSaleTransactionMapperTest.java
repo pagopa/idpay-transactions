@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
+import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionDTO;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
@@ -159,6 +160,61 @@ class PointOfSaleTransactionMapperTest {
     assertEquals(10000L, result.getAuthorizedAmountCents());
     assertEquals("CANCELLED", result.getStatus());
     assertEquals(FISCAL_CODE, result.getFiscalCode());
+
+    verifyNoInteractions(userRestClient);
+  }
+
+  @Test
+  void toDTO_shouldSetInvoiceFile_whenInvoiced() {
+    RewardTransaction trx = RewardTransactionFaker.mockInstanceBuilder(1)
+        .id("trx5")
+        .userId(USER_ID)
+        .amountCents(7000L)
+        .status("INVOICED")
+        .invoiceData(InvoiceData.builder()
+            .filename("invoice.pdf")
+            .docNumber("DOC123")
+            .build())
+        .elaborationDateTime(LocalDateTime.now())
+        .rewards(getReward())
+        .build();
+
+    PointOfSaleTransactionDTO result = mapper.toDTO(trx, INITIATIVE_ID, FISCAL_CODE).block();
+
+    assertNotNull(result);
+    assertNotNull(result.getInvoiceFile());
+    assertEquals("invoice.pdf", result.getInvoiceFile().getFilename());
+    assertEquals("DOC123", result.getInvoiceFile().getDocNumber());
+  }
+
+  @Test
+  void toDTO_shouldSetInvoiceFile_whenRefunded() {
+    RewardTransaction trx = RewardTransaction.builder()
+        .id("trx6")
+        .userId(USER_ID)
+        .amountCents(9000L)
+        .status("REFUNDED")
+        .creditNoteData(InvoiceData.builder()
+            .filename("creditNote.pdf")
+            .docNumber("CN456")
+            .build())
+        .elaborationDateTime(LocalDateTime.now())
+        .rewards(getReward())
+        .build();
+
+    PointOfSaleTransactionDTO result = mapper.toDTO(trx, INITIATIVE_ID, FISCAL_CODE).block();
+
+    assertNotNull(result);
+    assertEquals(trx.getId(), result.getTrxId());
+    assertEquals(9000L, result.getEffectiveAmountCents());
+    assertEquals(1000L, result.getRewardAmountCents());
+    assertEquals(8000L, result.getAuthorizedAmountCents());
+    assertEquals("REFUNDED", result.getStatus());
+    assertEquals(FISCAL_CODE, result.getFiscalCode());
+
+    assertNotNull(result.getInvoiceFile());
+    assertEquals("creditNote.pdf", result.getInvoiceFile().getFilename());
+    assertEquals("CN456", result.getInvoiceFile().getDocNumber());
 
     verifyNoInteractions(userRestClient);
   }

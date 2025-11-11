@@ -5,6 +5,7 @@ import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
+import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
@@ -65,10 +66,10 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 InvoiceData documentData = null;
                 String typeFolder;
 
-                if ("INVOICED".equalsIgnoreCase(status) || "REWARDED".equalsIgnoreCase(status)) {
+                if (SyncTrxStatus.INVOICED.name().equalsIgnoreCase(status) || SyncTrxStatus.REWARDED.name().equalsIgnoreCase(status)) {
                   documentData = rewardTransaction.getInvoiceData();
                   typeFolder = "invoice";
-                } else if ("REFUNDED".equalsIgnoreCase(status)) {
+                } else if (SyncTrxStatus.REFUNDED.name().equalsIgnoreCase(status)) {
                   documentData = rewardTransaction.getCreditNoteData();
                   typeFolder = "creditNote";
                 } else {
