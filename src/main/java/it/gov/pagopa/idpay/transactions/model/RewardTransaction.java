@@ -64,4 +64,5 @@ public class RewardTransaction {
     private Map<String, String> additionalProperties;
     private InvoiceData invoiceData;
     private InvoiceData creditNoteData;
+    private String trxCode;
 }

@@ -68,4 +68,5 @@ public class RewardTransactionDTO {
     private Map<String, String> additionalProperties;
     private InvoiceData invoiceData;
     private InvoiceData creditNoteData;
+    private String trxCode;
 }

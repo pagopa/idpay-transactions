@@ -65,6 +65,7 @@ public class RewardTransactionMapper {
             rewardTrx.setAdditionalProperties(rewardTrxDto.getAdditionalProperties());
             rewardTrx.setInvoiceData(rewardTrxDto.getInvoiceData());
             rewardTrx.setCreditNoteData(rewardTrxDto.getCreditNoteData());
+            rewardTrx.setTrxCode((rewardTrxDto.getTrxCode()));
         }
 
         return rewardTrx;
