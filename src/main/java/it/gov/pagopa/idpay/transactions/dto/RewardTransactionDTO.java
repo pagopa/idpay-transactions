@@ -66,5 +66,7 @@ public class RewardTransactionDTO {
     private LocalDateTime elaborationDateTime;
     private String channel;
     private Map<String, String> additionalProperties;
-    private InvoiceFile invoiceFile;
+    private InvoiceData invoiceData;
+    private InvoiceData creditNoteData;
+    private String trxCode;
 }

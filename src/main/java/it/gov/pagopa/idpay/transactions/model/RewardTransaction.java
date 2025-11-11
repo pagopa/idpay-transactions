@@ -1,6 +1,6 @@
 package it.gov.pagopa.idpay.transactions.model;
 
-import it.gov.pagopa.idpay.transactions.dto.InvoiceFile;
+import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import lombok.*;
 import lombok.experimental.FieldNameConstants;
 import org.springframework.data.annotation.Id;
@@ -62,5 +62,7 @@ public class RewardTransaction {
     private LocalDateTime elaborationDateTime;
     private String channel;
     private Map<String, String> additionalProperties;
-    private InvoiceFile invoiceFile;
+    private InvoiceData invoiceData;
+    private InvoiceData creditNoteData;
+    private String trxCode;
 }
