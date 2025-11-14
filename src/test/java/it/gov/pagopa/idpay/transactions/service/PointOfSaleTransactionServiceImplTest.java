@@ -9,7 +9,7 @@ import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
-import it.gov.pagopa.idpay.transactions.dto.InvoiceFile;
+import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
@@ -116,7 +116,7 @@ class PointOfSaleTransactionServiceImplTest {
   @Test
   void shouldReturnErrorIfValidRecoveryWithMissingFileName() {
     RewardTransaction rewardTransaction = RewardTransaction.builder()
-        .invoiceFile(InvoiceFile.builder().build())
+        .invoiceData(InvoiceData.builder().build())
         .build();
     doReturn(Mono.just(rewardTransaction)).when(rewardTransactionRepository).findTransaction(
         MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
@@ -138,7 +138,7 @@ class PointOfSaleTransactionServiceImplTest {
 
   @Test
   void shouldThrowMissingInvoiceWhenInvoiceFileIsNullOrFilenameIsNull() {
-    RewardTransaction trxWithoutInvoiceFile = RewardTransaction.builder().invoiceFile(null).build();
+    RewardTransaction trxWithoutInvoiceFile = RewardTransaction.builder().invoiceData(null).build();
     doReturn(Mono.just(trxWithoutInvoiceFile)).when(rewardTransactionRepository)
         .findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
 
@@ -155,7 +155,7 @@ class PointOfSaleTransactionServiceImplTest {
         .verify();
 
     RewardTransaction trxWithNullFilename = RewardTransaction.builder()
-        .invoiceFile(InvoiceFile.builder().filename(null).build())
+        .invoiceData(InvoiceData.builder().filename(null).build())
         .build();
     doReturn(Mono.just(trxWithNullFilename)).when(rewardTransactionRepository)
         .findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, "TRX_ID_2");
@@ -179,12 +179,13 @@ class PointOfSaleTransactionServiceImplTest {
   @Test
   void shouldReturnDownloadUrlIfValidRecovery() {
     RewardTransaction rewardTransaction = RewardTransaction.builder()
-        .invoiceFile(InvoiceFile.builder().filename("filename").build())
+        .status("INVOICED")
+        .invoiceData(InvoiceData.builder().filename("filename").build())
         .build();
     doReturn(Mono.just(rewardTransaction)).when(rewardTransactionRepository).findTransaction(
         MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
     lenient().doReturn("tokenUrl").when(invoiceStorageClient).getFileSignedUrl(
-        "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/filename");
+        "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/filename");
     Mono<DownloadInvoiceResponseDTO> downloadInvoiceResponseDTOMono =
         assertDoesNotThrow(() ->
             pointOfSaleTransactionService.downloadTransactionInvoice(
@@ -198,7 +199,7 @@ class PointOfSaleTransactionServiceImplTest {
     verify(rewardTransactionRepository).findTransaction(
         MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
     verify(invoiceStorageClient).getFileSignedUrl(
-        "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/filename");
+        "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/filename");
   }
 
   @Test
@@ -290,7 +291,8 @@ class PointOfSaleTransactionServiceImplTest {
   @Test
   void shouldThrowMissingErrorOnFileUrlRecoveryError() {
     RewardTransaction rewardTransaction = RewardTransaction.builder()
-        .invoiceFile(InvoiceFile.builder().filename("filename").build())
+        .status("INVOICED")
+        .invoiceData(InvoiceData.builder().filename("filename").build())
         .build();
     doReturn(Mono.just(rewardTransaction)).when(rewardTransactionRepository).findTransaction(
         MERCHANT_ID, POINT_OF_SALE_ID, "AAAA");
@@ -315,5 +317,113 @@ class PointOfSaleTransactionServiceImplTest {
     verify(invoiceStorageClient).getFileSignedUrl(anyString());
   }
 
+  @Test
+  void downloadTransactionInvoice_shouldReturnCreditNoteUrl_whenStatusRefunded() {
+    RewardTransaction trx = RewardTransaction.builder()
+        .status("REFUNDED")
+        .creditNoteData(InvoiceData.builder().filename("creditNote.pdf").build())
+        .build();
 
+    doReturn(Mono.just(trx))
+        .when(rewardTransactionRepository).findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+    lenient().doReturn("tokenUrl")
+        .when(invoiceStorageClient).getFileSignedUrl(
+            "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/creditNote/creditNote.pdf");
+
+    Mono<DownloadInvoiceResponseDTO> result = pointOfSaleTransactionService
+        .downloadTransactionInvoice(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+
+    StepVerifier.create(result)
+        .assertNext(dto -> {
+          assertEquals("tokenUrl", dto.getInvoiceUrl());
+        })
+        .verifyComplete();
+
+    verify(invoiceStorageClient).getFileSignedUrl(
+        "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/creditNote/creditNote.pdf");
+  }
+
+  @Test
+  void downloadTransactionInvoice_shouldThrow_whenDocumentDataIsNull() {
+    RewardTransaction trx = RewardTransaction.builder()
+        .status("INVOICED")
+        .invoiceData(null)
+        .build();
+
+    doReturn(Mono.just(trx))
+        .when(rewardTransactionRepository).findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+
+    StepVerifier.create(pointOfSaleTransactionService.downloadTransactionInvoice(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID))
+        .expectErrorMatches(throwable -> throwable instanceof ClientExceptionNoBody &&
+            ((ClientExceptionNoBody) throwable).getHttpStatus() == HttpStatus.BAD_REQUEST &&
+            throwable.getMessage().equals(TRANSACTION_MISSING_INVOICE))
+        .verify();
+  }
+
+  @Test
+  void downloadTransactionInvoice_shouldThrow_whenFilenameIsNull() {
+    RewardTransaction trx = RewardTransaction.builder()
+        .status("REWARDED")
+        .invoiceData(InvoiceData.builder().filename(null).build())
+        .build();
+
+    doReturn(Mono.just(trx))
+        .when(rewardTransactionRepository).findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+
+    StepVerifier.create(pointOfSaleTransactionService.downloadTransactionInvoice(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID))
+        .expectErrorMatches(throwable -> throwable instanceof ClientExceptionNoBody &&
+            ((ClientExceptionNoBody) throwable).getHttpStatus() == HttpStatus.BAD_REQUEST &&
+            throwable.getMessage().equals(TRANSACTION_MISSING_INVOICE))
+        .verify();
+  }
+
+  @Test
+  void downloadTransactionInvoice_shouldReturnInvoiceUrl_whenStatusInvoiced() {
+    RewardTransaction trx = RewardTransaction.builder()
+        .status("INVOICED")
+        .invoiceData(InvoiceData.builder().filename("invoice.pdf").build())
+        .build();
+
+    doReturn(Mono.just(trx))
+        .when(rewardTransactionRepository).findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+
+    lenient().doReturn("tokenUrl")
+        .when(invoiceStorageClient).getFileSignedUrl(
+            "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/invoice.pdf");
+
+    Mono<DownloadInvoiceResponseDTO> result = pointOfSaleTransactionService
+        .downloadTransactionInvoice(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+
+    StepVerifier.create(result)
+        .assertNext(dto -> assertEquals("tokenUrl", dto.getInvoiceUrl()))
+        .verifyComplete();
+
+    verify(invoiceStorageClient).getFileSignedUrl(
+        "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/invoice.pdf");
+  }
+
+  @Test
+  void downloadTransactionInvoice_shouldReturnInvoiceUrl_whenStatusRewarded() {
+    RewardTransaction trx = RewardTransaction.builder()
+        .status("REWARDED")
+        .invoiceData(InvoiceData.builder().filename("rewarded.pdf").build())
+        .build();
+
+    doReturn(Mono.just(trx))
+        .when(rewardTransactionRepository).findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+
+    lenient().doReturn("tokenUrl")
+        .when(invoiceStorageClient).getFileSignedUrl(
+            "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/rewarded.pdf");
+
+    Mono<DownloadInvoiceResponseDTO> result = pointOfSaleTransactionService
+        .downloadTransactionInvoice(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+
+    StepVerifier.create(result)
+        .assertNext(dto -> assertEquals("tokenUrl", dto.getInvoiceUrl()))
+        .verifyComplete();
+
+    verify(invoiceStorageClient).getFileSignedUrl(
+        "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/rewarded.pdf");
+  }
 }

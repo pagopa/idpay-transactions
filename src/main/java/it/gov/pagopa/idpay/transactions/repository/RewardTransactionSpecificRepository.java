@@ -18,11 +18,13 @@ public interface RewardTransactionSpecificRepository {
     Flux<RewardTransaction> findByFilterTrx(String merchantId, String initiativeId, String pointOfSaleId, String userId, String productGtin, String status, Pageable pageable);
 
     /**
-     * Retrieves a transaction in status REWARDED or REFUNDED using the provided paramaters
+     * Retrieves a transaction in status REWARDED, REFUNDED or INVOICED using the provided paramaters
      * @param merchantId
      * @param pointOfSaleId
      * @param transactionId
      * @return Mono containing a transaction, or empty if no document matches the criteria
      */
     Mono<RewardTransaction> findTransaction(String merchantId, String pointOfSaleId, String transactionId);
+
+    Mono<RewardTransaction> findByTrxIdAndUserId(String trxId, String userId);
 }

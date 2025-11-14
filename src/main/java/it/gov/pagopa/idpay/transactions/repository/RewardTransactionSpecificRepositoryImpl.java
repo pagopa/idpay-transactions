@@ -75,7 +75,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
     private Pageable getPageableTrx(Pageable pageable) {
         if (pageable == null || pageable.getSort().isUnsorted()) {
-           return PageRequest.of(0, 10, Sort.by("elaborationDateTime").descending());
+           return PageRequest.of(0, 10, Sort.by("trxChargeDate").descending());
         }
         return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort());
     }
@@ -103,7 +103,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         if (StringUtils.isNotBlank(status)) {
             criteria.and(RewardTransaction.Fields.status).is(status);
         } else {
-            criteria.and(RewardTransaction.Fields.status).in("CANCELLED", "REWARDED", "REFUNDED");
+            criteria.and(RewardTransaction.Fields.status).in("CANCELLED", "REWARDED", "REFUNDED", "INVOICED");
         }
         return criteria;
     }
@@ -138,7 +138,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                 .where(Fields.merchantId).is(merchantId)
                 .and(Fields.pointOfSaleId).is(pointOfSaleId)
                 .and(Fields.id).is(transactionId)
-                .and(Fields.status).in(SyncTrxStatus.REWARDED,SyncTrxStatus.REFUNDED);
+                .and(Fields.status).in(SyncTrxStatus.REWARDED, SyncTrxStatus.REFUNDED, SyncTrxStatus.INVOICED);
         return mongoTemplate.findOne(Query.query(criteria), RewardTransaction.class);
     }
 
@@ -148,9 +148,6 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         Sort mappedSort = Sort.by(
             basePageable.getSort().stream()
                 .map(order -> {
-                    if ("updateDate".equalsIgnoreCase(order.getProperty())) {
-                        return new Sort.Order(order.getDirection(), "elaborationDateTime");
-                    }
                     if ("productName".equalsIgnoreCase(order.getProperty())) {
                         return new Sort.Order(order.getDirection(), FIELD_PRODUCT_NAME);
                     }
@@ -183,9 +180,10 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                 .addField("statusRank")
                 .withValue(
                     ConditionalOperators.switchCases(
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("CANCELLED")).then(1),
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REWARDED")).then(2),
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REFUNDED")).then(3)
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("CANCELLED")).then(1), //ANNULLATO
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("INVOICED")).then(2),  //PRESO IN CARICO
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REWARDED")).then(3),  //RIMBORSO RICHIESTO
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REFUNDED")).then(4)   //STORNATO
                     ).defaultTo(99)
                 ).build(),
             Aggregation.match(criteria),
@@ -230,5 +228,15 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     public Flux<RewardTransaction> findByInitiativesWithBatch(String initiativeId, int batchSize){
         Query query = Query.query(Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId)).cursorBatchSize(batchSize);
         return mongoTemplate.find(query, RewardTransaction.class);
+    }
+
+    @Override
+    public Mono<RewardTransaction> findByTrxIdAndUserId(String trxId, String userId) {
+        Criteria criteria = Criteria.where(RewardTransaction.Fields.id).is(trxId);
+        criteria.and(RewardTransaction.Fields.userId).is(userId);
+
+        return mongoTemplate.findOne(
+                Query.query(criteria),
+                RewardTransaction.class);
     }
 }

@@ -4,6 +4,8 @@ import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
+import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
+import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
@@ -46,7 +48,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
   }
 
   /**
-   * Method to generate a download url of an invoice for a rewardTransaction in status REWARDED or REFUNDED,
+   * Method to generate a download url of an invoice for a rewardTransaction in status REWARDED, REFUNDED or INVOICED,
    * the url will be provided with a Shared Access Signature token for the resource
    * @param merchantId
    * @param pointOfSaleId
@@ -60,14 +62,28 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
       return rewardTransactionRepository.findTransaction(merchantId, pointOfSaleId, transactionId)
               .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
               .map(rewardTransaction -> {
-                if (rewardTransaction.getInvoiceFile() == null ||
-                        rewardTransaction.getInvoiceFile().getFilename() == null) {
+                String status = rewardTransaction.getStatus();
+                InvoiceData documentData = null;
+                String typeFolder;
+
+                if (SyncTrxStatus.INVOICED.name().equalsIgnoreCase(status) || SyncTrxStatus.REWARDED.name().equalsIgnoreCase(status)) {
+                  documentData = rewardTransaction.getInvoiceData();
+                  typeFolder = "invoice";
+                } else if (SyncTrxStatus.REFUNDED.name().equalsIgnoreCase(status)) {
+                  documentData = rewardTransaction.getCreditNoteData();
+                  typeFolder = "creditNote";
+                } else {
                   throw new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE);
                 }
-                String filename = rewardTransaction.getInvoiceFile().getFilename();
 
-                String blobPath = String.format("invoices/merchant/%s/pos/%s/transaction/%s/%s",
-                    merchantId, pointOfSaleId, transactionId, filename);
+                if (documentData == null || documentData.getFilename() == null) {
+                  throw new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE);
+                }
+
+                String filename = documentData.getFilename();
+
+                String blobPath = String.format("invoices/merchant/%s/pos/%s/transaction/%s/%s/%s",
+                    merchantId, pointOfSaleId, transactionId, typeFolder, filename);
 
                 return DownloadInvoiceResponseDTO.builder()
                           .invoiceUrl(invoiceStorageClient.getFileSignedUrl(blobPath))

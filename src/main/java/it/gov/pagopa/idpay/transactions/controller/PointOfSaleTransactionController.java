@@ -26,7 +26,7 @@ public interface PointOfSaleTransactionController {
       @RequestParam(required = false) String productGtin,
       @RequestParam(required = false) String fiscalCode,
       @RequestParam(required = false) String status,
-      @PageableDefault(sort = "elaborationDateTime", direction = Sort.Direction.DESC) Pageable pageable);
+      @PageableDefault(sort = "trxChargeDate", direction = Sort.Direction.DESC) Pageable pageable);
 
   /**
    * Provides method to download an invoice file of a rewarded transaction
