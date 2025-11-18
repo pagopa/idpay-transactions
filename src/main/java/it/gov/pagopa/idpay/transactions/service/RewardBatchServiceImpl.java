@@ -1,0 +1,63 @@
+package it.gov.pagopa.idpay.transactions.service;
+
+import com.mongodb.DuplicateKeyException;
+import it.gov.pagopa.idpay.transactions.enums.BatchType;
+import it.gov.pagopa.idpay.transactions.enums.PosType;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
+import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
+import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.time.format.TextStyle;
+import java.util.Locale;
+import reactor.core.publisher.Mono;
+
+public class RewardBatchServiceImpl implements RewardBatchService {
+
+  private final RewardBatchRepository rewardBatchRepository;
+
+  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository) {
+    this.rewardBatchRepository = rewardBatchRepository;
+  }
+
+  @Override
+  public Mono<RewardBatch> findOrCreateBatch(String merchantId, PosType posType, YearMonth month,
+      BatchType batchType) {
+    return rewardBatchRepository.findByMerchantIdAndPosTypeAndMonthAndBatchType(merchantId, posType,
+            month, batchType)
+        .switchIfEmpty(Mono.defer(() ->
+            createBatch(merchantId, posType, month, batchType)
+                .onErrorResume(DuplicateKeyException.class, ex ->
+                    rewardBatchRepository.findByMerchantIdAndPosTypeAndMonthAndBatchType(merchantId,
+                        posType, month, batchType))));
+  }
+
+  private Mono<RewardBatch> createBatch(String merchantId, PosType posType, YearMonth month, BatchType batchType) {
+
+    LocalDateTime startDate = month.atDay(1).atStartOfDay();
+    LocalDateTime endDate = month.atEndOfMonth().atTime(23,59,59);
+
+    RewardBatch batch = RewardBatch.builder()
+        .merchantId(merchantId)
+        .month(month)
+        .posType(posType)
+        .batchType(batchType)
+        .status(RewardBatchStatus.CREATED)
+        .partial(false)
+        .name(buildBatchName(month, posType, batchType))
+        .startDate(startDate)
+        .endDate(endDate)
+        .build();
+
+    return rewardBatchRepository.save(batch);
+  }
+
+  private String buildBatchName(YearMonth month, PosType posType, BatchType batchType) {
+    String monthName = month.getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN);
+    String year = String.valueOf(month.getYear());
+    String posLabel = posType == PosType.PHYSICAL ? "fisico" : "online";
+    String typeLabel = batchType == BatchType.REJECTED ? "rigettati" : "accettati";
+
+    return monthName + " " + year + " - " + posLabel + " - " + typeLabel;
+  }
+}
