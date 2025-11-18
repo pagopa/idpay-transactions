@@ -65,4 +65,6 @@ public class RewardTransaction {
     private InvoiceData invoiceData;
     private InvoiceData creditNoteData;
     private String trxCode;
+    private String rewardBatchId;
+    private String invStatus;
 }
