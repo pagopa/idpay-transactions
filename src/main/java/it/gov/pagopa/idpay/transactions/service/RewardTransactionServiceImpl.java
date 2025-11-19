@@ -39,7 +39,6 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
         if (SyncTrxStatus.INVOICED.name().equals(rewardTransaction.getStatus())) {
             return enrichBatchData(rewardTransaction)
                 .flatMap(rewardTrxRepository::save);
-
         }
         return rewardTrxRepository.save(rewardTransaction);
     }
