@@ -1,7 +1,7 @@
-package it.gov.pagopa.idpay.transactions.connector.rest.dto;
+package it.gov.pagopa.idpay.transactions.connector.rest;
 
 import it.gov.pagopa.common.reactive.utils.PerformanceLogger;
-import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.dto.PointOfSaleDTO;
 import java.time.Duration;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
