@@ -5,7 +5,6 @@ import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

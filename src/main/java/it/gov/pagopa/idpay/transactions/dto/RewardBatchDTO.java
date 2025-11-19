@@ -2,7 +2,6 @@ package it.gov.pagopa.idpay.transactions.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

@@ -40,7 +40,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   }
 
   @Override
-  public Mono<Page<RewardBatch>> getRewardBatch(String merchantId, Pageable pageable) {
+  public Mono<Page<RewardBatch>> getMerchantRewardBatches(String merchantId, Pageable pageable) {
     return rewardBatchRepository.findRewardBatchByMerchantId(merchantId, pageable)
         .collectList()
         .zipWith(rewardBatchRepository.getCount(merchantId))

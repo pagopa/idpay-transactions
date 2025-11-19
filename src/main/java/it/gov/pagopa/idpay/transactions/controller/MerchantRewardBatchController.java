@@ -14,7 +14,7 @@ import reactor.core.publisher.Mono;
 public interface MerchantRewardBatchController {
 
   @GetMapping("/initiatives/{initiativeId}/reward-batches")
-  Mono<RewardBatchListDTO> getMerchantTransactions(
+  Mono<RewardBatchListDTO> getMerchantRewardBatches(
       @RequestHeader("x-merchant-id") String merchantId,
       @PathVariable("initiativeId") String initiativeId,
       @PageableDefault(sort = "name", direction = Sort.Direction.ASC) Pageable pageable);

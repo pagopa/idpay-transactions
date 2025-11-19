@@ -23,7 +23,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     Criteria criteria = getCriteria(merchantId);
 
     return mongoTemplate.find(
-        Query.query(criteria).with(getPageableRewardBatch(getPageableRewardBatch(pageable))),
+        Query.query(criteria).with(getPageableRewardBatch(pageable)),
         RewardBatch.class);
 
   }
@@ -33,8 +33,8 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Mono<Long> getCount(String id) {
-    Criteria criteria = getCriteria(id);
+  public Mono<Long> getCount(String merchantId) {
+    Criteria criteria = getCriteria(merchantId);
 
     return mongoTemplate.count(Query.query(criteria), RewardBatch.class);
   }

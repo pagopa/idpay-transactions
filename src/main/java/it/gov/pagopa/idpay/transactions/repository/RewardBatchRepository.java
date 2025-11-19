@@ -12,6 +12,4 @@ public interface RewardBatchRepository extends ReactiveMongoRepository<RewardBat
   Mono<RewardBatch> findByMerchantIdAndPosTypeAndMonthAndBatchType(String merchantId,
       PosType posType, String month, BatchType batchType
   );
-
-  Mono<Long> getCount(String id);
 }
