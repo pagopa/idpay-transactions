@@ -57,14 +57,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     String year = String.valueOf(month.getYear());
     String posLabel = posType == PosType.PHYSICAL ? "fisico" : "online";
 
-    String base = monthName + " " + year + " - " + posLabel;
-
-    if (batchType == BatchType.REJECTED) {
-      return base + " - rigettati";
-    } else if (batchType == BatchType.ACCEPTED) {
-      return base + " - accettati";
-    }
-
-    return base;
+    return batchType == BatchType.REJECTED ?
+            String.format("%s %s - %s - rigettati", monthName, year, posLabel) :
+            String.format("%s %s - %s", monthName, year, posLabel);
   }
 }
