@@ -29,7 +29,7 @@ public class RewardBatch {
     @Id
     private String id;
     private String merchantId;
-    private YearMonth month;
+    private String month;
     private PosType posType;
     private BatchType batchType;
     private RewardBatchStatus status;
@@ -37,6 +37,7 @@ public class RewardBatch {
     private String name;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
+    private Long totalAmountCents;
 
     @CreatedDate
     private Instant creationDate;

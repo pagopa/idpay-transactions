@@ -10,8 +10,15 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.TextStyle;
 import java.util.Locale;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+@Service
+@Slf4j
 public class RewardBatchServiceImpl implements RewardBatchService {
 
   private final RewardBatchRepository rewardBatchRepository;
@@ -30,6 +37,14 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .onErrorResume(DuplicateKeyException.class, ex ->
                     rewardBatchRepository.findByMerchantIdAndPosTypeAndMonthAndBatchType(merchantId,
                         posType, month, batchType))));
+  }
+
+  @Override
+  public Mono<Page<RewardBatch>> getRewardBatch(String merchantId, Pageable pageable) {
+    return rewardBatchRepository.findRewardBatchByMerchantId(merchantId, pageable)
+        .collectList()
+        .zipWith(rewardBatchRepository.getCount(merchantId))
+        .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
   }
 
   private Mono<RewardBatch> createBatch(String merchantId, PosType posType, YearMonth month, BatchType batchType) {
@@ -61,4 +76,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             String.format("%s %s - %s - rigettati", monthName, year, posLabel) :
             String.format("%s %s - %s", monthName, year, posLabel);
   }
+
+
 }

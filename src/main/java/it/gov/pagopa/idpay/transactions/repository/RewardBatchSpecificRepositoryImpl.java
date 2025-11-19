@@ -1,5 +1,48 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
+import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
 public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRepository {
 
+  private final ReactiveMongoTemplate mongoTemplate;
+
+  public RewardBatchSpecificRepositoryImpl(ReactiveMongoTemplate mongoTemplate){
+    this.mongoTemplate = mongoTemplate;
+  }
+  @Override
+  public Flux<RewardBatch> findRewardBatchByMerchantId(String merchantId, Pageable pageable){
+
+    Criteria criteria = getCriteria(merchantId);
+
+    return mongoTemplate.find(
+        Query.query(criteria).with(getPageableRewardBatch(getPageableRewardBatch(pageable))),
+        RewardBatch.class);
+
+  }
+
+  private static Criteria getCriteria(String merchantId) {
+    return Criteria.where(RewardBatch.Fields.merchantId).is(merchantId);
+  }
+
+  @Override
+  public Mono<Long> getCount(String id) {
+    Criteria criteria = getCriteria(id);
+
+    return mongoTemplate.count(Query.query(criteria), RewardBatch.class);
+  }
+
+  private Pageable getPageableRewardBatch(Pageable pageable) {
+    if (pageable == null || pageable.getSort().isUnsorted()) {
+      return PageRequest.of(0, 10, Sort.by("name").ascending());
+    }
+    return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort());
+  }
 }
