@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
+import it.gov.pagopa.idpay.transactions.enums.BatchType;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
@@ -63,7 +64,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
         LocalDate trxDate = trx.getTrxChargeDate().toLocalDate();
         YearMonth trxMonth = YearMonth.from(trxDate);
 
-        YearMonth batchMonth = trxMonth.plusMonths(1);
+        String batchMonth = trxMonth.plusMonths(1).toString();
 
         return merchantRestClient.getPointOfSale(trx.getMerchantId(), trx.getPointOfSaleId())
             .map(pos -> PosType.valueOf(pos.getType().name()))
@@ -72,7 +73,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
                     trx.getMerchantId(),
                     posType,
                     batchMonth,
-                    null
+                    BatchType.REGULAR
                 )
             )
             .map((RewardBatch batch) -> {

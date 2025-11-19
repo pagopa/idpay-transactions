@@ -1,6 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import com.mongodb.DuplicateKeyException;
+import org.springframework.dao.DuplicateKeyException;
 import it.gov.pagopa.idpay.transactions.enums.BatchType;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -28,7 +28,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   }
 
   @Override
-  public Mono<RewardBatch> findOrCreateBatch(String merchantId, PosType posType, YearMonth month,
+  public Mono<RewardBatch> findOrCreateBatch(String merchantId, PosType posType, String month,
       BatchType batchType) {
     return rewardBatchRepository.findByMerchantIdAndPosTypeAndMonthAndBatchType(merchantId, posType,
             month, batchType)
@@ -47,10 +47,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
   }
 
-  private Mono<RewardBatch> createBatch(String merchantId, PosType posType, YearMonth month, BatchType batchType) {
+  private Mono<RewardBatch> createBatch(String merchantId, PosType posType, String month, BatchType batchType) {
 
-    LocalDateTime startDate = month.atDay(1).atStartOfDay();
-    LocalDateTime endDate = month.atEndOfMonth().atTime(23,59,59);
+    YearMonth batchYearMonth = YearMonth.parse(month);
+    LocalDateTime startDate = batchYearMonth.atDay(1).atStartOfDay();
+    LocalDateTime endDate = batchYearMonth.atEndOfMonth().atTime(23,59,59);
 
     RewardBatch batch = RewardBatch.builder()
         .merchantId(merchantId)
@@ -59,7 +60,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         .batchType(batchType)
         .status(RewardBatchStatus.CREATED)
         .partial(false)
-        .name(buildBatchName(month, posType, batchType))
+        .name(buildBatchName(batchYearMonth, posType, batchType))
         .startDate(startDate)
         .endDate(endDate)
         .build();
@@ -76,6 +77,4 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             String.format("%s %s - %s - rigettati", monthName, year, posLabel) :
             String.format("%s %s - %s", monthName, year, posLabel);
   }
-
-
 }
