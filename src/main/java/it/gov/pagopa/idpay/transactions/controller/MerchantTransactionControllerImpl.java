@@ -23,7 +23,7 @@ public class MerchantTransactionControllerImpl implements MerchantTransactionCon
                                                                      String rewardBatchId,
                                                                      String invStatus,
                                                                      Pageable pageable) {
-        log.info("[GET_MERCHANT_TRANSACTIONS] Merchant {} requested to retrieve transactions", merchantId);
+        //log.info("[GET_MERCHANT_TRANSACTIONS] Merchant {} requested to retrieve transactions", merchantId);
         return merchantTransactionService.getMerchantTransactions(merchantId, initiativeId, fiscalCode, status, rewardBatchId, invStatus, pageable);
     }
 }
