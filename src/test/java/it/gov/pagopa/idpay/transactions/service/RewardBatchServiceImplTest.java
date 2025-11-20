@@ -15,6 +15,9 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -208,6 +211,64 @@ class RewardBatchServiceImplTest {
     StepVerifier.create(rewardBatchService.findOrCreateBatch("M1", PosType.PHYSICAL, batchMonth, BatchType.REJECTED))
         .assertNext(batch -> {
           assert batch.getName().equals("novembre 2025 - fisico - rigettati");
+        })
+        .verifyComplete();
+  }
+
+  @Test
+  void getMerchantRewardBatches_returnsPagedResult() {
+    String merchantId = "M1";
+    Pageable pageable = PageRequest.of(0, 2);
+
+    RewardBatch rb1 = RewardBatch.builder()
+        .id("B1")
+        .merchantId(merchantId)
+        .name("novembre 2025 - online")
+        .build();
+
+    RewardBatch rb2 = RewardBatch.builder()
+        .id("B2")
+        .merchantId(merchantId)
+        .name("novembre 2025 - fisico")
+        .build();
+
+    Mockito.when(rewardBatchRepository.findRewardBatchByMerchantId(merchantId, pageable))
+        .thenReturn(Flux.just(rb1, rb2));
+
+    Mockito.when(rewardBatchRepository.getCount(merchantId))
+        .thenReturn(Mono.just(5L));
+
+    StepVerifier.create(rewardBatchService.getMerchantRewardBatches(merchantId, pageable))
+        .assertNext(page -> {
+          assert page.getContent().size() == 2;
+          assert page.getContent().get(0).getId().equals("B1");
+          assert page.getContent().get(1).getId().equals("B2");
+
+          assert page.getTotalElements() == 5;
+          assert page.getPageable().equals(pageable);
+        })
+        .verifyComplete();
+
+    Mockito.verify(rewardBatchRepository).findRewardBatchByMerchantId(merchantId, pageable);
+    Mockito.verify(rewardBatchRepository).getCount(merchantId);
+  }
+
+  @Test
+  void getMerchantRewardBatches_emptyPage() {
+    String merchantId = "M1";
+    Pageable pageable = PageRequest.of(1, 2);
+
+    Mockito.when(rewardBatchRepository.findRewardBatchByMerchantId(merchantId, pageable))
+        .thenReturn(Flux.empty());
+
+    Mockito.when(rewardBatchRepository.getCount(merchantId))
+        .thenReturn(Mono.just(0L));
+
+    StepVerifier.create(rewardBatchService.getMerchantRewardBatches(merchantId, pageable))
+        .assertNext(page -> {
+          assert page.getContent().isEmpty();
+          assert page.getTotalElements() == 0;
+          assert page.getPageable().equals(pageable);
         })
         .verifyComplete();
   }
