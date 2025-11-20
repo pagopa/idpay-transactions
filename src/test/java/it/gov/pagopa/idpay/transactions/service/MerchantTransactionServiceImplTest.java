@@ -30,6 +30,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class MerchantTransactionServiceImplTest {
@@ -45,6 +46,8 @@ class MerchantTransactionServiceImplTest {
     private static final String MERCHANT_ID = "MERCHANTID1";
     private static final String USER_ID = "USERID1";
     private static final String FISCAL_CODE = "FISCALCODE1";
+    private static final String REWARD_BATCH_ID = "BATCH_1";
+    private static final String INV_STATUS = "INV_OK";
 
     @BeforeEach
     void setUp() {
@@ -56,6 +59,7 @@ class MerchantTransactionServiceImplTest {
     void getMerchantTransactionListWithFiscalCode() {
         RewardTransaction rewardTransaction = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
+                .userId(USER_ID)
                 .amountCents(5000L)
                 .status("REWARDED")
                 .elaborationDateTime(LocalDateTime.now())
@@ -75,6 +79,7 @@ class MerchantTransactionServiceImplTest {
 
         MerchantTransactionsListDTO merchantTransactionsListExpected = MerchantTransactionsListDTO.builder()
                 .content(List.of(merchantTransaction))
+                .pageNo(0)
                 .pageSize(10)
                 .totalElements(1)
                 .totalPages(1)
@@ -100,9 +105,9 @@ class MerchantTransactionServiceImplTest {
                         MERCHANT_ID,
                         INITIATIVE_ID,
                         FISCAL_CODE,
-                        null,
-                        null,
-                        null,
+                        "REWARDED",
+                        REWARD_BATCH_ID,
+                        INV_STATUS,
                         paging
                 );
 
@@ -111,12 +116,14 @@ class MerchantTransactionServiceImplTest {
         assertEquals(merchantTransactionsListExpected, result);
 
         Mockito.verify(userRestClient, never()).retrieveUserInfo(anyString());
+        Mockito.verify(userRestClient, times(1)).retrieveFiscalCodeInfo(FISCAL_CODE);
     }
 
     @Test
     void getMerchantTransactionListWithoutFiscalCode() {
         RewardTransaction rewardTransaction = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
+                .userId(USER_ID)
                 .amountCents(5000L)
                 .status("REWARDED")
                 .elaborationDateTime(LocalDateTime.now())
@@ -136,6 +143,7 @@ class MerchantTransactionServiceImplTest {
 
         MerchantTransactionsListDTO merchantTransactionsListExpected = MerchantTransactionsListDTO.builder()
                 .content(List.of(merchantTransaction))
+                .pageNo(0)
                 .pageSize(10)
                 .totalElements(1)
                 .totalPages(1)
@@ -170,6 +178,60 @@ class MerchantTransactionServiceImplTest {
         MerchantTransactionsListDTO result = resultMono.block();
 
         assertEquals(merchantTransactionsListExpected, result);
+
+        Mockito.verify(userRestClient, times(1)).retrieveUserInfo(anyString());
+        Mockito.verify(userRestClient, never()).retrieveFiscalCodeInfo(anyString());
+    }
+
+    @Test
+    void getMerchantTransactionList_shouldSortByElaborationDateTimeDescending() {
+        LocalDateTime now = LocalDateTime.now();
+        RewardTransaction older = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .userId(USER_ID)
+                .amountCents(5000L)
+                .status("REWARDED")
+                .elaborationDateTime(now.minusMinutes(10))
+                .rewards(getReward())
+                .build();
+
+        RewardTransaction newer = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("id2")
+                .userId(USER_ID)
+                .amountCents(6000L)
+                .status("REWARDED")
+                .elaborationDateTime(now)
+                .rewards(getReward())
+                .build();
+
+        UserInfoPDV userInfo = new UserInfoPDV(FISCAL_CODE);
+        Pageable paging = PageRequest.of(0, 10, Sort.by(RewardTransaction.Fields.elaborationDateTime).ascending());
+
+        Mockito.when(userRestClient.retrieveUserInfo(anyString()))
+                .thenReturn(Mono.just(userInfo));
+
+        Mockito.when(rewardTransactionRepository.findByFilter(
+                        anyString(), anyString(), isNull(),
+                        any(), any(), any(), any(Pageable.class)))
+                .thenReturn(Flux.just(older, newer));
+
+        Mockito.when(rewardTransactionRepository.getCount(
+                        anyString(), anyString(), any(), any(), isNull(), any()))
+                .thenReturn(Mono.just(2L));
+
+        MerchantTransactionsListDTO result = merchantTransactionService.getMerchantTransactions(
+                MERCHANT_ID,
+                INITIATIVE_ID,
+                null,
+                "REWARDED",
+                null,
+                null,
+                paging
+        ).block();
+
+        assertEquals(2, result.getContent().size());
+        assertEquals("id2", result.getContent().get(0).getTrxId());
+        assertEquals("id1", result.getContent().get(1).getTrxId());
     }
 
     private static Map<String, Reward> getReward() {
