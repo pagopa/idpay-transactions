@@ -5,10 +5,10 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -19,7 +19,7 @@ import java.time.LocalDateTime;
 
 @WebFluxTest(controllers = {TransactionsController.class})
 class TransactionsControllerImplTest {
-    @MockBean
+    @Mock
     RewardTransactionService rewardTransactionService;
 
     @Autowired
