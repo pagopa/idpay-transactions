@@ -40,29 +40,35 @@ class RewardBatchSpecificRepositoryImplTest {
 //    batch1 = RewardBatch.builder()
 //        .id("batch1")
 //        .merchantId("merchantA")
+//        .businessName("Test business")
 //        .month("2025-11")
-//        .posType(PosType.PHYSICAL)
-//        .batchType(BatchType.REGULAR)
+//        .posType("PHYSICAL")
 //        .status(RewardBatchStatus.CREATED)
-//        .partial(true)
-//        .name("novembre 2025 - fisico")
+//        .partial(false)
+//        .name("novembre 2025")
 //        .startDate(LocalDateTime.of(2025, 11, 1, 0, 0))
 //        .endDate(LocalDateTime.of(2025, 11, 30, 23, 59))
-//        .totalAmountCents(1000L)
+//        .totalAmountCents(0L)
+//        .numberOfTransactions(0L)
+//        .numberOfTransactionsElaborated(0L)
+//        .reportPath(null)
 //        .build();
 //
 //    batch2 = RewardBatch.builder()
 //        .id("batch2")
-//        .merchantId("merchantA")
+//        .merchantId("merchantB")
+//        .businessName("Test business")
 //        .month("2025-11")
-//        .posType(PosType.ONLINE)
-//        .batchType(BatchType.REJECTED)
-//        .status(RewardBatchStatus.APPROVED)
+//        .posType("ONLINE")
+//        .status(RewardBatchStatus.CREATED)
 //        .partial(false)
-//        .name("novembre 2025 - online")
+//        .name("novembre 2025")
 //        .startDate(LocalDateTime.of(2025, 11, 1, 0, 0))
 //        .endDate(LocalDateTime.of(2025, 11, 30, 23, 59))
-//        .totalAmountCents(2000L)
+//        .totalAmountCents(0L)
+//        .numberOfTransactions(0L)
+//        .numberOfTransactionsElaborated(0L)
+//        .reportPath(null)
 //        .build();
 //
 //    rewardBatchRepository.saveAll(Flux.just(batch1, batch2)).blockLast();
@@ -96,8 +102,8 @@ class RewardBatchSpecificRepositoryImplTest {
 //    Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByMerchantId("merchantA", null);
 //    List<RewardBatch> list = result.toStream().toList();
 //    assertEquals(2, list.size());
-//    assertEquals("novembre 2025 - fisico", list.get(0).getName());
-//    assertEquals("novembre 2025 - online", list.get(1).getName());
+//    assertEquals("novembre 2025", list.get(0).getName());
+//    assertEquals("novembre 2025", list.get(1).getName());
 //  }
 //
 //  @Test
