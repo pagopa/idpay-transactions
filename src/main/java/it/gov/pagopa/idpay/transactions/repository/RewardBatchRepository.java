@@ -7,7 +7,7 @@ import reactor.core.publisher.Mono;
 public interface RewardBatchRepository extends ReactiveMongoRepository<RewardBatch, String>,
     RewardBatchSpecificRepository {
 
-  Mono<RewardBatch> findByMerchantIdAndPosTypeAndMonthAndBatchType(String merchantId,
+  Mono<RewardBatch> findByMerchantIdAndPosTypeAndMonth(String merchantId,
       String posType, String month
   );
 }

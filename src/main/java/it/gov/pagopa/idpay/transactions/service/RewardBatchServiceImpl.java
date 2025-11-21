@@ -27,12 +27,12 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
   @Override
   public Mono<RewardBatch> findOrCreateBatch(String merchantId, String posType, String month, String businessName) {
-    return rewardBatchRepository.findByMerchantIdAndPosTypeAndMonthAndBatchType(merchantId, posType,
+    return rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(merchantId, posType,
             month)
         .switchIfEmpty(Mono.defer(() ->
             createBatch(merchantId, posType, month, businessName)
                 .onErrorResume(DuplicateKeyException.class, ex ->
-                    rewardBatchRepository.findByMerchantIdAndPosTypeAndMonthAndBatchType(merchantId,
+                    rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(merchantId,
                         posType, month))));
   }
 
