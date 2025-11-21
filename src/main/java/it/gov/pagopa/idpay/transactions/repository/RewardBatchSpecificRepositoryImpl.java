@@ -30,6 +30,15 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
 
   }
 
+  @Override
+  public Flux<RewardBatch> findRewardBatch(Pageable pageable){
+
+    Query query = new Query().with(getPageableRewardBatch(pageable));
+
+    return mongoTemplate.find(query, RewardBatch.class);
+
+  }
+
   private static Criteria getCriteria(String merchantId) {
     return Criteria.where(RewardBatch.Fields.merchantId).is(merchantId);
   }
@@ -53,9 +62,15 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     );
   }
 
+  @Override
+  public Mono<Long> getCount() {
+
+    return mongoTemplate.count(new Query(), RewardBatch.class);
+  }
+
   private Pageable getPageableRewardBatch(Pageable pageable) {
     if (pageable == null || pageable.getSort().isUnsorted()) {
-      return PageRequest.of(0, 10, Sort.by("name").ascending());
+      return PageRequest.of(0, 10, Sort.by("month").ascending());
     }
     return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort());
   }

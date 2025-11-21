@@ -84,4 +84,51 @@ class MerchantRewardBatchControllerImplTest {
     verify(rewardBatchService, times(1)).getMerchantRewardBatches(eq(MERCHANT_ID), any(Pageable.class));
     verify(rewardBatchMapper, times(1)).toDTO(batch);
   }
+
+  @Test
+  void getRewardBatchesOk() {
+    RewardBatch batch = RewardBatch.builder()
+        .id("BATCH1")
+        .name("Reward Batch 1")
+        .build();
+
+    Page<RewardBatch> page = new PageImpl<>(
+        List.of(batch),
+        PageRequest.of(0, 10),
+        1
+    );
+
+    RewardBatchDTO dto = RewardBatchDTO.builder()
+        .id(batch.getId())
+        .name(batch.getName())
+        .build();
+
+    when(rewardBatchService.getAllRewardBatches(any(Pageable.class)))
+        .thenReturn(Mono.just(page));
+
+    when(rewardBatchMapper.toDTO(batch))
+        .thenReturn(Mono.just(dto));
+
+    webClient.get()
+        .uri(uriBuilder -> uriBuilder
+            .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches")
+            .queryParam("page", 0)
+            .queryParam("size", 10)
+            .build(INITIATIVE_ID))
+        .exchange()
+        .expectStatus().isOk()
+        .expectBody(RewardBatchListDTO.class)
+        .value(res -> {
+          assertNotNull(res);
+          assertEquals(1, res.getContent().size());
+          assertEquals("BATCH1", res.getContent().getFirst().getId());
+          assertEquals("Reward Batch 1", res.getContent().getFirst().getName());
+          assertEquals(1, res.getTotalElements());
+          assertEquals(1, res.getTotalPages());
+          assertEquals(10, res.getPageSize());
+        });
+
+    verify(rewardBatchService, times(1)).getAllRewardBatches(any(Pageable.class));
+    verify(rewardBatchMapper, times(1)).toDTO(batch);
+  }
 }

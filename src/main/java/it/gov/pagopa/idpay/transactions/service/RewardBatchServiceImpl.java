@@ -44,6 +44,14 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
   }
 
+  @Override
+  public Mono<Page<RewardBatch>> getAllRewardBatches(Pageable pageable) {
+    return rewardBatchRepository.findRewardBatch(pageable)
+        .collectList()
+        .zipWith(rewardBatchRepository.getCount())
+        .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
+  }
+
   private Mono<RewardBatch> createBatch(String merchantId, String posType, String month, String businessName) {
 
     YearMonth batchYearMonth = YearMonth.parse(month);
