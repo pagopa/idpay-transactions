@@ -36,6 +36,7 @@ public class RewardBatch {
     private Long numberOfTransactions;
     private Long numberOfTransactionsElaborated;
     private String reportPath;
+    private String assigneLevel;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime creationDate;

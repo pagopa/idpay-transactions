@@ -55,7 +55,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   private Mono<RewardBatch> createBatch(String merchantId, String posType, String month, String businessName) {
 
     YearMonth batchYearMonth = YearMonth.parse(month);
-    LocalDateTime startDate = batchYearMonth.atDay(1).atStartOfDay();
+    LocalDateTime startDate = batchYearMonth.atDay(1).atTime(0,0,0);
     LocalDateTime endDate = batchYearMonth.atEndOfMonth().atTime(23,59,59);
 
     RewardBatch batch = RewardBatch.builder()
