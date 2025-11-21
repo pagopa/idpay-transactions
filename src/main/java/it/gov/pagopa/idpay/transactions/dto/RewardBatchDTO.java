@@ -15,9 +15,9 @@ public class RewardBatchDTO {
 
   String id;
   String merchantId;
+  String businessName;
   String month;
   String posType;
-  String batchType;
   String status;
   Boolean partial;
   String name;
@@ -26,4 +26,7 @@ public class RewardBatchDTO {
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   LocalDateTime endDate;
   Long totalAmountCents;
+  Long numberOfTransactions;
+  Long numberOfTransactionsElaborated;
+  String reportPath;
 }

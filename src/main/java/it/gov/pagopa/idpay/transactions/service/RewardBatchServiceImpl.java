@@ -1,8 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import org.springframework.dao.DuplicateKeyException;
-import it.gov.pagopa.idpay.transactions.enums.BatchType;
-import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
@@ -28,15 +26,14 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   }
 
   @Override
-  public Mono<RewardBatch> findOrCreateBatch(String merchantId, PosType posType, String month,
-      BatchType batchType) {
+  public Mono<RewardBatch> findOrCreateBatch(String merchantId, String posType, String month, String businessName) {
     return rewardBatchRepository.findByMerchantIdAndPosTypeAndMonthAndBatchType(merchantId, posType,
-            month, batchType)
+            month)
         .switchIfEmpty(Mono.defer(() ->
-            createBatch(merchantId, posType, month, batchType)
+            createBatch(merchantId, posType, month, businessName)
                 .onErrorResume(DuplicateKeyException.class, ex ->
                     rewardBatchRepository.findByMerchantIdAndPosTypeAndMonthAndBatchType(merchantId,
-                        posType, month, batchType))));
+                        posType, month))));
   }
 
   @Override
@@ -47,7 +44,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
   }
 
-  private Mono<RewardBatch> createBatch(String merchantId, PosType posType, String month, BatchType batchType) {
+  private Mono<RewardBatch> createBatch(String merchantId, String posType, String month, String businessName) {
 
     YearMonth batchYearMonth = YearMonth.parse(month);
     LocalDateTime startDate = batchYearMonth.atDay(1).atStartOfDay();
@@ -55,26 +52,32 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     RewardBatch batch = RewardBatch.builder()
         .merchantId(merchantId)
+        .businessName(businessName)
         .month(month)
         .posType(posType)
-        .batchType(batchType)
         .status(RewardBatchStatus.CREATED)
         .partial(false)
-        .name(buildBatchName(batchYearMonth, posType, batchType))
+        .name(buildBatchName(batchYearMonth))
         .startDate(startDate)
         .endDate(endDate)
+        .totalAmountCents(0L)
+        .numberOfTransactions(0L)
+        .numberOfTransactionsElaborated(0L)
+        .reportPath(null)
         .build();
 
     return rewardBatchRepository.save(batch);
   }
 
-  private String buildBatchName(YearMonth month, PosType posType, BatchType batchType) {
+  @Override
+  public Mono<RewardBatch> incrementTotals(String batchId, long accruedAmountCents) {
+    return rewardBatchRepository.incrementTotals(batchId, accruedAmountCents);
+  }
+
+  private String buildBatchName(YearMonth month) {
     String monthName = month.getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN);
     String year = String.valueOf(month.getYear());
-    String posLabel = posType == PosType.PHYSICAL ? "fisico" : "online";
 
-    return batchType == BatchType.REJECTED ?
-            String.format("%s %s - %s - rigettati", monthName, year, posLabel) :
-            String.format("%s %s - %s", monthName, year, posLabel);
+    return String.format("%s %s", monthName, year);
   }
 }

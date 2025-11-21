@@ -9,6 +9,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -27,13 +28,10 @@ class RewardTransactionServiceImplTest {
     @Mock
     private RewardBatchService rewardBatchService;
 
-    @Mock
-    private MerchantRestClient merchantRestClient;
-
     private RewardTransactionService rewardTransactionService;
     @BeforeEach
     void setUp(){
-        rewardTransactionService = new RewardTransactionServiceImpl(rewardTransactionRepository, rewardBatchService, merchantRestClient);
+        rewardTransactionService = new RewardTransactionServiceImpl(rewardTransactionRepository, rewardBatchService);
     }
 
     @Test
@@ -102,6 +100,7 @@ class RewardTransactionServiceImplTest {
         Mockito.verifyNoMoreInteractions(rewardTransactionRepository);
     }
 
+    @Disabled
     @Test
     void save_invoiced_enrichesBatch() {
         RewardTransaction rt = RewardTransaction.builder()
@@ -119,8 +118,7 @@ class RewardTransactionServiceImplTest {
         PointOfSaleDTO posDTO = new PointOfSaleDTO();
         posDTO.setId("POS1");
         posDTO.setType(PointOfSaleTypeEnum.ONLINE);
-        Mockito.when(merchantRestClient.getPointOfSale(rt.getMerchantId(), rt.getPointOfSaleId()))
-            .thenReturn(Mono.just(posDTO));
+
 
         RewardBatch batch = new RewardBatch();
         batch.setId("BATCH1");

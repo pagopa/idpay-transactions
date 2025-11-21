@@ -1,7 +1,5 @@
 package it.gov.pagopa.idpay.transactions.model;
 
-import it.gov.pagopa.idpay.transactions.enums.BatchType;
-import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -28,15 +26,18 @@ public class RewardBatch {
     @Id
     private String id;
     private String merchantId;
+    private String businessName;
     private String month;
-    private PosType posType;
-    private BatchType batchType;
+    private String posType;
     private RewardBatchStatus status;
     private Boolean partial;
     private String name;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
     private Long totalAmountCents;
+    private Long numberOfTransactions;
+    private Long numberOfTransactionsElaborated;
+    private String reportPath;
 
     @CreatedDate
     private Instant creationDate;

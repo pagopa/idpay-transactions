@@ -69,4 +69,7 @@ public class RewardTransactionDTO {
     private InvoiceData invoiceData;
     private InvoiceData creditNoteData;
     private String trxCode;
+    private String franchiseName;
+    private String pointOfSaleType;
+    private String businessName;
 }

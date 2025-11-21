@@ -71,4 +71,7 @@ public class RewardTransaction {
     private RewardBatchTrxStatus rewardBatchTrxStatus;
     private String rewardBatchRejectionReason;
     private LocalDateTime rewardBatchInclusionDate;
+    private String franchiseName;
+    private String pointOfSaleType;
+    private String businessName;
 }

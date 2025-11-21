@@ -13,15 +13,18 @@ public class RewardBatchMapper {
     RewardBatchDTO dto = RewardBatchDTO.builder()
         .id(rewardBatch.getId())
         .merchantId(rewardBatch.getMerchantId())
+        .businessName(rewardBatch.getBusinessName())
         .month(rewardBatch.getMonth())
-        .posType(rewardBatch.getPosType().toString())
+        .posType(rewardBatch.getPosType())
         .name(rewardBatch.getName())
         .status(rewardBatch.getStatus().toString())
-        .batchType(rewardBatch.getBatchType().toString())
         .partial(rewardBatch.getPartial())
         .startDate(rewardBatch.getStartDate())
         .endDate(rewardBatch.getEndDate())
         .totalAmountCents(rewardBatch.getTotalAmountCents())
+        .numberOfTransactions(rewardBatch.getNumberOfTransactions())
+        .numberOfTransactionsElaborated(rewardBatch.getNumberOfTransactionsElaborated())
+        .reportPath(rewardBatch.getReportPath())
         .build();
 
     return Mono.just(dto);

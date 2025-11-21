@@ -4,9 +4,11 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -37,6 +39,18 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     Criteria criteria = getCriteria(merchantId);
 
     return mongoTemplate.count(Query.query(criteria), RewardBatch.class);
+  }
+
+  @Override
+  public Mono<RewardBatch> incrementTotals(String batchId, long accruedAmountCents) {
+    return mongoTemplate.findAndModify(
+        Query.query(Criteria.where("_id").is(batchId)),
+        new Update()
+            .inc("totalAmountCents", accruedAmountCents)
+            .inc("numberOfTransactions", 1),
+        FindAndModifyOptions.options().returnNew(true),
+        RewardBatch.class
+    );
   }
 
   private Pageable getPageableRewardBatch(Pageable pageable) {

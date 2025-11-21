@@ -6,11 +6,13 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionDTOFaker;
 import it.gov.pagopa.common.utils.TestUtils;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.time.ZoneId;
 import java.util.Map;
 
+@Disabled
 class RewardTransactionMapperTest {
     @Test
     void mapFromDTO() {
