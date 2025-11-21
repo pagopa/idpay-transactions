@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import org.junit.jupiter.api.AfterEach;
@@ -275,7 +276,6 @@ class RewardTransactionSpecificRepositoryTest {
     @Test
     void findByFilter_withRewardBatchAndInvStatus() {
         String batchId = "BATCH1";
-        String invStatus = "INV_OK";
 
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
@@ -284,14 +284,14 @@ class RewardTransactionSpecificRepositoryTest {
                 .userId(USER_ID)
                 .status("REWARDED")
                 .rewardBatchId(batchId)
-                .invStatus(invStatus)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
                 .initiatives(List.of(INITIATIVE_ID))
                 .build();
         rewardTransactionRepository.save(rt1).block();
 
         Flux<RewardTransaction> resultFlux = rewardTransactionSpecificRepository.findByFilter(
                 MERCHANT_ID, INITIATIVE_ID, USER_ID,
-                "REWARDED", batchId, invStatus, null);
+                "REWARDED", batchId, RewardBatchTrxStatus.APPROVED, null);
 
         List<RewardTransaction> result = resultFlux.toStream().toList();
         assertEquals(1, result.size());

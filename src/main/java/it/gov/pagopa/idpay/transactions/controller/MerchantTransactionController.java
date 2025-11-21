@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -15,6 +16,6 @@ public interface MerchantTransactionController {
                                                               @RequestParam(required = false) String fiscalCode,
                                                               @RequestParam(required = false) String status,
                                                               @RequestParam(required = false) String rewardBatchId,
-                                                              @RequestParam(required = false) String invStatus,
+                                                              @RequestParam(required = false) RewardBatchTrxStatus rewardBatchTrxStatus,
                                                               @PageableDefault(sort="elaborationDateTime", direction = Sort.Direction.DESC) Pageable pageable);
 }

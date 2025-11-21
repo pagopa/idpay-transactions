@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.dto;
 
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,5 +17,5 @@ public class TrxFiltersDTO {
     private String status;
     private String userId;
     private String rewardBatchId;
-    private String invStatus;
+    private RewardBatchTrxStatus rewardBatchTrxStatus;
 }

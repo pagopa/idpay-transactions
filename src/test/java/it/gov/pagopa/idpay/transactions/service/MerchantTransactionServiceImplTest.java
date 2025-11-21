@@ -5,6 +5,7 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.counters.RewardCounters;
@@ -47,7 +48,6 @@ class MerchantTransactionServiceImplTest {
     private static final String USER_ID = "USERID1";
     private static final String FISCAL_CODE = "FISCALCODE1";
     private static final String REWARD_BATCH_ID = "BATCH_1";
-    private static final String INV_STATUS = "INV_OK";
 
     @BeforeEach
     void setUp() {
@@ -107,7 +107,7 @@ class MerchantTransactionServiceImplTest {
                         FISCAL_CODE,
                         "REWARDED",
                         REWARD_BATCH_ID,
-                        INV_STATUS,
+                        RewardBatchTrxStatus.APPROVED,
                         paging
                 );
 

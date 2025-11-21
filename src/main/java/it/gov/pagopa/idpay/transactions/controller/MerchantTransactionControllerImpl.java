@@ -1,10 +1,10 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.service.MerchantTransactionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
@@ -21,9 +21,8 @@ public class MerchantTransactionControllerImpl implements MerchantTransactionCon
                                                                      String fiscalCode,
                                                                      String status,
                                                                      String rewardBatchId,
-                                                                     String invStatus,
+                                                                     RewardBatchTrxStatus rewardBatchTrxStatus,
                                                                      Pageable pageable) {
-        //log.info("[GET_MERCHANT_TRANSACTIONS] Merchant {} requested to retrieve transactions", merchantId);
-        return merchantTransactionService.getMerchantTransactions(merchantId, initiativeId, fiscalCode, status, rewardBatchId, invStatus, pageable);
+        return merchantTransactionService.getMerchantTransactions(merchantId, initiativeId, fiscalCode, status, rewardBatchId, rewardBatchTrxStatus, pageable);
     }
 }

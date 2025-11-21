@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.service.MerchantTransactionService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -93,7 +94,7 @@ class MerchantTransactionControllerImplTest {
                 eq("FISCALCODE1"),
                 eq("REWARDED"),
                 eq("BATCH_1"),
-                eq("INV_OK"),
+                eq(RewardBatchTrxStatus.APPROVED),
                 any(Pageable.class)
         )).thenReturn(Mono.just(merchantTransactionsListDTO));
 
@@ -103,7 +104,7 @@ class MerchantTransactionControllerImplTest {
                 "FISCALCODE1",
                 "REWARDED",
                 "BATCH_1",
-                "INV_OK",
+                RewardBatchTrxStatus.APPROVED,
                 pageable
         );
 
@@ -118,7 +119,7 @@ class MerchantTransactionControllerImplTest {
                         eq("FISCALCODE1"),
                         eq("REWARDED"),
                         eq("BATCH_1"),
-                        eq("INV_OK"),
+                        eq(RewardBatchTrxStatus.APPROVED),
                         any(Pageable.class));
     }
 }

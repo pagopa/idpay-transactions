@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Mono;
 
@@ -10,6 +11,6 @@ public interface MerchantTransactionService {
                                                               String fiscalCode,
                                                               String status,
                                                               String rewardBatchId,
-                                                              String invStatus,
+                                                              RewardBatchTrxStatus rewardBatchTrxStatus,
                                                               Pageable pageable);
 }

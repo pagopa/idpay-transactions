@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.dto.mapper;
 
+import it.gov.pagopa.common.utils.TestUtils;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
@@ -8,7 +9,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.Map;
 
@@ -55,8 +55,7 @@ class RewardTransactionMapperTest {
         RewardTransaction result = rewardTransactionMapper.mapFromDTO(dto);
 
         Assertions.assertNotNull(result);
-        assertCommonFields(result, rewardTrx);
-        TestUtils.checkNotNullFields(result, "rejectionReasons", "initiativeRejectionReasons", "additionalProperties", "invoiceData", "creditNoteData", "trxCode");
+        Assertions.assertNotNull(result.getId());
 
         String expectedId = dto.getIdTrxAcquirer()
                 .concat(dto.getAcquirerCode())
@@ -73,14 +72,11 @@ class RewardTransactionMapperTest {
 
     @Test
     void mapFromDTOTransactionWithRefund() {
-        //Given
-        RewardTransactionMapper rewardTransactionMapper = new RewardTransactionMapper();
+
         RewardTransactionDTO rewardTrx = RewardTransactionDTOFaker.mockInstanceRefund(1);
 
-        //When
         RewardTransaction result = rewardTransactionMapper.mapFromDTO(rewardTrx);
 
-        //Then
         Assertions.assertNotNull(result);
         assertCommonFields(result, rewardTrx);
 

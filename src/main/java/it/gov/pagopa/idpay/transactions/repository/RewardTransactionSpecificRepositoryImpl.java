@@ -4,6 +4,7 @@ import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
 
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
@@ -106,8 +107,9 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         if (StringUtils.isNotBlank(filters.getRewardBatchId())) {
             criteria.and(RewardTransaction.Fields.rewardBatchId).is(filters.getRewardBatchId());
         }
-        if (StringUtils.isNotBlank(filters.getInvStatus())) {
-            criteria.and(RewardTransaction.Fields.invStatus).is(filters.getInvStatus());
+        if (filters.getRewardBatchTrxStatus() != null) {
+            criteria.and(RewardTransaction.Fields.rewardBatchTrxStatus)
+                    .is(filters.getRewardBatchTrxStatus());
         }
         if (StringUtils.isNotBlank(filters.getStatus())) {
             criteria.and(RewardTransaction.Fields.status).is(filters.getStatus());
@@ -118,8 +120,8 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Flux<RewardTransaction> findByFilter(String merchantId, String initiativeId, String userId, String status, String rewardBatchId, String invStatus, Pageable pageable){
-        TrxFiltersDTO filters = new TrxFiltersDTO(merchantId, initiativeId, status, userId, rewardBatchId, invStatus);
+    public Flux<RewardTransaction> findByFilter(String merchantId, String initiativeId, String userId, String status, String rewardBatchId, RewardBatchTrxStatus rewardBatchTrxStatus, Pageable pageable){
+        TrxFiltersDTO filters = new TrxFiltersDTO(merchantId, initiativeId, status, userId, rewardBatchId, rewardBatchTrxStatus);
         Criteria criteria = getCriteria(filters, null, null);
         return mongoTemplate.find(Query.query(criteria).with(getPageable(pageable)), RewardTransaction.class);
     }
