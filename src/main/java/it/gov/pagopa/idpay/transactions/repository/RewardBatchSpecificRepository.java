@@ -7,5 +7,7 @@ import reactor.core.publisher.Mono;
 
 public interface RewardBatchSpecificRepository {
   Flux<RewardBatch> findRewardBatchByMerchantId(String merchantId, Pageable pageable);
+  Flux<RewardBatch> findRewardBatch(Pageable pageable);
   Mono<Long> getCount(String merchantId);
+  Mono<Long> getCount();
 }

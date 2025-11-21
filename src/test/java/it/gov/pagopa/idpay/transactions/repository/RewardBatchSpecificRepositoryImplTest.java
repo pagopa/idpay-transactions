@@ -98,7 +98,7 @@ class RewardBatchSpecificRepositoryImplTest {
     Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByMerchantId("merchantA", null);
     List<RewardBatch> list = result.toStream().toList();
     assertEquals(2, list.size());
-    assertEquals("novembre 2025 - fisico", list.get(0).getName());
+    assertEquals("novembre 2025 - fisico", list.getFirst().getName());
     assertEquals("novembre 2025 - online", list.get(1).getName());
   }
 
@@ -110,7 +110,7 @@ class RewardBatchSpecificRepositoryImplTest {
         .toStream().toList();
 
     assertEquals(1, page1.size());
-    assertEquals("batch1", page1.get(0).getId());
+    assertEquals("batch1", page1.getFirst().getId());
 
     Pageable secondPage = PageRequest.of(1, 1, Sort.by("id").ascending());
     List<RewardBatch> page2 = rewardBatchSpecificRepository
@@ -118,8 +118,56 @@ class RewardBatchSpecificRepositoryImplTest {
         .toStream().toList();
 
     assertEquals(1, page2.size());
-    assertEquals("batch2", page2.get(0).getId());
+    assertEquals("batch2", page2.getFirst().getId());
 
-    assertNotEquals(page1.get(0).getId(), page2.get(0).getId());
+    assertNotEquals(page1.getFirst().getId(), page2.getFirst().getId());
+  }
+
+  @Test
+  void findRewardBatch_shouldReturnAllBatches() {
+    Pageable pageable = PageRequest.of(0, 10);
+    Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatch(pageable);
+
+    List<RewardBatch> list = result.toStream().toList();
+    assertEquals(2, list.size());
+    assertTrue(list.contains(batch1));
+    assertTrue(list.contains(batch2));
+  }
+
+  @Test
+  void getAllCount_shouldReturnCorrectNumber() {
+    Mono<Long> countMono = rewardBatchSpecificRepository.getCount();
+    Long count = countMono.block();
+    assertEquals(2L, count);
+  }
+
+  @Test
+  void findRewardBatch_withDefaultPageable_shouldReturnSortedBatches() {
+    Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatch(null);
+    List<RewardBatch> list = result.toStream().toList();
+    assertEquals(2, list.size());
+    assertEquals("novembre 2025 - fisico", list.getFirst().getName());
+    assertEquals("novembre 2025 - online", list.get(1).getName());
+  }
+
+  @Test
+  void findRewardBatch_withPagination_shouldRespectPageSize() {
+    Pageable firstPage = PageRequest.of(0, 1, Sort.by("id").ascending());
+    List<RewardBatch> page1 = rewardBatchSpecificRepository
+        .findRewardBatch(firstPage)
+        .toStream().toList();
+
+    assertEquals(1, page1.size());
+    assertEquals("batch1", page1.getFirst().getId());
+
+    Pageable secondPage = PageRequest.of(1, 1, Sort.by("id").ascending());
+    List<RewardBatch> page2 = rewardBatchSpecificRepository
+        .findRewardBatch(secondPage)
+        .toStream().toList();
+
+    assertEquals(1, page2.size());
+    assertEquals("batch2", page2.getFirst().getId());
+
+    assertNotEquals(page1.getFirst().getId(), page2.getFirst().getId());
   }
 }

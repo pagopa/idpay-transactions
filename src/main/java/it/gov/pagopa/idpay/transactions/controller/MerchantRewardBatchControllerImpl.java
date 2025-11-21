@@ -24,19 +24,34 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
 
   @Override
   public Mono<RewardBatchListDTO> getMerchantRewardBatches(String merchantId, String initiativeId, Pageable pageable) {
-    log.info("[GET_MERCHANT_REWARD_BATCHES] Merchant {} requested to retrieve reward batches", Utilities.sanitizeString(merchantId));
-
-    return this.rewardBatchService.getMerchantRewardBatches(merchantId, pageable)
-        .flatMap(page ->
-            Flux.fromIterable(page.getContent())
-                .flatMapSequential(rewardBatchMapper::toDTO)
-                .collectList()
-                .map(dtoList -> new RewardBatchListDTO(
-                    dtoList,
-                    page.getNumber(),
-                    page.getSize(),
-                    (int) page.getTotalElements(),
-                    page.getTotalPages()))
-        );
+    if(merchantId!=null) {
+      log.info("[GET_MERCHANT_REWARD_BATCHES] Merchant {} requested to retrieve reward batches", Utilities.sanitizeString(merchantId));
+      return this.rewardBatchService.getMerchantRewardBatches(merchantId, pageable)
+          .flatMap(page ->
+              Flux.fromIterable(page.getContent())
+                  .flatMapSequential(rewardBatchMapper::toDTO)
+                  .collectList()
+                  .map(dtoList -> new RewardBatchListDTO(
+                      dtoList,
+                      page.getNumber(),
+                      page.getSize(),
+                      (int) page.getTotalElements(),
+                      page.getTotalPages()))
+          );
+    }else{
+      log.info("[GET_ALL_REWARD_BATCHES] Received a request to retrieve all reward batches");
+      return this.rewardBatchService.getAllRewardBatches(pageable)
+          .flatMap(page ->
+              Flux.fromIterable(page.getContent())
+                  .flatMapSequential(rewardBatchMapper::toDTO)
+                  .collectList()
+                  .map(dtoList -> new RewardBatchListDTO(
+                      dtoList,
+                      page.getNumber(),
+                      page.getSize(),
+                      (int) page.getTotalElements(),
+                      page.getTotalPages()))
+          );
+    }
   }
 }

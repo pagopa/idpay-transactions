@@ -11,4 +11,5 @@ public interface RewardBatchService {
 
   Mono<RewardBatch> findOrCreateBatch(String merchantId, PosType posType, String month, BatchType batchType);
   Mono<Page<RewardBatch>> getMerchantRewardBatches(String merchantId, Pageable pageable);
+  Mono<Page<RewardBatch>> getAllRewardBatches(Pageable pageable);
 }
