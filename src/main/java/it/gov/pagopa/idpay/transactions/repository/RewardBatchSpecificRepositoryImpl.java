@@ -56,7 +56,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
 
   private Pageable getPageableRewardBatch(Pageable pageable) {
     if (pageable == null || pageable.getSort().isUnsorted()) {
-      return PageRequest.of(0, 10, Sort.by("name").ascending());
+      return PageRequest.of(0, 10, Sort.by("month").ascending());
     }
     return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort());
   }
