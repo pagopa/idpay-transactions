@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.data.convert.ReadingConverter;
 import org.springframework.data.convert.WritingConverter;
+import org.springframework.data.mongodb.config.EnableMongoAuditing;
 import org.springframework.data.mongodb.core.convert.MongoCustomConversions;
 
 import java.math.BigDecimal;
@@ -17,6 +18,7 @@ import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 @Configuration
+@EnableMongoAuditing
 public class MongoConfig {
 
     @Configuration
