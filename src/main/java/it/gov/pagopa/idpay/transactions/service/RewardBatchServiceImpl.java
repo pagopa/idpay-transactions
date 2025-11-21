@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import org.springframework.dao.DuplicateKeyException;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
@@ -69,9 +70,13 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         .startDate(startDate)
         .endDate(endDate)
         .totalAmountCents(0L)
+        .approvedAmountCents(0L)
         .numberOfTransactions(0L)
         .numberOfTransactionsElaborated(0L)
         .reportPath(null)
+        .assigneLevel(RewardBatchAssignee.L1)
+        .numberOfTransactionsSuspended(0L)
+        .numberOfTransactionsRejected(0L)
         .build();
 
     return rewardBatchRepository.save(batch);

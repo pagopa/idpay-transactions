@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.LocalDateTime;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -29,4 +30,5 @@ public class RewardBatchDTO {
   Long numberOfTransactions;
   Long numberOfTransactionsElaborated;
   String reportPath;
+  String assigneLevel;
 }

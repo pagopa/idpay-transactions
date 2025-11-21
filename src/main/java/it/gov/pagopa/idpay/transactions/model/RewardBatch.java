@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.model;
 
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -9,6 +10,7 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldNameConstants;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.FieldType;
 import org.springframework.data.mongodb.core.mapping.MongoId;
 import org.springframework.format.annotation.DateTimeFormat;
 
@@ -21,7 +23,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 @Document(collection = "rewards_batch")
 public class RewardBatch {
 
-    @MongoId
+    @MongoId(FieldType.STRING)
     private String id;
     private String merchantId;
     private String businessName;
@@ -33,10 +35,13 @@ public class RewardBatch {
     private LocalDateTime startDate;
     private LocalDateTime endDate;
     private Long totalAmountCents;
+    private Long approvedAmountCents;
     private Long numberOfTransactions;
     private Long numberOfTransactionsElaborated;
     private String reportPath;
-    private String assigneLevel;
+    private RewardBatchAssignee assigneLevel;
+    private Long numberOfTransactionsSuspended;
+    private Long numberOfTransactionsRejected;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime creationDate;
