@@ -20,9 +20,9 @@ import org.mockito.Mockito;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
-import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,7 +36,7 @@ import java.util.regex.Pattern;
 @WebFluxTest
 public class ErrorManagerTest {
 
-    @SpyBean
+    @MockitoSpyBean
     private TestController testController;
 
     @RestController
@@ -165,13 +165,13 @@ public class ErrorManagerTest {
     }
 
     public static void checkStackTraceSuppressedLog(MemoryAppender memoryAppender, String expectedLoggedMessage) {
-        String loggedMessage = memoryAppender.getLoggedEvents().get(0).getFormattedMessage();
+        String loggedMessage = memoryAppender.getLoggedEvents().getFirst().getFormattedMessage();
         Assertions.assertTrue(Pattern.matches(expectedLoggedMessage, loggedMessage),
                 "Unexpected logged message: " + loggedMessage);
     }
 
     public static void checkLog(MemoryAppender memoryAppender, String expectedLoggedMessageRegexp, String expectedLoggedExceptionMessage, String expectedLoggedExceptionOccurrencePosition) {
-        ILoggingEvent loggedEvent = memoryAppender.getLoggedEvents().get(0);
+        ILoggingEvent loggedEvent = memoryAppender.getLoggedEvents().getFirst();
         IThrowableProxy loggedException = loggedEvent.getThrowableProxy();
         StackTraceElementProxy loggedExceptionOccurrenceStackTrace = loggedException.getStackTraceElementProxyArray()[0];
 

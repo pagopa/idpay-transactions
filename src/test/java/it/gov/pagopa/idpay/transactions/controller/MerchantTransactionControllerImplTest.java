@@ -1,50 +1,125 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
-import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.service.MerchantTransactionService;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
-@WebFluxTest(controllers = {MerchantTransactionController.class})
-class MerchantTransactionControllerImplTest {
-    @MockBean
-    MerchantTransactionService merchantTransactionService;
+import java.util.List;
 
-    @Autowired
-    protected WebTestClient webClient;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class MerchantTransactionControllerImplTest {
+
+    @Mock
+    private MerchantTransactionService merchantTransactionService;
+
+    @InjectMocks
+    private MerchantTransactionControllerImpl controller;
 
     @Test
-    void findMerchantTransactionsOk() {
-
+    void getMerchantTransactionsOk_noFilters() {
         MerchantTransactionsListDTO merchantTransactionsListDTO = MerchantTransactionsListDTO.builder()
+                .content(List.of())
                 .pageNo(0)
                 .pageSize(10)
-                .totalElements(1)
-                .totalPages(1).build();
+                .totalElements(0)
+                .totalPages(0)
+                .build();
 
-        Pageable paging = PageRequest.of(0, 10, Sort.by(RewardTransaction.Fields.elaborationDateTime).descending());
+        Pageable pageable = PageRequest.of(0, 10);
 
-        //no filter
-        Mockito.when(merchantTransactionService.getMerchantTransactions("test", "INITIATIVE_ID", null, null, paging))
-                .thenReturn(Mono.just(merchantTransactionsListDTO));
+        when(merchantTransactionService.getMerchantTransactions(
+                eq("testMerchant"),
+                eq("INITIATIVE_ID"),
+                isNull(),
+                isNull(),
+                isNull(),
+                isNull(),
+                any(Pageable.class)
+        )).thenReturn(Mono.just(merchantTransactionsListDTO));
 
-        webClient.get()
-                .uri(uriBuilder -> uriBuilder.path("/idpay/merchant/portal/initiatives/{initiativeId}/transactions/processed")
-                        .build("INITIATIVE_ID"))
-                .header("x-merchant-id", "test")
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody(MerchantTransactionsListDTO.class).isEqualTo(merchantTransactionsListDTO);
+        Mono<MerchantTransactionsListDTO> resultMono = controller.getMerchantTransactions(
+                "testMerchant",
+                "INITIATIVE_ID",
+                null,
+                null,
+                null,
+                null,
+                pageable
+        );
 
-        Mockito.verify(merchantTransactionService, Mockito.times(1)).getMerchantTransactions("test", "INITIATIVE_ID", null, null, paging);
+        MerchantTransactionsListDTO result = resultMono.block();
+
+        assertEquals(merchantTransactionsListDTO, result);
+
+        verify(merchantTransactionService, times(1))
+                .getMerchantTransactions(
+                        eq("testMerchant"),
+                        eq("INITIATIVE_ID"),
+                        isNull(),
+                        isNull(),
+                        isNull(),
+                        isNull(),
+                        any(Pageable.class));
+    }
+
+    @Test
+    void getMerchantTransactionsOk_withAllFilters() {
+        MerchantTransactionsListDTO merchantTransactionsListDTO = MerchantTransactionsListDTO.builder()
+                .content(List.of())
+                .pageNo(0)
+                .pageSize(10)
+                .totalElements(0)
+                .totalPages(0)
+                .build();
+
+        Pageable pageable = PageRequest.of(0, 10);
+
+        when(merchantTransactionService.getMerchantTransactions(
+                eq("testMerchant"),
+                eq("INITIATIVE_ID"),
+                eq("FISCALCODE1"),
+                eq("REWARDED"),
+                eq("BATCH_1"),
+                eq(RewardBatchTrxStatus.APPROVED),
+                any(Pageable.class)
+        )).thenReturn(Mono.just(merchantTransactionsListDTO));
+
+        Mono<MerchantTransactionsListDTO> resultMono = controller.getMerchantTransactions(
+                "testMerchant",
+                "INITIATIVE_ID",
+                "FISCALCODE1",
+                "REWARDED",
+                "BATCH_1",
+                RewardBatchTrxStatus.APPROVED,
+                pageable
+        );
+
+        MerchantTransactionsListDTO result = resultMono.block();
+
+        assertEquals(merchantTransactionsListDTO, result);
+
+        verify(merchantTransactionService, times(1))
+                .getMerchantTransactions(
+                        eq("testMerchant"),
+                        eq("INITIATIVE_ID"),
+                        eq("FISCALCODE1"),
+                        eq("REWARDED"),
+                        eq("BATCH_1"),
+                        eq(RewardBatchTrxStatus.APPROVED),
+                        any(Pageable.class));
     }
 }

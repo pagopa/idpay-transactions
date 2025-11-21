@@ -17,7 +17,7 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
-import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.test.context.ContextConfiguration;
@@ -71,12 +71,13 @@ class MongoRequestRateTooLargeRetryIntegrationTest {
 
     private static final int API_RETRYABLE_MAX_RETRY = 5;
 
-    @SpyBean
+    @MockitoSpyBean
     private TestRepository testRepositorySpy;
+
     @Autowired
     private DummySpringRepository dummySpringRepository;
 
-    @SpyBean
+    @MockitoSpyBean
     private MongoRequestRateTooLargeAutomaticRetryAspect automaticRetryAspectSpy;
 
     private static int[] counter;

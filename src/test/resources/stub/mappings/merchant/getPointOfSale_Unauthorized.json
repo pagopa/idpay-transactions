@@ -1,0 +1,15 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/idpay/merchant/portal/(MERCHANT_UNAUTHORIZED_[0-9]+)/point-of-sales/(POS_UNAUTHORIZED_[0-9]+)"
+  },
+  "response": {
+    "status": 401,
+    "jsonBody": {
+      "error": "Unauthorized"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}
