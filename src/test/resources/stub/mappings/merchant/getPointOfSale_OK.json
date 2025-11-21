@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/idpay/merchant/portal/(MERCHANT_OK_[0-9]+)/point-of-sales/(POS_OK_[0-9]+)"
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "merchantId": "MERCHANT_OK_1",
+      "pointOfSaleId": "POS_OK_1",
+      "name": "Posizione Principale",
+      "address": "Via Roma 1",
+      "city": "Roma",
+      "cap": "00100",
+      "active": true
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

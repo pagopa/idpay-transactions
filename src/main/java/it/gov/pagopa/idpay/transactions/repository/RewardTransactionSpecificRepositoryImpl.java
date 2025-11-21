@@ -222,8 +222,12 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
     @Override
     public Mono<RewardTransaction> findOneByInitiativeId(String initiativeId) {
-        Criteria criteria = Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId);
+        Criteria criteria = getCriteria(initiativeId);
         return mongoTemplate.findOne(Query.query(criteria), RewardTransaction.class);
+    }
+
+    private static Criteria getCriteria(String initiativeId) {
+        return Criteria.where(Fields.initiatives).is(initiativeId);
     }
 
     @Override
