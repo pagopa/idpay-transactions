@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import java.time.Instant;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -56,7 +57,8 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
         Query.query(Criteria.where("_id").is(batchId)),
         new Update()
             .inc("totalAmountCents", accruedAmountCents)
-            .inc("numberOfTransactions", 1),
+            .inc("numberOfTransactions", 1)
+            .set("updateDate", Instant.now()),
         FindAndModifyOptions.options().returnNew(true),
         RewardBatch.class
     );
