@@ -10,9 +10,9 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldNameConstants;
 import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.MongoId;
 
 @Data
 @AllArgsConstructor
@@ -23,7 +23,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 @Document(collection = "rewards_batch")
 public class RewardBatch {
 
-    @Id
+    @MongoId
     private String id;
     private String merchantId;
     private String businessName;
