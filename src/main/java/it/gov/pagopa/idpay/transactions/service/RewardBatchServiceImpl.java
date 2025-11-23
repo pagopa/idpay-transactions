@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import org.springframework.dao.DuplicateKeyException;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -27,7 +28,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   }
 
   @Override
-  public Mono<RewardBatch> findOrCreateBatch(String merchantId, String posType, String month, String businessName) {
+  public Mono<RewardBatch> findOrCreateBatch(String merchantId, PosType posType, String month, String businessName) {
     return rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(merchantId, posType,
             month)
         .switchIfEmpty(Mono.defer(() ->
@@ -53,7 +54,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
   }
 
-  private Mono<RewardBatch> createBatch(String merchantId, String posType, String month, String businessName) {
+  private Mono<RewardBatch> createBatch(String merchantId, PosType posType, String month, String businessName) {
 
     YearMonth batchYearMonth = YearMonth.parse(month);
     LocalDateTime startDate = batchYearMonth.atDay(1).atTime(0,0,0);

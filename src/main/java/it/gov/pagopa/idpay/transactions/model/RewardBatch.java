@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.model;
 
+import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import java.time.LocalDateTime;
@@ -28,7 +29,7 @@ public class RewardBatch {
     private String merchantId;
     private String businessName;
     private String month;
-    private String posType;
+    private PosType posType;
     private RewardBatchStatus status;
     private Boolean partial;
     private String name;

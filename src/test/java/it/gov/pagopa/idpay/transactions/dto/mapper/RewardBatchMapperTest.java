@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
+import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import java.time.LocalDateTime;
@@ -30,7 +31,7 @@ class RewardBatchMapperTest {
         .merchantId("merchantABC")
         .businessName("Test business")
         .month("2025-11")
-        .posType("PHYSICAL")
+        .posType(PosType.PHYSICAL)
         .status(RewardBatchStatus.CREATED)
         .partial(false)
         .name("novembre 2025")
@@ -50,7 +51,7 @@ class RewardBatchMapperTest {
           assertEquals("merchantABC", dto.getMerchantId());
           assertEquals("Test business", dto.getBusinessName());
           assertEquals("2025-11", dto.getMonth());
-          assertEquals("PHYSICAL", dto.getPosType());
+          assertEquals(PosType.PHYSICAL, dto.getPosType());
           assertEquals("CREATED", dto.getStatus());
           assertFalse(dto.getPartial());
           assertEquals("novembre 2025", dto.getName());

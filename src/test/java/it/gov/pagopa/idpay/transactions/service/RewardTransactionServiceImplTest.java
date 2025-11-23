@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
@@ -107,7 +108,7 @@ class RewardTransactionServiceImplTest {
             .idTrxIssuer("IDTRXISSUER")
             .status("INVOICED")
             .merchantId("MERCHANT1")
-            .pointOfSaleType("ONLINE")
+            .pointOfSaleType(PosType.ONLINE)
             .pointOfSaleId("POS1")
             .businessName("Test Business")
             .trxChargeDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
