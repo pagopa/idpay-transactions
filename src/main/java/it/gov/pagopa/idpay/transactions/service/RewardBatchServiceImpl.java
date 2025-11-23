@@ -1,7 +1,10 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
+import it.gov.pagopa.idpay.transactions.repository.RewardTransactionSpecificRepository;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.springframework.dao.DuplicateKeyException;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
@@ -14,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -22,9 +26,11 @@ import reactor.core.publisher.Mono;
 public class RewardBatchServiceImpl implements RewardBatchService {
 
   private final RewardBatchRepository rewardBatchRepository;
+  private final RewardTransactionSpecificRepository rewardTransactionSpecificRepository;
 
-  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository) {
+  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionSpecificRepository rewardTransactionSpecificRepository) {
     this.rewardBatchRepository = rewardBatchRepository;
+    this.rewardTransactionSpecificRepository = rewardTransactionSpecificRepository;
   }
 
   @Override
@@ -87,6 +93,35 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   public Mono<RewardBatch> incrementTotals(String batchId, long accruedAmountCents) {
     return rewardBatchRepository.incrementTotals(batchId, accruedAmountCents);
   }
+
+    @Override
+    public void sendRewardBatch(String merchantId, String batchId) {
+        RewardBatch batch = rewardBatchRepository.findById(batchId).block();
+        // TODO : come gestire in modo reattivo ?
+
+        if(batch==null){
+            throw new RewardBatchException(HttpStatus.NOT_FOUND, ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND);
+        }
+        if(!merchantId.equals(batch.getMerchantId())){
+            log.warn("[SEND_REWARD_BATCHES] Merchant id mismatch !");
+            throw new RewardBatchException(HttpStatus.NOT_FOUND, ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND);
+        }
+        if(batch.getStatus() != RewardBatchStatus.CREATED){
+            throw new RewardBatchException(HttpStatus.BAD_REQUEST, ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST);
+        }
+
+        YearMonth batchMonth = YearMonth.parse(batch.getMonth());
+        if(!YearMonth.now().isAfter(batchMonth)){
+            log.warn("[SEND_REWARD_BATCHES] Batch month too early to be sent !");
+            throw new RewardBatchException(HttpStatus.BAD_REQUEST, ExceptionConstants.ExceptionCode.REWARD_BATCH_MONTH_TOO_EARLY);
+        }
+
+        batch.setStatus(RewardBatchStatus.SENT);
+        batch.setUpdateDate(LocalDateTime.now());
+        rewardBatchRepository.save(batch).block();
+
+        rewardTransactionSpecificRepository.rewardTransactionsByBatchId(batchId);
+    }
 
   private String buildBatchName(YearMonth month) {
     String monthName = month.getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN);

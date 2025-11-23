@@ -12,4 +12,5 @@ public interface RewardBatchService {
   Mono<Page<RewardBatch>> getMerchantRewardBatches(String merchantId, Pageable pageable);
   Mono<Page<RewardBatch>> getAllRewardBatches(Pageable pageable);
   Mono<RewardBatch> incrementTotals(String batchId, long accruedAmountCents);
+  void sendRewardBatch(String merchantId, String batchId);
 }

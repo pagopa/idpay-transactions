@@ -243,4 +243,13 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                 Query.query(criteria),
                 RewardTransaction.class);
     }
+
+    @Override
+    public void rewardTransactionsByBatchId(String batchId) {
+        Criteria criteria = Criteria.where(Fields.rewardBatchId).is(batchId);
+        mongoTemplate.updateMulti(
+                Query.query(criteria),
+                new Update().set(Fields.status, SyncTrxStatus.REWARDED),
+                RewardTransaction.class).subscribe();
+    }
 }
