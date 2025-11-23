@@ -25,8 +25,7 @@ import reactor.core.publisher.Mono;
 @MongoTest
 class RewardBatchSpecificRepositoryImplTest {
 
-    public static final String MERCHANT_A = "merchantA";
-    public static final String MERCHANT_B = "merchantB";
+    public static final String MERCHANT = "merchantA";
     @Autowired
   protected RewardBatchRepository rewardBatchRepository;
 
@@ -42,7 +41,7 @@ class RewardBatchSpecificRepositoryImplTest {
 
     batch1 = RewardBatch.builder()
         .id("batch1")
-        .merchantId(MERCHANT_A)
+        .merchantId(MERCHANT)
         .businessName("Test business")
         .month("2025-11")
         .posType(PosType.PHYSICAL)
@@ -59,7 +58,7 @@ class RewardBatchSpecificRepositoryImplTest {
 
     batch2 = RewardBatch.builder()
         .id("batch2")
-        .merchantId(MERCHANT_B)
+        .merchantId(MERCHANT)
         .businessName("Test business")
         .month("2025-11")
         .posType(PosType.ONLINE)
@@ -85,7 +84,7 @@ class RewardBatchSpecificRepositoryImplTest {
   @Test
   void findRewardBatchByMerchantId_shouldReturnAllBatches() {
     Pageable pageable = PageRequest.of(0, 10);
-    Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByMerchantId(MERCHANT_A, pageable);
+    Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByMerchantId(MERCHANT, pageable);
 
     List<RewardBatch> list = result.toStream().toList();
     assertEquals(2, list.size());
@@ -95,14 +94,14 @@ class RewardBatchSpecificRepositoryImplTest {
 
   @Test
   void getCount_shouldReturnCorrectNumber() {
-    Mono<Long> countMono = rewardBatchSpecificRepository.getCount(MERCHANT_A);
+    Mono<Long> countMono = rewardBatchSpecificRepository.getCount(MERCHANT);
     Long count = countMono.block();
     assertEquals(2L, count);
   }
 
   @Test
   void findRewardBatchByMerchantId_withDefaultPageable_shouldReturnSortedBatches() {
-    Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByMerchantId(MERCHANT_A, null);
+    Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByMerchantId(MERCHANT, null);
     List<RewardBatch> list = result.toStream().toList();
     assertEquals(2, list.size());
     assertEquals("novembre 2025", list.get(0).getName());
@@ -113,7 +112,7 @@ class RewardBatchSpecificRepositoryImplTest {
   void findRewardBatchByMerchantId_withPagination_shouldRespectPageSize() {
     Pageable firstPage = PageRequest.of(0, 1, Sort.by("id").ascending());
     List<RewardBatch> page1 = rewardBatchSpecificRepository
-        .findRewardBatchByMerchantId(MERCHANT_A, firstPage)
+        .findRewardBatchByMerchantId(MERCHANT, firstPage)
         .toStream().toList();
 
     assertEquals(1, page1.size());
@@ -121,7 +120,7 @@ class RewardBatchSpecificRepositoryImplTest {
 
     Pageable secondPage = PageRequest.of(1, 1, Sort.by("id").ascending());
     List<RewardBatch> page2 = rewardBatchSpecificRepository
-        .findRewardBatchByMerchantId(MERCHANT_A, secondPage)
+        .findRewardBatchByMerchantId(MERCHANT, secondPage)
         .toStream().toList();
 
     assertEquals(1, page2.size());
