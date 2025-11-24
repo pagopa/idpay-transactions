@@ -1,6 +1,8 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
+import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.service.RewardBatchService;
@@ -15,48 +17,50 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 @RestController
 @Slf4j
-public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchController {
+public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchController{
 
   private final RewardBatchService rewardBatchService;
   private final RewardBatchMapper rewardBatchMapper;
 
-  public MerchantRewardBatchControllerImpl(RewardBatchService rewardBatchService, RewardBatchMapper rewardBatchMapper) {
+  public MerchantRewardBatchControllerImpl(RewardBatchService rewardBatchService, RewardBatchMapper rewardBatchMapper){
     this.rewardBatchService = rewardBatchService;
     this.rewardBatchMapper = rewardBatchMapper;
   }
 
   @Override
   public Mono<RewardBatchListDTO> getMerchantRewardBatches(String merchantId, String initiativeId, Pageable pageable) {
-    if (merchantId != null) {
+    if(merchantId!=null) {
       log.info("[GET_MERCHANT_REWARD_BATCHES] Merchant {} requested to retrieve reward batches", Utilities.sanitizeString(merchantId));
       return this.rewardBatchService.getMerchantRewardBatches(merchantId, pageable)
-              .flatMap(page ->
-                      Flux.fromIterable(page.getContent())
-                              .flatMapSequential(rewardBatchMapper::toDTO)
-                              .collectList()
-                              .map(dtoList -> new RewardBatchListDTO(
-                                      dtoList,
-                                      page.getNumber(),
-                                      page.getSize(),
-                                      (int) page.getTotalElements(),
-                                      page.getTotalPages()))
-              );
-    } else {
+          .flatMap(page ->
+              Flux.fromIterable(page.getContent())
+                  .flatMapSequential(rewardBatchMapper::toDTO)
+                  .collectList()
+                  .map(dtoList -> new RewardBatchListDTO(
+                      dtoList,
+                      page.getNumber(),
+                      page.getSize(),
+                      (int) page.getTotalElements(),
+                      page.getTotalPages()))
+          );
+    }else{
       log.info("[GET_ALL_REWARD_BATCHES] Received a request to retrieve all reward batches");
       return this.rewardBatchService.getAllRewardBatches(pageable)
-              .flatMap(page ->
-                      Flux.fromIterable(page.getContent())
-                              .flatMapSequential(rewardBatchMapper::toDTO)
-                              .collectList()
-                              .map(dtoList -> new RewardBatchListDTO(
-                                      dtoList,
-                                      page.getNumber(),
-                                      page.getSize(),
-                                      (int) page.getTotalElements(),
-                                      page.getTotalPages()))
-              );
+          .flatMap(page ->
+              Flux.fromIterable(page.getContent())
+                  .flatMapSequential(rewardBatchMapper::toDTO)
+                  .collectList()
+                  .map(dtoList -> new RewardBatchListDTO(
+                      dtoList,
+                      page.getNumber(),
+                      page.getSize(),
+                      (int) page.getTotalElements(),
+                      page.getTotalPages()))
+          );
     }
   }
 
@@ -86,4 +90,23 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
 
 
 
+
+  @Override
+  public Mono<RewardBatchDTO> suspendTransactions(String merchantId, String initiativeId, String rewardBatchId, TransactionsRequest request) {
+
+    List<String> transactionIds = request.getTransactionIds() != null ? request.getTransactionIds() : List.of();
+    String reason = request.getReason();
+
+    log.info(
+            "[SUSPEND_TRANSACTIONS] Merchant {} requested to suspend {} transactions for rewardBatch {} of initiative {} with reason '{}'",
+            Utilities.sanitizeString(merchantId),
+            transactionIds.size(),
+            rewardBatchId,
+            initiativeId,
+            Utilities.sanitizeString(reason)
+    );
+
+    return rewardBatchService.suspendTransactions(rewardBatchId, request)
+            .flatMap(rewardBatchMapper::toDTO);
+  }
 }

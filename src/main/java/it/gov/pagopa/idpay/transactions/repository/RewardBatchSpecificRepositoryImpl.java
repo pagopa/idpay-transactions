@@ -10,6 +10,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.utils.AggregationConstants;
 import lombok.NonNull;
 import org.apache.commons.lang3.StringUtils;
+import java.time.LocalDateTime;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -31,18 +32,18 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Flux<RewardBatch> findRewardBatchByMerchantId(String merchantId, Pageable pageable) {
+  public Flux<RewardBatch> findRewardBatchByMerchantId(String merchantId, Pageable pageable){
 
     Criteria criteria = getCriteria(merchantId);
 
     return mongoTemplate.find(
-            Query.query(criteria).with(getPageableRewardBatch(pageable)),
-            RewardBatch.class);
+        Query.query(criteria).with(getPageableRewardBatch(pageable)),
+        RewardBatch.class);
 
   }
 
   @Override
-  public Flux<RewardBatch> findRewardBatch(Pageable pageable) {
+  public Flux<RewardBatch> findRewardBatch(Pageable pageable){
 
     Query query = new Query().with(getPageableRewardBatch(pageable));
 
@@ -54,7 +55,6 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     return Criteria.where(RewardBatch.Fields.merchantId).is(merchantId);
   }
 
-
   @Override
   public Mono<Long> getCount(String merchantId) {
     Criteria criteria = getCriteria(merchantId);
@@ -65,13 +65,13 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   @Override
   public Mono<RewardBatch> incrementTotals(String batchId, long accruedAmountCents) {
     return mongoTemplate.findAndModify(
-            Query.query(Criteria.where("_id").is(batchId)),
-            new Update()
-                    .inc("totalAmountCents", accruedAmountCents)
-                    .inc("numberOfTransactions", 1)
-                    .set("updateDate", Instant.now()),
-            FindAndModifyOptions.options().returnNew(true),
-            RewardBatch.class
+        Query.query(Criteria.where("_id").is(batchId)),
+        new Update()
+            .inc("totalAmountCents", accruedAmountCents)
+            .inc("numberOfTransactions", 1)
+            .set("updateDate", LocalDateTime.now()),
+        FindAndModifyOptions.options().returnNew(true),
+        RewardBatch.class
     );
   }
 

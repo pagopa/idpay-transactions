@@ -2,6 +2,8 @@ package it.gov.pagopa.idpay.transactions.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.LocalDateTime;
+
+import it.gov.pagopa.idpay.transactions.enums.PosType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,7 +19,7 @@ public class RewardBatchDTO {
   String merchantId;
   String businessName;
   String month;
-  String posType;
+  PosType posType;
   String status;
   Boolean partial;
   String name;
@@ -29,4 +31,5 @@ public class RewardBatchDTO {
   Long numberOfTransactions;
   Long numberOfTransactionsElaborated;
   String reportPath;
+  String assigneeLevel;
 }

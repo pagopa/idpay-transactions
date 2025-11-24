@@ -1,15 +1,14 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
-import it.gov.pagopa.idpay.transactions.connector.rest.dto.PointOfSaleDTO;
-import it.gov.pagopa.idpay.transactions.connector.rest.dto.PointOfSaleTypeEnum;
+import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -100,7 +99,6 @@ class RewardTransactionServiceImplTest {
         Mockito.verifyNoMoreInteractions(rewardTransactionRepository);
     }
 
-    @Disabled
     @Test
     void save_invoiced_enrichesBatch() {
         RewardTransaction rt = RewardTransaction.builder()
@@ -110,19 +108,24 @@ class RewardTransactionServiceImplTest {
             .idTrxIssuer("IDTRXISSUER")
             .status("INVOICED")
             .merchantId("MERCHANT1")
+            .pointOfSaleType(PosType.ONLINE)
             .pointOfSaleId("POS1")
-            .trxChargeDate(LocalDateTime.of(2022, 9, 19, 15, 43, 39))
+            .businessName("Test Business")
+            .trxChargeDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
+            .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(1000L).build()))
             .build();
-
-
-        PointOfSaleDTO posDTO = new PointOfSaleDTO();
-        posDTO.setId("POS1");
-        posDTO.setType(PointOfSaleTypeEnum.ONLINE);
-
 
         RewardBatch batch = new RewardBatch();
         batch.setId("BATCH1");
-        Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
+
+        Mockito.when(rewardBatchService.findOrCreateBatch(
+            rt.getMerchantId(),
+            rt.getPointOfSaleType(),
+            "2025-11",
+            rt.getBusinessName()
+        )).thenReturn(Mono.just(batch));
+
+        Mockito.when(rewardBatchService.incrementTotals(batch.getId(), 1000L))
             .thenReturn(Mono.just(batch));
 
         Mockito.when(rewardTransactionRepository.save(Mockito.any()))
@@ -132,9 +135,8 @@ class RewardTransactionServiceImplTest {
 
         Assertions.assertNotNull(result);
         Assertions.assertEquals("BATCH1", result.getRewardBatchId());
-        Assertions.assertEquals(RewardBatchTrxStatus.TO_CHECK, result.getRewardBatchTrxStatus());
+        Assertions.assertEquals(RewardBatchTrxStatus.CONSULTABLE, result.getRewardBatchTrxStatus());
         Assertions.assertNotNull(result.getRewardBatchInclusionDate());
         Mockito.verify(rewardTransactionRepository, Mockito.times(1)).save(Mockito.any());
     }
-
 }
