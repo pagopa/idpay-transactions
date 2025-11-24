@@ -31,5 +31,5 @@ public class RewardBatchDTO {
   Long numberOfTransactions;
   Long numberOfTransactionsElaborated;
   String reportPath;
-  String assigneLevel;
+  String assigneeLevel;
 }

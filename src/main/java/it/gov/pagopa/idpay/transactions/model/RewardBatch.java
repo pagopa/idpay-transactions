@@ -40,7 +40,7 @@ public class RewardBatch {
     private Long numberOfTransactions;
     private Long numberOfTransactionsElaborated;
     private String reportPath;
-    private RewardBatchAssignee assigneLevel;
+    private RewardBatchAssignee assigneeLevel;
     private Long numberOfTransactionsSuspended;
     private Long numberOfTransactionsRejected;
 
