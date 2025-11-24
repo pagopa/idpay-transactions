@@ -1,6 +1,8 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
+import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
 import it.gov.pagopa.idpay.transactions.service.RewardBatchService;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
@@ -9,6 +11,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 @RestController
 @Slf4j
@@ -53,5 +57,24 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
                       page.getTotalPages()))
           );
     }
+  }
+
+  @Override
+  public Mono<RewardBatchDTO> suspendTransactions(String merchantId, String initiativeId, String rewardBatchId, TransactionsRequest request) {
+
+    List<String> transactionIds = request.getTransactionIds() != null ? request.getTransactionIds() : List.of();
+    String reason = request.getReason();
+
+    log.info(
+            "[SUSPEND_TRANSACTIONS] Merchant {} requested to suspend {} transactions for rewardBatch {} of initiative {} with reason '{}'",
+            Utilities.sanitizeString(merchantId),
+            transactionIds.size(),
+            rewardBatchId,
+            initiativeId,
+            Utilities.sanitizeString(reason)
+    );
+
+    return rewardBatchService.suspendTransactions(rewardBatchId, request)
+            .flatMap(rewardBatchMapper::toDTO);
   }
 }

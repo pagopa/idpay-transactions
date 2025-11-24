@@ -1,12 +1,19 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
+import com.mongodb.client.result.UpdateResult;
+import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import java.time.YearMonth;
+import java.util.Arrays;
+import java.util.Collections;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +23,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.FindAndModifyOptions;
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -28,11 +39,14 @@ class RewardBatchServiceImplTest {
 
   private RewardBatchService rewardBatchService;
 
+    @Mock
+  private ReactiveMongoTemplate reactiveMongoTemplate;
+
   private static String businessName = "Test Business name";
 
   @BeforeEach
   void setUp(){
-    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository);
+    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, reactiveMongoTemplate);
   }
 
 
@@ -41,11 +55,11 @@ class RewardBatchServiceImplTest {
     YearMonth yearMonth = YearMonth.of(2025, 11);
     String batchMonth = yearMonth.toString();
 
-    Mockito.when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
+    when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
             "M1", PosType.PHYSICAL, batchMonth))
         .thenReturn(Mono.empty());
 
-    Mockito.when(rewardBatchRepository.save(any()))
+    when(rewardBatchRepository.save(any()))
         .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
     StepVerifier.create(rewardBatchService.findOrCreateBatch("M1", PosType.PHYSICAL, batchMonth, businessName))
@@ -59,7 +73,7 @@ class RewardBatchServiceImplTest {
         })
         .verifyComplete();
 
-    Mockito.verify(rewardBatchRepository).save(any());
+    verify(rewardBatchRepository).save(any());
   }
 
   @Test
@@ -76,7 +90,7 @@ class RewardBatchServiceImplTest {
         .name("novembre 2025")
         .build();
 
-    Mockito.when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth("M1", PosType.PHYSICAL, batchMonth))
+    when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth("M1", PosType.PHYSICAL, batchMonth))
         .thenReturn(Mono.just(existingBatch));
 
     StepVerifier.create(rewardBatchService.findOrCreateBatch("M1", PosType.PHYSICAL, batchMonth, businessName))
@@ -88,7 +102,7 @@ class RewardBatchServiceImplTest {
         })
         .verifyComplete();
 
-    Mockito.verify(rewardBatchRepository, Mockito.never()).save(any());
+    verify(rewardBatchRepository, never()).save(any());
   }
 
   @Test
@@ -106,16 +120,16 @@ class RewardBatchServiceImplTest {
         .name("novembre 2025")
         .build();
 
-    Mockito.when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
+    when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
             "M1", posType, batchMonth))
         .thenReturn(Mono.empty())
         .thenReturn(Mono.just(existingBatch));
 
-    Mockito.when(rewardBatchRepository.save(any()))
+    when(rewardBatchRepository.save(any()))
         .thenReturn(Mono.error(new DuplicateKeyException("Duplicate")));
 
     StepVerifier.create(
-            new RewardBatchServiceImpl(rewardBatchRepository)
+            new RewardBatchServiceImpl(rewardBatchRepository, reactiveMongoTemplate)
                 .findOrCreateBatch("M1", posType, batchMonth, businessName)
         )
         .assertNext(batch -> {
@@ -125,9 +139,9 @@ class RewardBatchServiceImplTest {
         })
         .verifyComplete();
 
-    Mockito.verify(rewardBatchRepository, Mockito.times(2))
+    verify(rewardBatchRepository, Mockito.times(2))
         .findByMerchantIdAndPosTypeAndMonth("M1", posType, batchMonth);
-    Mockito.verify(rewardBatchRepository).save(any());
+    verify(rewardBatchRepository).save(any());
   }
 
   @Test
@@ -135,11 +149,11 @@ class RewardBatchServiceImplTest {
     YearMonth yearMonth = YearMonth.of(2025, 11);
     String batchMonth = yearMonth.toString();
 
-    Mockito.when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
+    when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
             "M1", PosType.PHYSICAL, batchMonth))
         .thenReturn(Mono.empty());
 
-    Mockito.when(rewardBatchRepository.save(any()))
+    when(rewardBatchRepository.save(any()))
         .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
     StepVerifier.create(rewardBatchService.findOrCreateBatch("M1", PosType.PHYSICAL, batchMonth, businessName))
@@ -154,11 +168,11 @@ class RewardBatchServiceImplTest {
     YearMonth yearMonth = YearMonth.of(2025, 11);
     String batchMonth = yearMonth.toString();
 
-    Mockito.when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
+    when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
             "M1", PosType.ONLINE, batchMonth))
         .thenReturn(Mono.empty());
 
-    Mockito.when(rewardBatchRepository.save(any()))
+    when(rewardBatchRepository.save(any()))
         .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
     StepVerifier.create(rewardBatchService.findOrCreateBatch("M1", PosType.ONLINE, batchMonth, businessName))
@@ -173,11 +187,11 @@ class RewardBatchServiceImplTest {
     YearMonth yearMonth = YearMonth.of(2025, 11);
     String batchMonth = yearMonth.toString();
 
-    Mockito.when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
+    when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
             "M1", PosType.ONLINE, batchMonth))
         .thenReturn(Mono.empty());
 
-    Mockito.when(rewardBatchRepository.save(any()))
+    when(rewardBatchRepository.save(any()))
         .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
     StepVerifier.create(rewardBatchService.findOrCreateBatch("M1", PosType.ONLINE, batchMonth, businessName))
@@ -204,10 +218,10 @@ class RewardBatchServiceImplTest {
         .name("novembre 2025")
         .build();
 
-    Mockito.when(rewardBatchRepository.findRewardBatchByMerchantId(merchantId, pageable))
+    when(rewardBatchRepository.findRewardBatchByMerchantId(merchantId, pageable))
         .thenReturn(Flux.just(rb1, rb2));
 
-    Mockito.when(rewardBatchRepository.getCount(merchantId))
+    when(rewardBatchRepository.getCount(merchantId))
         .thenReturn(Mono.just(5L));
 
     StepVerifier.create(rewardBatchService.getMerchantRewardBatches(merchantId, pageable))
@@ -221,8 +235,8 @@ class RewardBatchServiceImplTest {
         })
         .verifyComplete();
 
-    Mockito.verify(rewardBatchRepository).findRewardBatchByMerchantId(merchantId, pageable);
-    Mockito.verify(rewardBatchRepository).getCount(merchantId);
+    verify(rewardBatchRepository).findRewardBatchByMerchantId(merchantId, pageable);
+    verify(rewardBatchRepository).getCount(merchantId);
   }
 
   @Test
@@ -230,10 +244,10 @@ class RewardBatchServiceImplTest {
     String merchantId = "M1";
     Pageable pageable = PageRequest.of(1, 2);
 
-    Mockito.when(rewardBatchRepository.findRewardBatchByMerchantId(merchantId, pageable))
+    when(rewardBatchRepository.findRewardBatchByMerchantId(merchantId, pageable))
         .thenReturn(Flux.empty());
 
-    Mockito.when(rewardBatchRepository.getCount(merchantId))
+    when(rewardBatchRepository.getCount(merchantId))
         .thenReturn(Mono.just(0L));
 
     StepVerifier.create(rewardBatchService.getMerchantRewardBatches(merchantId, pageable))
@@ -244,4 +258,116 @@ class RewardBatchServiceImplTest {
         })
         .verifyComplete();
   }
+
+    @Test
+    void suspendTransactions_updatesBatchCorrectly_whenTransactionsExist() {
+        String batchId = "BATCH1";
+        TransactionsRequest request = new TransactionsRequest();
+        request.setTransactionIds(Arrays.asList("trx1", "trx2"));
+        request.setReason("Test reason");
+
+        RewardBatch batch = RewardBatch.builder()
+                .id(batchId)
+                .status(RewardBatchStatus.CREATED)
+                .numberOfTransactions(5L)
+                .numberOfTransactionsElaborated(0L)
+                .approvedAmountCents(3000L)
+                .numberOfTransactionsSuspended(0L)
+                .build();
+
+        when(rewardBatchRepository.findById(batchId)).thenReturn(Mono.just(batch));
+
+        when(reactiveMongoTemplate.updateMulti(
+                any(Query.class),
+                any(Update.class),
+                eq(RewardTransaction.class))
+        ).thenReturn(Mono.just(UpdateResult.acknowledged(2, 2L, null)));
+
+        RewardBatchServiceImpl.TotalAmount totalAmount = new RewardBatchServiceImpl.TotalAmount();
+        totalAmount.setTotal(2500L);
+
+        when(reactiveMongoTemplate.aggregate(any(), eq(RewardTransaction.class), eq(RewardBatchServiceImpl.TotalAmount.class)))
+                .thenReturn(Flux.just(totalAmount));
+
+        RewardBatch updatedBatch = RewardBatch.builder()
+                .id(batchId)
+                .numberOfTransactions(3L)
+                .numberOfTransactionsElaborated(2L)
+                .approvedAmountCents(500L)
+                .numberOfTransactionsSuspended(2L)
+                .build();
+
+        when(reactiveMongoTemplate.findAndModify(any(Query.class), any(Update.class),
+                any(FindAndModifyOptions.class), eq(RewardBatch.class)))
+                .thenReturn(Mono.just(updatedBatch));
+
+        StepVerifier.create(rewardBatchService.suspendTransactions(batchId, request))
+                .assertNext(b -> {
+                    assert b.getNumberOfTransactions() == 3L;
+                    assert b.getNumberOfTransactionsElaborated() == 2L;
+                    assert b.getApprovedAmountCents() == 500L;
+                    assert b.getNumberOfTransactionsSuspended() == 2L;
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void suspendTransactions_returnsBatchUnchanged_whenNoTransactionsModified() {
+        String batchId = "BATCH2";
+        TransactionsRequest request = new TransactionsRequest();
+        request.setTransactionIds(Collections.singletonList("trx1"));
+        request.setReason("Test reason");
+
+        RewardBatch batch = RewardBatch.builder()
+                .id(batchId)
+                .status(RewardBatchStatus.CREATED)
+                .numberOfTransactions(3L)
+                .numberOfTransactionsElaborated(1L)
+                .approvedAmountCents(1000L)
+                .numberOfTransactionsSuspended(1L)
+                .build();
+
+        when(rewardBatchRepository.findById(batchId)).thenReturn(Mono.just(batch));
+
+        when(reactiveMongoTemplate.updateMulti(
+                any(Query.class),
+                any(Update.class),
+                eq(RewardTransaction.class))
+        ).thenReturn(Mono.just(UpdateResult.acknowledged(0, 0L, null)));
+
+        StepVerifier.create(rewardBatchService.suspendTransactions(batchId, request))
+                .assertNext(b -> {
+                    assert b.getNumberOfTransactions() == 3L;
+                    assert b.getNumberOfTransactionsElaborated() == 1L;
+                    assert b.getApprovedAmountCents() == 1000L;
+                    assert b.getNumberOfTransactionsSuspended() == 1L;
+                })
+                .verifyComplete();
+
+        verify(reactiveMongoTemplate, never())
+                .findAndModify(any(Query.class), any(Update.class), any(FindAndModifyOptions.class), eq(RewardBatch.class));
+    }
+
+    @Test
+    void suspendTransactions_throwsException_whenBatchApproved() {
+        String batchId = "BATCH_APPROVED";
+        TransactionsRequest request = new TransactionsRequest();
+        request.setTransactionIds(Collections.singletonList("trx1"));
+        request.setReason("Test reason");
+
+        RewardBatch batch = RewardBatch.builder()
+                .id(batchId)
+                .status(RewardBatchStatus.APPROVED)
+                .build();
+
+        when(rewardBatchRepository.findById(batchId)).thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardBatchService.suspendTransactions(batchId, request))
+                .expectErrorMatches(throwable -> throwable instanceof IllegalStateException &&
+                        throwable.getMessage().equals("Cannot suspend transactions on an APPROVED batch"))
+                .verify();
+
+        verify(reactiveMongoTemplate, never())
+                .updateMulti(any(), any(), eq(RewardTransaction.class));
+    }
 }
