@@ -1,6 +1,5 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 
 import it.gov.pagopa.common.web.exception.RewardBatchException;
@@ -325,8 +324,9 @@ class RewardBatchServiceImplTest {
     Mockito.when(rewardBatchRepository.findById("B1"))
         .thenReturn(Mono.empty());
 
-    assertThrows(RewardBatchException.class,
-        () -> rewardBatchService.sendRewardBatch("M1", "B1"));
+    StepVerifier.create(rewardBatchService.sendRewardBatch("M1", "B1"))
+        .expectError(RewardBatchException.class)
+        .verify();
   }
 
   @Test
@@ -341,8 +341,9 @@ class RewardBatchServiceImplTest {
     Mockito.when(rewardBatchRepository.findById("B1"))
         .thenReturn(Mono.just(batch));
 
-    assertThrows(RewardBatchException.class,
-        () -> rewardBatchService.sendRewardBatch("M1", "B1"));
+    StepVerifier.create(rewardBatchService.sendRewardBatch("M1", "B1"))
+        .expectError(RewardBatchException.class)
+        .verify();
   }
 
   @Test
@@ -357,8 +358,9 @@ class RewardBatchServiceImplTest {
     Mockito.when(rewardBatchRepository.findById("B1"))
         .thenReturn(Mono.just(batch));
 
-    assertThrows(RewardBatchException.class,
-        () -> rewardBatchService.sendRewardBatch("M1", "B1"));
+    StepVerifier.create(rewardBatchService.sendRewardBatch("M1", "B1"))
+        .expectError(RewardBatchException.class)
+        .verify();
   }
 
   @Test
@@ -375,8 +377,9 @@ class RewardBatchServiceImplTest {
     Mockito.when(rewardBatchRepository.findById("B1"))
         .thenReturn(Mono.just(batch));
 
-    assertThrows(RewardBatchException.class,
-        () -> rewardBatchService.sendRewardBatch("M1", "B1"));
+    StepVerifier.create(rewardBatchService.sendRewardBatch("M1", "B1"))
+        .expectError(RewardBatchException.class)
+        .verify();
   }
 
   @Test
@@ -396,12 +399,11 @@ class RewardBatchServiceImplTest {
     Mockito.when(rewardBatchRepository.save(any()))
         .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-    Mockito.doNothing()
-        .when(rewardTransactionRepository)
-        .rewardTransactionsByBatchId("B1");
+    Mockito.when(rewardTransactionRepository.rewardTransactionsByBatchId("B1"))
+        .thenReturn(Mono.empty());
 
-
-    rewardBatchService.sendRewardBatch("M1", "B1");
+    StepVerifier.create(rewardBatchService.sendRewardBatch("M1", "B1"))
+        .verifyComplete();
 
     Mockito.verify(rewardBatchRepository).save(any());
     Mockito.verify(rewardTransactionRepository).rewardTransactionsByBatchId("B1");

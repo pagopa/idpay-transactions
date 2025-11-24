@@ -137,8 +137,8 @@ class MerchantRewardBatchControllerImplTest {
 
     String batchId = "BATCH1";
 
-    doNothing().when(rewardBatchService)
-        .sendRewardBatch(MERCHANT_ID, batchId);
+    when(rewardBatchService.sendRewardBatch(MERCHANT_ID, batchId))
+        .thenReturn(Mono.empty());
 
     webClient.post()
         .uri(uriBuilder -> uriBuilder
