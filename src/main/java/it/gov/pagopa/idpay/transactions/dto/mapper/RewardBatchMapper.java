@@ -25,7 +25,7 @@ public class RewardBatchMapper {
         .numberOfTransactions(rewardBatch.getNumberOfTransactions())
         .numberOfTransactionsElaborated(rewardBatch.getNumberOfTransactionsElaborated())
         .reportPath(rewardBatch.getReportPath())
-        .assigneLevel(String.valueOf(rewardBatch.getAssigneLevel()))
+        .assigneeLevel(String.valueOf(rewardBatch.getAssigneeLevel()))
         .build();
 
     return Mono.just(dto);

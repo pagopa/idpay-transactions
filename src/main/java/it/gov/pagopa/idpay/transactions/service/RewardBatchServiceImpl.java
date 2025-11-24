@@ -81,7 +81,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         .numberOfTransactions(0L)
         .numberOfTransactionsElaborated(0L)
         .reportPath(null)
-        .assigneLevel(RewardBatchAssignee.L1)
+        .assigneeLevel(RewardBatchAssignee.L1)
         .numberOfTransactionsSuspended(0L)
         .numberOfTransactionsRejected(0L)
         .build();
