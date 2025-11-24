@@ -37,6 +37,11 @@ public class ErrorManager {
 
         if(error instanceof ClientExceptionNoBody clientExceptionNoBody){
             return ResponseEntity.status(clientExceptionNoBody.getHttpStatus()).build();
+        }else if(error instanceof RewardBatchException rewardBatchException){
+            ErrorDTO errorDTO = new ErrorDTO(rewardBatchException.getMessage(),  rewardBatchException.getMessage());
+            return ResponseEntity.status(rewardBatchException.getHttpStatus())
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(errorDTO);
         }
         else {
             ErrorDTO errorDTO;
