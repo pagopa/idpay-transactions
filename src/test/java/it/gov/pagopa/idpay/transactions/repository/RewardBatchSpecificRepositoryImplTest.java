@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.repository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
@@ -127,5 +128,45 @@ class RewardBatchSpecificRepositoryImplTest {
     assertEquals("batch2", page2.get(0).getId());
 
     assertNotEquals(page1.get(0).getId(), page2.get(0).getId());
+  }
+
+  @Test
+  void findRewardBatch_shouldReturnAllBatches() {
+    Pageable pageable = PageRequest.of(0, 10);
+
+    List<RewardBatch> result = rewardBatchSpecificRepository
+        .findRewardBatch(pageable)
+        .toStream()
+        .toList();
+
+    assertEquals(2, result.size());
+    assertTrue(result.contains(batch1));
+    assertTrue(result.contains(batch2));
+  }
+
+  @Test
+  void getCountWithoutMerchant_shouldReturnTotalCount() {
+    Long count = rewardBatchSpecificRepository.getCount().block();
+    assertEquals(2L, count);
+  }
+
+  @Test
+  void incrementTotals_shouldUpdateFieldsCorrectly() {
+    long increment = 500L;
+
+    RewardBatch updated = rewardBatchSpecificRepository
+        .incrementTotals(batch1.getId(), increment)
+        .block();
+
+    assertNotNull(updated);
+    assertEquals(batch1.getTotalAmountCents() + increment, updated.getTotalAmountCents());
+    assertEquals(batch1.getNumberOfTransactions() + 1, updated.getNumberOfTransactions());
+    assertNotNull(updated.getUpdateDate());
+
+    RewardBatch fromDb = rewardBatchRepository.findById(batch1.getId()).block();
+    assertNotNull(fromDb);
+    assertEquals(updated.getTotalAmountCents(), fromDb.getTotalAmountCents());
+    assertEquals(updated.getNumberOfTransactions(), fromDb.getNumberOfTransactions());
+    assertNotNull(fromDb.getUpdateDate());
   }
 }
