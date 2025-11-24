@@ -60,11 +60,16 @@ class PointOfSaleTransactionControllerImplTest {
         PageRequest.of(0, 10), 1
     );
 
-    PointOfSaleTransactionDTO dto = PointOfSaleTransactionDTOFaker.mockInstance(trx, INITIATIVE_ID,
-        FISCAL_CODE);
+    PointOfSaleTransactionDTO dto = PointOfSaleTransactionDTOFaker
+        .mockInstance(trx, INITIATIVE_ID, FISCAL_CODE);
 
     when(pointOfSaleTransactionService.getPointOfSaleTransactions(
-        eq(MERCHANT_ID), eq(INITIATIVE_ID), eq(POINT_OF_SALE_ID), isNull(), isNull(), isNull(),
+        eq(MERCHANT_ID),
+        eq(INITIATIVE_ID),
+        eq(POINT_OF_SALE_ID),
+        isNull(),
+        isNull(),
+        isNull(),
         any(Pageable.class)))
         .thenReturn(Mono.just(page));
 
@@ -73,10 +78,10 @@ class PointOfSaleTransactionControllerImplTest {
 
     webClient.get()
         .uri(uriBuilder -> uriBuilder
-            .path(
-                "/idpay/initiatives/{initiativeId}/point-of-sales/{pointOfSaleId}/transactions/processed")
+            .path("/idpay/initiatives/{initiativeId}/point-of-sales/{pointOfSaleId}/transactions/processed")
             .build(INITIATIVE_ID, POINT_OF_SALE_ID))
         .header("x-merchant-id", MERCHANT_ID)
+        .header("x-point-of-sale-id", POINT_OF_SALE_ID) // ✅ FONDAMENTALE
         .exchange()
         .expectStatus().isOk()
         .expectBody(PointOfSaleTransactionsListDTO.class)
@@ -138,5 +143,17 @@ class PointOfSaleTransactionControllerImplTest {
             .build(POINT_OF_SALE_ID, TRX_ID))
         .exchange()
         .expectStatus().isBadRequest();
+  }
+
+  @Test
+  void getPointOfSaleTransactionsForbidden() {
+    webClient.get()
+        .uri(uriBuilder -> uriBuilder
+            .path("/idpay/initiatives/{initiativeId}/point-of-sales/{pointOfSaleId}/transactions/processed")
+            .build(INITIATIVE_ID, POINT_OF_SALE_ID))
+        .header("x-merchant-id", MERCHANT_ID)
+        .header("x-point-of-sale-id", "ALTRO_POS")
+        .exchange()
+        .expectStatus().isForbidden();
   }
 }

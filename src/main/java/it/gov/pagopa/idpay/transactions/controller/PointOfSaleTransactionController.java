@@ -21,6 +21,7 @@ public interface PointOfSaleTransactionController {
   @GetMapping("/initiatives/{initiativeId}/point-of-sales/{pointOfSaleId}/transactions/processed")
   Mono<PointOfSaleTransactionsListDTO> getPointOfSaleTransactions(
       @RequestHeader("x-merchant-id") String merchantId,
+      @RequestHeader("x-point-of-sale-id") String tokenPointOfSaleId,
       @PathVariable("initiativeId") String initiativeId,
       @PathVariable("pointOfSaleId") String pointOfSaleId,
       @RequestParam(required = false) String productGtin,

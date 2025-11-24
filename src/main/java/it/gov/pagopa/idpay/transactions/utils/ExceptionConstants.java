@@ -1,7 +1,5 @@
 package it.gov.pagopa.idpay.transactions.utils;
 
-import org.springframework.http.HttpStatus;
-
 public final class ExceptionConstants {
     private ExceptionConstants(){}
 
@@ -11,6 +9,8 @@ public final class ExceptionConstants {
         public static final String TOO_MANY_REQUESTS = "TRANSACTIONS_TOO_MANY_REQUESTS";
         public static final String GENERIC_ERROR = "TRANSACTIONS_GENERIC_ERROR";
         public static final String TRANSACTIONS_MISSING_MANDATORY_FILTERS = "TRANSACTIONS_MISSING_MANDATORY_FILTERS";
+        public static final String POINT_OF_SALE_NOT_ALLOWED = "POINT_OF_SALE_NOT_ALLOWED";
+
     }
 
     public static final class ExceptionMessage {
