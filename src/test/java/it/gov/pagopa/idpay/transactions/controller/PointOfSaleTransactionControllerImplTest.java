@@ -81,7 +81,7 @@ class PointOfSaleTransactionControllerImplTest {
             .path("/idpay/initiatives/{initiativeId}/point-of-sales/{pointOfSaleId}/transactions/processed")
             .build(INITIATIVE_ID, POINT_OF_SALE_ID))
         .header("x-merchant-id", MERCHANT_ID)
-        .header("x-point-of-sale-id", POINT_OF_SALE_ID) // ✅ FONDAMENTALE
+        .header("x-point-of-sale-id", POINT_OF_SALE_ID)
         .exchange()
         .expectStatus().isOk()
         .expectBody(PointOfSaleTransactionsListDTO.class)
