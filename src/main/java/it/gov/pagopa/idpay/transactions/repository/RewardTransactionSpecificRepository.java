@@ -28,5 +28,5 @@ public interface RewardTransactionSpecificRepository {
 
     Mono<RewardTransaction> findByTrxIdAndUserId(String trxId, String userId);
 
-    void rewardTransactionsByBatchId(String batchId);
+    Mono<Void> rewardTransactionsByBatchId(String batchId);
 }
