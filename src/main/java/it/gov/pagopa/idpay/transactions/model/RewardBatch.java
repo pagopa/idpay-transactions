@@ -1,7 +1,8 @@
 package it.gov.pagopa.idpay.transactions.model;
 
+import it.gov.pagopa.idpay.transactions.enums.PosType;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,10 +10,10 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldNameConstants;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.FieldType;
 import org.springframework.data.mongodb.core.mapping.MongoId;
+import org.springframework.format.annotation.DateTimeFormat;
 
 @Data
 @AllArgsConstructor
@@ -23,25 +24,29 @@ import org.springframework.data.mongodb.core.mapping.MongoId;
 @Document(collection = "rewards_batch")
 public class RewardBatch {
 
-    @MongoId
+    @MongoId(FieldType.STRING)
     private String id;
     private String merchantId;
     private String businessName;
     private String month;
-    private String posType;
+    private PosType posType;
     private RewardBatchStatus status;
     private Boolean partial;
     private String name;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
     private Long totalAmountCents;
+    private Long approvedAmountCents;
     private Long numberOfTransactions;
     private Long numberOfTransactionsElaborated;
     private String reportPath;
+    private RewardBatchAssignee assigneeLevel;
+    private Long numberOfTransactionsSuspended;
+    private Long numberOfTransactionsRejected;
 
-    @CreatedDate
-    private Instant creationDate;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    private LocalDateTime creationDate;
 
-    @LastModifiedDate
-    private Instant updateDate;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    private LocalDateTime updateDate;
 }

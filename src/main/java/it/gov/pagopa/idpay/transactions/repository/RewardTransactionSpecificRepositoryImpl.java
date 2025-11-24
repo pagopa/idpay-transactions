@@ -3,8 +3,6 @@ package it.gov.pagopa.idpay.transactions.repository;
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_NAME;
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
 
-import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
@@ -44,8 +42,8 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         if (amountCents != null) {criteria.and(RewardTransaction.Fields.amountCents).is(amountCents);}
         if(trxDateStart != null && trxDateEnd != null){
             criteria.and(RewardTransaction.Fields.trxDate)
-                .gte(trxDateStart)
-                .lte(trxDateEnd);
+                    .gte(trxDateStart)
+                    .lte(trxDateEnd);
         }else if(trxDateStart != null){
             criteria.and(RewardTransaction.Fields.trxDate)
                     .gte(trxDateStart);
@@ -77,7 +75,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
     private Pageable getPageableTrx(Pageable pageable) {
         if (pageable == null || pageable.getSort().isUnsorted()) {
-           return PageRequest.of(0, 10, Sort.by("trxChargeDate").descending());
+            return PageRequest.of(0, 10, Sort.by("trxChargeDate").descending());
         }
         return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort());
     }
@@ -89,30 +87,21 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         return pageable;
     }
 
-    private Criteria getCriteria(TrxFiltersDTO filters,
-                                 String pointOfSaleId,
-                                 String productGtin) {
-        Criteria criteria = Criteria.where(RewardTransaction.Fields.merchantId).is(filters.getMerchantId())
-                .and(RewardTransaction.Fields.initiatives).is(filters.getInitiativeId());
-        if (filters.getUserId() != null) {
-            criteria.and(RewardTransaction.Fields.userId).is(filters.getUserId());
+    private Criteria getCriteria(String merchantId, String initiativeId, String pointOfSaleId, String userId, String status, String productGtin) {
+        Criteria criteria = Criteria.where(RewardTransaction.Fields.merchantId).is(merchantId)
+                .and(RewardTransaction.Fields.initiatives).is(initiativeId);
+        if (userId != null) {
+            criteria.and(RewardTransaction.Fields.userId).is(userId);
         }
         if (pointOfSaleId != null) {
             criteria.and(Fields.pointOfSaleId).is(pointOfSaleId);
         }
         if (StringUtils.isNotBlank(productGtin)) {
-          criteria.and(AggregationConstants.FIELD_PRODUCT_GTIN)
-              .regex(".*" + Pattern.quote(productGtin) + ".*", "i");
+            criteria.and(AggregationConstants.FIELD_PRODUCT_GTIN)
+                    .regex(".*" + Pattern.quote(productGtin) + ".*", "i");
         }
-        if (StringUtils.isNotBlank(filters.getRewardBatchId())) {
-            criteria.and(RewardTransaction.Fields.rewardBatchId).is(filters.getRewardBatchId());
-        }
-        if (filters.getRewardBatchTrxStatus() != null) {
-            criteria.and(RewardTransaction.Fields.rewardBatchTrxStatus)
-                    .is(filters.getRewardBatchTrxStatus());
-        }
-        if (StringUtils.isNotBlank(filters.getStatus())) {
-            criteria.and(RewardTransaction.Fields.status).is(filters.getStatus());
+        if (StringUtils.isNotBlank(status)) {
+            criteria.and(RewardTransaction.Fields.status).is(status);
         } else {
             criteria.and(RewardTransaction.Fields.status).in("CANCELLED", "REWARDED", "REFUNDED", "INVOICED");
         }
@@ -120,17 +109,14 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Flux<RewardTransaction> findByFilter(String merchantId, String initiativeId, String userId, String status, String rewardBatchId, RewardBatchTrxStatus rewardBatchTrxStatus, Pageable pageable){
-        TrxFiltersDTO filters = new TrxFiltersDTO(merchantId, initiativeId, status, userId, rewardBatchId, rewardBatchTrxStatus);
-        Criteria criteria = getCriteria(filters, null, null);
+    public Flux<RewardTransaction> findByFilter(String merchantId, String initiativeId, String userId, String status, Pageable pageable){
+        Criteria criteria = getCriteria(merchantId, initiativeId, null, userId, status, null);
         return mongoTemplate.find(Query.query(criteria).with(getPageable(pageable)), RewardTransaction.class);
     }
 
     @Override
     public Flux<RewardTransaction> findByFilterTrx(String merchantId, String initiativeId, String pointOfSaleId, String userId, String productGtin, String status, Pageable pageable){
-
-        TrxFiltersDTO filters = new TrxFiltersDTO(merchantId, initiativeId, status, userId, null, null);
-        Criteria criteria = getCriteria(filters, pointOfSaleId, productGtin);
+        Criteria criteria = getCriteria(merchantId, initiativeId, pointOfSaleId, userId, status, productGtin);
 
         Pageable mappedPageable = mapSort(pageable);
 
@@ -140,8 +126,8 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
             return mongoTemplate.aggregate(aggregation, RewardTransaction.class, RewardTransaction.class);
         } else {
             return mongoTemplate.find(
-                Query.query(criteria).with(getPageableTrx(mappedPageable)),
-                RewardTransaction.class);
+                    Query.query(criteria).with(getPageableTrx(mappedPageable)),
+                    RewardTransaction.class);
         }
     }
 
@@ -157,17 +143,17 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     private Pageable mapSort(Pageable pageable) {
-       Pageable basePageable = getPageableTrx(pageable);
+        Pageable basePageable = getPageableTrx(pageable);
 
         Sort mappedSort = Sort.by(
-            basePageable.getSort().stream()
-                .map(order -> {
-                    if ("productName".equalsIgnoreCase(order.getProperty())) {
-                        return new Sort.Order(order.getDirection(), FIELD_PRODUCT_NAME);
-                    }
-                    return order;
-                })
-                .toList()
+                basePageable.getSort().stream()
+                        .map(order -> {
+                            if ("productName".equalsIgnoreCase(order.getProperty())) {
+                                return new Sort.Order(order.getDirection(), FIELD_PRODUCT_NAME);
+                            }
+                            return order;
+                        })
+                        .toList()
         );
 
         return PageRequest.of(basePageable.getPageNumber(), basePageable.getPageSize(), mappedSort);
@@ -190,34 +176,32 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         Sort.Direction direction = getSortDirection(pageable, FIELD_STATUS);
 
         return Aggregation.newAggregation(
-            Aggregation.addFields()
-                .addField("statusRank")
-                .withValue(
-                    ConditionalOperators.switchCases(
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("CANCELLED")).then(1), //ANNULLATO
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("INVOICED")).then(2),  //PRESO IN CARICO
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REWARDED")).then(3),  //RIMBORSO RICHIESTO
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REFUNDED")).then(4)   //STORNATO
-                    ).defaultTo(99)
-                ).build(),
-            Aggregation.match(criteria),
-            Aggregation.sort(Sort.by(direction, "statusRank")),
-            Aggregation.skip(pageable.getOffset()),
-            Aggregation.limit(pageable.getPageSize())
+                Aggregation.addFields()
+                        .addField("statusRank")
+                        .withValue(
+                                ConditionalOperators.switchCases(
+                                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("CANCELLED")).then(1), //ANNULLATO
+                                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("INVOICED")).then(2),  //PRESO IN CARICO
+                                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REWARDED")).then(3),  //RIMBORSO RICHIESTO
+                                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REFUNDED")).then(4)   //STORNATO
+                                ).defaultTo(99)
+                        ).build(),
+                Aggregation.match(criteria),
+                Aggregation.sort(Sort.by(direction, "statusRank")),
+                Aggregation.skip(pageable.getOffset()),
+                Aggregation.limit(pageable.getPageSize())
         );
     }
 
     private Sort.Direction getSortDirection(Pageable pageable, String property) {
         return Optional.ofNullable(pageable.getSort().getOrderFor(property))
-            .map(Sort.Order::getDirection)
-            .orElse(Sort.Direction.ASC);
+                .map(Sort.Order::getDirection)
+                .orElse(Sort.Direction.ASC);
     }
 
     @Override
     public Mono<Long> getCount(String merchantId, String initiativeId, String pointOfSaleId, String productGtin, String userId, String status) {
-
-        TrxFiltersDTO filters = new TrxFiltersDTO(merchantId, initiativeId, status, userId, null, null);
-        Criteria criteria = getCriteria(filters, pointOfSaleId, productGtin);
+        Criteria criteria = getCriteria(merchantId, initiativeId, pointOfSaleId, userId, status, productGtin);
 
         return mongoTemplate.count(Query.query(criteria), RewardTransaction.class);
     }
@@ -236,11 +220,11 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     public Mono<Void> removeInitiativeOnTransaction(String trxId, String initiativeId) {
         Criteria criteria = Criteria.where(RewardTransaction.Fields.id).is(trxId);
         return mongoTemplate.updateFirst(Query.query(criteria),
-                new Update()
-                        .pull(RewardTransaction.Fields.initiatives, initiativeId)
-                        .unset("%s.%s".formatted(RewardTransaction.Fields.rewards, initiativeId))
-                        .unset("%s.%s".formatted(RewardTransaction.Fields.initiativeRejectionReasons, initiativeId)),
-                RewardTransaction.class)
+                        new Update()
+                                .pull(RewardTransaction.Fields.initiatives, initiativeId)
+                                .unset("%s.%s".formatted(RewardTransaction.Fields.rewards, initiativeId))
+                                .unset("%s.%s".formatted(RewardTransaction.Fields.initiativeRejectionReasons, initiativeId)),
+                        RewardTransaction.class)
                 .then();
     }
 
@@ -258,5 +242,15 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         return mongoTemplate.findOne(
                 Query.query(criteria),
                 RewardTransaction.class);
+    }
+
+    @Override
+    public Mono<Void> rewardTransactionsByBatchId(String batchId) {
+        Criteria criteria = Criteria.where(Fields.rewardBatchId).is(batchId);
+        mongoTemplate.updateMulti(
+                Query.query(criteria),
+                new Update().set(Fields.status, SyncTrxStatus.REWARDED),
+                RewardTransaction.class).subscribe();
+        return Mono.empty();
     }
 }

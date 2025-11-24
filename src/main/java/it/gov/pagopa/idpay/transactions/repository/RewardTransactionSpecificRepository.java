@@ -1,6 +1,5 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
@@ -11,7 +10,7 @@ import java.time.LocalDateTime;
 public interface RewardTransactionSpecificRepository {
     Flux<RewardTransaction> findByIdTrxIssuer(String idTrxIssuer, String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, Long amountCents, Pageable pageable);
     Flux<RewardTransaction> findByRange(String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, Long amountCents, Pageable pageable);
-    Flux<RewardTransaction> findByFilter(String merchantId, String initiativeId, String userId, String status, String rewardBatchId, RewardBatchTrxStatus rewardBatchTrxStatus, Pageable pageable);
+    Flux<RewardTransaction> findByFilter(String merchantId, String initiativeId, String userId, String status, Pageable pageable);
     Mono<Long> getCount(String merchantId, String initiativeId, String pointOfSaleId, String productGtin, String userId, String status);
     Mono<RewardTransaction> findOneByInitiativeId(String initiativeId);
     Mono<Void> removeInitiativeOnTransaction(String trxId, String initiativeId);
@@ -28,4 +27,6 @@ public interface RewardTransactionSpecificRepository {
     Mono<RewardTransaction> findTransaction(String merchantId, String pointOfSaleId, String transactionId);
 
     Mono<RewardTransaction> findByTrxIdAndUserId(String trxId, String userId);
+
+    Mono<Void> rewardTransactionsByBatchId(String batchId);
 }

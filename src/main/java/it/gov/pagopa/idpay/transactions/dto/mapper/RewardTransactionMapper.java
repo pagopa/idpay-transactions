@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.dto.mapper;
 
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
+import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
@@ -67,7 +68,7 @@ public class RewardTransactionMapper {
             rewardTrx.setCreditNoteData(rewardTrxDto.getCreditNoteData());
             rewardTrx.setTrxCode((rewardTrxDto.getTrxCode()));
             rewardTrx.setFranchiseName((rewardTrxDto.getFranchiseName()));
-            rewardTrx.setPointOfSaleType(rewardTrxDto.getPointOfSaleType());
+            rewardTrx.setPointOfSaleType(PosType.valueOf(rewardTrxDto.getPointOfSaleType()));
             rewardTrx.setBusinessName(rewardTrxDto.getBusinessName());
         }
 

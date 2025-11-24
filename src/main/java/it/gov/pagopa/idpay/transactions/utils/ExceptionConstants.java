@@ -1,7 +1,5 @@
 package it.gov.pagopa.idpay.transactions.utils;
 
-import org.springframework.http.HttpStatus;
-
 public final class ExceptionConstants {
     private ExceptionConstants(){}
 
@@ -11,6 +9,11 @@ public final class ExceptionConstants {
         public static final String TOO_MANY_REQUESTS = "TRANSACTIONS_TOO_MANY_REQUESTS";
         public static final String GENERIC_ERROR = "TRANSACTIONS_GENERIC_ERROR";
         public static final String TRANSACTIONS_MISSING_MANDATORY_FILTERS = "TRANSACTIONS_MISSING_MANDATORY_FILTERS";
+        public static final String REWARD_BATCH_NOT_FOUND = "REWARD_BATCH_NOT_FOUND";
+        public static final String REWARD_BATCH_INVALID_REQUEST = "REWARD_BATCH_INVALID_REQUEST";
+        public static final String REWARD_BATCH_MONTH_TOO_EARLY = "REWARD_BATCH_MONTH_TOO_EARLY";
+        public static final String REWARD_BATCH_TOO_MANY_REQUESTS = "REWARD_BATCH_TOO_MANY_REQUESTS";
+        public static final String REWARD_BATCH_GENERIC_ERROR = "REWARD_BATCH_GENERIC_ERROR";
     }
 
     public static final class ExceptionMessage {

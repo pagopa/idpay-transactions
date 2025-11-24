@@ -1,13 +1,11 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -22,12 +20,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
-
 @DirtiesContext
 @MongoTest
-@Disabled
 class RewardTransactionSpecificRepositoryTest {
-
     @Autowired
     protected RewardTransactionRepository rewardTransactionRepository;
 
@@ -45,32 +40,29 @@ class RewardTransactionSpecificRepositoryTest {
     private static final String PRODUCT_GTIN = "PRODUCTGTIN1";
 
     @BeforeEach
-    void setUp() {
+    void setUp(){
         LocalDateTime date = LocalDateTime.of(2021, 9, 6, 17, 30, 25);
         Long amountCents = 3000L;
         rt = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id_prova")
                 .idTrxIssuer("IDTRXISSUER1")
                 .trxDate(date)
-                .amountCents(amountCents)
-                .build();
+                .amountCents(amountCents).build();
         rewardTransactionRepository.save(rt).block();
     }
 
     @AfterEach
-    void clearData() {
-        rewardTransactionRepository.deleteById("id_prova").onErrorResume(e -> Mono.empty()).block();
-        cleanDataPageable();
+    void clearData(){
+        rewardTransactionRepository.deleteById("id_prova").block();
     }
 
     @Test
     void findByIdTrxIssuer() {
-        Flux<RewardTransaction> resultTrxIssuer = rewardTransactionSpecificRepository.findByIdTrxIssuer(
-                rt.getIdTrxIssuer(), null, null, null, null, null);
+        Flux<RewardTransaction> resultTrxIssuer = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,null,null, null, null);
         Assertions.assertNotNull(resultTrxIssuer);
         List<RewardTransaction> rewardTransactionsList = resultTrxIssuer.toStream().toList();
         Assertions.assertEquals(1, rewardTransactionsList.size());
-        Assertions.assertEquals(List.of(rt), rewardTransactionsList);
+        Assertions.assertEquals(rewardTransactionsList, List.of(rt));
     }
 
     @Test
@@ -78,109 +70,109 @@ class RewardTransactionSpecificRepositoryTest {
         LocalDateTime startDate = rt.getTrxDate().minusMonths(5L);
         LocalDateTime endDate = rt.getTrxDate().plusMonths(6L);
 
-        Flux<RewardTransaction> resultTrxIssuerAndUserId = rewardTransactionSpecificRepository.findByIdTrxIssuer(
-                rt.getIdTrxIssuer(), rt.getUserId(), null, null, null, null);
-        List<RewardTransaction> list1 = resultTrxIssuerAndUserId.toStream().toList();
-        assertEquals(1, list1.size());
-        assertEquals(List.of(rt), list1);
+        Flux<RewardTransaction> resultTrxIssuerAndUserId = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),rt.getUserId() ,null,null, null, null);
+        Assertions.assertNotNull(resultTrxIssuerAndUserId);
+        List<RewardTransaction> resultTrxIssuerAndUserIdList = resultTrxIssuerAndUserId.toStream().toList();
+        Assertions.assertEquals(1, resultTrxIssuerAndUserIdList.size());
+        Assertions.assertEquals(resultTrxIssuerAndUserIdList, List.of(rt));
 
-        Flux<RewardTransaction> resultTrxIssuerAndStartDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(
-                rt.getIdTrxIssuer(), null, startDate, null, null, null);
-        List<RewardTransaction> list2 = resultTrxIssuerAndStartDate.toStream().toList();
-        assertEquals(1, list2.size());
-        assertEquals(List.of(rt), list2);
+        Flux<RewardTransaction> resultTrxIssuerAndStartDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,startDate,null, null, null);
+        Assertions.assertNotNull(resultTrxIssuerAndStartDate);
+        List<RewardTransaction> resultTrxIssuerAndStartDateList = resultTrxIssuerAndStartDate.toStream().toList();
+        Assertions.assertEquals(1, resultTrxIssuerAndStartDateList.size());
+        Assertions.assertEquals(resultTrxIssuerAndStartDateList, List.of(rt));
 
-        Flux<RewardTransaction> resultTrxIssuerAndEndDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(
-                rt.getIdTrxIssuer(), null, null, endDate, null, null);
-        List<RewardTransaction> list3 = resultTrxIssuerAndEndDate.toStream().toList();
-        assertEquals(1, list3.size());
-        assertEquals(List.of(rt), list3);
+        Flux<RewardTransaction> resultTrxIssuerAndEndDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,null,endDate, null, null);
+        Assertions.assertNotNull(resultTrxIssuerAndEndDate);
+        List<RewardTransaction> resultTrxIssuerAndEndDateList = resultTrxIssuerAndEndDate.toStream().toList();
+        Assertions.assertEquals(1, resultTrxIssuerAndEndDateList.size());
+        Assertions.assertEquals(resultTrxIssuerAndEndDateList, List.of(rt));
 
-        Flux<RewardTransaction> resultTrxIssuerAndAmount = rewardTransactionSpecificRepository.findByIdTrxIssuer(
-                rt.getIdTrxIssuer(), null, null, null, rt.getAmountCents(), null);
-        List<RewardTransaction> list4 = resultTrxIssuerAndAmount.toStream().toList();
-        assertEquals(1, list4.size());
-        assertEquals(List.of(rt), list4);
 
-        Flux<RewardTransaction> resultTrxIssuerAndRangeDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(
-                rt.getIdTrxIssuer(), null, startDate, endDate, rt.getAmountCents(), null);
-        List<RewardTransaction> list5 = resultTrxIssuerAndRangeDate.toStream().toList();
-        assertEquals(1, list5.size());
-        assertEquals(List.of(rt), list5);
+        Flux<RewardTransaction> resultTrxIssuerAndAmount = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,null,null, rt.getAmountCents(), null);
+        Assertions.assertNotNull(resultTrxIssuerAndAmount);
+        List<RewardTransaction> resultTrxIssuerAndAmountList = resultTrxIssuerAndAmount.toStream().toList();
+        Assertions.assertEquals(1, resultTrxIssuerAndAmountList.size());
+        Assertions.assertEquals(resultTrxIssuerAndAmountList, List.of(rt));
 
-        Flux<RewardTransaction> resultBeforeStartDateBeforeStartDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(
-                rt.getIdTrxIssuer(), null, rt.getTrxDate().plusDays(10L), null, null, null);
-        assertNotNull(resultBeforeStartDateBeforeStartDate);
-        assertEquals(0, resultBeforeStartDateBeforeStartDate.count().block());
+        Flux<RewardTransaction> resultTrxIssuerAndRangeDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,startDate,endDate, rt.getAmountCents(), null);
+        Assertions.assertNotNull(resultTrxIssuerAndRangeDate);
+        List<RewardTransaction> resultTrxIssuerAndRangeDateList = resultTrxIssuerAndRangeDate.toStream().toList();
+        Assertions.assertEquals(1, resultTrxIssuerAndRangeDateList.size());
+        Assertions.assertEquals(resultTrxIssuerAndRangeDateList, List.of(rt));
 
-        Flux<RewardTransaction> resultDateAfterEndDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(
-                rt.getIdTrxIssuer(), null, null, rt.getTrxDate().minusDays(10L), null, null);
-        assertNotNull(resultDateAfterEndDate);
-        assertEquals(0, resultDateAfterEndDate.count().block());
+        Flux<RewardTransaction> resultBeforeStartDateBeforeStartDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,rt.getTrxDate().plusDays(10L),null, null, null);
+        Assertions.assertNotNull(resultBeforeStartDateBeforeStartDate);
+        Assertions.assertEquals(0, resultBeforeStartDateBeforeStartDate.count().block());
+
+        Flux<RewardTransaction> resultDateAfterEndDate = rewardTransactionSpecificRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(),null ,null,rt.getTrxDate().minusDays(10L), null, null);
+        Assertions.assertNotNull(resultDateAfterEndDate);
+        Assertions.assertEquals(0, resultDateAfterEndDate.count().block());
     }
-
     @Test
     void findByUserIdAndRangeDateAndAmount() {
         LocalDateTime startDate = rt.getTrxDate().minusMonths(5L);
         LocalDateTime endDate = rt.getTrxDate().plusMonths(6L);
 
-        Flux<RewardTransaction> resultUserIDAndRangeDate = rewardTransactionSpecificRepository.findByRange(
-                rt.getUserId(), startDate, endDate, null, null);
-        List<RewardTransaction> list1 = resultUserIDAndRangeDate.toStream().toList();
-        assertEquals(1, list1.size());
-        assertEquals(List.of(rt), list1);
+        Flux<RewardTransaction> resultUserIDAndRangeDate = rewardTransactionSpecificRepository.findByRange(rt.getUserId(), startDate ,endDate,null, null);
+        Assertions.assertNotNull(resultUserIDAndRangeDate);
+        List<RewardTransaction> resultUserIDAndRangeDateList = resultUserIDAndRangeDate.toStream().toList();
+        Assertions.assertEquals(1, resultUserIDAndRangeDateList.size());
+        Assertions.assertEquals(resultUserIDAndRangeDateList, List.of(rt));
 
-        Flux<RewardTransaction> resultUserIDAndRangeDateAndAmount = rewardTransactionSpecificRepository.findByRange(
-                rt.getUserId(), startDate, endDate, rt.getAmountCents(), null);
-        List<RewardTransaction> list2 = resultUserIDAndRangeDateAndAmount.toStream().toList();
-        assertEquals(1, list2.size());
-        assertEquals(List.of(rt), list2);
+        Flux<RewardTransaction> resultUserIDAndRangeDateAndAmount = rewardTransactionSpecificRepository.findByRange(rt.getUserId(), startDate ,endDate,rt.getAmountCents(), null);
+        Assertions.assertNotNull(resultUserIDAndRangeDateAndAmount);
+        List<RewardTransaction> resultUserIDAndRangeDateAndAmountList = resultUserIDAndRangeDateAndAmount.toStream().toList();
+        Assertions.assertEquals(1, resultUserIDAndRangeDateAndAmountList.size());
+        Assertions.assertEquals(resultUserIDAndRangeDateAndAmountList, List.of(rt));
 
-        Flux<RewardTransaction> resultUserIDBeforeStartDateBeforeStartDate = rewardTransactionSpecificRepository.findByRange(
-                rt.getUserId(), rt.getTrxDate().plusDays(10L), endDate, null, null);
-        assertEquals(0, resultUserIDBeforeStartDateBeforeStartDate.count().block());
+        Flux<RewardTransaction> resultUserIDBeforeStartDateBeforeStartDate = rewardTransactionSpecificRepository.findByRange(rt.getUserId(), rt.getTrxDate().plusDays(10L) ,endDate,null, null);
+        Assertions.assertNotNull(resultUserIDBeforeStartDateBeforeStartDate);
+        Assertions.assertEquals(0, resultUserIDBeforeStartDateBeforeStartDate.count().block());
 
-        Flux<RewardTransaction> resultUserIDDateAfterEndDate = rewardTransactionSpecificRepository.findByRange(
-                rt.getUserId(), startDate, rt.getTrxDate().minusDays(10L), null, null);
-        assertEquals(0, resultUserIDDateAfterEndDate.count().block());
+        Flux<RewardTransaction> resultUserIDDateAfterEndDate = rewardTransactionSpecificRepository.findByRange(rt.getUserId(), startDate ,rt.getTrxDate().minusDays(10L),null, null);
+        Assertions.assertNotNull(resultUserIDDateAfterEndDate);
+        Assertions.assertEquals(0, resultUserIDDateAfterEndDate.count().block());
     }
 
     @Test
-    void pageableWithfindByIdTrxIssuer() {
+    void pageableWithfindByIdTrxIssuer(){
         LocalDateTime date = LocalDateTime.of(2021, 9, 6, 17, 30, 25);
         setUpPageable(date, "userId");
 
-        Pageable pageable = PageRequest.of(0, 2);
-        Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findByIdTrxIssuer(
-                "IDTRXISSUER", null, null, null, null, pageable);
+        Pageable pageable = PageRequest.of(0,2);
+        Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findByIdTrxIssuer("IDTRXISSUER", null, null, null, null, pageable);
+        Assertions.assertNotNull(result);
         List<RewardTransaction> rewardTransactionsList = result.toStream().toList();
-        assertEquals(2, rewardTransactionsList.size());
-        assertEquals(List.of(rt1, rt2), rewardTransactionsList);
+        Assertions.assertEquals(2, rewardTransactionsList.size());
+        Assertions.assertEquals(rewardTransactionsList, List.of(rt1, rt2));
 
-        Pageable pageable2 = PageRequest.of(1, 2);
-        Flux<RewardTransaction> result2 = rewardTransactionSpecificRepository.findByIdTrxIssuer(
-                "IDTRXISSUER", null, null, null, null, pageable2);
+        Pageable pageable2 = PageRequest.of(1,2);
+        Flux<RewardTransaction> result2 = rewardTransactionSpecificRepository.findByIdTrxIssuer("IDTRXISSUER", null, null, null, null, pageable2);
+        Assertions.assertNotNull(result);
         List<RewardTransaction> rewardTransactionsList2 = result2.toStream().toList();
-        assertEquals(1, rewardTransactionsList2.size());
-        assertEquals(List.of(rt3), rewardTransactionsList2);
+        Assertions.assertEquals(1, rewardTransactionsList2.size());
+        Assertions.assertEquals(rewardTransactionsList2, List.of(rt3));
 
-        Pageable pageable3 = PageRequest.of(0, 2, Sort.Direction.DESC, "_id");
-        Flux<RewardTransaction> result3 = rewardTransactionSpecificRepository.findByIdTrxIssuer(
-                "IDTRXISSUER", null, null, null, null, pageable3);
+        Pageable pageable3 = PageRequest.of(0,2, Sort.Direction.DESC, "_id");
+        Flux<RewardTransaction> result3 = rewardTransactionSpecificRepository.findByIdTrxIssuer("IDTRXISSUER", null, null, null, null, pageable3);
+        Assertions.assertNotNull(result);
         List<RewardTransaction> rewardTransactionsList3 = result3.toStream().toList();
-        assertEquals(2, rewardTransactionsList3.size());
-        assertEquals(List.of(rt3, rt2), rewardTransactionsList3);
+        Assertions.assertEquals(2, rewardTransactionsList3.size());
+        Assertions.assertEquals(rewardTransactionsList3, List.of(rt3, rt2));
 
-        Pageable pageable4 = PageRequest.of(1, 2, Sort.Direction.DESC, "_id");
-        Flux<RewardTransaction> result4 = rewardTransactionSpecificRepository.findByIdTrxIssuer(
-                "IDTRXISSUER", null, null, null, null, pageable4);
+        Pageable pageable4 = PageRequest.of(1,2, Sort.Direction.DESC, "_id");
+        Flux<RewardTransaction> result4 = rewardTransactionSpecificRepository.findByIdTrxIssuer("IDTRXISSUER", null, null, null, null, pageable4);
+        Assertions.assertNotNull(result);
         List<RewardTransaction> rewardTransactionsList4 = result4.toStream().toList();
-        assertEquals(1, rewardTransactionsList4.size());
-        assertEquals(List.of(rt1), rewardTransactionsList4);
+        Assertions.assertEquals(1, rewardTransactionsList4.size());
+        Assertions.assertEquals(rewardTransactionsList4, List.of(rt1));
+
+        cleanDataPageable();
     }
 
     @Test
-    void pageableWithfindByRange() {
+    void pageableWithfindByRange(){
         LocalDateTime date = LocalDateTime.of(2021, 9, 6, 17, 30, 25);
         LocalDateTime startDate = date.minusDays(10L);
         LocalDateTime endDate = date.plusDays(10L);
@@ -188,44 +180,45 @@ class RewardTransactionSpecificRepositoryTest {
 
         setUpPageable(date, userId);
 
-        Pageable pageable = PageRequest.of(0, 2);
-        Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findByRange(
-                userId, startDate, endDate, null, pageable);
+        Pageable pageable = PageRequest.of(0,2);
+        Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findByRange(userId, startDate, endDate, null, pageable);
+        Assertions.assertNotNull(result);
         List<RewardTransaction> rewardTransactionsList = result.toStream().toList();
-        assertEquals(2, rewardTransactionsList.size());
-        assertEquals(List.of(rt1, rt2), rewardTransactionsList);
+        Assertions.assertEquals(2, rewardTransactionsList.size());
+        Assertions.assertEquals(rewardTransactionsList, List.of(rt1, rt2));
 
-        Pageable pageable2 = PageRequest.of(1, 2);
-        Flux<RewardTransaction> result2 = rewardTransactionSpecificRepository.findByRange(
-                userId, startDate, endDate, null, pageable2);
+        Pageable pageable2 = PageRequest.of(1,2);
+        Flux<RewardTransaction> result2 = rewardTransactionSpecificRepository.findByRange( userId,startDate,endDate, null, pageable2);
+        Assertions.assertNotNull(result);
         List<RewardTransaction> rewardTransactionsList2 = result2.toStream().toList();
-        assertEquals(1, rewardTransactionsList2.size());
-        assertEquals(List.of(rt3), rewardTransactionsList2);
+        Assertions.assertEquals(1, rewardTransactionsList2.size());
+        Assertions.assertEquals(rewardTransactionsList2, List.of(rt3));
 
-        Pageable pageable3 = PageRequest.of(0, 2, Sort.Direction.DESC, "_id");
-        Flux<RewardTransaction> result3 = rewardTransactionSpecificRepository.findByRange(
-                userId, startDate, endDate, null, pageable3);
+        Pageable pageable3 = PageRequest.of(0,2, Sort.Direction.DESC, "_id");
+        Flux<RewardTransaction> result3 = rewardTransactionSpecificRepository.findByRange(userId,startDate, endDate, null, pageable3);
+        Assertions.assertNotNull(result);
         List<RewardTransaction> rewardTransactionsList3 = result3.toStream().toList();
-        assertEquals(2, rewardTransactionsList3.size());
-        assertEquals(List.of(rt3, rt2), rewardTransactionsList3);
+        Assertions.assertEquals(2, rewardTransactionsList3.size());
+        Assertions.assertEquals(rewardTransactionsList3, List.of(rt3, rt2));
 
-        Pageable pageable4 = PageRequest.of(1, 2, Sort.Direction.DESC, "_id");
-        Flux<RewardTransaction> result4 = rewardTransactionSpecificRepository.findByRange(
-                userId, startDate, endDate, null, pageable4);
+        Pageable pageable4 = PageRequest.of(1,2, Sort.Direction.DESC, "_id");
+        Flux<RewardTransaction> result4 = rewardTransactionSpecificRepository.findByRange(userId, startDate, endDate, null, pageable4);
+        Assertions.assertNotNull(result);
         List<RewardTransaction> rewardTransactionsList4 = result4.toStream().toList();
-        assertEquals(1, rewardTransactionsList4.size());
-        assertEquals(List.of(rt1), rewardTransactionsList4);
+        Assertions.assertEquals(1, rewardTransactionsList4.size());
+        Assertions.assertEquals(rewardTransactionsList4, List.of(rt1));
+
+        cleanDataPageable();
     }
 
-    void setUpPageable(LocalDateTime date, String userId) {
+    void setUpPageable(LocalDateTime date, String userId){
         Long amountCents = 3000L;
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
                 .idTrxIssuer("IDTRXISSUER")
                 .userId(userId)
                 .trxDate(date)
-                .amountCents(amountCents)
-                .build();
+                .amountCents(amountCents).build();
         rewardTransactionRepository.save(rt1).block();
 
         rt2 = RewardTransactionFaker.mockInstanceBuilder(2)
@@ -233,8 +226,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .idTrxIssuer("IDTRXISSUER")
                 .userId(userId)
                 .trxDate(date)
-                .amountCents(amountCents)
-                .build();
+                .amountCents(amountCents).build();
         rewardTransactionRepository.save(rt2).block();
 
         rt3 = RewardTransactionFaker.mockInstanceBuilder(3)
@@ -242,81 +234,30 @@ class RewardTransactionSpecificRepositoryTest {
                 .idTrxIssuer("IDTRXISSUER")
                 .userId(userId)
                 .trxDate(date)
-                .amountCents(amountCents)
-                .build();
+                .amountCents(amountCents).build();
         rewardTransactionRepository.save(rt3).block();
     }
 
-    void cleanDataPageable() {
-        rewardTransactionRepository.deleteById("id1").onErrorResume(e -> Mono.empty()).block();
-        rewardTransactionRepository.deleteById("id2").onErrorResume(e -> Mono.empty()).block();
-        rewardTransactionRepository.deleteById("id3").onErrorResume(e -> Mono.empty()).block();
+    void cleanDataPageable(){
+        rewardTransactionRepository.deleteById("id1").block();
+        rewardTransactionRepository.deleteById("id2").block();
+        rewardTransactionRepository.deleteById("id3").block();
     }
-
     @Test
     void findByFilter() {
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
                 .idTrxIssuer("IDTRXISSUER")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
                 .status("CANCELLED")
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
+                .initiatives(List.of(INITIATIVE_ID)).build();
         rewardTransactionRepository.save(rt1).block();
 
         Pageable paging = PageRequest.of(0, 10, Sort.by(RewardTransaction.Fields.elaborationDateTime).descending());
-        Flux<RewardTransaction> transactionInProgressList =
-                rewardTransactionSpecificRepository.findByFilter(MERCHANT_ID, INITIATIVE_ID, USER_ID,
-                        "CANCELLED", null, null, paging);
+        Flux<RewardTransaction> transactionInProgressList = rewardTransactionRepository.findByFilter(MERCHANT_ID, INITIATIVE_ID, USER_ID, "CANCELLED", paging);
         List<RewardTransaction> result = transactionInProgressList.toStream().toList();
         assertEquals(rt1, result.get(0));
-    }
 
-    @Test
-    void findByFilter_withRewardBatchAndInvStatus() {
-        String batchId = "BATCH1";
-
-        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("id1")
-                .idTrxIssuer("IDTRXISSUER")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .status("REWARDED")
-                .rewardBatchId(batchId)
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-        rewardTransactionRepository.save(rt1).block();
-
-        Flux<RewardTransaction> resultFlux = rewardTransactionSpecificRepository.findByFilter(
-                MERCHANT_ID, INITIATIVE_ID, USER_ID,
-                "REWARDED", batchId, RewardBatchTrxStatus.APPROVED, null);
-
-        List<RewardTransaction> result = resultFlux.toStream().toList();
-        assertEquals(1, result.size());
-        assertEquals(rt1.getId(), result.getFirst().getId());
-    }
-
-    @Test
-    void findByFilter_withDefaultStatusesWhenStatusNull() {
-        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("id1")
-                .idTrxIssuer("IDTRXISSUER")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .status("CANCELLED")
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-        rewardTransactionRepository.save(rt1).block();
-
-        Flux<RewardTransaction> resultFlux = rewardTransactionSpecificRepository.findByFilter(
-                MERCHANT_ID, INITIATIVE_ID, USER_ID,
-                null, null, null, null);
-
-        List<RewardTransaction> result = resultFlux.toStream().toList();
-        assertEquals(1, result.size());
-        assertEquals("CANCELLED", result.getFirst().getStatus());
+        cleanDataPageable();
     }
 
     @Test
@@ -324,22 +265,20 @@ class RewardTransactionSpecificRepositoryTest {
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
                 .idTrxIssuer("IDTRXISSUER")
-                .merchantId(MERCHANT_ID)
-                .pointOfSaleId(POINT_OF_SALE_ID)
-                .userId(USER_ID)
                 .status("REWARDED")
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
+                .initiatives(List.of(INITIATIVE_ID)).build();
         rewardTransactionRepository.save(rt1).block();
 
         Pageable sorted = PageRequest.of(0, 10, Sort.by("elaborationDateTime").descending());
 
         Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findByFilterTrx(
-                MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "", "REWARDED", sorted);
+                MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID,"", "REWARDED", sorted);
 
         List<RewardTransaction> list = result.toStream().toList();
         assertEquals(1, list.size());
         assertEquals(rt1.getId(), list.getFirst().getId());
+
+        cleanDataPageable();
     }
 
     @Test
@@ -347,12 +286,8 @@ class RewardTransactionSpecificRepositoryTest {
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
                 .idTrxIssuer("IDTRXISSUER")
-                .merchantId(MERCHANT_ID)
-                .pointOfSaleId(POINT_OF_SALE_ID)
-                .userId(USER_ID)
                 .status("REWARDED")
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
+                .initiatives(List.of(INITIATIVE_ID)).build();
         rewardTransactionRepository.save(rt1).block();
 
         Pageable unsorted = PageRequest.of(0, 10);
@@ -362,52 +297,31 @@ class RewardTransactionSpecificRepositoryTest {
         List<RewardTransaction> list = result.toStream().toList();
         assertEquals(1, list.size());
         assertEquals(rt1.getId(), list.getFirst().getId());
+
+        cleanDataPageable();
     }
 
     @Test
-    void findByFilterTrx_withNullPageable_shouldUseDefaultPagingAndSorting() {
+    void findByFilterTrx() {
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
                 .idTrxIssuer("IDTRXISSUER")
-                .merchantId(MERCHANT_ID)
-                .pointOfSaleId(POINT_OF_SALE_ID)
-                .userId(USER_ID)
                 .status("REWARDED")
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-        rewardTransactionRepository.save(rt1).block();
+                .initiatives(List.of(INITIATIVE_ID)).build();
 
-        Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findByFilterTrx(
-                MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "", "REWARDED", null);
+        Map<String,String> additionalProperties = Map.of("productGtin", PRODUCT_GTIN);
 
-        List<RewardTransaction> list = result.toStream().toList();
-        assertEquals(1, list.size());
-        assertEquals(rt1.getId(), list.getFirst().getId());
-    }
-
-    @Test
-    void findByFilterTrx_withProductGtinFilter() {
-        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("id1")
-                .idTrxIssuer("IDTRXISSUER")
-                .merchantId(MERCHANT_ID)
-                .pointOfSaleId(POINT_OF_SALE_ID)
-                .userId(USER_ID)
-                .status("REWARDED")
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        Map<String, String> additionalProperties = Map.of("productGtin", PRODUCT_GTIN);
         rt1.setAdditionalProperties(additionalProperties);
 
         rewardTransactionRepository.save(rt1).block();
 
         Pageable pageable = PageRequest.of(0, 10, Sort.by(RewardTransaction.Fields.elaborationDateTime).descending());
-        Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findByFilterTrx(
-                MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, PRODUCT_GTIN, "REWARDED", pageable);
+        Flux<RewardTransaction> result = rewardTransactionRepository.findByFilterTrx(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, PRODUCT_GTIN, "REWARDED", pageable);
         List<RewardTransaction> list = result.toStream().toList();
         assertEquals(1, list.size());
         assertEquals(rt1.getId(), list.getFirst().getId());
+
+        cleanDataPageable();
     }
 
     @Test
@@ -419,8 +333,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .merchantId(MERCHANT_ID)
                 .pointOfSaleId(POINT_OF_SALE_ID)
                 .status("CANCELLED")
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
+                .initiatives(List.of(INITIATIVE_ID)).build();
 
         rt2 = RewardTransactionFaker.mockInstanceBuilder(2)
                 .id("id2")
@@ -429,8 +342,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .merchantId(MERCHANT_ID)
                 .pointOfSaleId(POINT_OF_SALE_ID)
                 .status("REWARDED")
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
+                .initiatives(List.of(INITIATIVE_ID)).build();
 
         rewardTransactionRepository.save(rt1).block();
         rewardTransactionRepository.save(rt2).block();
@@ -439,6 +351,7 @@ class RewardTransactionSpecificRepositoryTest {
 
         List<RewardTransaction> ascResult = rewardTransactionSpecificRepository.findByFilterTrx(
                 MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "", null, ascSort
+
         ).toStream().toList();
 
         assertEquals(
@@ -449,12 +362,15 @@ class RewardTransactionSpecificRepositoryTest {
         Pageable descSort = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "status"));
         List<RewardTransaction> descResult = rewardTransactionSpecificRepository.findByFilterTrx(
                 MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "", null, descSort
+
         ).toStream().toList();
 
         assertEquals(
                 List.of(rt2.getId(), rt1.getId()),
                 descResult.stream().map(RewardTransaction::getId).toList()
         );
+
+        cleanDataPageable();
     }
 
     @Test
@@ -462,15 +378,13 @@ class RewardTransactionSpecificRepositoryTest {
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
                 .idTrxIssuer("IDTRXISSUER")
-                .merchantId(MERCHANT_ID)
                 .status("REWARDED")
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
+                .initiatives(List.of(INITIATIVE_ID)).build();
         rewardTransactionRepository.save(rt1).block();
+        Mono<Long> count = rewardTransactionRepository.getCount(MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, null, null, null);
+        assertEquals(1, count.block());
 
-        Mono<Long> count = rewardTransactionSpecificRepository.getCount(
-                MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, null, null, null);
-        assertEquals(1L, count.block());
+        cleanDataPageable();
     }
 
     @Test
@@ -479,27 +393,24 @@ class RewardTransactionSpecificRepositoryTest {
                 .id("id1")
                 .idTrxIssuer("IDTRXISSUER")
                 .status("REWARDED")
-                .initiatives(List.of("INITIATIVEID0"))
-                .build();
+                .initiatives(List.of("INITIATIVEID0")).build();
         rewardTransactionRepository.save(rt).block();
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id2")
                 .idTrxIssuer("IDTRXISSUER")
                 .status("REWARDED")
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
+                .initiatives(List.of(INITIATIVE_ID)).build();
         rewardTransactionRepository.save(rt1).block();
         rt2 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id3")
                 .idTrxIssuer("IDTRXISSUER")
                 .status("REWARDED")
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
+                .initiatives(List.of(INITIATIVE_ID)).build();
         rewardTransactionRepository.save(rt2).block();
-
-        RewardTransaction trx = rewardTransactionSpecificRepository.findOneByInitiativeId(INITIATIVE_ID).block();
+        RewardTransaction trx= rewardTransactionRepository.findOneByInitiativeId(INITIATIVE_ID).block();
         assertNotNull(trx);
         assertTrue(trx.getInitiatives().contains(INITIATIVE_ID));
+        cleanDataPageable();
     }
 
     @Test
@@ -508,14 +419,14 @@ class RewardTransactionSpecificRepositoryTest {
                 .id("id1")
                 .idTrxIssuer("IDTRXISSUER")
                 .status("CANCELLED")
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
+                .initiatives(List.of(INITIATIVE_ID)).build();
         rewardTransactionRepository.save(rt1).block();
 
-        Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findByInitiativesWithBatch(INITIATIVE_ID, 100);
+        Flux<RewardTransaction> result = rewardTransactionRepository.findByInitiativesWithBatch(INITIATIVE_ID, 100);
 
         List<RewardTransaction> rewardTransactions = result.toStream().toList();
         assertEquals(1, rewardTransactions.size());
+        cleanDataPageable();
     }
 
     @Test
@@ -524,14 +435,39 @@ class RewardTransactionSpecificRepositoryTest {
                 .id("id1")
                 .idTrxIssuer("IDTRXISSUER")
                 .status("CANCELLED")
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
+                .initiatives(List.of(INITIATIVE_ID)).build();
         rewardTransactionRepository.save(rt1).block();
 
-        rewardTransactionSpecificRepository.removeInitiativeOnTransaction(rt1.getId(), INITIATIVE_ID).block();
+        rewardTransactionRepository.removeInitiativeOnTransaction(rt1.getId(), INITIATIVE_ID).block();
 
         RewardTransaction modifiedTrx = rewardTransactionRepository.findById(rt1.getId()).block();
         assertTrue(modifiedTrx.getInitiatives().isEmpty());
+        cleanDataPageable();
+    }
+
+    @Test
+    void findByFilterTrx_withUpdateDateSorting_shouldMapToElaborationDateTime() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .idTrxIssuer("IDTRXISSUER")
+                .status("REWARDED")
+                .initiatives(List.of(INITIATIVE_ID))
+                .trxDate(LocalDateTime.now())
+                .elaborationDateTime(LocalDateTime.now().plusMinutes(5))
+                .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "updateDate"));
+
+        Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findByFilterTrx(
+                MERCHANT_ID, INITIATIVE_ID, POINT_OF_SALE_ID, USER_ID, "", "REWARDED", pageable);
+
+        List<RewardTransaction> list = result.toStream().toList();
+
+        assertEquals(1, list.size());
+        assertEquals(rt1.getId(), list.get(0).getId());
+
+        cleanDataPageable();
     }
 
     @Test
@@ -539,11 +475,10 @@ class RewardTransactionSpecificRepositoryTest {
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
                 .idTrxIssuer("IDTRXISSUER")
-                .merchantId(MERCHANT_ID)
-                .pointOfSaleId(POINT_OF_SALE_ID)
-                .userId(USER_ID)
                 .status("REWARDED")
                 .initiatives(List.of(INITIATIVE_ID))
+                .trxDate(LocalDateTime.now())
+                .elaborationDateTime(LocalDateTime.now().plusMinutes(5))
                 .build();
         rewardTransactionRepository.save(rt1).block();
 
@@ -556,10 +491,12 @@ class RewardTransactionSpecificRepositoryTest {
 
         assertEquals(1, list.size());
         assertEquals(rt1.getId(), list.get(0).getId());
+
+        cleanDataPageable();
     }
 
     @Test
-    void findTransaction_shouldReturnMatchingTransaction_whenStatusIsRewardedOrRefundedOrInvoiced() {
+    void findTransaction_shouldReturnMatchingTransaction_whenStatusIsRewardedOrRefunded() {
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
                 .merchantId(MERCHANT_ID)
@@ -579,20 +516,81 @@ class RewardTransactionSpecificRepositoryTest {
         assertEquals(MERCHANT_ID, result.getMerchantId());
         assertEquals(POINT_OF_SALE_ID, result.getPointOfSaleId());
         assertEquals("REWARDED", result.getStatus());
+
+        cleanDataPageable();
     }
 
     @Test
     void findByTrxIdAndUserId_shouldReturnMatchingTransaction() {
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
-                .userId(USER_ID)
+                .userId("TESTUSER")
+                .merchantId(MERCHANT_ID)
+                .status("REWARDED")
                 .build();
         rewardTransactionRepository.save(rt1).block();
 
-        RewardTransaction result = rewardTransactionSpecificRepository.findByTrxIdAndUserId("id1", USER_ID).block();
+        RewardTransaction found = rewardTransactionSpecificRepository
+                .findByTrxIdAndUserId("id1", "TESTUSER")
+                .block();
 
-        assertNotNull(result);
-        assertEquals("id1", result.getId());
-        assertEquals(USER_ID, result.getUserId());
+        assertNotNull(found);
+        assertEquals("id1", found.getId());
+        assertEquals("TESTUSER", found.getUserId());
+
+        RewardTransaction wrongUser = rewardTransactionSpecificRepository
+                .findByTrxIdAndUserId("id1", "OTHERUSER")
+                .block();
+        assertNull(wrongUser);
+
+        RewardTransaction wrongTrx = rewardTransactionSpecificRepository
+                .findByTrxIdAndUserId("WRONGID", "TESTUSER")
+                .block();
+        assertNull(wrongTrx);
+
+        rewardTransactionRepository.deleteById("id1").block();
+    }
+
+    @Test
+    void rewardTransactionsByBatchId_shouldUpdateAllMatchingTransactions() {
+        String batchId = "BATCH123";
+
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .rewardBatchId(batchId)
+                .status("INVOICED")
+                .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        rt2 = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("id2")
+                .rewardBatchId(batchId)
+                .status("INVOICED")
+                .build();
+        rewardTransactionRepository.save(rt2).block();
+
+        rt3 = RewardTransactionFaker.mockInstanceBuilder(3)
+                .id("id3")
+                .rewardBatchId("OTHERBATCH")
+                .status("INVOICED")
+                .build();
+        rewardTransactionRepository.save(rt3).block();
+
+        rewardTransactionSpecificRepository.rewardTransactionsByBatchId(batchId);
+
+        RewardTransaction updated1 = rewardTransactionRepository.findById("id1").block();
+        RewardTransaction updated2 = rewardTransactionRepository.findById("id2").block();
+        RewardTransaction unchanged3 = rewardTransactionRepository.findById("id3").block();
+
+        assertNotNull(updated1);
+        assertEquals("REWARDED", updated1.getStatus());
+        assertNotNull(updated2);
+        assertEquals("REWARDED", updated2.getStatus());
+        assertNotNull(unchanged3);
+        assertNotEquals("REWARDED", unchanged3.getStatus());
+
+        rewardTransactionRepository.deleteById("id1").block();
+        rewardTransactionRepository.deleteById("id2").block();
+        rewardTransactionRepository.deleteById("id3").block();
     }
 }

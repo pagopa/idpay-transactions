@@ -83,7 +83,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                                                                       RewardTransaction transaction,
                                                                       String fiscalCode) {
 
-        Long rewardAmountCents = 0L;
+        long rewardAmountCents = 0L;
         if (transaction.getRewards() != null
                 && transaction.getRewards().get(initiativeId) != null
                 && transaction.getRewards().get(initiativeId).getAccruedRewardCents() != null) {

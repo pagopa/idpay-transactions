@@ -24,7 +24,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
 
     public RewardTransactionServiceImpl(RewardTransactionRepository rewardTrxRepository,
-        RewardBatchService rewardBatchService) {
+                                        RewardBatchService rewardBatchService) {
         this.rewardTrxRepository = rewardTrxRepository;
         this.rewardBatchService = rewardBatchService;
     }
@@ -34,7 +34,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
         if (SyncTrxStatus.INVOICED.name().equalsIgnoreCase(rewardTransaction.getStatus())) {
             return enrichBatchData(rewardTransaction)
-                .flatMap(rewardTrxRepository::save);
+                    .flatMap(rewardTrxRepository::save);
         }
         return rewardTrxRepository.save(rewardTransaction);
     }
@@ -61,24 +61,24 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
         String batchMonth = trxMonth.toString();
 
         long accruedRewardCents = trx.getRewards().values().stream()
-            .mapToLong(Reward::getAccruedRewardCents)
-            .sum();
+                .mapToLong(Reward::getAccruedRewardCents)
+                .sum();
 
         return rewardBatchService.findOrCreateBatch(
-                    trx.getMerchantId(),
-                    trx.getPointOfSaleType(),
-                    batchMonth,
-                    trx.getBusinessName()
-            )
-            .flatMap(rewardBatch ->
-                rewardBatchService.incrementTotals(rewardBatch.getId(), accruedRewardCents)
-                    .map(batch -> {
-                        trx.setRewardBatchId(batch.getId());
-                        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-                        trx.setRewardBatchInclusionDate(LocalDateTime.now());
-                        trx.setRewardBatchRejectionReason(null);
-                        return trx;
-                    })
-            );
+                        trx.getMerchantId(),
+                        trx.getPointOfSaleType(),
+                        batchMonth,
+                        trx.getBusinessName()
+                )
+                .flatMap(rewardBatch ->
+                        rewardBatchService.incrementTotals(rewardBatch.getId(), accruedRewardCents)
+                                .map(batch -> {
+                                    trx.setRewardBatchId(batch.getId());
+                                    trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
+                                    trx.setRewardBatchInclusionDate(LocalDateTime.now());
+                                    trx.setRewardBatchRejectionReason(null);
+                                    return trx;
+                                })
+                );
     }
 }
