@@ -17,6 +17,7 @@ public interface RewardTransactionSpecificRepository {
     Flux<RewardTransaction> findByInitiativesWithBatch(String initiativeId, int batchSize);
     Flux<RewardTransaction> findByFilterTrx(String merchantId, String initiativeId, String pointOfSaleId, String userId, String productGtin, String status, Pageable pageable);
 
+    Flux<RewardTransaction> findByFilter(String rewardBatchId, String initiativeId, String status);
     /**
      * Retrieves a transaction in status REWARDED, REFUNDED or INVOICED using the provided paramaters
      * @param merchantId
