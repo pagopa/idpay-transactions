@@ -3,7 +3,7 @@ package it.gov.pagopa.idpay.transactions.service;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
-import it.gov.pagopa.idpay.transactions.repository.RewardTransactionSpecificRepository;
+import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.springframework.dao.DuplicateKeyException;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -26,11 +26,11 @@ import reactor.core.publisher.Mono;
 public class RewardBatchServiceImpl implements RewardBatchService {
 
   private final RewardBatchRepository rewardBatchRepository;
-  private final RewardTransactionSpecificRepository rewardTransactionSpecificRepository;
+  private final RewardTransactionRepository rewardTransactionRepository;
 
-  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionSpecificRepository rewardTransactionSpecificRepository) {
+  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository) {
     this.rewardBatchRepository = rewardBatchRepository;
-    this.rewardTransactionSpecificRepository = rewardTransactionSpecificRepository;
+    this.rewardTransactionRepository = rewardTransactionRepository;
   }
 
   @Override
@@ -120,7 +120,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         batch.setUpdateDate(LocalDateTime.now());
         rewardBatchRepository.save(batch).block();
 
-        rewardTransactionSpecificRepository.rewardTransactionsByBatchId(batchId);
+        rewardTransactionRepository.rewardTransactionsByBatchId(batchId);
     }
 
   private String buildBatchName(YearMonth month) {

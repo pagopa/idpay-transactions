@@ -8,7 +8,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import java.time.YearMonth;
 
-import it.gov.pagopa.idpay.transactions.repository.RewardTransactionSpecificRepository;
+import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,7 +27,7 @@ class RewardBatchServiceImplTest {
 
   @Mock
   private RewardBatchRepository rewardBatchRepository;
-  private RewardTransactionSpecificRepository rewardTransactionSpecificRepository;
+  private RewardTransactionRepository rewardTransactionRepository;
 
   private RewardBatchService rewardBatchService;
 
@@ -35,7 +35,7 @@ class RewardBatchServiceImplTest {
 
   @BeforeEach
   void setUp(){
-    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionSpecificRepository);
+    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository);
   }
 
 
@@ -118,7 +118,7 @@ class RewardBatchServiceImplTest {
         .thenReturn(Mono.error(new DuplicateKeyException("Duplicate")));
 
     StepVerifier.create(
-            new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionSpecificRepository)
+            new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository)
                 .findOrCreateBatch("M1", posType, batchMonth, businessName)
         )
         .assertNext(batch -> {
