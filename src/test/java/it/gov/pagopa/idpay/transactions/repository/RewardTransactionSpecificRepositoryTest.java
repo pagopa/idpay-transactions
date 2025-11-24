@@ -6,7 +6,6 @@ import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -23,7 +22,6 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 @DirtiesContext
 @MongoTest
-@Disabled
 class RewardTransactionSpecificRepositoryTest {
     @Autowired
     protected RewardTransactionRepository rewardTransactionRepository;
