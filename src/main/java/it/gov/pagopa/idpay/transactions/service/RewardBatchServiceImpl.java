@@ -78,6 +78,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         .endDate(endDate)
         .totalAmountCents(0L)
         .approvedAmountCents(0L)
+        .initialAmountCents(0L)
         .numberOfTransactions(0L)
         .numberOfTransactionsElaborated(0L)
         .reportPath(null)
