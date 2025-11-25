@@ -131,16 +131,5 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     }
     return criteria;
   }
-  @Override
-  public Flux<RewardTransaction> findByFilter(String rewardBatchId, String initiativeId){
-    Criteria criteria = getCriteria(rewardBatchId, initiativeId);
-    return mongoTemplate.find(Query.query(criteria), RewardTransaction.class);
-  }
-
-  private Criteria getCriteria(String rewardBatchId, String initiativeId) {
-    return Criteria.where(RewardTransaction.Fields.rewardBatchId).is(rewardBatchId)
-            .and(RewardTransaction.Fields.initiatives).is(initiativeId)
-            .and(RewardTransaction.Fields.status).in("TO_CHECK", "CONSULTABLE");
-  }
 
 }
