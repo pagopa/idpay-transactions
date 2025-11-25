@@ -38,7 +38,7 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
           HttpStatus.FORBIDDEN,
           ExceptionConstants.ExceptionCode.POINT_OF_SALE_NOT_ALLOWED,
           String.format(
-              "The point-of-sale with id [%s] is not authorized for the current token [%s]",
+              "Point of sale mismatch: expected [%s], but received [%s]",
               pointOfSaleId,
               tokenPointOfSaleId
           )
@@ -61,9 +61,24 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
 
   @Override
   public Mono<DownloadInvoiceResponseDTO> downloadInvoiceFile(
-          String merchantId, String pointOfSaleId, String transactionId) {
+          String merchantId, String tokenPointOfSaleId, String pointOfSaleId, String transactionId) {
     log.info("[DOWNLOAD_TRANSACTION] Requested to download invoice for transaction {}",
             Utilities.sanitizeString(transactionId));
+
+    if (tokenPointOfSaleId != null && (!Utilities.sanitizeString(tokenPointOfSaleId)
+        .equals(Utilities.sanitizeString(pointOfSaleId)))){
+
+      return Mono.error(new ClientExceptionWithBody(
+          HttpStatus.FORBIDDEN,
+          ExceptionConstants.ExceptionCode.POINT_OF_SALE_NOT_ALLOWED,
+          String.format(
+              "Point of sale mismatch: expected [%s], but received [%s]",
+              pointOfSaleId,
+              tokenPointOfSaleId
+          )
+      ));
+    }
+
     return pointOfSaleTransactionService.downloadTransactionInvoice(merchantId, pointOfSaleId, transactionId);
   }
 }

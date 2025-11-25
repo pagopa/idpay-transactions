@@ -66,6 +66,7 @@ public interface PointOfSaleTransactionController {
   @GetMapping("/{pointOfSaleId}/transactions/{transactionId}/download")
   Mono<DownloadInvoiceResponseDTO> downloadInvoiceFile(
       @RequestHeader("x-merchant-id") String merchantId,
+      @RequestHeader(name = "x-point-of-sale-id", required = false) String tokenPointOfSaleId,
       @PathVariable("pointOfSaleId") String pointOfSaleId,
       @PathVariable("transactionId") String transactionId);
 }

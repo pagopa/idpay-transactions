@@ -88,8 +88,8 @@ class PointOfSaleTransactionControllerImplTest {
         .value(res -> {
           assertNotNull(res);
           assertEquals(1, res.getContent().size());
-          assertEquals("TRX1", res.getContent().get(0).getTrxId());
-          assertEquals(FISCAL_CODE, res.getContent().get(0).getFiscalCode());
+          assertEquals("TRX1", res.getContent().getFirst().getTrxId());
+          assertEquals(FISCAL_CODE, res.getContent().getFirst().getFiscalCode());
           assertEquals(1, res.getTotalElements());
           assertEquals(1, res.getTotalPages());
           assertEquals(10, res.getPageSize());
@@ -155,5 +155,37 @@ class PointOfSaleTransactionControllerImplTest {
         .header("x-point-of-sale-id", "ALTRO_POS")
         .exchange()
         .expectStatus().isForbidden();
+  }
+
+  @Test
+  void downloadInvoiceShouldReturnForbiddenOnPosMismatch() {
+    webClient.get()
+        .uri(uriBuilder -> uriBuilder
+            .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
+            .build(POINT_OF_SALE_ID, TRX_ID))
+        .header("x-merchant-id", MERCHANT_ID)
+        .header("x-point-of-sale-id", "ALTRO_POS")
+        .exchange()
+        .expectStatus().isForbidden();
+  }
+
+  @Test
+  void downloadInvoiceShouldReturnOkWithoutPosHeader() {
+    doReturn(Mono.just(DownloadInvoiceResponseDTO.builder().invoiceUrl("testUrl").build()))
+        .when(pointOfSaleTransactionService).downloadTransactionInvoice(
+            MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+
+    webClient.get()
+        .uri(uriBuilder -> uriBuilder
+            .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
+            .build(POINT_OF_SALE_ID, TRX_ID))
+        .header("x-merchant-id", MERCHANT_ID)
+        .exchange()
+        .expectStatus().isOk()
+        .expectBody(DownloadInvoiceResponseDTO.class)
+        .value(res -> {
+          assertNotNull(res);
+          assertEquals("testUrl", res.getInvoiceUrl());
+        });
   }
 }
