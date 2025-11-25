@@ -519,4 +519,78 @@ class RewardTransactionSpecificRepositoryTest {
 
         cleanDataPageable();
     }
+
+    @Test
+    void findByTrxIdAndUserId_shouldReturnMatchingTransaction() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .userId("TESTUSER")
+            .merchantId(MERCHANT_ID)
+            .status("REWARDED")
+            .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        RewardTransaction found = rewardTransactionSpecificRepository
+            .findByTrxIdAndUserId("id1", "TESTUSER")
+            .block();
+
+        assertNotNull(found);
+        assertEquals("id1", found.getId());
+        assertEquals("TESTUSER", found.getUserId());
+
+        RewardTransaction wrongUser = rewardTransactionSpecificRepository
+            .findByTrxIdAndUserId("id1", "OTHERUSER")
+            .block();
+        assertNull(wrongUser);
+
+        RewardTransaction wrongTrx = rewardTransactionSpecificRepository
+            .findByTrxIdAndUserId("WRONGID", "TESTUSER")
+            .block();
+        assertNull(wrongTrx);
+
+        rewardTransactionRepository.deleteById("id1").block();
+    }
+
+    @Test
+    void rewardTransactionsByBatchId_shouldUpdateAllMatchingTransactions() {
+        String batchId = "BATCH123";
+
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .rewardBatchId(batchId)
+            .status("INVOICED")
+            .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        rt2 = RewardTransactionFaker.mockInstanceBuilder(2)
+            .id("id2")
+            .rewardBatchId(batchId)
+            .status("INVOICED")
+            .build();
+        rewardTransactionRepository.save(rt2).block();
+
+        rt3 = RewardTransactionFaker.mockInstanceBuilder(3)
+            .id("id3")
+            .rewardBatchId("OTHERBATCH")
+            .status("INVOICED")
+            .build();
+        rewardTransactionRepository.save(rt3).block();
+
+        rewardTransactionSpecificRepository.rewardTransactionsByBatchId(batchId);
+
+        RewardTransaction updated1 = rewardTransactionRepository.findById("id1").block();
+        RewardTransaction updated2 = rewardTransactionRepository.findById("id2").block();
+        RewardTransaction unchanged3 = rewardTransactionRepository.findById("id3").block();
+
+        assertNotNull(updated1);
+        assertEquals("REWARDED", updated1.getStatus());
+        assertNotNull(updated2);
+        assertEquals("REWARDED", updated2.getStatus());
+        assertNotNull(unchanged3);
+        assertNotEquals("REWARDED", unchanged3.getStatus());
+
+        rewardTransactionRepository.deleteById("id1").block();
+        rewardTransactionRepository.deleteById("id2").block();
+        rewardTransactionRepository.deleteById("id3").block();
+    }
 }

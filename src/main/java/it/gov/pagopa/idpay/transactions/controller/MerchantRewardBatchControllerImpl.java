@@ -60,6 +60,13 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     }
   }
 
+    @Override
+    public Mono<Void> sendRewardBatches(String merchantId, String initiativeId, String batchId) {
+        log.info("[SEND_REWARD_BATCHES] Merchant {} requested to send batch batchId {}",
+                Utilities.sanitizeString(merchantId), Utilities.sanitizeString(batchId));
+        return this.rewardBatchService.sendRewardBatch(merchantId, batchId);
+    }
+
   @Override
   public  Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId) {
 

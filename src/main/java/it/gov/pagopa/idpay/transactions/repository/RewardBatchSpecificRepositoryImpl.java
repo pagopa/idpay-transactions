@@ -67,7 +67,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     return mongoTemplate.findAndModify(
         Query.query(Criteria.where("_id").is(batchId)),
         new Update()
-            .inc("totalAmountCents", accruedAmountCents)
+            .inc("initialAmountCents", accruedAmountCents)
             .inc("numberOfTransactions", 1)
             .set("updateDate", LocalDateTime.now()),
         FindAndModifyOptions.options().returnNew(true),

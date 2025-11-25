@@ -8,6 +8,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,6 +22,14 @@ public interface MerchantRewardBatchController {
       @RequestHeader(value = "x-merchant-id", required = false) String merchantId,
       @PathVariable("initiativeId") String initiativeId,
       @PageableDefault(sort = "name", direction = Sort.Direction.ASC) Pageable pageable);
+
+  @PostMapping("/initiatives/{initiativeId}/reward-batches/{batchId}/send")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  Mono<Void> sendRewardBatches(
+      @RequestHeader(value = "x-merchant-id", required = false) String merchantId,
+      @PathVariable("initiativeId") String initiativeId,
+      @PathVariable("batchId") String batchId
+      );
 
   @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/suspended")
   Mono<RewardBatchDTO> suspendTransactions(
