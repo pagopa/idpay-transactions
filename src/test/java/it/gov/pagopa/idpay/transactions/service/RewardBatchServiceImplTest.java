@@ -55,11 +55,11 @@ class RewardBatchServiceImplTest {
     YearMonth yearMonth = YearMonth.of(2025, 11);
     String batchMonth = yearMonth.toString();
 
-    when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
+    Mockito.when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
             "M1", PosType.PHYSICAL, batchMonth))
         .thenReturn(Mono.empty());
 
-    when(rewardBatchRepository.save(any()))
+    Mockito.when(rewardBatchRepository.save(any()))
         .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
     StepVerifier.create(rewardBatchService.findOrCreateBatch("M1", PosType.PHYSICAL, batchMonth, businessName))
@@ -73,7 +73,7 @@ class RewardBatchServiceImplTest {
         })
         .verifyComplete();
 
-    verify(rewardBatchRepository).save(any());
+    Mockito.verify(rewardBatchRepository).save(any());
   }
 
   @Test
@@ -90,7 +90,7 @@ class RewardBatchServiceImplTest {
         .name("novembre 2025")
         .build();
 
-    when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth("M1", PosType.PHYSICAL, batchMonth))
+    Mockito.when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth("M1", PosType.PHYSICAL, batchMonth))
         .thenReturn(Mono.just(existingBatch));
 
     StepVerifier.create(rewardBatchService.findOrCreateBatch("M1", PosType.PHYSICAL, batchMonth, businessName))
@@ -102,7 +102,7 @@ class RewardBatchServiceImplTest {
         })
         .verifyComplete();
 
-    verify(rewardBatchRepository, never()).save(any());
+    Mockito.verify(rewardBatchRepository, Mockito.never()).save(any());
   }
 
   @Test
@@ -120,16 +120,16 @@ class RewardBatchServiceImplTest {
         .name("novembre 2025")
         .build();
 
-    when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
+    Mockito.when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
             "M1", posType, batchMonth))
         .thenReturn(Mono.empty())
         .thenReturn(Mono.just(existingBatch));
 
-    when(rewardBatchRepository.save(any()))
+    Mockito.when(rewardBatchRepository.save(any()))
         .thenReturn(Mono.error(new DuplicateKeyException("Duplicate")));
 
     StepVerifier.create(
-            new RewardBatchServiceImpl(rewardBatchRepository, reactiveMongoTemplate)
+                    new RewardBatchServiceImpl(rewardBatchRepository, reactiveMongoTemplate)
                 .findOrCreateBatch("M1", posType, batchMonth, businessName)
         )
         .assertNext(batch -> {
@@ -139,9 +139,9 @@ class RewardBatchServiceImplTest {
         })
         .verifyComplete();
 
-    verify(rewardBatchRepository, Mockito.times(2))
+    Mockito.verify(rewardBatchRepository, Mockito.times(2))
         .findByMerchantIdAndPosTypeAndMonth("M1", posType, batchMonth);
-    verify(rewardBatchRepository).save(any());
+    Mockito.verify(rewardBatchRepository).save(any());
   }
 
   @Test
@@ -149,11 +149,11 @@ class RewardBatchServiceImplTest {
     YearMonth yearMonth = YearMonth.of(2025, 11);
     String batchMonth = yearMonth.toString();
 
-    when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
+    Mockito.when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
             "M1", PosType.PHYSICAL, batchMonth))
         .thenReturn(Mono.empty());
 
-    when(rewardBatchRepository.save(any()))
+    Mockito.when(rewardBatchRepository.save(any()))
         .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
     StepVerifier.create(rewardBatchService.findOrCreateBatch("M1", PosType.PHYSICAL, batchMonth, businessName))
@@ -168,11 +168,11 @@ class RewardBatchServiceImplTest {
     YearMonth yearMonth = YearMonth.of(2025, 11);
     String batchMonth = yearMonth.toString();
 
-    when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
+    Mockito.when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
             "M1", PosType.ONLINE, batchMonth))
         .thenReturn(Mono.empty());
 
-    when(rewardBatchRepository.save(any()))
+    Mockito.when(rewardBatchRepository.save(any()))
         .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
     StepVerifier.create(rewardBatchService.findOrCreateBatch("M1", PosType.ONLINE, batchMonth, businessName))
@@ -187,11 +187,11 @@ class RewardBatchServiceImplTest {
     YearMonth yearMonth = YearMonth.of(2025, 11);
     String batchMonth = yearMonth.toString();
 
-    when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
+    Mockito.when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
             "M1", PosType.ONLINE, batchMonth))
         .thenReturn(Mono.empty());
 
-    when(rewardBatchRepository.save(any()))
+    Mockito.when(rewardBatchRepository.save(any()))
         .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
     StepVerifier.create(rewardBatchService.findOrCreateBatch("M1", PosType.ONLINE, batchMonth, businessName))
@@ -218,10 +218,10 @@ class RewardBatchServiceImplTest {
         .name("novembre 2025")
         .build();
 
-    when(rewardBatchRepository.findRewardBatchByMerchantId(merchantId, pageable))
+    Mockito.when(rewardBatchRepository.findRewardBatchByMerchantId(merchantId, pageable))
         .thenReturn(Flux.just(rb1, rb2));
 
-    when(rewardBatchRepository.getCount(merchantId))
+    Mockito.when(rewardBatchRepository.getCount(merchantId))
         .thenReturn(Mono.just(5L));
 
     StepVerifier.create(rewardBatchService.getMerchantRewardBatches(merchantId, pageable))
@@ -235,8 +235,8 @@ class RewardBatchServiceImplTest {
         })
         .verifyComplete();
 
-    verify(rewardBatchRepository).findRewardBatchByMerchantId(merchantId, pageable);
-    verify(rewardBatchRepository).getCount(merchantId);
+    Mockito.verify(rewardBatchRepository).findRewardBatchByMerchantId(merchantId, pageable);
+    Mockito.verify(rewardBatchRepository).getCount(merchantId);
   }
 
   @Test
@@ -244,10 +244,10 @@ class RewardBatchServiceImplTest {
     String merchantId = "M1";
     Pageable pageable = PageRequest.of(1, 2);
 
-    when(rewardBatchRepository.findRewardBatchByMerchantId(merchantId, pageable))
+    Mockito.when(rewardBatchRepository.findRewardBatchByMerchantId(merchantId, pageable))
         .thenReturn(Flux.empty());
 
-    when(rewardBatchRepository.getCount(merchantId))
+    Mockito.when(rewardBatchRepository.getCount(merchantId))
         .thenReturn(Mono.just(0L));
 
     StepVerifier.create(rewardBatchService.getMerchantRewardBatches(merchantId, pageable))

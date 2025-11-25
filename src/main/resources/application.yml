@@ -196,3 +196,4 @@ app:
   delete:
     paginationSize: ${DELETE_PAGINATION_SIZE:45}
     delayTime: ${DELETE_DELAY_TIME:1000}
+  sampling: ${SAMPLING_HASH_SEED:15121984}

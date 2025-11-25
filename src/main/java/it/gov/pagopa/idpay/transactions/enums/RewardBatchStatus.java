@@ -4,6 +4,5 @@ public enum RewardBatchStatus {
   CREATED,
   SENT,
   EVALUATING,
-  APPROVED,
-  SUSPENDED
+  APPROVED
 }

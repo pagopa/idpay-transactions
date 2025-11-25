@@ -87,6 +87,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         .endDate(endDate)
         .totalAmountCents(0L)
         .approvedAmountCents(0L)
+        .initialAmountCents(0L)
         .numberOfTransactions(0L)
         .numberOfTransactionsElaborated(0L)
         .reportPath(null)
@@ -170,7 +171,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .map(UpdateResult::getModifiedCount);
     }
 
-    private String buildBatchName(YearMonth month) {
+  private String buildBatchName(YearMonth month) {
     String monthName = month.getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN);
     String year = String.valueOf(month.getYear());
 
