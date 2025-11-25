@@ -306,14 +306,14 @@ class RewardBatchServiceImplTest {
   void incrementTotals_callsRepository() {
     RewardBatch updated = RewardBatch.builder()
         .id("B1")
-        .totalAmountCents(500L)
+        .initialAmountCents(500L)
         .build();
 
     Mockito.when(rewardBatchRepository.incrementTotals("B1", 200L))
         .thenReturn(Mono.just(updated));
 
     StepVerifier.create(rewardBatchService.incrementTotals("B1", 200L))
-        .expectNextMatches(b -> b.getTotalAmountCents() == 500L)
+        .expectNextMatches(b -> b.getInitialAmountCents() == 500L)
         .verifyComplete();
 
     Mockito.verify(rewardBatchRepository).incrementTotals("B1", 200L);

@@ -51,7 +51,7 @@ class RewardBatchSpecificRepositoryImplTest {
         .name("novembre 2025")
         .startDate(LocalDateTime.of(2025, 11, 1, 0, 0))
         .endDate(LocalDateTime.of(2025, 11, 30, 23, 59))
-        .totalAmountCents(0L)
+        .initialAmountCents(0L)
         .numberOfTransactions(0L)
         .numberOfTransactionsElaborated(0L)
         .reportPath(null)
@@ -68,7 +68,7 @@ class RewardBatchSpecificRepositoryImplTest {
         .name("novembre 2025")
         .startDate(LocalDateTime.of(2025, 11, 1, 0, 0))
         .endDate(LocalDateTime.of(2025, 11, 30, 23, 59))
-        .totalAmountCents(0L)
+        .initialAmountCents(0L)
         .numberOfTransactions(0L)
         .numberOfTransactionsElaborated(0L)
         .reportPath(null)
@@ -159,13 +159,13 @@ class RewardBatchSpecificRepositoryImplTest {
         .block();
 
     assertNotNull(updated);
-    assertEquals(batch1.getTotalAmountCents() + increment, updated.getTotalAmountCents());
+    assertEquals(batch1.getInitialAmountCents() + increment, updated.getInitialAmountCents());
     assertEquals(batch1.getNumberOfTransactions() + 1, updated.getNumberOfTransactions());
     assertNotNull(updated.getUpdateDate());
 
     RewardBatch fromDb = rewardBatchRepository.findById(batch1.getId()).block();
     assertNotNull(fromDb);
-    assertEquals(updated.getTotalAmountCents(), fromDb.getTotalAmountCents());
+    assertEquals(updated.getInitialAmountCents(), fromDb.getInitialAmountCents());
     assertEquals(updated.getNumberOfTransactions(), fromDb.getNumberOfTransactions());
     assertNotNull(fromDb.getUpdateDate());
   }

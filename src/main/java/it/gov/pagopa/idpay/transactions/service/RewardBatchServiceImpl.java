@@ -76,7 +76,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         .name(buildBatchName(batchYearMonth))
         .startDate(startDate)
         .endDate(endDate)
-        .totalAmountCents(0L)
         .approvedAmountCents(0L)
         .initialAmountCents(0L)
         .numberOfTransactions(0L)

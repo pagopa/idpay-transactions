@@ -21,7 +21,6 @@ public class RewardBatchMapper {
         .partial(rewardBatch.getPartial())
         .startDate(rewardBatch.getStartDate())
         .endDate(rewardBatch.getEndDate())
-        .totalAmountCents(rewardBatch.getTotalAmountCents())
         .approvedAmountCents(rewardBatch.getApprovedAmountCents())
         .initialAmountCents(rewardBatch.getInitialAmountCents())
         .numberOfTransactions(rewardBatch.getNumberOfTransactions())

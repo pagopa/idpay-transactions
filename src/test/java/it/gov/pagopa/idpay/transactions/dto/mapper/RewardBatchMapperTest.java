@@ -37,7 +37,7 @@ class RewardBatchMapperTest {
         .name("novembre 2025")
         .startDate(LocalDateTime.of(2025, 11, 1, 0, 0))
         .endDate(LocalDateTime.of(2025, 11, 30, 23, 59))
-        .totalAmountCents(0L)
+        .initialAmountCents(0L)
         .numberOfTransactions(0L)
         .numberOfTransactionsElaborated(0L)
         .reportPath(null)
@@ -57,7 +57,7 @@ class RewardBatchMapperTest {
           assertEquals("novembre 2025", dto.getName());
           assertEquals(LocalDateTime.of(2025, 11, 1, 0, 0), dto.getStartDate());
           assertEquals(LocalDateTime.of(2025, 11, 30, 23, 59), dto.getEndDate());
-          assertEquals(0L, dto.getTotalAmountCents());
+          assertEquals(0L, dto.getInitialAmountCents());
           assertEquals(0L, dto.getNumberOfTransactions());
           assertEquals(0L, dto.getNumberOfTransactionsElaborated());
           assertNull(dto.getReportPath());
