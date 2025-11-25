@@ -99,16 +99,13 @@ class MerchantTransactionServiceImplTest {
 
         Pageable pageable = PageRequest.of(0, 10);
 
-        // RewardTransaction finto
         RewardTransaction t1 = buildRewardTransaction("T1", "USERABC", initiativeId);
 
-        // 🔥 MOCK NECESSARIO → ALTRIMENTI NPE
         UserInfoPDV user = new UserInfoPDV();
         user.setPii("CF_FROM_PDV");
         when(userRestClient.retrieveUserInfo("USERABC"))
                 .thenReturn(Mono.just(user));
 
-        // mock repository
         when(rewardTransactionRepository.findByFilter(any(), isNull(), eq(pageable)))
                 .thenReturn(Flux.just(t1));
 
@@ -190,7 +187,6 @@ class MerchantTransactionServiceImplTest {
 
         List<RewardTransaction> ordered = List.of(t2, t1);
 
-        // 🔥 MOCK NECESSARIO → ALTRIMENTI NPE!
         UserInfoPDV userInfo = new UserInfoPDV();
         userInfo.setPii("FAKE_CF");
         when(userRestClient.retrieveUserInfo("U1"))
