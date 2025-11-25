@@ -6,7 +6,6 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.ResponseEntity;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -19,11 +18,6 @@ public interface RewardBatchService {
   Mono<RewardBatch> incrementTotals(String batchId, long accruedAmountCents);
 
   Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId);
-  Mono<RewardBatch> provaGet(String initiativeId, String rewardBatchId);
-
-  Mono<RewardBatch> provaSave(String initiativeId, String rewardBatchId);
-
-  Mono<RewardBatch> provaSaveAndCreateNewBatch(String initiativeId, String rewardBatchId);
 
   Mono<RewardBatch> suspendTransactions(String rewardBatchId, TransactionsRequest request);
   Mono<Long> updateTransactionsStatus(String rewardBatchId, List<String> transactionIds, RewardBatchTrxStatus newStatus, String reason);

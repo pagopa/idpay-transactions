@@ -9,10 +9,6 @@ import it.gov.pagopa.idpay.transactions.service.RewardBatchService;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -68,24 +64,6 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   public  Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId) {
 
     return rewardBatchService.rewardBatchConfirmation(initiativeId, rewardBatchId);
-    //return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-  }
-
-  @Override
-  public Mono<RewardBatch> provaGet(String initiativeId, String rewardBatchId) {
-
-    return rewardBatchService.provaGet(initiativeId, rewardBatchId);
-  }
-
-  @Override
-  public Mono<RewardBatch> provaSave(String initiativeId, String rewardBatchId) {
-
-    return rewardBatchService.provaSave(initiativeId, rewardBatchId);
-  }
-
-  @Override
-  public Mono<RewardBatch> provaSaveAndCreateNewBatch(String initiativeId, String rewardBatchId) {
-    return rewardBatchService.provaSaveAndCreateNewBatch(initiativeId, rewardBatchId);
   }
 
 

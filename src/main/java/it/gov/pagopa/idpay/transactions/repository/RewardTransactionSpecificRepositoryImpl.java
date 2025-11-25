@@ -3,10 +3,13 @@ package it.gov.pagopa.idpay.transactions.repository;
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_NAME;
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
 
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
 import it.gov.pagopa.idpay.transactions.utils.AggregationConstants;
+
+import java.util.List;
 import java.util.Optional;
 
 import java.util.regex.Pattern;
@@ -108,26 +111,22 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         return criteria;
     }
 
-    private Criteria getCriteria(String rewardBatchId, String initiativeId, String status) {
-        Criteria criteria = Criteria.where(RewardTransaction.Fields.rewardBatchId).is(rewardBatchId)
-                .and(RewardTransaction.Fields.initiatives).is(initiativeId);
-        if (StringUtils.isNotBlank(status)) {
-            criteria.and(RewardTransaction.Fields.status).is(status);
-        } else {
-            criteria.and(RewardTransaction.Fields.status).in("TO_CHECK", "CONSULTABLE", "SUSPENDED");
-        }
-        return criteria;
-    }
-
     @Override
     public Flux<RewardTransaction> findByFilter(String merchantId, String initiativeId, String userId, String status, Pageable pageable){
         Criteria criteria = getCriteria(merchantId, initiativeId, null, userId, status, null);
         return mongoTemplate.find(Query.query(criteria).with(getPageable(pageable)), RewardTransaction.class);
     }
 
-    public Flux<RewardTransaction> findByFilter(String rewardBatchId, String initiativeId, String status){
-        Criteria criteria = getCriteria(rewardBatchId, initiativeId, status);
+    @Override
+    public Flux<RewardTransaction> findByFilter(String rewardBatchId, String initiativeId, List<RewardBatchTrxStatus> statusList){
+        Criteria criteria = getCriteria(rewardBatchId, initiativeId, statusList);
         return mongoTemplate.find(Query.query(criteria), RewardTransaction.class);
+    }
+
+    private Criteria getCriteria(String rewardBatchId, String initiativeId, List<RewardBatchTrxStatus> statusList) {
+        return Criteria.where(RewardTransaction.Fields.rewardBatchId).is(rewardBatchId)
+                .and(RewardTransaction.Fields.initiatives).is(initiativeId)
+                .and(RewardTransaction.Fields.status).in(statusList);
     }
 
     @Override

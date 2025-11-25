@@ -35,19 +35,10 @@ Mono<RewardBatch>  rewardBatchConfirmation(
         @PathVariable("initiativeId") String initiativeId,
         @PathVariable("rewardBatchId") String rewardBatchId);
 
+ // @PutMapping("initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/rejected")
+ //Mono<RewardBatch>  rejectTransactions(
+ //        @PathVariable("initiativeId") String initiativeId,
+ //        @PathVariable("rewardBatchId") String rewardBatchId);
 
-@GetMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/approved/provaGet")
-Mono<RewardBatch> provaGet(
-        @PathVariable("initiativeId") String initiativeId,
-        @PathVariable("rewardBatchId") String rewardBatchId);
 
-@PutMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/approved/provaSave")
-Mono<RewardBatch> provaSave(
-        @PathVariable("initiativeId") String initiativeId,
-        @PathVariable("rewardBatchId") String rewardBatchId);
-
-  @PutMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/approved/provaSaveAndCreateNewBatch")
-  Mono<RewardBatch> provaSaveAndCreateNewBatch(
-          @PathVariable("initiativeId") String initiativeId,
-          @PathVariable("rewardBatchId") String rewardBatchId);
 }

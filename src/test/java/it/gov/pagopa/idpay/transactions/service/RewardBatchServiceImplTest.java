@@ -14,6 +14,7 @@ import java.time.YearMonth;
 import java.util.Arrays;
 import java.util.Collections;
 
+import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,11 +43,15 @@ class RewardBatchServiceImplTest {
     @Mock
   private ReactiveMongoTemplate reactiveMongoTemplate;
 
+    @Mock
+    private  RewardTransactionRepository rewardTransactionRepository;
+
   private static String businessName = "Test Business name";
+
 
   @BeforeEach
   void setUp(){
-    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, reactiveMongoTemplate);
+    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, reactiveMongoTemplate);
   }
 
 
@@ -129,7 +134,7 @@ class RewardBatchServiceImplTest {
         .thenReturn(Mono.error(new DuplicateKeyException("Duplicate")));
 
     StepVerifier.create(
-            new RewardBatchServiceImpl(rewardBatchRepository, reactiveMongoTemplate)
+            new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, reactiveMongoTemplate)
                 .findOrCreateBatch("M1", posType, batchMonth, businessName)
         )
         .assertNext(batch -> {
