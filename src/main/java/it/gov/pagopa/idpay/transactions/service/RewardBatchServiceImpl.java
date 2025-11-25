@@ -46,8 +46,9 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   private final RewardTransactionRepository rewardTransactionRepository;
   private final ReactiveMongoTemplate reactiveMongoTemplate;
 
-  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository) {
-  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, ReactiveMongoTemplate reactiveMongoTemplate) {
+  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository,
+                                RewardTransactionRepository rewardTransactionRepository,
+                                ReactiveMongoTemplate reactiveMongoTemplate) {
     this.rewardBatchRepository = rewardBatchRepository;
     this.rewardTransactionRepository = rewardTransactionRepository;
     this.reactiveMongoTemplate = reactiveMongoTemplate;
@@ -204,12 +205,14 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
   Mono<RewardBatch> updateAndSaveRewardBatch(String rewardBatchId){
     Mono<RewardBatch> monoRewardBatch = rewardBatchRepository.findRewardBatchById(rewardBatchId);
-    return monoRewardBatch.map(rewardBatch -> {
+    return monoRewardBatch.filter(rewardBatch -> !rewardBatch.getStatus().equals(RewardBatchStatus.APPROVED))
+            .map(rewardBatch -> {
               rewardBatch.setStatus(RewardBatchStatus.APPROVED);
-              rewardBatch.setUpdateDate(Instant.now());
+              rewardBatch.setUpdateDate(LocalDateTime.now());
               return rewardBatch;
             })
             .flatMap(rewardBatchRepository::save)
+            .filter(savedBatch -> savedBatch.getNumberOfTransactionsSuspended() != null && savedBatch.getNumberOfTransactionsSuspended()   > 0)
             .flatMap(this::createRewardBatchAndSave);
   }
   Mono<RewardBatch> createRewardBatchAndSave(RewardBatch savedBatch) {
@@ -224,64 +227,54 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             .name(addOneMonthToItalian(savedBatch.getName()))
             .startDate(savedBatch.getStartDate())
             .endDate(savedBatch.getEndDate())
-            .totalAmountCents(savedBatch.getTotalAmountCents()) //METTI 0
+            .totalAmountCents(0L)
+            .approvedAmountCents(0L) //GIUSTO???
             .numberOfTransactions(savedBatch.getNumberOfTransactions()) //DA MODIFICARE DOPO
             .numberOfTransactionsElaborated(savedBatch.getNumberOfTransactionsElaborated())
-            .updateDate(savedBatch.getUpdateDate())
+            .numberOfTransactionsSuspended(savedBatch.getNumberOfTransactionsSuspended())
+            .numberOfTransactionsRejected(savedBatch.getNumberOfTransactionsRejected())
+            .reportPath(savedBatch.getReportPath())
+            .assigneeLevel(savedBatch.getAssigneeLevel())
+            .creationDate(LocalDateTime.now())
+            .updateDate(LocalDateTime.now())
             .build();
     return rewardBatchRepository.save(newBatch);
   }
 
     public String addOneMonth(String yearMonthString) {
-
-        // 1. Definisci il Formatter per il formato "AAAA-MM"
         DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM");
-
-        // 2. Parsa la stringa in un oggetto YearMonth
         YearMonth yearMonth = YearMonth.parse(yearMonthString, inputFormatter);
-
-        // 3. Aggiungi 1 Mese
         YearMonth nextYearMonth = yearMonth.plusMonths(1);
-
-        // 4. Formatta il risultato in una nuova stringa "AAAA-MM"
-        // Il formatter è lo stesso, ma puoi riutilizzarlo o usare il metodo di default
         return nextYearMonth.format(inputFormatter);
     }
 
 
     public String addOneMonthToItalian(String italianMonthString) {
-
-        // 1. Definisci il Formatter con il pattern corretto e il Locale IT
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ITALIAN);
-
-        // 2. Parsa la stringa in un oggetto YearMonth
         YearMonth yearMonth = YearMonth.parse(italianMonthString, formatter);
-
-        // 3. Aggiungi 1 Mese
         YearMonth nextYearMonth = yearMonth.plusMonths(1);
-
-        // 4. Formatta il risultato nella nuova stringa
         return nextYearMonth.format(formatter);
     }
 
     public  Mono<Void> updateAndSaveRewardTransactions(String oldBatchId, String initiativeId, String newBatchId) {
 
-      Mono<Void> approveCheckTransactions = rewardTransactionRepository.findByFilter(oldBatchId, initiativeId, "TO_CHECK")
-              .flatMap(rewardTransaction -> {
-                rewardTransaction.setStatus("APPROVED");
-                return rewardTransactionRepository.save(rewardTransaction);
-              })
-              .then(); // Converte Flux<RewardTransaction> in Mono<Void>
+     //Mono<Void> approveCheckTransactions = rewardTransactionRepository.findByFilter(oldBatchId, initiativeId, "TO_CHECK")
+     //        .flatMap(rewardTransaction -> {
+     //          rewardTransaction.setStatus("APPROVED");
+     //          return rewardTransactionRepository.save(rewardTransaction);
+     //        })
+     //        .then(); // Converte Flux<RewardTransaction> in Mono<Void>
 
-      Mono<Void> approveConsultableTransactions = rewardTransactionRepository.findByFilter(oldBatchId, initiativeId, "CONSULTABLE")
-              .flatMap(rewardTransaction -> {
-                rewardTransaction.setStatus("APPROVED");
-                return rewardTransactionRepository.save(rewardTransaction);
-              })
-              .then(); // Converte Flux<RewardTransaction> in Mono<Void>
+     //Mono<Void> approveConsultableTransactions = rewardTransactionRepository.findByFilter(oldBatchId, initiativeId, "CONSULTABLE")
+     //        .flatMap(rewardTransaction -> {
+     //          rewardTransaction.setStatus("APPROVED");
+     //          return rewardTransactionRepository.save(rewardTransaction);
+     //        })
+     //        .then(); // Converte Flux<RewardTransaction> in Mono<Void>
 
-      // 2. Definiamo l'operazione condizionale per SUSPENDED (Deve aspettare l'approvazione del nuovo batch ID)
-      Mono<Void> handleSuspendedTransactions = rewardTransactionRepository.findByFilter(oldBatchId, initiativeId, "SUSPENDED")
+     //// 2. Definiamo l'operazione condizionale per SUSPENDED (Deve aspettare l'approvazione del nuovo batch ID)
+     // Mono<Void> handleSuspendedTransactions = rewardTransactionRepository.findByFilter(oldBatchId, initiativeId, "SUSPENDED")
+              return  rewardTransactionRepository.findByFilter(oldBatchId, initiativeId, "SUSPENDED")
               .collectList() // Raccoglie tutte le transazioni SUSPENDED in un Mono<List<RewardTransaction>>
               .flatMap(suspendedList -> {
                 if (suspendedList.isEmpty()) {
@@ -304,8 +297,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
               });
 
       // 3. Combina le operazioni sequenziali e parallele
-      return Mono.when(approveCheckTransactions, approveConsultableTransactions) // Esegue in parallelo le due approvazioni
-              .then(handleSuspendedTransactions); // Solo dopo, esegue la logica condizionale su SUSPENDED
+      //return Mono.when(approveCheckTransactions, approveConsultableTransactions) // Esegue in parallelo le due approvazioni
+      //        .then(handleSuspendedTransactions); // Solo dopo, esegue la logica condizionale su SUSPENDED
     }
 
 
@@ -318,7 +311,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         Mono<RewardBatch> monoRewardBatch = rewardBatchRepository.findRewardBatchById(rewardBatchId);
         return monoRewardBatch.map(rewardBatch -> {
                     rewardBatch.setStatus(RewardBatchStatus.APPROVED);
-                    rewardBatch.setUpdateDate(Instant.now());
+                    rewardBatch.setUpdateDate(LocalDateTime.now());
                     return rewardBatch;
                 });
     }
@@ -333,7 +326,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         Mono<RewardBatch> monoRewardBatch = rewardBatchRepository.findRewardBatchById(rewardBatchId);
         return monoRewardBatch.map(rewardBatch -> {
                     rewardBatch.setStatus(RewardBatchStatus.APPROVED);
-                    rewardBatch.setUpdateDate(Instant.now());
+                    rewardBatch.setUpdateDate(LocalDateTime.now());
                     return rewardBatch;
                 })
                 .flatMap(rewardBatchRepository::save);
