@@ -5,6 +5,8 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
+import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import org.apache.commons.lang3.StringUtils;
@@ -30,9 +32,18 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
     }
 
     @Override
-    public Mono<MerchantTransactionsListDTO> getMerchantTransactions(String merchantId, String initiativeId, String fiscalCode, String status, Pageable pageable) {
+    public Mono<MerchantTransactionsListDTO> getMerchantTransactions(String merchantId,
+                                                                     String initiativeId,
+                                                                     String fiscalCode,
+                                                                     String status,
+                                                                     String rewardBatchId,
+                                                                     String rewardBatchTrxStatus,
+                                                                     Pageable pageable) {
 
-        return getMerchantTransactionDTOs2Count(merchantId, initiativeId, fiscalCode, status, pageable)
+        TrxFiltersDTO filters = new TrxFiltersDTO(merchantId, initiativeId, fiscalCode, status, rewardBatchId,
+                RewardBatchTrxStatus.valueOf(rewardBatchTrxStatus));
+
+        return getMerchantTransactionDTOs2Count(filters, pageable)
                 .map(tuple -> {
                     Page<MerchantTransactionDTO> page = new PageImpl<>(tuple.getT1(),
                             pageable, tuple.getT2());
@@ -41,22 +52,24 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 });
     }
 
-    private Mono<Tuple2<List<MerchantTransactionDTO>, Long>> getMerchantTransactionDTOs2Count(String merchantId, String initiativeId, String fiscalCode, String status, Pageable pageable) {
-        if (StringUtils.isNotBlank(fiscalCode)){
-            return Mono.just(fiscalCode)
+    private Mono<Tuple2<List<MerchantTransactionDTO>, Long>> getMerchantTransactionDTOs2Count(TrxFiltersDTO filters,
+                                                                                              Pageable pageable) {
+        if (StringUtils.isNotBlank(filters.getFiscalCode())){
+            return Mono.just(filters.getFiscalCode())
                     .flatMap(userRestClient::retrieveFiscalCodeInfo)
                     .map(FiscalCodeInfoPDV::getToken)
-                    .flatMap(userId -> getMerchantTransactionDTOs(merchantId, initiativeId, status, pageable, userId, fiscalCode));
+                    .flatMap(userId -> getMerchantTransactionDTOs(filters, userId, pageable)
+                    );
         } else {
-            return getMerchantTransactionDTOs(merchantId, initiativeId, status, pageable, null, fiscalCode);
+            return getMerchantTransactionDTOs(filters, null, pageable);
         }
     }
 
-    private Mono<Tuple2<List<MerchantTransactionDTO>, Long>> getMerchantTransactionDTOs(String merchantId, String initiativeId, String status, Pageable pageable, String userId, String fiscalCode) {
-        return rewardTransactionRepository.findByFilter(merchantId, initiativeId, userId, status, pageable)
-                .flatMap(t -> createMerchantTransactionDTO(initiativeId, t, fiscalCode))
+    private Mono<Tuple2<List<MerchantTransactionDTO>, Long>> getMerchantTransactionDTOs(TrxFiltersDTO filters, String userId, Pageable pageable) {
+        return rewardTransactionRepository.findByFilter(filters, userId, pageable)
+                .flatMap(t -> createMerchantTransactionDTO(filters.getInitiativeId(), t, filters.getFiscalCode()))
                 .collectSortedList(Comparator.comparing(MerchantTransactionDTO::getElaborationDateTime).reversed())
-                .zipWith(rewardTransactionRepository.getCount(merchantId, initiativeId, null, null, userId, status));
+                .zipWith(rewardTransactionRepository.getCount(filters.getMerchantId(), filters.getInitiativeId(), null, null, userId, filters.getStatus()));
     }
 
     private Mono<MerchantTransactionDTO> createMerchantTransactionDTO(String initiativeId, RewardTransaction transaction, String fiscalCode) {
