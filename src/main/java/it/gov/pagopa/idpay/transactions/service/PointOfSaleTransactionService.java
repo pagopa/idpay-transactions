@@ -4,7 +4,7 @@ import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.codec.multipart.FilePart;
 import reactor.core.publisher.Mono;
 
 public interface PointOfSaleTransactionService {
@@ -13,5 +13,5 @@ public interface PointOfSaleTransactionService {
 
   Mono<DownloadInvoiceResponseDTO> downloadTransactionInvoice(String merchantId, String pointOfSaleId, String transactionId);
 
-  Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId, String pointOfSaleId, MultipartFile file, String docNumber);
+  Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId, String pointOfSaleId, FilePart file, String docNumber);
 }

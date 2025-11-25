@@ -4,7 +4,7 @@ import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.codec.multipart.FilePart;
 
 @Slf4j
 public class Utilities {
@@ -15,14 +15,13 @@ public class Utilities {
     return str.replaceAll("[\\r\\n]", "").replaceAll("[^\\w\\s-]", "");
   }
 
-  public static void checkFileExtensionOrThrow(MultipartFile file) {
+  public static void checkFileExtensionOrThrow(FilePart file) {
     if (file == null) {
       throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, ExceptionCode.GENERIC_ERROR, "File is required");
     }
 
-    String filename = file.getOriginalFilename();
-    if (filename == null ||
-            (!filename.toLowerCase().endsWith(".pdf") && !filename.toLowerCase().endsWith(".xml"))) {
+    String filename = file.filename();
+    if (!filename.toLowerCase().endsWith(".pdf") && !filename.toLowerCase().endsWith(".xml")) {
       throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
           ExceptionCode.GENERIC_ERROR, "File must be a PDF or XML");
     }

@@ -18,11 +18,16 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.TRANSACTION_MISSING_INVOICE;
 
@@ -95,7 +100,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
   }
 
   @Override
-  public Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId, String pointOfSaleId, MultipartFile file, String docNumber) {
+  public Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId, String pointOfSaleId, FilePart file, String docNumber) {
     try {
       Utilities.checkFileExtensionOrThrow(file);
 
@@ -125,32 +130,44 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
             String blobPath = String.format(
                 "invoices/merchant/%s/pos/%s/transaction/%s/invoice/%s",
-                merchantId, pointOfSaleId, transactionId, file.getOriginalFilename());
+                merchantId, pointOfSaleId, transactionId, file.filename());
             String oldBlobPath = String.format(
                 "invoices/merchant/%s/pos/%s/transaction/%s/invoice/%s",
                 merchantId, pointOfSaleId, transactionId, oldFilename);
+            Path tempPath = Paths.get(System.getProperty("java.io.tmpdir"), file.filename());
 
-            return Mono.fromCallable(() -> {
-              // Delete old file from storage
-              invoiceStorageClient.deleteFile(oldBlobPath);
+              return file.transferTo(tempPath)
+                      .then(Mono.fromCallable(() -> {
+                          // Delete old file from storage
+                          invoiceStorageClient.deleteFile(oldBlobPath);
 
-              // Upload new file on storage
-              invoiceStorageClient.upload(file.getInputStream(), blobPath, file.getContentType());
-              return null;
-            }).onErrorMap(IOException.class, e -> {
-              log.error("Error uploading file to storage for transaction [{}]", transactionId, e);
-              throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR, ExceptionConstants.ExceptionCode.GENERIC_ERROR, "Error uploading invoice file", e);
-            }).then(Mono.fromRunnable(() -> {
-              // Update Transaction document
-              rewardTransaction.setInvoiceData(InvoiceData.builder()
-                  .filename(file.getOriginalFilename())
-                  .docNumber(docNumber)
-                  .build());
+                          // Upload new file on storage
+                          try (InputStream is = Files.newInputStream(tempPath)) {
+                              String contentType = file.headers().getContentType() != null
+                                      ? file.headers().getContentType().toString()
+                                      : null;
+                              invoiceStorageClient.upload(is, blobPath, contentType);
+                          }
 
-            })).then(rewardTransactionRepository.save(rewardTransaction).then());
+                          return null;
+                      }))
+                      .onErrorMap(IOException.class, e -> {
+                          log.error("Error uploading file to storage for transaction [{}]", transactionId, e);
+                          throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
+                                  ExceptionConstants.ExceptionCode.GENERIC_ERROR, "Error uploading invoice file", e);
+                      })
+                      .then(Mono.fromRunnable(() -> {
+                          // Update Transaction document
+                          rewardTransaction.setInvoiceData(InvoiceData.builder()
+                                  .filename(file.filename())
+                                  .docNumber(docNumber)
+                                  .build());
+                      }))
+                      .then(rewardTransactionRepository.save(rewardTransaction).then());
           });
     } catch (Exception e) {
-      throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR, ExceptionConstants.ExceptionCode.GENERIC_ERROR, "Error uploading invoice file", e);
+        throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
+                ExceptionConstants.ExceptionCode.GENERIC_ERROR, "Error uploading invoice file", e);
     }
   }
 

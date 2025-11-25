@@ -7,6 +7,7 @@ import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Flux;
@@ -53,7 +54,7 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
 
   @Override
   public Mono<Void> updateInvoiceFile(String transactionId, String merchantId, String pointOfSaleId,
-      MultipartFile file, String docNumber) {
+                                      FilePart file, String docNumber) {
     final String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
     final String sanitizedTrxCode = Utilities.sanitizeString(transactionId);
     final String sanitizedPointOfSaleId = Utilities.sanitizeString(pointOfSaleId);

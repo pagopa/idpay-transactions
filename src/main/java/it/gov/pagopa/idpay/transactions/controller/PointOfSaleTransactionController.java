@@ -13,8 +13,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Mono;
 
 @RequestMapping("/idpay")
@@ -70,13 +70,13 @@ public interface PointOfSaleTransactionController {
       @PathVariable("pointOfSaleId") String pointOfSaleId,
       @PathVariable("transactionId") String transactionId);
 
-  @PutMapping("/transactions/{transactionId}/invoice/update")
+  @PutMapping(path = "/transactions/{transactionId}/invoice/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @ResponseStatus(code = HttpStatus.NO_CONTENT)
   Mono<Void> updateInvoiceFile(
           @PathVariable("transactionId") String transactionId,
           @RequestHeader("x-merchant-id") String merchantId,
           @RequestHeader("x-point-of-sale-id") String pointOfSaleId,
-          @RequestPart("file") MultipartFile file,
+          @RequestPart("file") FilePart file,
           @RequestPart(value = "docNumber", required = false) String docNumber
   );
 }
