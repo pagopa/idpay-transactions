@@ -35,24 +35,22 @@ public class ErrorManager {
     protected ResponseEntity<ErrorDTO> handleException(RuntimeException error, ServerWebExchange exchange) {
         logClientException(error, exchange);
 
-        if(error instanceof ClientExceptionNoBody clientExceptionNoBody){
-            return ResponseEntity.status(clientExceptionNoBody.getHttpStatus()).build();
-        }
-        else {
-            ErrorDTO errorDTO;
-            HttpStatus httpStatus;
-            if (error instanceof ClientExceptionWithBody clientExceptionWithBody){
-                httpStatus=clientExceptionWithBody.getHttpStatus();
-                errorDTO = new ErrorDTO(clientExceptionWithBody.getCode(),  error.getMessage());
-            }
-            else {
-                httpStatus=HttpStatus.INTERNAL_SERVER_ERROR;
-                errorDTO = defaultErrorDTO;
-            }
-            return ResponseEntity.status(httpStatus)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(errorDTO);
-        }
+        return switch (error) {
+            case ClientExceptionNoBody clientExceptionNoBody ->
+                    buildResponseEntity(clientExceptionNoBody.getHttpStatus(), null);
+            case RewardBatchException rewardBatchException -> buildResponseEntity(rewardBatchException.getHttpStatus(),
+                    new ErrorDTO(rewardBatchException.getMessage(), rewardBatchException.getMessage()));
+            case ClientExceptionWithBody clientExceptionWithBody ->
+                    buildResponseEntity(clientExceptionWithBody.getHttpStatus(),
+                            new ErrorDTO(clientExceptionWithBody.getCode(), error.getMessage()));
+            case null, default -> buildResponseEntity(HttpStatus.INTERNAL_SERVER_ERROR, defaultErrorDTO);
+        };
+    }
+
+    private ResponseEntity<ErrorDTO> buildResponseEntity(HttpStatus status, ErrorDTO errorDTO) {
+        return ResponseEntity.status(status)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(errorDTO);
     }
 
     public static void logClientException(RuntimeException error, ServerWebExchange exchange) {

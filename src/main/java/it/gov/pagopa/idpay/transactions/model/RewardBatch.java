@@ -35,7 +35,6 @@ public class RewardBatch {
     private String name;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
-    private Long totalAmountCents;
     private Long approvedAmountCents;
     private Long initialAmountCents;
     private Long numberOfTransactions;
