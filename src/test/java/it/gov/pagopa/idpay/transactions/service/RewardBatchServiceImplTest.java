@@ -47,10 +47,7 @@ class RewardBatchServiceImplTest {
     @Mock
   private ReactiveMongoTemplate reactiveMongoTemplate;
 
-    @Mock
-    private  RewardTransactionRepository rewardTransactionRepository;
-
-  private static String businessName = "Test Business name";
+    
 
   @BeforeEach
   void setUp(){
