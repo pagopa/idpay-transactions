@@ -78,6 +78,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         .endDate(endDate)
         .totalAmountCents(0L)
         .approvedAmountCents(0L)
+        .initialAmountCents(0L)
         .numberOfTransactions(0L)
         .numberOfTransactionsElaborated(0L)
         .reportPath(null)
@@ -94,36 +95,40 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     return rewardBatchRepository.incrementTotals(batchId, accruedAmountCents);
   }
 
-    @Override
-    public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
-        return rewardBatchRepository.findById(batchId)
-                .switchIfEmpty(Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND, ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)))
-                .flatMap(batch -> {
-                    if (!merchantId.equals(batch.getMerchantId())) {
-                        log.warn("[SEND_REWARD_BATCHES] Merchant id mismatch !");
-                        return Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND, ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND));
-                    }
-                    if (batch.getStatus() != RewardBatchStatus.CREATED) {
-                        return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST, ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST));
-                    }
-                    YearMonth batchMonth = YearMonth.parse(batch.getMonth());
-                    if (!YearMonth.now().isAfter(batchMonth)) {
-                        log.warn("[SEND_REWARD_BATCHES] Batch month too early to be sent !");
-                        return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST, ExceptionConstants.ExceptionCode.REWARD_BATCH_MONTH_TOO_EARLY));
-                    }
-                    batch.setStatus(RewardBatchStatus.SENT);
-                    batch.setUpdateDate(LocalDateTime.now());
-                    return rewardBatchRepository.save(batch)
-                            .then(rewardTransactionRepository.rewardTransactionsByBatchId(batchId))
-                            .then();
-                });
-    }
+@Override
+public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
+  return rewardBatchRepository.findById(batchId)
+      .switchIfEmpty(Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
+          ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)))
+      .flatMap(batch -> {
+        if (!merchantId.equals(batch.getMerchantId())) {
+          log.warn("[SEND_REWARD_BATCHES] Merchant id mismatch !");
+          return Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
+              ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND));
+        }
+        if (batch.getStatus() != RewardBatchStatus.CREATED) {
+          return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
+              ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST));
+        }
+        YearMonth batchMonth = YearMonth.parse(batch.getMonth());
+        if (!YearMonth.now().isAfter(batchMonth)) {
+          log.warn("[SEND_REWARD_BATCHES] Batch month too early to be sent !");
+          return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
+              ExceptionConstants.ExceptionCode.REWARD_BATCH_MONTH_TOO_EARLY));
+        }
+        batch.setStatus(RewardBatchStatus.SENT);
+        batch.setUpdateDate(LocalDateTime.now());
+        return rewardBatchRepository.save(batch)
+            .then(rewardTransactionRepository.rewardTransactionsByBatchId(batchId))
+            .then();
+      });
+}
 
 
-    private String buildBatchName(YearMonth month) {
-    String monthName = month.getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN);
-    String year = String.valueOf(month.getYear());
+private String buildBatchName(YearMonth month) {
+  String monthName = month.getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN);
+  String year = String.valueOf(month.getYear());
 
-    return String.format("%s %s", monthName, year);
-  }
+  return String.format("%s %s", monthName, year);
+}
 }
