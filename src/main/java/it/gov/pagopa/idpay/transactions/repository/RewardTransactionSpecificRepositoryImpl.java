@@ -3,10 +3,14 @@ package it.gov.pagopa.idpay.transactions.repository;
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_NAME;
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
 
+import com.mongodb.client.result.UpdateResult;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
 import it.gov.pagopa.idpay.transactions.utils.AggregationConstants;
+
+import java.util.List;
 import java.util.Optional;
 
 import java.util.regex.Pattern;
@@ -246,11 +250,52 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
     @Override
     public Mono<Void> rewardTransactionsByBatchId(String batchId) {
-        Criteria criteria = Criteria.where(Fields.rewardBatchId).is(batchId);
-        mongoTemplate.updateMulti(
-                Query.query(criteria),
-                new Update().set(Fields.status, SyncTrxStatus.REWARDED),
-                RewardTransaction.class).subscribe();
-        return Mono.empty();
+        // all transactions of batchId lot
+        Criteria batchCriteria = Criteria.where(Fields.rewardBatchId).is(batchId);
+
+        // 1) All the trx in the lot -> REWARDED
+        //    Use modifiedCount to find out how many have been updaetd
+        Mono<Long> totalMono = mongoTemplate.updateMulti(
+                        Query.query(batchCriteria),
+                        new Update().set(Fields.status, SyncTrxStatus.REWARDED),
+                        RewardTransaction.class
+                )
+                .map(UpdateResult::getModifiedCount);
+
+        return totalMono
+                // if there are no transactions, is done
+                .filter(total -> total > 0)
+                .flatMap(total -> {
+                    int toVerify = (int) Math.ceil(total * 0.15);
+
+                    // 2) Query to select the top 15% sorted by samplingKey
+                    Query sampleQuery = Query.query(batchCriteria);
+                    sampleQuery.with(Sort.by(Sort.Direction.ASC, Fields.samplingKey));
+                    sampleQuery.limit(toVerify);
+                    sampleQuery.fields().include(Fields.id);
+
+                    // Extract the list of ids (String) directly
+                    Mono<List<String>> idsToVerifyMono = mongoTemplate
+                            .find(sampleQuery, RewardTransaction.class)
+                            .map(RewardTransaction::getId)
+                            .collectList();
+
+                    // 3) Override: 15% sample -> TO_CHECK
+                    return idsToVerifyMono
+                            .filter(ids -> !ids.isEmpty())
+                            .flatMap(idsToVerify -> {
+                                Criteria toVerifyCriteria = Criteria.where(Fields.id).in(idsToVerify);
+
+                                return mongoTemplate.updateMulti(
+                                                Query.query(toVerifyCriteria),
+                                                new Update().set(Fields.rewardBatchTrxStatus, RewardBatchTrxStatus.TO_CHECK),
+                                                RewardTransaction.class
+                                        )
+                                        .then();
+                            });
+                })
+                .then();
     }
+
+
 }
