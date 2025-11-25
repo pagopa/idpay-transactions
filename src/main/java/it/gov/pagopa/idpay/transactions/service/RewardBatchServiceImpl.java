@@ -6,7 +6,6 @@ import it.gov.pagopa.common.web.exception.RewardBatchException;
 import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
-import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
@@ -269,8 +268,8 @@ private String buildBatchName(YearMonth month) {
                 .name(addOneMonthToItalian(savedBatch.getName()))
                 .startDate(savedBatch.getStartDate())
                 .endDate(savedBatch.getEndDate())
-                .totalAmountCents(0L)
                 .approvedAmountCents(0L)
+                .initialAmountCents(0L)
                 .numberOfTransactions(savedBatch.getNumberOfTransactionsSuspended())
                 .numberOfTransactionsElaborated(0L)
                 .numberOfTransactionsSuspended(savedBatch.getNumberOfTransactionsSuspended())
