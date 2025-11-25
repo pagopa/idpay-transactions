@@ -1,6 +1,15 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.regex.Pattern;
+
+import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.utils.AggregationConstants;
+import lombok.NonNull;
+import org.apache.commons.lang3.StringUtils;
 import java.time.LocalDateTime;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -10,6 +19,7 @@ import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.util.CollectionUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -17,9 +27,10 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
 
   private final ReactiveMongoTemplate mongoTemplate;
 
-  public RewardBatchSpecificRepositoryImpl(ReactiveMongoTemplate mongoTemplate){
+  public RewardBatchSpecificRepositoryImpl(ReactiveMongoTemplate mongoTemplate) {
     this.mongoTemplate = mongoTemplate;
   }
+
   @Override
   public Flux<RewardBatch> findRewardBatchByMerchantId(String merchantId, Pageable pageable){
 
@@ -76,4 +87,49 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     }
     return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort());
   }
+
+  @Override
+  public Mono<RewardBatch> findRewardBatchById(String rewardBatchId) {
+    Criteria criteria = getCriteriaFindRewardBatchById(rewardBatchId);
+
+    return mongoTemplate.findOne(
+            Query.query(criteria),
+            RewardBatch.class);
+
+  }
+
+  @Override
+  public Mono<RewardBatch> findRewardBatchByFilter(String rewardBatchId, String merchantId, String posType, String month) {
+    Criteria criteria = getCriteriaFindRewardBatchByFilter(rewardBatchId, merchantId, posType, month);
+
+    return mongoTemplate.findOne(
+            Query.query(criteria),
+            RewardBatch.class);
+
+  }
+
+
+  private static Criteria getCriteriaFindRewardBatchById(String rewardBatchId) {
+    return Criteria.where("_id").is(rewardBatchId.trim());
+  }
+
+  private static Criteria getCriteriaFindRewardBatchByFilter(String rewardBatchId, String merchantId, String posType, String month) {
+    Criteria criteria;
+    if(rewardBatchId != null){
+      criteria = Criteria.where("_id").is(rewardBatchId.trim());
+    }else{
+      criteria = new Criteria();
+    }
+    if(merchantId != null){
+      criteria.and(RewardBatch.Fields.merchantId).is(merchantId);
+    }
+    if(posType != null){
+      criteria.and(RewardBatch.Fields.posType).is(posType);
+    }
+    if(month != null){
+      criteria.and(RewardBatch.Fields.month).is(month);
+    }
+    return criteria;
+  }
+
 }

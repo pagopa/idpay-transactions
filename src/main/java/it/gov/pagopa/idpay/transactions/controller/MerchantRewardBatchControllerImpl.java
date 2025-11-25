@@ -4,6 +4,7 @@ import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
+import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.service.RewardBatchService;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
@@ -65,6 +66,15 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
                 Utilities.sanitizeString(merchantId), Utilities.sanitizeString(batchId));
         return this.rewardBatchService.sendRewardBatch(merchantId, batchId);
     }
+
+  @Override
+  public  Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId) {
+
+    return rewardBatchService.rewardBatchConfirmation(initiativeId, rewardBatchId);
+  }
+
+
+
 
   @Override
   public Mono<RewardBatchDTO> suspendTransactions(String merchantId, String initiativeId, String rewardBatchId, TransactionsRequest request) {

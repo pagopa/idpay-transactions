@@ -5,10 +5,16 @@ import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+
 public interface RewardBatchSpecificRepository {
   Flux<RewardBatch> findRewardBatchByMerchantId(String merchantId, Pageable pageable);
   Mono<RewardBatch> incrementTotals(String batchId, long accruedAmountCents);
   Flux<RewardBatch> findRewardBatch(Pageable pageable);
   Mono<Long> getCount(String merchantId);
   Mono<Long> getCount();
+
+  Mono<RewardBatch> findRewardBatchById(String rewardBatchId);
+  Mono<RewardBatch> findRewardBatchByFilter(String rewardBatchId, String merchantId, String posType, String month);
+
+
 }

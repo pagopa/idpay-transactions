@@ -1,11 +1,13 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface RewardTransactionSpecificRepository {
     Flux<RewardTransaction> findByIdTrxIssuer(String idTrxIssuer, String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, Long amountCents, Pageable pageable);
@@ -17,6 +19,7 @@ public interface RewardTransactionSpecificRepository {
     Flux<RewardTransaction> findByInitiativesWithBatch(String initiativeId, int batchSize);
     Flux<RewardTransaction> findByFilterTrx(String merchantId, String initiativeId, String pointOfSaleId, String userId, String productGtin, String status, Pageable pageable);
 
+    Flux<RewardTransaction> findByFilter(String rewardBatchId, String initiativeId, List<RewardBatchTrxStatus> statusList);
     /**
      * Retrieves a transaction in status REWARDED, REFUNDED or INVOICED using the provided paramaters
      * @param merchantId

@@ -119,6 +119,18 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
+    public Flux<RewardTransaction> findByFilter(String rewardBatchId, String initiativeId, List<RewardBatchTrxStatus> statusList){
+        Criteria criteria = getCriteria(rewardBatchId, initiativeId, statusList);
+        return mongoTemplate.find(Query.query(criteria), RewardTransaction.class);
+    }
+
+    private Criteria getCriteria(String rewardBatchId, String initiativeId, List<RewardBatchTrxStatus> statusList) {
+        return Criteria.where(RewardTransaction.Fields.rewardBatchId).is(rewardBatchId)
+                .and(RewardTransaction.Fields.initiatives).is(initiativeId)
+                .and(RewardTransaction.Fields.status).in(statusList);
+    }
+
+    @Override
     public Flux<RewardTransaction> findByFilterTrx(String merchantId, String initiativeId, String pointOfSaleId, String userId, String productGtin, String status, Pageable pageable){
         Criteria criteria = getCriteria(merchantId, initiativeId, pointOfSaleId, userId, status, productGtin);
 

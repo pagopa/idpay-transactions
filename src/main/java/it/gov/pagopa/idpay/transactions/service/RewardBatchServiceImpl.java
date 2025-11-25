@@ -1,14 +1,14 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
-import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
-import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import lombok.Data;
 import org.springframework.dao.DuplicateKeyException;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -16,9 +16,13 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.NoSuchElementException;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -42,10 +46,12 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   private final RewardTransactionRepository rewardTransactionRepository;
   private final ReactiveMongoTemplate reactiveMongoTemplate;
 
-  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, ReactiveMongoTemplate reactiveMongoTemplate) {
-                                this.rewardBatchRepository = rewardBatchRepository;
-    this.reactiveMongoTemplate = reactiveMongoTemplate;
+  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository,
+                                RewardTransactionRepository rewardTransactionRepository,
+                                ReactiveMongoTemplate reactiveMongoTemplate) {
+    this.rewardBatchRepository = rewardBatchRepository;
     this.rewardTransactionRepository = rewardTransactionRepository;
+    this.reactiveMongoTemplate = reactiveMongoTemplate;
   }
 
   @Override
@@ -212,6 +218,118 @@ private String buildBatchName(YearMonth month) {
 
   return String.format("%s %s", monthName, year);
 }
+
+
+
+
+    @Override
+    public Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId)      {
+    Mono<RewardBatch> monoRewardBatch = rewardBatchRepository.findRewardBatchById(rewardBatchId);
+    return monoRewardBatch.filter(rewardBatch -> !rewardBatch.getStatus().equals(RewardBatchStatus.APPROVED))
+            .map(rewardBatch -> {
+              rewardBatch.setStatus(RewardBatchStatus.APPROVED);
+              rewardBatch.setUpdateDate(LocalDateTime.now());
+              return rewardBatch;
+            })
+            .flatMap(rewardBatchRepository::save)
+            .flatMap(savedBatch -> {
+                Mono<Void> transactionsUpdate = updateAndSaveRewardTransactionsToApprove(rewardBatchId, initiativeId);
+                return transactionsUpdate.thenReturn(savedBatch);
+
+            })
+            .flatMap(savedBatch -> {
+                if (savedBatch.getNumberOfTransactionsSuspended() != null && savedBatch.getNumberOfTransactionsSuspended() > 0) {
+                    return createRewardBatchAndSave(savedBatch)
+                            .flatMap(newBatch -> updateAndSaveRewardTransactionsSuspended(rewardBatchId, initiativeId, newBatch.getId()).thenReturn(newBatch));
+                } else {
+                    return Mono.just(savedBatch);
+                }
+            }).switchIfEmpty(Mono.error(new NoSuchElementException(
+                    "RewardBatch non trovato o già approvato: " + rewardBatchId
+            )));
+  }
+  Mono<RewardBatch> createRewardBatchAndSave(RewardBatch savedBatch) {
+
+      Mono<RewardBatch> existingBatchMono = rewardBatchRepository.findRewardBatchByFilter(
+              null,
+              savedBatch.getMerchantId(),
+              savedBatch.getPosType() != null ? savedBatch.getPosType().toString() : null,
+              addOneMonth(savedBatch.getMonth()));
+
+      Mono<RewardBatch> newBatchCreationMono = Mono.just(savedBatch)
+              .map(batch -> RewardBatch.builder()
+                .id(null)
+                .merchantId(savedBatch.getMerchantId())
+                .businessName(savedBatch.getBusinessName())
+                .month(addOneMonth(savedBatch.getMonth()))
+                .posType(savedBatch.getPosType())
+                .status(RewardBatchStatus.CREATED)
+                .partial(savedBatch.getPartial())
+                .name(addOneMonthToItalian(savedBatch.getName()))
+                .startDate(savedBatch.getStartDate())
+                .endDate(savedBatch.getEndDate())
+                .approvedAmountCents(0L)
+                .initialAmountCents(0L)
+                .numberOfTransactions(savedBatch.getNumberOfTransactionsSuspended())
+                .numberOfTransactionsElaborated(0L)
+                .numberOfTransactionsSuspended(savedBatch.getNumberOfTransactionsSuspended())
+                .numberOfTransactionsRejected(0L)
+                .reportPath(savedBatch.getReportPath())
+                .assigneeLevel(RewardBatchAssignee.L1)
+                .creationDate(LocalDateTime.now())
+                .updateDate(LocalDateTime.now())
+                .build()
+              )
+              .flatMap(rewardBatchRepository::save);
+
+      return existingBatchMono
+              .switchIfEmpty(newBatchCreationMono)
+              .map(foundOrNewBatch -> foundOrNewBatch);
+
+  }
+
+    public String addOneMonth(String yearMonthString) {
+        DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM");
+        YearMonth yearMonth = YearMonth.parse(yearMonthString, inputFormatter);
+        YearMonth nextYearMonth = yearMonth.plusMonths(1);
+        return nextYearMonth.format(inputFormatter);
+    }
+
+
+    public String addOneMonthToItalian(String italianMonthString) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ITALIAN);
+        YearMonth yearMonth = YearMonth.parse(italianMonthString, formatter);
+        YearMonth nextYearMonth = yearMonth.plusMonths(1);
+        return nextYearMonth.format(formatter);
+    }
+
+    public  Mono<Void> updateAndSaveRewardTransactionsToApprove(String oldBatchId, String initiativeId) {
+      List<RewardBatchTrxStatus>  statusList = new ArrayList<>();
+      statusList.add(RewardBatchTrxStatus.TO_CHECK);
+      statusList.add(RewardBatchTrxStatus.CONSULTABLE);
+
+     return rewardTransactionRepository.findByFilter(oldBatchId, initiativeId, statusList)
+             .flatMap(rewardTransaction -> {
+               rewardTransaction.setStatus(RewardBatchTrxStatus.APPROVED.toString());
+               return rewardTransactionRepository.save(rewardTransaction);
+             })
+             .then(); // Converte Flux<RewardTransaction> in Mono<Void>
+
+    }
+
+    public  Mono<Void> updateAndSaveRewardTransactionsSuspended(String oldBatchId, String initiativeId, String newBatchId) {
+        List<RewardBatchTrxStatus> statusList = new ArrayList<>();
+        statusList.add(RewardBatchTrxStatus.SUSPENDED);
+
+        return rewardTransactionRepository.findByFilter(oldBatchId, initiativeId, statusList)
+                .flatMap(rewardTransaction -> {
+                    rewardTransaction.setRewardBatchId(newBatchId);
+                    return rewardTransactionRepository.save(rewardTransaction);
+                })
+                .then(); // Converte Flux<RewardTransaction> in Mono<Void>
+
+    }
+
 
     @Data
     static class TotalAmount {

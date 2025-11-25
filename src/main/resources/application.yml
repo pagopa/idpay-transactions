@@ -128,7 +128,7 @@ spring:
   data:
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017}
-      database: ${MONGODB_DBNAME:idpay}
+      database: ${MONGODB_DBNAME:idpay-pagamenti}
       # custom configured properties
       config:
         connectionPool:

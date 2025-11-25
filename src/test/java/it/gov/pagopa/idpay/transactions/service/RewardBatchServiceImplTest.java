@@ -12,11 +12,10 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import java.time.YearMonth;
-
-import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import java.util.Arrays;
 import java.util.Collections;
 
+import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,7 +47,7 @@ class RewardBatchServiceImplTest {
     @Mock
   private ReactiveMongoTemplate reactiveMongoTemplate;
 
-  private static String businessName = "Test Business name";
+    
 
   @BeforeEach
   void setUp(){
@@ -250,10 +249,10 @@ class RewardBatchServiceImplTest {
     String merchantId = "M1";
     Pageable pageable = PageRequest.of(1, 2);
 
-    Mockito.when(rewardBatchRepository.findRewardBatchByMerchantId(merchantId, pageable))
+    when(rewardBatchRepository.findRewardBatchByMerchantId(merchantId, pageable))
         .thenReturn(Flux.empty());
 
-    Mockito.when(rewardBatchRepository.getCount(merchantId))
+    when(rewardBatchRepository.getCount(merchantId))
         .thenReturn(Mono.just(0L));
 
     StepVerifier.create(rewardBatchService.getMerchantRewardBatches(merchantId, pageable))
