@@ -8,6 +8,8 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,7 +33,7 @@ class RewardTransactionServiceImplTest {
     private RewardTransactionService rewardTransactionService;
     @BeforeEach
     void setUp(){
-        rewardTransactionService = new RewardTransactionServiceImpl(rewardTransactionRepository, rewardBatchService, 0);
+        rewardTransactionService = new RewardTransactionServiceImpl(rewardTransactionRepository, rewardBatchService, 0x5a17beef);
     }
 
     @Test
@@ -140,5 +142,55 @@ class RewardTransactionServiceImplTest {
         Assertions.assertEquals(RewardBatchTrxStatus.CONSULTABLE, result.getRewardBatchTrxStatus());
         Assertions.assertNotNull(result.getRewardBatchInclusionDate());
         Mockito.verify(rewardTransactionRepository, Mockito.times(1)).save(Mockito.any());
+    }
+
+    @Test
+    void computeSamplingKey_shouldBeDeterministicForSameInput() {
+
+        String id = "6543e5b9d9f31b0d94f6d21c";
+
+        int h1 = ((RewardTransactionServiceImpl)rewardTransactionService).computeSamplingKey(id);
+        int h2 = ((RewardTransactionServiceImpl)rewardTransactionService).computeSamplingKey(id);
+        int h3 = ((RewardTransactionServiceImpl)rewardTransactionService).computeSamplingKey(id);
+
+        // Must always match
+        Assertions.assertEquals(h1, h2);
+        Assertions.assertEquals(h1, h3);
+    }
+
+    @Test
+    void computeSamplingKey_shouldDifferForDifferentIds() {
+
+        int h1 = ((RewardTransactionServiceImpl)rewardTransactionService).computeSamplingKey("a123");
+        int h2 = ((RewardTransactionServiceImpl)rewardTransactionService).computeSamplingKey("b456");
+
+        Assertions.assertNotEquals(h1, h2, "Different IDs should normally yield different hashes");
+    }
+
+    @Test
+    void computeSamplingKey_shouldChangeWhenSeedChanges() {
+        String id = "6543e5b9d9f31b0d94f6d21c";
+        RewardTransactionServiceImpl hasher2 = new RewardTransactionServiceImpl(rewardTransactionRepository, rewardBatchService, 0x22222222);
+
+        int h1 = ((RewardTransactionServiceImpl)rewardTransactionService).computeSamplingKey(id);
+        int h2 = hasher2.computeSamplingKey(id);
+
+        Assertions.assertNotEquals(h1, h2,
+                "Changing the seed must change the resulting sampling key");
+    }
+
+    @Test
+    void computeSamplingKey_shouldHandleEmptyString() {
+        int h = ((RewardTransactionServiceImpl)rewardTransactionService).computeSamplingKey(StringUtils.EMPTY);
+        // Not null and deterministic
+        Assertions.assertEquals(h, ((RewardTransactionServiceImpl)rewardTransactionService).computeSamplingKey(StringUtils.EMPTY));
+    }
+
+    @Test
+    void computeSamplingKey_shouldThrowOnNullId() {
+
+        Assertions.assertThrows(NullPointerException.class, () -> {
+            ((RewardTransactionServiceImpl)rewardTransactionService).computeSamplingKey(null);
+        });
     }
 }
