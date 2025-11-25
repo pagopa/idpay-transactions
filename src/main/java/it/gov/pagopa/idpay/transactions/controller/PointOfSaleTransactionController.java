@@ -11,8 +11,10 @@ import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionsListDTO;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Mono;
 
 @RequestMapping("/idpay")
@@ -67,4 +69,14 @@ public interface PointOfSaleTransactionController {
       @RequestHeader("x-merchant-id") String merchantId,
       @PathVariable("pointOfSaleId") String pointOfSaleId,
       @PathVariable("transactionId") String transactionId);
+
+  @PutMapping("/transactions/{transactionId}/invoice/update")
+  @ResponseStatus(code = HttpStatus.NO_CONTENT)
+  Mono<Void> updateInvoiceFile(
+          @PathVariable("transactionId") String transactionId,
+          @RequestHeader("x-merchant-id") String merchantId,
+          @RequestHeader("x-point-of-sale-id") String pointOfSaleId,
+          @RequestPart("file") MultipartFile file,
+          @RequestPart(value = "docNumber", required = false) String docNumber
+  );
 }
