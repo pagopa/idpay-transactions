@@ -1,8 +1,11 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.common.web.exception.RewardBatchException;
 import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
+import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
@@ -20,6 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
@@ -35,11 +39,13 @@ import reactor.core.publisher.Mono;
 public class RewardBatchServiceImpl implements RewardBatchService {
 
   private final RewardBatchRepository rewardBatchRepository;
+  private final RewardTransactionRepository rewardTransactionRepository;
   private final ReactiveMongoTemplate reactiveMongoTemplate;
 
-  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, ReactiveMongoTemplate reactiveMongoTemplate) {
-    this.rewardBatchRepository = rewardBatchRepository;
+  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, ReactiveMongoTemplate reactiveMongoTemplate) {
+                                this.rewardBatchRepository = rewardBatchRepository;
     this.reactiveMongoTemplate = reactiveMongoTemplate;
+    this.rewardTransactionRepository = rewardTransactionRepository;
   }
 
   @Override
@@ -85,7 +91,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         .name(buildBatchName(batchYearMonth))
         .startDate(startDate)
         .endDate(endDate)
-        .totalAmountCents(0L)
         .approvedAmountCents(0L)
         .initialAmountCents(0L)
         .numberOfTransactions(0L)
@@ -103,6 +108,36 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   public Mono<RewardBatch> incrementTotals(String batchId, long accruedAmountCents) {
     return rewardBatchRepository.incrementTotals(batchId, accruedAmountCents);
   }
+
+@Override
+public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
+  return rewardBatchRepository.findById(batchId)
+      .switchIfEmpty(Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
+          ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)))
+      .flatMap(batch -> {
+        if (!merchantId.equals(batch.getMerchantId())) {
+          log.warn("[SEND_REWARD_BATCHES] Merchant id mismatch !");
+          return Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
+              ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND));
+        }
+        if (batch.getStatus() != RewardBatchStatus.CREATED) {
+          return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
+              ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST));
+        }
+        YearMonth batchMonth = YearMonth.parse(batch.getMonth());
+        if (!YearMonth.now().isAfter(batchMonth)) {
+          log.warn("[SEND_REWARD_BATCHES] Batch month too early to be sent !");
+          return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
+              ExceptionConstants.ExceptionCode.REWARD_BATCH_MONTH_TOO_EARLY));
+        }
+        batch.setStatus(RewardBatchStatus.SENT);
+        batch.setUpdateDate(LocalDateTime.now());
+        return rewardBatchRepository.save(batch)
+            .then(rewardTransactionRepository.rewardTransactionsByBatchId(batchId))
+            .then();
+      });
+}
+
 
     @Override
     public Mono<RewardBatch> suspendTransactions(String rewardBatchId, TransactionsRequest request) {
@@ -171,12 +206,12 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .map(UpdateResult::getModifiedCount);
     }
 
-  private String buildBatchName(YearMonth month) {
-    String monthName = month.getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN);
-    String year = String.valueOf(month.getYear());
+private String buildBatchName(YearMonth month) {
+  String monthName = month.getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN);
+  String year = String.valueOf(month.getYear());
 
-    return String.format("%s %s", monthName, year);
-  }
+  return String.format("%s %s", monthName, year);
+}
 
     @Data
     static class TotalAmount {

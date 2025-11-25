@@ -134,6 +134,26 @@ class MerchantRewardBatchControllerImplTest {
     verify(rewardBatchMapper, times(1)).toDTO(batch);
   }
 
+  @Test
+  void sendRewardBatchesOk() {
+
+    String batchId = "BATCH1";
+
+    when(rewardBatchService.sendRewardBatch(MERCHANT_ID, batchId))
+        .thenReturn(Mono.empty());
+
+    webClient.post()
+        .uri(uriBuilder -> uriBuilder
+            .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{batchId}/send")
+            .build(INITIATIVE_ID, batchId))
+        .header("x-merchant-id", MERCHANT_ID)
+        .exchange()
+        .expectStatus().isNoContent();
+
+    verify(rewardBatchService, times(1))
+        .sendRewardBatch(MERCHANT_ID, batchId);
+  }
+
     @Test
     void suspendTransactionsOk() {
         String rewardBatchId = "BATCH1";
