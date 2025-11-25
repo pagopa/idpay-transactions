@@ -1,50 +1,72 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
-import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.MerchantTransactionService;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
-@WebFluxTest(controllers = {MerchantTransactionController.class})
-class MerchantTransactionControllerImplTest {
-    @MockBean
-    MerchantTransactionService merchantTransactionService;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-    @Autowired
-    protected WebTestClient webClient;
+@ExtendWith(MockitoExtension.class)
+class MerchantTransactionControllerImplTest {
+
+    @Mock
+    private MerchantTransactionService merchantTransactionService;
+
+    @InjectMocks
+    private MerchantTransactionControllerImpl merchantTransactionController;
 
     @Test
-    void findMerchantTransactionsOk() {
+    void getMerchantTransactions_shouldDelegateToServiceAndReturnResult() {
+        String merchantId = "MERCHANT_ID";
+        String initiativeId = "INITIATIVE_ID";
+        String fiscalCode = "FISCAL_CODE";
+        String status = "STATUS";
+        String rewardBatchId = "REWARD_BATCH_ID";
+        String rewardBatchTrxStatus = "REWARD_BATCH_TRX_STATUS";
+        Pageable pageable = PageRequest.of(0, 20);
 
-        MerchantTransactionsListDTO merchantTransactionsListDTO = MerchantTransactionsListDTO.builder()
-                .pageNo(0)
-                .pageSize(10)
-                .totalElements(1)
-                .totalPages(1).build();
+        MerchantTransactionsListDTO expectedDto = new MerchantTransactionsListDTO();
 
-        Pageable paging = PageRequest.of(0, 10, Sort.by(RewardTransaction.Fields.elaborationDateTime).descending());
+        when(merchantTransactionService.getMerchantTransactions(
+                merchantId,
+                initiativeId,
+                fiscalCode,
+                status,
+                rewardBatchId,
+                rewardBatchTrxStatus,
+                pageable))
+                .thenReturn(Mono.just(expectedDto));
 
-        //no filter
-        Mockito.when(merchantTransactionService.getMerchantTransactions("test", "INITIATIVE_ID", null, null, paging))
-                .thenReturn(Mono.just(merchantTransactionsListDTO));
+        MerchantTransactionsListDTO result = merchantTransactionController
+                .getMerchantTransactions(
+                        merchantId,
+                        initiativeId,
+                        fiscalCode,
+                        status,
+                        rewardBatchId,
+                        rewardBatchTrxStatus,
+                        pageable)
+                .block();
 
-        webClient.get()
-                .uri(uriBuilder -> uriBuilder.path("/idpay/merchant/portal/initiatives/{initiativeId}/transactions/processed")
-                        .build("INITIATIVE_ID"))
-                .header("x-merchant-id", "test")
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody(MerchantTransactionsListDTO.class).isEqualTo(merchantTransactionsListDTO);
+        assertSame(expectedDto, result);
 
-        Mockito.verify(merchantTransactionService, Mockito.times(1)).getMerchantTransactions("test", "INITIATIVE_ID", null, null, paging);
+        verify(merchantTransactionService).getMerchantTransactions(
+                merchantId,
+                initiativeId,
+                fiscalCode,
+                status,
+                rewardBatchId,
+                rewardBatchTrxStatus,
+                pageable
+        );
     }
 }
