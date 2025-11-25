@@ -31,8 +31,8 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
   public Mono<PointOfSaleTransactionsListDTO> getPointOfSaleTransactions(String merchantId, String tokenPointOfSaleId, String initiativeId, String pointOfSaleId, String productGtin, String fiscalCode, String status, Pageable pageable) {
     log.info("[GET_POINT-OF-SALE_TRANSACTIONS] Point Of Sale {} requested to retrieve transactions", Utilities.sanitizeString(pointOfSaleId));
 
-    if (!Utilities.sanitizeString(pointOfSaleId)
-        .equals(Utilities.sanitizeString(tokenPointOfSaleId))) {
+    if (tokenPointOfSaleId != null && (!Utilities.sanitizeString(tokenPointOfSaleId)
+        .equals(Utilities.sanitizeString(pointOfSaleId)))){
 
       return Mono.error(new ClientExceptionWithBody(
           HttpStatus.FORBIDDEN,
