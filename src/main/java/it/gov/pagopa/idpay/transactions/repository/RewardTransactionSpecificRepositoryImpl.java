@@ -2,8 +2,11 @@ package it.gov.pagopa.idpay.transactions.repository;
 
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_NAME;
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
+import static org.springframework.integration.IntegrationPatternType.filter;
 
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
@@ -88,9 +91,15 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         return pageable;
     }
 
-    private Criteria  getCriteria(TrxFiltersDTO filters, String pointOfSaleId, String userId, String productGtin) {
+    private Criteria getCriteria(TrxFiltersDTO filters,
+                                 String pointOfSaleId,
+                                 String userId,
+                                 String productGtin,
+                                 OrganizationRole organizationRole) {
+
         Criteria criteria = Criteria.where(RewardTransaction.Fields.merchantId).is(filters.getMerchantId())
                 .and(RewardTransaction.Fields.initiatives).is(filters.getInitiativeId());
+
         if (userId != null) {
             criteria.and(RewardTransaction.Fields.userId).is(userId);
         }
@@ -98,34 +107,52 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
             criteria.and(Fields.pointOfSaleId).is(pointOfSaleId);
         }
         if (StringUtils.isNotBlank(productGtin)) {
-          criteria.and(AggregationConstants.FIELD_PRODUCT_GTIN)
-              .regex(".*" + Pattern.quote(productGtin) + ".*", "i");
+            criteria.and(AggregationConstants.FIELD_PRODUCT_GTIN)
+                    .regex(".*" + Pattern.quote(productGtin) + ".*", "i");
         }
+
         if (StringUtils.isNotBlank(filters.getStatus())) {
             criteria.and(RewardTransaction.Fields.status).is(filters.getStatus());
         } else {
-            criteria.and(RewardTransaction.Fields.status).in("CANCELLED", "REWARDED", "REFUNDED", "INVOICED");
+            criteria.and(RewardTransaction.Fields.status)
+                    .in("CANCELLED", "REWARDED", "REFUNDED", "INVOICED");
         }
+
         if (filters.getRewardBatchId() != null) {
             criteria.and(Fields.rewardBatchId).is(filters.getRewardBatchId());
         }
+
         if (filters.getRewardBatchTrxStatus() != null) {
-            criteria.and(Fields.rewardBatchTrxStatus).is(filters.getRewardBatchTrxStatus().name());
+            criteria.and(Fields.rewardBatchTrxStatus)
+                    .is(filters.getRewardBatchTrxStatus().name());
+        } else if (organizationRole == OrganizationRole.MERCHANT) {
+            criteria.and(Fields.rewardBatchTrxStatus)
+                    .ne(RewardBatchTrxStatus.TO_CHECK.name());
         }
+
         return criteria;
     }
 
+
     @Override
-    public Flux<RewardTransaction> findByFilter(TrxFiltersDTO filters, String userId, Pageable pageable){
-        Criteria criteria = getCriteria(filters, null, userId, null);
+    public Flux<RewardTransaction> findByFilter(TrxFiltersDTO filters,
+                                                String userId,
+                                                OrganizationRole organizationRole,
+                                                Pageable pageable) {
+        Criteria criteria = getCriteria(filters, null, userId, null, organizationRole);
         return mongoTemplate.find(Query.query(criteria).with(getPageable(pageable)), RewardTransaction.class);
     }
 
-    @Override
-    public Flux<RewardTransaction> findByFilterTrx(String merchantId, String initiativeId, String pointOfSaleId, String userId, String productGtin, String status, Pageable pageable){
 
-        TrxFiltersDTO filters = new TrxFiltersDTO(merchantId, initiativeId, null, status, null, null);
-        Criteria criteria = getCriteria(filters, pointOfSaleId, userId, productGtin);
+    @Override
+    public Flux<RewardTransaction> findByFilterTrx(TrxFiltersDTO filters,
+                                                   String pointOfSaleId,
+                                                   String userId,
+                                                   String productGtin,
+                                                   OrganizationRole organizationRole,
+                                                   Pageable pageable) {
+
+        Criteria criteria = getCriteria(filters, pointOfSaleId, userId, productGtin, organizationRole);
 
         Pageable mappedPageable = mapSort(pageable);
 
@@ -135,10 +162,12 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
             return mongoTemplate.aggregate(aggregation, RewardTransaction.class, RewardTransaction.class);
         } else {
             return mongoTemplate.find(
-                Query.query(criteria).with(getPageableTrx(mappedPageable)),
-                RewardTransaction.class);
+                    Query.query(criteria).with(getPageableTrx(mappedPageable)),
+                    RewardTransaction.class);
         }
     }
+
+
 
     @Override
     public Mono<RewardTransaction> findTransaction(
@@ -209,13 +238,18 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Mono<Long> getCount(String merchantId, String initiativeId, String pointOfSaleId, String productGtin, String userId, String status) {
+    public Mono<Long> getCount(TrxFiltersDTO filters,
+                               String pointOfSaleId,
+                               String productGtin,
+                               String userId,
+                               OrganizationRole organizationRole) {
 
-        TrxFiltersDTO filters = new TrxFiltersDTO(merchantId, initiativeId, null, status, null, null);
-        Criteria criteria = getCriteria(filters, pointOfSaleId, userId, productGtin);
+        Criteria criteria = getCriteria(filters, pointOfSaleId, userId, productGtin, organizationRole);
 
         return mongoTemplate.count(Query.query(criteria), RewardTransaction.class);
     }
+
+
 
     @Override
     public Mono<RewardTransaction> findOneByInitiativeId(String initiativeId) {

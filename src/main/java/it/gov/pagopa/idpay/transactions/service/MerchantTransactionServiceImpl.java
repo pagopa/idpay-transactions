@@ -6,6 +6,7 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
@@ -13,7 +14,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
@@ -33,6 +36,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
 
     @Override
     public Mono<MerchantTransactionsListDTO> getMerchantTransactions(String merchantId,
+                                                                     OrganizationRole organizationRole,
                                                                      String initiativeId,
                                                                      String fiscalCode,
                                                                      String status,
@@ -40,10 +44,15 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                                                                      String rewardBatchTrxStatus,
                                                                      Pageable pageable) {
 
-        TrxFiltersDTO filters = new TrxFiltersDTO(merchantId, initiativeId, fiscalCode, status, rewardBatchId,
-                RewardBatchTrxStatus.valueOf(rewardBatchTrxStatus));
+        RewardBatchTrxStatus parsedRewardBatchTrxStatus = parseRewardBatchTrxStatus(rewardBatchTrxStatus);
 
-        return getMerchantTransactionDTOs2Count(filters, pageable)
+        RewardBatchTrxStatus effectiveRewardBatchTrxStatus =
+                normalizeStatusForRole(parsedRewardBatchTrxStatus, organizationRole);
+
+        TrxFiltersDTO filters = new TrxFiltersDTO(merchantId, initiativeId, fiscalCode, status, rewardBatchId,
+                effectiveRewardBatchTrxStatus);
+
+        return getMerchantTransactionDTOs2Count(filters, organizationRole, pageable)
                 .map(tuple -> {
                     Page<MerchantTransactionDTO> page = new PageImpl<>(tuple.getT1(),
                             pageable, tuple.getT2());
@@ -53,24 +62,40 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
     }
 
     private Mono<Tuple2<List<MerchantTransactionDTO>, Long>> getMerchantTransactionDTOs2Count(TrxFiltersDTO filters,
+                                                                                              OrganizationRole organizationRole,
                                                                                               Pageable pageable) {
         if (StringUtils.isNotBlank(filters.getFiscalCode())){
             return Mono.just(filters.getFiscalCode())
                     .flatMap(userRestClient::retrieveFiscalCodeInfo)
                     .map(FiscalCodeInfoPDV::getToken)
-                    .flatMap(userId -> getMerchantTransactionDTOs(filters, userId, pageable)
+                    .flatMap(userId -> getMerchantTransactionDTOs(filters, userId, organizationRole, pageable)
                     );
         } else {
-            return getMerchantTransactionDTOs(filters, null, pageable);
+            return getMerchantTransactionDTOs(filters, null, organizationRole, pageable);
         }
     }
 
-    private Mono<Tuple2<List<MerchantTransactionDTO>, Long>> getMerchantTransactionDTOs(TrxFiltersDTO filters, String userId, Pageable pageable) {
-        return rewardTransactionRepository.findByFilter(filters, userId, pageable)
+    private Mono<Tuple2<List<MerchantTransactionDTO>, Long>> getMerchantTransactionDTOs(
+            TrxFiltersDTO filters,
+            String userId,
+            OrganizationRole organizationRole,
+            Pageable pageable) {
+
+        return rewardTransactionRepository
+                .findByFilter(filters, userId, organizationRole, pageable)
                 .flatMap(t -> createMerchantTransactionDTO(filters.getInitiativeId(), t, filters.getFiscalCode()))
                 .collectSortedList(Comparator.comparing(MerchantTransactionDTO::getElaborationDateTime).reversed())
-                .zipWith(rewardTransactionRepository.getCount(filters.getMerchantId(), filters.getInitiativeId(), null, null, userId, filters.getStatus()));
+                .zipWith(
+                        rewardTransactionRepository.getCount(
+                                filters,
+                                null,
+                                null,
+                                userId,
+                                organizationRole
+                        )
+                );
     }
+
 
     private Mono<MerchantTransactionDTO> createMerchantTransactionDTO(String initiativeId, RewardTransaction transaction, String fiscalCode) {
         MerchantTransactionDTO out = MerchantTransactionDTO.builder()
@@ -93,4 +118,25 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                     .then(Mono.just(out));
         }
     }
+
+    private RewardBatchTrxStatus normalizeStatusForRole(RewardBatchTrxStatus status,
+                                                        OrganizationRole organizationRole) {
+        if (organizationRole == OrganizationRole.MERCHANT && status == RewardBatchTrxStatus.TO_CHECK) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Status TO_CHECK not allowed for merchants");
+        }
+        return status;
+    }
+
+    private RewardBatchTrxStatus parseRewardBatchTrxStatus(String rewardBatchTrxStatus) {
+        if (StringUtils.isBlank(rewardBatchTrxStatus)) {
+            return null;
+        }
+        try {
+            return RewardBatchTrxStatus.valueOf(rewardBatchTrxStatus);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Invalid rewardBatchTrxStatus value: " + rewardBatchTrxStatus);
+        }
+    }
+
 }

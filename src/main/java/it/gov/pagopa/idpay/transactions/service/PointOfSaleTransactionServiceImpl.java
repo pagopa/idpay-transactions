@@ -5,6 +5,8 @@ import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
+import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
@@ -35,19 +37,39 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     this.invoiceStorageClient = invoiceStorageClient;
   }
 
-  @Override
-  public Mono<Page<RewardTransaction>> getPointOfSaleTransactions(String merchantId, String initiativeId, String pointOfSaleId, String productGtin, String fiscalCode, String status, Pageable pageable) {
-    if (StringUtils.isNotBlank(fiscalCode)) {
-      return userRestClient.retrieveFiscalCodeInfo(fiscalCode)
-          .map(FiscalCodeInfoPDV::getToken)
-          .flatMap(userId ->
-              getTransactions(merchantId, initiativeId, pointOfSaleId, userId, productGtin, status, pageable));
-    } else {
-      return getTransactions(merchantId, initiativeId, pointOfSaleId, null, productGtin, status, pageable);
-    }
-  }
+    @Override
+    public Mono<Page<RewardTransaction>> getPointOfSaleTransactions(String merchantId,
+                                                                    String initiativeId,
+                                                                    String pointOfSaleId,
+                                                                    String productGtin,
+                                                                    String fiscalCode,
+                                                                    String status,
+                                                                    Pageable pageable) {
 
-  /**
+        OrganizationRole organizationRole = OrganizationRole.MERCHANT; // POS = esercente
+
+        TrxFiltersDTO filters = new TrxFiltersDTO(
+                merchantId,
+                initiativeId,
+                null,
+                status,
+                null,
+                null
+        );
+
+        if (StringUtils.isNotBlank(fiscalCode)) {
+            return userRestClient.retrieveFiscalCodeInfo(fiscalCode)
+                    .map(FiscalCodeInfoPDV::getToken)
+                    .flatMap(userId ->
+                            getTransactions(filters, pointOfSaleId, userId, productGtin, organizationRole, pageable));
+        } else {
+            return getTransactions(filters, pointOfSaleId, null, productGtin, organizationRole, pageable);
+        }
+    }
+
+
+
+    /**
    * Method to generate a download url of an invoice for a rewardTransaction in status REWARDED, REFUNDED or INVOICED,
    * the url will be provided with a Shared Access Signature token for the resource
    * @param merchantId
@@ -91,10 +113,24 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
               });
   }
 
-  private Mono<Page<RewardTransaction>> getTransactions(String merchantId, String initiativeId, String pointOfSaleId, String userId, String productGtin, String status, Pageable pageable) {
-    return rewardTransactionRepository.findByFilterTrx(merchantId, initiativeId, pointOfSaleId, userId, productGtin, status, pageable)
-        .collectList()
-        .zipWith(rewardTransactionRepository.getCount(merchantId, initiativeId, pointOfSaleId, userId, productGtin, status))
-        .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
-  }
+    private Mono<Page<RewardTransaction>> getTransactions(TrxFiltersDTO filters,
+                                                          String pointOfSaleId,
+                                                          String userId,
+                                                          String productGtin,
+                                                          OrganizationRole organizationRole,
+                                                          Pageable pageable) {
+
+        return rewardTransactionRepository
+                .findByFilterTrx(filters, pointOfSaleId, userId, productGtin, organizationRole, pageable)
+                .collectList()
+                .zipWith(rewardTransactionRepository.getCount(
+                        filters,
+                        pointOfSaleId,
+                        productGtin,
+                        userId,
+                        organizationRole
+                ))
+                .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
+    }
+
 }
