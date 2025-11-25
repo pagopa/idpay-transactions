@@ -31,7 +31,7 @@ class RewardTransactionServiceImplTest {
     private RewardTransactionService rewardTransactionService;
     @BeforeEach
     void setUp(){
-        rewardTransactionService = new RewardTransactionServiceImpl(rewardTransactionRepository, rewardBatchService);
+        rewardTransactionService = new RewardTransactionServiceImpl(rewardTransactionRepository, rewardBatchService, 0);
     }
 
     @Test

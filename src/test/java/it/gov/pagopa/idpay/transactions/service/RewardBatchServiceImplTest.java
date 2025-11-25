@@ -52,8 +52,7 @@ class RewardBatchServiceImplTest {
 
   @BeforeEach
   void setUp(){
-    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository);
-    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, reactiveMongoTemplate);
+    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, reactiveMongoTemplate);
   }
 
 
