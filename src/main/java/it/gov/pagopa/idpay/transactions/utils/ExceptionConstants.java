@@ -1,6 +1,5 @@
 package it.gov.pagopa.idpay.transactions.utils;
 
-import org.springframework.http.HttpStatus;
 
 public final class ExceptionConstants {
     private ExceptionConstants(){}
