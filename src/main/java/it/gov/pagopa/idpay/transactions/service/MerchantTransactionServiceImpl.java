@@ -51,7 +51,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 normalizeStatusForRole(parsedRewardBatchTrxStatus, organizationRole);
 
         TrxFiltersDTO filters = new TrxFiltersDTO(merchantId, initiativeId, fiscalCode, status, rewardBatchId,
-                effectiveRewardBatchTrxStatus);
+                effectiveRewardBatchTrxStatus, pointOfSaleId);
 
         return getMerchantTransactionDTOs2Count(filters, organizationRole, pageable)
                 .map(tuple -> {

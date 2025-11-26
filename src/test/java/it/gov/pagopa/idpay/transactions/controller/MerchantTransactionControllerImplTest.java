@@ -1,13 +1,14 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
+import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.MerchantTransactionService;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -16,7 +17,7 @@ import reactor.core.publisher.Mono;
 
 @WebFluxTest(controllers = {MerchantTransactionController.class})
 class MerchantTransactionControllerImplTest {
-    @MockBean
+    @Mock
     MerchantTransactionService merchantTransactionService;
 
     @Autowired
@@ -34,7 +35,7 @@ class MerchantTransactionControllerImplTest {
         Pageable paging = PageRequest.of(0, 10, Sort.by(RewardTransaction.Fields.elaborationDateTime).descending());
 
         //no filter
-        Mockito.when(merchantTransactionService.getMerchantTransactions("test", "INITIATIVE_ID", null, null, paging))
+        Mockito.when(merchantTransactionService.getMerchantTransactions("test", OrganizationRole.MERCHANT, null, null, null, null, null, null, paging))
                 .thenReturn(Mono.just(merchantTransactionsListDTO));
 
         webClient.get()
@@ -45,7 +46,7 @@ class MerchantTransactionControllerImplTest {
                 .expectStatus().isOk()
                 .expectBody(MerchantTransactionsListDTO.class).isEqualTo(merchantTransactionsListDTO);
 
-        Mockito.verify(merchantTransactionService, Mockito.times(1)).getMerchantTransactions("test", "INITIATIVE_ID", null, null, paging);
+        Mockito.verify(merchantTransactionService, Mockito.times(1)).getMerchantTransactions("test", OrganizationRole.INVITALIA, null, null, null, null, null, null, paging);
     }
 
 }

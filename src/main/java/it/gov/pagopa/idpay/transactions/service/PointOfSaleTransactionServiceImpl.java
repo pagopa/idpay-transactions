@@ -54,6 +54,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 null,
                 status,
                 null,
+                null,
                 null
         );
 

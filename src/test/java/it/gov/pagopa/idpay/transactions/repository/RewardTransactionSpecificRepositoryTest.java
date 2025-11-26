@@ -291,6 +291,7 @@ class RewardTransactionSpecificRepositoryTest {
                 USER_ID,
                 "CANCELLED",
                 null,
+                null,
                 null
         );
 
@@ -323,6 +324,7 @@ class RewardTransactionSpecificRepositoryTest {
                 INITIATIVE_ID,
                 null,
                 "REWARDED",
+                null,
                 null,
                 null
         );
@@ -362,6 +364,7 @@ class RewardTransactionSpecificRepositoryTest {
                 INITIATIVE_ID,
                 null,
                 "REWARDED",
+                null,
                 null,
                 null
         );
@@ -405,6 +408,7 @@ class RewardTransactionSpecificRepositoryTest {
                 INITIATIVE_ID,
                 null,
                 "REWARDED",
+                null,
                 null,
                 null
         );
@@ -451,6 +455,7 @@ class RewardTransactionSpecificRepositoryTest {
         TrxFiltersDTO filters = new TrxFiltersDTO(
                 MERCHANT_ID,
                 INITIATIVE_ID,
+                null,
                 null,
                 null,
                 null,
@@ -512,6 +517,7 @@ class RewardTransactionSpecificRepositoryTest {
                 null,
                 "REWARDED",
                 null,
+                null,
                 null
         );
 
@@ -552,6 +558,7 @@ class RewardTransactionSpecificRepositoryTest {
                 null,
                 "REWARDED",
                 null,
+                null,
                 null
         );
 
@@ -586,6 +593,7 @@ class RewardTransactionSpecificRepositoryTest {
         TrxFiltersDTO filters = new TrxFiltersDTO(
                 MERCHANT_ID,
                 INITIATIVE_ID,
+                null,
                 null,
                 null,
                 null,
