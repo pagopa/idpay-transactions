@@ -23,10 +23,12 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
-  public Mono<RewardBatchListDTO> getMerchantRewardBatches(String merchantId, String initiativeId, Pageable pageable) {
-    if(merchantId!=null) {
-      log.info("[GET_MERCHANT_REWARD_BATCHES] Merchant {} requested to retrieve reward batches", Utilities.sanitizeString(merchantId));
-      return this.rewardBatchService.getMerchantRewardBatches(merchantId, pageable)
+  public Mono<RewardBatchListDTO> getMerchantRewardBatches(String merchantId, String status, String assignedOperator, String initiativeId, Pageable pageable) {
+    if (merchantId != null) {
+      log.info("[GET_MERCHANT_REWARD_BATCHES] Merchant {} requested to retrieve reward batches",
+          Utilities.sanitizeString(merchantId));
+
+      return this.rewardBatchService.getMerchantRewardBatches(merchantId, status, assignedOperator, initiativeId, pageable)
           .flatMap(page ->
               Flux.fromIterable(page.getContent())
                   .flatMapSequential(rewardBatchMapper::toDTO)
@@ -36,11 +38,14 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
                       page.getNumber(),
                       page.getSize(),
                       (int) page.getTotalElements(),
-                      page.getTotalPages()))
+                      page.getTotalPages()
+                  ))
           );
-    }else{
+
+    } else {
       log.info("[GET_ALL_REWARD_BATCHES] Received a request to retrieve all reward batches");
-      return this.rewardBatchService.getAllRewardBatches(pageable)
+
+      return this.rewardBatchService.getAllRewardBatches(status, assignedOperator, pageable)
           .flatMap(page ->
               Flux.fromIterable(page.getContent())
                   .flatMapSequential(rewardBatchMapper::toDTO)
@@ -50,12 +55,13 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
                       page.getNumber(),
                       page.getSize(),
                       (int) page.getTotalElements(),
-                      page.getTotalPages()))
+                      page.getTotalPages()
+                  ))
           );
     }
   }
 
-    @Override
+  @Override
     public Mono<Void> sendRewardBatches(String merchantId, String initiativeId, String batchId) {
         log.info("[SEND_REWARD_BATCHES] Merchant {} requested to send batch batchId {}",
                 Utilities.sanitizeString(merchantId), Utilities.sanitizeString(batchId));
