@@ -29,6 +29,7 @@ import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.http.HttpStatus;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -40,10 +41,24 @@ class RewardBatchServiceImplTest {
   private RewardBatchRepository rewardBatchRepository;
   @Mock
   private RewardTransactionRepository rewardTransactionRepository;
-
   private RewardBatchService rewardBatchService;
+    private RewardBatchServiceImpl rewardBatchServiceSpy;
 
   private static final String BUSINESS_NAME = "Test Business name";
+  private static final String REWARD_BATCH_ID = "REWARD_BATCH_ID";
+  private static final String REWARD_BATCH_ID_NEW = "REWARD_BATCH_ID_NEW";
+  private static final String INITIATIVE_ID = "INITIATIVE_ID";
+  private static final  RewardBatch REWARD_BATCH_OLD = RewardBatch.builder()
+            .id(REWARD_BATCH_ID)
+            .posType(PosType.PHYSICAL)
+            .status(RewardBatchStatus.CREATED)
+            .build();
+
+    private static final  RewardBatch REWARD_BATCH_NEW = RewardBatch.builder()
+            .id(REWARD_BATCH_ID_NEW)
+            .posType(PosType.PHYSICAL)
+            .status(RewardBatchStatus.CREATED)
+            .build();
     @Mock
   private ReactiveMongoTemplate reactiveMongoTemplate;
 
@@ -52,6 +67,7 @@ class RewardBatchServiceImplTest {
   @BeforeEach
   void setUp(){
     rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, reactiveMongoTemplate);
+      rewardBatchServiceSpy = spy((RewardBatchServiceImpl) rewardBatchService);
   }
 
 
@@ -533,5 +549,93 @@ class RewardBatchServiceImplTest {
 
         verify(reactiveMongoTemplate, never())
                 .updateMulti(any(), any(), eq(RewardTransaction.class));
+    }
+
+    @Test
+    void rewardBatchConfirmation_Success_WithSuspendedTransactions() {
+        REWARD_BATCH_OLD.setMonth(YearMonth.of(2025, 11).toString());
+        REWARD_BATCH_OLD.setName("novembre 2025");
+        REWARD_BATCH_OLD.setNumberOfTransactionsSuspended(10L);
+
+        REWARD_BATCH_NEW.setMonth(YearMonth.of(2025, 12).toString());
+        REWARD_BATCH_NEW.setName("dicembre 2025");
+
+        when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID)).thenReturn(Mono.just(REWARD_BATCH_OLD));
+        when(rewardBatchRepository.save(any(RewardBatch.class))).thenReturn(Mono.just(REWARD_BATCH_OLD));
+
+        doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsToApprove(any(), any());
+        doReturn(Mono.just(REWARD_BATCH_NEW)).when(rewardBatchServiceSpy).createRewardBatchAndSave(any());
+        doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsSuspended(any(), any(), any());
+
+        Mono<RewardBatch> result = rewardBatchServiceSpy.rewardBatchConfirmation(INITIATIVE_ID, REWARD_BATCH_ID);
+
+            StepVerifier.create(result)
+                    .expectNextMatches(batch ->
+                            batch.getId().equals(REWARD_BATCH_ID_NEW) &&
+                                    batch.getStatus().equals(RewardBatchStatus.CREATED)
+                    )
+                    .verifyComplete();
+
+            verify(rewardBatchServiceSpy, times(1)).createRewardBatchAndSave(any());
+
+    }
+
+    @Test
+    void rewardBatchConfirmation_Success_WithOutSuspendedTransactions() {
+        REWARD_BATCH_OLD.setMonth(YearMonth.of(2025, 11).toString());
+        REWARD_BATCH_OLD.setName("novembre 2025");
+        REWARD_BATCH_OLD.setNumberOfTransactionsSuspended(0L);
+
+        when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID)).thenReturn(Mono.just(REWARD_BATCH_OLD));
+        when(rewardBatchRepository.save(any(RewardBatch.class))).thenReturn(Mono.just(REWARD_BATCH_OLD));
+
+        doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsToApprove(any(), any());
+
+        Mono<RewardBatch> result = rewardBatchServiceSpy.rewardBatchConfirmation(INITIATIVE_ID, REWARD_BATCH_ID);
+
+        StepVerifier.create(result)
+                .expectNextMatches(batch ->
+                        batch.getId().equals(REWARD_BATCH_ID) &&
+                                batch.getStatus().equals(RewardBatchStatus.APPROVED)
+                )
+                .verifyComplete();
+
+        verify(rewardBatchServiceSpy, times(0)).createRewardBatchAndSave(any());
+
+    }
+
+    @Test
+    void rewardBatchConfirmation_Failure_NotFound() {
+        when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID)).thenReturn(Mono.empty());
+
+        Mono<RewardBatch> result = rewardBatchServiceSpy.rewardBatchConfirmation(INITIATIVE_ID, REWARD_BATCH_ID);
+
+        StepVerifier.create(result)
+                .expectErrorMatches(throwable ->
+                        throwable instanceof RewardBatchException &&
+                                ((RewardBatchException) throwable).getHttpStatus().equals(HttpStatus.NOT_FOUND)
+                )
+                .verify();
+
+        verify(rewardBatchRepository, times(0)).save(any());
+        verify(rewardBatchServiceSpy, times(0)).createRewardBatchAndSave(any());
+    }
+
+    @Test
+    void rewardBatchConfirmation_Failure_AlreadyApproved() {
+        REWARD_BATCH_OLD.setStatus(RewardBatchStatus.APPROVED);
+        when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID)).thenReturn(Mono.just(REWARD_BATCH_OLD));
+
+        Mono<RewardBatch> result = rewardBatchServiceSpy.rewardBatchConfirmation(INITIATIVE_ID, REWARD_BATCH_ID);
+
+        StepVerifier.create(result)
+                .expectErrorMatches(throwable ->
+                        throwable instanceof RewardBatchException &&
+                                ((RewardBatchException) throwable).getHttpStatus().equals(HttpStatus.BAD_REQUEST)
+                )
+                .verify();
+
+        verify(rewardBatchRepository, times(0)).save(any());
+        verify(rewardBatchServiceSpy, times(0)).createRewardBatchAndSave(any());
     }
 }

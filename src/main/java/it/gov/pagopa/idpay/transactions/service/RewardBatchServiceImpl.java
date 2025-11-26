@@ -36,6 +36,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Service
@@ -224,8 +225,10 @@ private String buildBatchName(YearMonth month) {
 
     @Override
     public Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId)      {
-    Mono<RewardBatch> monoRewardBatch = rewardBatchRepository.findRewardBatchById(rewardBatchId);
-    return monoRewardBatch.filter(rewardBatch -> !rewardBatch.getStatus().equals(RewardBatchStatus.APPROVED))
+    return rewardBatchRepository.findRewardBatchById(rewardBatchId)
+    .switchIfEmpty(Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
+            ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)))
+    .filter(rewardBatch -> !rewardBatch.getStatus().equals(RewardBatchStatus.APPROVED))
             .map(rewardBatch -> {
               rewardBatch.setStatus(RewardBatchStatus.APPROVED);
               rewardBatch.setUpdateDate(LocalDateTime.now());
@@ -244,17 +247,22 @@ private String buildBatchName(YearMonth month) {
                 } else {
                     return Mono.just(savedBatch);
                 }
-            }).switchIfEmpty(Mono.error(new NoSuchElementException(
-                    "RewardBatch non trovato o già approvato: " + rewardBatchId
+            }).switchIfEmpty(Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
+                    ExceptionConstants.ExceptionCode.REWARD_BATCH_ALREADY_APPROVED
             )));
   }
   Mono<RewardBatch> createRewardBatchAndSave(RewardBatch savedBatch) {
+
 
       Mono<RewardBatch> existingBatchMono = rewardBatchRepository.findRewardBatchByFilter(
               null,
               savedBatch.getMerchantId(),
               savedBatch.getPosType() != null ? savedBatch.getPosType().toString() : null,
-              addOneMonth(savedBatch.getMonth()));
+              addOneMonth(savedBatch.getMonth()))
+              .doOnNext(existingBatch ->
+                              log.info("Batch for {} already exists, with rewardBatchId = {}",
+                                      addOneMonthToItalian(savedBatch.getName()),
+                                      existingBatch.getId()));
 
       Mono<RewardBatch> newBatchCreationMono = Mono.just(savedBatch)
               .map(batch -> RewardBatch.builder()
@@ -280,7 +288,12 @@ private String buildBatchName(YearMonth month) {
                 .updateDate(LocalDateTime.now())
                 .build()
               )
-              .flatMap(rewardBatchRepository::save);
+              .flatMap(rewardBatchRepository::save)
+              .doOnNext(newBatch ->
+                      log.info("Created new batch for {} with rewardBatchId = {}",
+                              addOneMonthToItalian(savedBatch.getName()),
+                              newBatch.getId())
+              );
 
       return existingBatchMono
               .switchIfEmpty(newBatchCreationMono)
@@ -313,7 +326,7 @@ private String buildBatchName(YearMonth month) {
                rewardTransaction.setStatus(RewardBatchTrxStatus.APPROVED.toString());
                return rewardTransactionRepository.save(rewardTransaction);
              })
-             .then(); // Converte Flux<RewardTransaction> in Mono<Void>
+             .then();
 
     }
 
@@ -322,11 +335,15 @@ private String buildBatchName(YearMonth month) {
         statusList.add(RewardBatchTrxStatus.SUSPENDED);
 
         return rewardTransactionRepository.findByFilter(oldBatchId, initiativeId, statusList)
+                .switchIfEmpty(Flux.defer(() -> {
+                    log.info("No suspended transactions found for the batch {}", oldBatchId);
+                    return Flux.empty();
+                }))
                 .flatMap(rewardTransaction -> {
                     rewardTransaction.setRewardBatchId(newBatchId);
                     return rewardTransactionRepository.save(rewardTransaction);
                 })
-                .then(); // Converte Flux<RewardTransaction> in Mono<Void>
+                .then();
 
     }
 

@@ -69,7 +69,8 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
 
   @Override
   public  Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId) {
-
+    log.info("[REWARD_BATCH_CONFIRMATION] Batch confirmation fot batch batchId {}",
+            Utilities.sanitizeString(rewardBatchId));
     return rewardBatchService.rewardBatchConfirmation(initiativeId, rewardBatchId);
   }
 

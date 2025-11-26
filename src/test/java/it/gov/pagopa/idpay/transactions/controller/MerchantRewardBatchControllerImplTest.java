@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.*;
 
+import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
@@ -11,6 +12,7 @@ import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.service.RewardBatchService;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
@@ -18,11 +20,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
 @WebFluxTest(controllers = MerchantRewardBatchControllerImpl.class)
 class MerchantRewardBatchControllerImplTest {
@@ -216,4 +220,61 @@ class MerchantRewardBatchControllerImplTest {
         verify(rewardBatchService, times(1)).suspendTransactions(eq(rewardBatchId), eq(request));
         verifyNoInteractions(rewardBatchMapper);
     }
+    @Test
+    void rewardBatchConfirmation_Success() {
+        String rewardBatchId = "BATCH1";
+        RewardBatch batch = RewardBatch.builder()
+                .id(rewardBatchId)
+                .name("Reward Batch 1")
+                .build();
+
+        when(rewardBatchService.rewardBatchConfirmation(INITIATIVE_ID, rewardBatchId))
+                .thenReturn(Mono.just(batch));
+
+        webClient.put()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchid}/approved", INITIATIVE_ID, rewardBatchId)
+                .exchange()
+                .expectStatus().isOk() // 200 OK
+                .expectBody(RewardBatch.class)
+                .isEqualTo(batch);
+
+        verify(rewardBatchService, times(1)).rewardBatchConfirmation(INITIATIVE_ID, rewardBatchId);
+    }
+
+    @Test
+    void rewardBatchConfirmation_BatchNotFound() {
+        String rewardBatchId = "BATCH2";
+
+        when(rewardBatchService.rewardBatchConfirmation(INITIATIVE_ID, rewardBatchId))
+                .thenReturn(Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
+                        ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)));
+
+        webClient.put()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchid}/approved", INITIATIVE_ID, rewardBatchId)
+                .exchange()
+                .expectStatus().isNotFound()
+                .expectBody()
+                .jsonPath("$.message").isEqualTo("REWARD_BATCH_NOT_FOUND");
+
+        verify(rewardBatchService, times(1)).rewardBatchConfirmation(INITIATIVE_ID, rewardBatchId);
+    }
+
+    @Test
+    void rewardBatchConfirmation_BatchAlreadyApproved() {
+        String rewardBatchId = "BATCH3";
+
+        when(rewardBatchService.rewardBatchConfirmation(INITIATIVE_ID, rewardBatchId))
+                .thenReturn(Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
+                        ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST)));
+
+        webClient.put()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchid}/approved", INITIATIVE_ID, rewardBatchId)
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.message").isEqualTo("REWARD_BATCH_ALREADY_APPROVED");
+
+        verify(rewardBatchService, times(1)).rewardBatchConfirmation(INITIATIVE_ID, rewardBatchId);
+    }
+
 }
