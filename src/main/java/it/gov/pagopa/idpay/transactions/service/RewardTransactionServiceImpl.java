@@ -2,7 +2,6 @@ package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
-import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import java.time.LocalDate;
@@ -60,9 +59,11 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
         YearMonth trxMonth = YearMonth.from(trxDate);
         String batchMonth = trxMonth.toString();
 
-        long accruedRewardCents = trx.getRewards().values().stream()
-            .mapToLong(Reward::getAccruedRewardCents)
-            .sum();
+        String initiativeId = trx.getInitiatives().get(0);
+
+        long accruedRewardCents = trx.getRewards()
+            .get(initiativeId)
+            .getAccruedRewardCents();
 
         return rewardBatchService.findOrCreateBatch(
                     trx.getMerchantId(),

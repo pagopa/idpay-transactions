@@ -1,7 +1,10 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
+import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.springframework.dao.DuplicateKeyException;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
@@ -14,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -22,9 +26,11 @@ import reactor.core.publisher.Mono;
 public class RewardBatchServiceImpl implements RewardBatchService {
 
   private final RewardBatchRepository rewardBatchRepository;
+  private final RewardTransactionRepository rewardTransactionRepository;
 
-  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository) {
+  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository) {
     this.rewardBatchRepository = rewardBatchRepository;
+    this.rewardTransactionRepository = rewardTransactionRepository;
   }
 
   @Override
@@ -70,7 +76,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         .name(buildBatchName(batchYearMonth))
         .startDate(startDate)
         .endDate(endDate)
-        .totalAmountCents(0L)
         .approvedAmountCents(0L)
         .initialAmountCents(0L)
         .numberOfTransactions(0L)
@@ -89,10 +94,40 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     return rewardBatchRepository.incrementTotals(batchId, accruedAmountCents);
   }
 
-  private String buildBatchName(YearMonth month) {
-    String monthName = month.getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN);
-    String year = String.valueOf(month.getYear());
+@Override
+public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
+  return rewardBatchRepository.findById(batchId)
+      .switchIfEmpty(Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
+          ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)))
+      .flatMap(batch -> {
+        if (!merchantId.equals(batch.getMerchantId())) {
+          log.warn("[SEND_REWARD_BATCHES] Merchant id mismatch !");
+          return Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
+              ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND));
+        }
+        if (batch.getStatus() != RewardBatchStatus.CREATED) {
+          return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
+              ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST));
+        }
+        YearMonth batchMonth = YearMonth.parse(batch.getMonth());
+        if (!YearMonth.now().isAfter(batchMonth)) {
+          log.warn("[SEND_REWARD_BATCHES] Batch month too early to be sent !");
+          return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
+              ExceptionConstants.ExceptionCode.REWARD_BATCH_MONTH_TOO_EARLY));
+        }
+        batch.setStatus(RewardBatchStatus.SENT);
+        batch.setUpdateDate(LocalDateTime.now());
+        return rewardBatchRepository.save(batch)
+            .then(rewardTransactionRepository.rewardTransactionsByBatchId(batchId))
+            .then();
+      });
+}
 
-    return String.format("%s %s", monthName, year);
-  }
+
+private String buildBatchName(YearMonth month) {
+  String monthName = month.getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN);
+  String year = String.valueOf(month.getYear());
+
+  return String.format("%s %s", monthName, year);
+}
 }
