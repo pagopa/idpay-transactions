@@ -77,13 +77,6 @@ public class InvoiceStorageClient {
         }
     }
 
-    public Response<BlockBlobItem> uploadFile(File file, String destination, String contentType) {
-        log.info("Uploading file {} (contentType={}) into azure blob at destination {}", file.getName(), contentType, destination);
-
-        return blobContainerClient.getBlobClient(destination)
-            .uploadFromFileWithResponse(new BlobUploadFromFileOptions(file.getPath()), null, null);
-    }
-
     public Response<BlockBlobItem> upload(InputStream inputStream, String destination, String contentType) {
         log.info("Uploading (contentType={}) into azure blob at destination {}", Utilities.sanitizeString(contentType), Utilities.sanitizeString(destination));
 
