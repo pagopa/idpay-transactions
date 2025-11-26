@@ -1,12 +1,15 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionsListDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -25,8 +28,22 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
   }
 
   @Override
-  public Mono<PointOfSaleTransactionsListDTO> getPointOfSaleTransactions(String merchantId, String initiativeId, String pointOfSaleId, String productGtin, String fiscalCode, String status, Pageable pageable) {
+  public Mono<PointOfSaleTransactionsListDTO> getPointOfSaleTransactions(String merchantId, String tokenPointOfSaleId, String initiativeId, String pointOfSaleId, String productGtin, String fiscalCode, String status, Pageable pageable) {
     log.info("[GET_POINT-OF-SALE_TRANSACTIONS] Point Of Sale {} requested to retrieve transactions", Utilities.sanitizeString(pointOfSaleId));
+
+    if (tokenPointOfSaleId != null && (!Utilities.sanitizeString(tokenPointOfSaleId)
+        .equals(Utilities.sanitizeString(pointOfSaleId)))){
+
+      return Mono.error(new ClientExceptionWithBody(
+          HttpStatus.FORBIDDEN,
+          ExceptionConstants.ExceptionCode.POINT_OF_SALE_NOT_ALLOWED,
+          String.format(
+              "Point of sale mismatch: expected [%s], but received [%s]",
+              pointOfSaleId,
+              tokenPointOfSaleId
+          )
+      ));
+    }
 
     return pointOfSaleTransactionService.getPointOfSaleTransactions(merchantId, initiativeId, pointOfSaleId, productGtin, fiscalCode, status, pageable)
         .flatMap(page ->
@@ -44,9 +61,24 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
 
   @Override
   public Mono<DownloadInvoiceResponseDTO> downloadInvoiceFile(
-          String merchantId, String pointOfSaleId, String transactionId) {
+          String merchantId, String tokenPointOfSaleId, String pointOfSaleId, String transactionId) {
     log.info("[DOWNLOAD_TRANSACTION] Requested to download invoice for transaction {}",
             Utilities.sanitizeString(transactionId));
+
+    if (tokenPointOfSaleId != null && (!Utilities.sanitizeString(tokenPointOfSaleId)
+        .equals(Utilities.sanitizeString(pointOfSaleId)))){
+
+      return Mono.error(new ClientExceptionWithBody(
+          HttpStatus.FORBIDDEN,
+          ExceptionConstants.ExceptionCode.POINT_OF_SALE_NOT_ALLOWED,
+          String.format(
+              "Point of sale mismatch: expected [%s], but received [%s]",
+              pointOfSaleId,
+              tokenPointOfSaleId
+          )
+      ));
+    }
+
     return pointOfSaleTransactionService.downloadTransactionInvoice(merchantId, pointOfSaleId, transactionId);
   }
 }
