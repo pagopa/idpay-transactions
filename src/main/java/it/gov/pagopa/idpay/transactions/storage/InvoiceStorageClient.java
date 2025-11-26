@@ -92,7 +92,7 @@ public class InvoiceStorageClient {
     }
 
     public Response<Boolean> deleteFile(String destination) {
-        log.info("Deleting file {} from azure blob container", destination);
+        log.info("Deleting file {} from azure blob container", Utilities.sanitizeString(destination));
 
         return blobContainerClient.getBlobClient(destination)
             .deleteIfExistsWithResponse(DeleteSnapshotsOptionType.INCLUDE, null, null, null);

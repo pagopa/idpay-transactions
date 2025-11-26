@@ -155,7 +155,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                           return null;
                       }))
                       .onErrorMap(IOException.class, e -> {
-                          log.error("Error uploading file to storage for transaction [{}]", transactionId, e);
+                          log.error("Error uploading file to storage for transaction [{}]", Utilities.sanitizeString(transactionId), e);
                           throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
                                   ExceptionConstants.ExceptionCode.GENERIC_ERROR, "Error uploading invoice file", e);
                       })
