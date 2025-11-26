@@ -20,7 +20,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
@@ -159,13 +158,13 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                           throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
                                   ExceptionConstants.ExceptionCode.GENERIC_ERROR, "Error uploading invoice file", e);
                       })
-                      .then(Mono.fromRunnable(() -> {
+                      .then(Mono.fromRunnable(() ->
                           // Update Transaction document
                           rewardTransaction.setInvoiceData(InvoiceData.builder()
                                   .filename(file.filename())
                                   .docNumber(docNumber)
-                                  .build());
-                      }))
+                                  .build())
+                      ))
                       .then(rewardTransactionRepository.save(rewardTransaction).then());
           });
     } catch (Exception e) {
