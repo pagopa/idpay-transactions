@@ -6,6 +6,7 @@ import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -113,6 +114,7 @@ class RewardTransactionServiceImplTest {
             .businessName("Test Business")
             .trxChargeDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
             .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(1000L).build()))
+            .initiatives(List.of("initiative1"))
             .build();
 
         RewardBatch batch = new RewardBatch();

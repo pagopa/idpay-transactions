@@ -4,14 +4,14 @@ import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionDTO;
+import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
 import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
-import it.gov.pagopa.idpay.transactions.model.counters.RewardCounters;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
-import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
-import org.junit.jupiter.api.BeforeEach;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -21,13 +21,17 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import org.mockito.*;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.*;
+
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+import reactor.util.function.Tuple2;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -37,20 +41,31 @@ import static org.mockito.Mockito.*;
 class MerchantTransactionServiceImplTest {
 
     @Mock
-    private RewardTransactionRepository rewardTransactionRepository;
-    @Mock
     private UserRestClient userRestClient;
+    @Mock
+    private RewardTransactionRepository rewardTransactionRepository;
 
-    private MerchantTransactionService merchantTransactionService;
 
-    private static final String INITIATIVE_ID = "INITIATIVEID1";
-    private static final String MERCHANT_ID = "MERCHANTID1";
-    private static final String USER_ID = "USERID1";
-    private static final String FISCAL_CODE = "FISCALCODE1";
+    @InjectMocks
+    private MerchantTransactionServiceImpl service;
 
-    @BeforeEach
-    void setUp(){
-        merchantTransactionService = new MerchantTransactionServiceImpl(userRestClient, rewardTransactionRepository);
+    private RewardTransaction buildRewardTransaction(String id, String userId, String initiativeId) {
+        RewardTransaction t = new RewardTransaction();
+        t.setId(id);
+        t.setUserId(userId);
+        t.setAmountCents(100L);
+        t.setTrxDate(LocalDateTime.now());
+        t.setElaborationDateTime(LocalDateTime.now());
+        t.setStatus("REWARDED");
+        t.setChannel("ONLINE");
+
+        Map<String, Reward> rewards = new HashMap<>();
+        Reward r = new Reward();
+        r.setAccruedRewardCents(50L);
+        rewards.put(initiativeId, r);
+        t.setRewards(rewards);
+
+        return t;
     }
 
     @Test
@@ -250,26 +265,93 @@ class MerchantTransactionServiceImplTest {
         verifyNoInteractions(rewardTransactionRepository, userRestClient);
     }
 
-    private static Map<String, Reward> getReward() {
-        Map<String, Reward> reward = new HashMap<>();
-        RewardCounters counter = RewardCounters.builder()
-                .exhaustedBudget(false)
-                .initiativeBudgetCents(10000L)
-                .build();
-        Reward rewardElement = Reward.builder()
-                .initiativeId(INITIATIVE_ID)
-                .organizationId("ORGANIZATIONID")
-                .providedRewardCents(1000L)
-                .accruedRewardCents(1000L)
-                .capped(false)
-                .dailyCapped(false)
-                .monthlyCapped(false)
-                .yearlyCapped(false)
-                .weeklyCapped(false)
-                .counters(counter)
-                .build();
-        reward.put(INITIATIVE_ID, rewardElement);
-        return reward;
+    @Test
+    void testCreateMerchantTransactionDTO_withFiscalCode() throws Exception {
+        String initiativeId = "I1";
+
+        RewardTransaction trx = buildRewardTransaction("T1", "USER1", initiativeId);
+
+        var method = MerchantTransactionServiceImpl.class
+                .getDeclaredMethod("createMerchantTransactionDTO",
+                        String.class, RewardTransaction.class, String.class);
+        method.setAccessible(true);
+
+        Mono<MerchantTransactionDTO> result =
+                (Mono<MerchantTransactionDTO>) method.invoke(service,
+                        initiativeId, trx, "FISCALCODE123");
+
+        StepVerifier.create(result)
+                .assertNext(dto -> {
+                    assert dto.getFiscalCode().equals("FISCALCODE123");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void testCreateMerchantTransactionDTO_withoutFiscalCode() throws Exception {
+        String initiativeId = "I1";
+        RewardTransaction trx = buildRewardTransaction("T1", "USERX", initiativeId);
+
+        UserInfoPDV userInfo = new UserInfoPDV();
+        userInfo.setPii("CF_FROM_PDV");
+
+        when(userRestClient.retrieveUserInfo("USERX"))
+                .thenReturn(Mono.just(userInfo));
+
+        var method = MerchantTransactionServiceImpl.class
+                .getDeclaredMethod("createMerchantTransactionDTO",
+                        String.class, RewardTransaction.class, String.class);
+        method.setAccessible(true);
+
+        Mono<MerchantTransactionDTO> result =
+                (Mono<MerchantTransactionDTO>) method.invoke(service,
+                        initiativeId, trx, null);
+
+        StepVerifier.create(result)
+                .assertNext(dto -> {
+                    assert dto.getFiscalCode().equals("CF_FROM_PDV");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void testGetMerchantTransactionDTOs_sortingAndCount() throws Exception {
+        String initiativeId = "I1";
+        Pageable pageable = PageRequest.of(0, 10);
+
+        RewardTransaction t1 = buildRewardTransaction("T1", "U1", initiativeId);
+        RewardTransaction t2 = buildRewardTransaction("T2", "U1", initiativeId);
+
+        List<RewardTransaction> ordered = List.of(t2, t1);
+
+        UserInfoPDV userInfo = new UserInfoPDV();
+        userInfo.setPii("FAKE_CF");
+        when(userRestClient.retrieveUserInfo("U1"))
+                .thenReturn(Mono.just(userInfo));
+
+        when(rewardTransactionRepository.findByFilter(any(), eq("U1"), eq(pageable)))
+                .thenReturn(Flux.fromIterable(ordered));
+
+        when(rewardTransactionRepository.getCount(any(), any(), any(), any(), eq("U1"), any()))
+                .thenReturn(Mono.just(2L));
+
+        var method = MerchantTransactionServiceImpl.class
+                .getDeclaredMethod("getMerchantTransactionDTOs",
+                        TrxFiltersDTO.class, String.class, Pageable.class);
+        method.setAccessible(true);
+
+        TrxFiltersDTO filters = new TrxFiltersDTO("M", initiativeId, null, "STATUS", null, null);
+
+        Mono<Tuple2<List<MerchantTransactionDTO>, Long>> result =
+                (Mono<Tuple2<List<MerchantTransactionDTO>, Long>>) method.invoke(service,
+                        filters, "U1", pageable);
+
+        StepVerifier.create(result)
+                .assertNext(tuple -> {
+                    assert tuple.getT2() == 2L;
+                    assert tuple.getT1().size() == 2;
+                })
+                .verifyComplete();
     }
 
 }
