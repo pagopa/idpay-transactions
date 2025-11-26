@@ -25,4 +25,5 @@ public class MerchantTransactionDTO {
     LocalDateTime elaborationDateTime;
     String status;
     String channel;
+    String pointOfSaleId;
 }

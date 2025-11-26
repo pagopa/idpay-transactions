@@ -20,6 +20,7 @@ public interface MerchantTransactionController {
                                                               @RequestParam(required = false) String status,
                                                               @RequestParam(required = false) String rewardBatchId,
                                                               @RequestParam(required = false) String rewardBatchTrxStatus,
+                                                              @RequestParam(required = false) String pointOfSaleId,
                                                               @PageableDefault(sort="elaborationDateTime", direction = Sort.Direction.DESC) Pageable pageable);
 
     @GetMapping("/initiatives/{initiativeId}/transactions/processed/statuses")

@@ -42,6 +42,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                                                                      String status,
                                                                      String rewardBatchId,
                                                                      String rewardBatchTrxStatus,
+                                                                     String pointOfSaleId,
                                                                      Pageable pageable) {
 
         RewardBatchTrxStatus parsedRewardBatchTrxStatus = parseRewardBatchTrxStatus(rewardBatchTrxStatus);

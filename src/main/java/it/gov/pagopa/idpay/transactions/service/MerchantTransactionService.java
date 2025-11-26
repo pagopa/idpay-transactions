@@ -13,5 +13,6 @@ public interface MerchantTransactionService {
                                                               String status,
                                                               String rewardBatchId,
                                                               String rewardBatchTrxStatus,
+                                                              String pointOfSaleId,
                                                               Pageable pageable);
 }

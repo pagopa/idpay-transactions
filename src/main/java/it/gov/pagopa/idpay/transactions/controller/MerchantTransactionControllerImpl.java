@@ -31,6 +31,7 @@ public class MerchantTransactionControllerImpl implements MerchantTransactionCon
                                                                      String status,
                                                                      String rewardBatchId,
                                                                      String rewardBatchTrxStatus,
+                                                                     String pointOfSaleId,
                                                                      Pageable pageable) {
         if (OrganizationRole.MERCHANT.equals(organizationRole)
                 && "TO_CHECK".equalsIgnoreCase(rewardBatchTrxStatus)) {
@@ -48,6 +49,7 @@ public class MerchantTransactionControllerImpl implements MerchantTransactionCon
                 status,
                 rewardBatchId,
                 rewardBatchTrxStatus,
+                pointOfSaleId,
                 pageable);
     }
 

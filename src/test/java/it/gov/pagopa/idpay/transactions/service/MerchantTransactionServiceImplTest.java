@@ -340,7 +340,7 @@ class MerchantTransactionServiceImplTest {
                         TrxFiltersDTO.class, String.class, Pageable.class);
         method.setAccessible(true);
 
-        TrxFiltersDTO filters = new TrxFiltersDTO("M", initiativeId, null, "STATUS", null, null);
+        TrxFiltersDTO filters = new TrxFiltersDTO("M", initiativeId, null, "STATUS", null, null, null);
 
         Mono<Tuple2<List<MerchantTransactionDTO>, Long>> result =
                 (Mono<Tuple2<List<MerchantTransactionDTO>, Long>>) method.invoke(service,
