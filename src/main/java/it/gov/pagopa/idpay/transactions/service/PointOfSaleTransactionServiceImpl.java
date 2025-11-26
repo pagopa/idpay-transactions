@@ -78,9 +78,12 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 String typeFolder;
 
                 if (SyncTrxStatus.INVOICED.name().equalsIgnoreCase(status) || SyncTrxStatus.REWARDED.name().equalsIgnoreCase(status)) {
-                    documentData = rewardTransaction.getInvoiceData();
-                    typeFolder = "invoice";
-                }else {
+                  documentData = rewardTransaction.getInvoiceData();
+                  typeFolder = "invoice";
+                } else if (SyncTrxStatus.REFUNDED.name().equalsIgnoreCase(status)) {
+                  documentData = rewardTransaction.getCreditNoteData();
+                  typeFolder = "creditNote";
+                } else {
                   throw new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE);
                 }
 
