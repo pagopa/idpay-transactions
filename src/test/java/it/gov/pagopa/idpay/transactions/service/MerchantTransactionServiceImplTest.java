@@ -84,6 +84,7 @@ class MerchantTransactionServiceImplTest {
                         "STATUS",
                         "RB1",
                         RewardBatchStatus.APPROVED.name(),
+                        null,
                         pageable
                 ))
                 .assertNext(result -> {
@@ -116,10 +117,11 @@ class MerchantTransactionServiceImplTest {
         StepVerifier.create(service.getMerchantTransactions(
                         merchantId,
                         initiativeId,
-                        null,   // fiscalCode null → obbliga retrieveUserInfo()
+                        null,
                         "STATUS",
                         "RB1",
                         RewardBatchStatus.APPROVED.name(),
+                        null,
                         pageable
                 ))
                 .assertNext(result -> {
@@ -203,7 +205,7 @@ class MerchantTransactionServiceImplTest {
                         TrxFiltersDTO.class, String.class, Pageable.class);
         method.setAccessible(true);
 
-        TrxFiltersDTO filters = new TrxFiltersDTO("M", initiativeId, null, "STATUS", null, null);
+        TrxFiltersDTO filters = new TrxFiltersDTO("M", initiativeId, null, "STATUS", null, null, null);
 
         Mono<Tuple2<List<MerchantTransactionDTO>, Long>> result =
                 (Mono<Tuple2<List<MerchantTransactionDTO>, Long>>) method.invoke(service,

@@ -117,14 +117,14 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
     @Override
     public Flux<RewardTransaction> findByFilter(TrxFiltersDTO filters, String userId, Pageable pageable){
-        Criteria criteria = getCriteria(filters, null, userId, null);
+        Criteria criteria = getCriteria(filters, filters.getPointOfSaleId(), userId, null);
         return mongoTemplate.find(Query.query(criteria).with(getPageable(pageable)), RewardTransaction.class);
     }
 
     @Override
     public Flux<RewardTransaction> findByFilterTrx(String merchantId, String initiativeId, String pointOfSaleId, String userId, String productGtin, String status, Pageable pageable){
 
-        TrxFiltersDTO filters = new TrxFiltersDTO(merchantId, initiativeId, null, status, null, null);
+        TrxFiltersDTO filters = new TrxFiltersDTO(merchantId, initiativeId, null, status, null, null, null);
         Criteria criteria = getCriteria(filters, pointOfSaleId, userId, productGtin);
 
         Pageable mappedPageable = mapSort(pageable);
@@ -211,7 +211,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     @Override
     public Mono<Long> getCount(String merchantId, String initiativeId, String pointOfSaleId, String productGtin, String userId, String status) {
 
-        TrxFiltersDTO filters = new TrxFiltersDTO(merchantId, initiativeId, null, status, null, null);
+        TrxFiltersDTO filters = new TrxFiltersDTO(merchantId, initiativeId, null, status, null, null, null);
         Criteria criteria = getCriteria(filters, pointOfSaleId, userId, productGtin);
 
         return mongoTemplate.count(Query.query(criteria), RewardTransaction.class);

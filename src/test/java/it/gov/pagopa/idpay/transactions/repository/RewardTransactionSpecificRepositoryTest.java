@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
+import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import org.junit.jupiter.api.AfterEach;
@@ -253,7 +254,8 @@ class RewardTransactionSpecificRepositoryTest {
         rewardTransactionRepository.save(rt1).block();
 
         Pageable paging = PageRequest.of(0, 10, Sort.by(RewardTransaction.Fields.elaborationDateTime).descending());
-        Flux<RewardTransaction> transactionInProgressList = rewardTransactionRepository.findByFilter(MERCHANT_ID, INITIATIVE_ID, USER_ID, "CANCELLED", paging);
+        TrxFiltersDTO filters = new TrxFiltersDTO(MERCHANT_ID, INITIATIVE_ID, null, "CANCELLED", null, null, null);
+        Flux<RewardTransaction> transactionInProgressList = rewardTransactionRepository.findByFilter(filters, USER_ID, paging);
         List<RewardTransaction> result = transactionInProgressList.toStream().toList();
         assertEquals(rt1, result.get(0));
 

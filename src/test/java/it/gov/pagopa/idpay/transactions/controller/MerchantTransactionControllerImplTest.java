@@ -43,6 +43,7 @@ class MerchantTransactionControllerImplTest {
                 status,
                 rewardBatchId,
                 rewardBatchTrxStatus,
+                null,
                 pageable))
                 .thenReturn(Mono.just(expectedDto));
 
@@ -54,6 +55,7 @@ class MerchantTransactionControllerImplTest {
                         status,
                         rewardBatchId,
                         rewardBatchTrxStatus,
+                        null,
                         pageable)
                 .block();
 
@@ -66,6 +68,7 @@ class MerchantTransactionControllerImplTest {
                 status,
                 rewardBatchId,
                 rewardBatchTrxStatus,
+                null,
                 pageable
         );
     }

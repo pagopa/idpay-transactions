@@ -38,10 +38,11 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                                                                      String status,
                                                                      String rewardBatchId,
                                                                      String rewardBatchTrxStatus,
+                                                                     String pointOfSaleId,
                                                                      Pageable pageable) {
 
         TrxFiltersDTO filters = new TrxFiltersDTO(merchantId, initiativeId, fiscalCode, status, rewardBatchId,
-                RewardBatchTrxStatus.valueOf(rewardBatchTrxStatus));
+                RewardBatchTrxStatus.valueOf(rewardBatchTrxStatus), pointOfSaleId);
 
         return getMerchantTransactionDTOs2Count(filters, pageable)
                 .map(tuple -> {

@@ -21,6 +21,7 @@ public class MerchantTransactionControllerImpl implements MerchantTransactionCon
                                                                      String status,
                                                                      String rewardBatchId,
                                                                      String rewardBatchTrxStatus,
+                                                                     String pointOfSaleId,
                                                                      Pageable pageable) {
         log.info("[GET_MERCHANT_TRANSACTIONS] Merchant {} requested to retrieve transactions", merchantId);
         return merchantTransactionService.getMerchantTransactions(
@@ -30,6 +31,7 @@ public class MerchantTransactionControllerImpl implements MerchantTransactionCon
                 status,
                 rewardBatchId,
                 rewardBatchTrxStatus,
+                pointOfSaleId,
                 pageable);
     }
 }
