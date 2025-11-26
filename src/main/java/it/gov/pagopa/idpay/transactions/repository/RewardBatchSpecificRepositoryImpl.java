@@ -1,16 +1,12 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
-import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
-import java.util.regex.Pattern;
 
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
-import it.gov.pagopa.idpay.transactions.utils.AggregationConstants;
-import lombok.NonNull;
-import org.apache.commons.lang3.StringUtils;
 import java.time.LocalDateTime;
+
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -19,7 +15,6 @@ import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
-import org.springframework.util.CollectionUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -79,6 +74,68 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   public Mono<Long> getCount() {
 
     return mongoTemplate.count(new Query(), RewardBatch.class);
+  }
+
+  @Override
+  public Mono<Long> updateTransactionsStatus(String rewardBatchId, List<String> transactionIds, RewardBatchTrxStatus newStatus, String reason) {
+
+    List<String> ids = transactionIds != null ? transactionIds : List.of();
+
+    return Flux.fromIterable(ids)
+            .flatMap(id -> {
+              Query q = new Query(
+                      Criteria.where("rewardBatchId").is(rewardBatchId)
+                              .and("id").is(id)
+              );
+
+              Update update = new Update()
+                      .set("rewardBatchTrxStatus", newStatus)
+                      .set("rewardBatchRejectionReason", reason);
+
+              return mongoTemplate.findAndModify(q, update, RewardTransaction.class)
+                      .map(rt -> 1L)
+                      .defaultIfEmpty(0L);
+            })
+            .reduce(0L, Long::sum)
+            .map(updatedCount -> {
+              if (!ids.isEmpty() && !updatedCount.equals((long) ids.size())) {
+                throw new IllegalStateException("Not all transactions were updated");
+              }
+              return updatedCount;
+            });
+  }
+
+  @Override
+  public Mono<RewardBatch> updateTotals(String rewardBatchId, long elaboratedTrxNumber, long updateAmountCents, long rejectedTrxNumber, long suspendedTrxNumber) {
+
+    Update update = new Update();
+    if (elaboratedTrxNumber != 0){
+      update
+              .inc("numberOfTransactionsElaborated", elaboratedTrxNumber);
+    }
+    if (rejectedTrxNumber != 0){
+      update
+       .inc("numberOfTransactionsRejected", rejectedTrxNumber);
+    }
+    if (suspendedTrxNumber != 0){
+      update
+              .inc("numberOfTransactionsSuspended", suspendedTrxNumber);
+    }
+    if (updateAmountCents != 0){
+      update
+              .inc("approvedAmountCents", updateAmountCents);
+    }
+          update
+            .currentDate("updateDate");
+
+    Query query = Query.query(Criteria.where("_id").is(rewardBatchId));
+
+    return mongoTemplate.findAndModify(
+            query,
+            update,
+            FindAndModifyOptions.options().returnNew(true),
+            RewardBatch.class
+    );
   }
 
   private Pageable getPageableRewardBatch(Pageable pageable) {

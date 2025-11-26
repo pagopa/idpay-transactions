@@ -31,5 +31,7 @@ public interface RewardTransactionSpecificRepository {
 
     Mono<RewardTransaction> findByTrxIdAndUserId(String trxId, String userId);
 
+    Mono<Long> sumSuspendedAccruedRewardCents(String rewardBatchId, List<String> transactionIds, String initiativeId);
+
     Mono<Void> rewardTransactionsByBatchId(String batchId);
 }

@@ -74,9 +74,6 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     return rewardBatchService.rewardBatchConfirmation(initiativeId, rewardBatchId);
   }
 
-
-
-
   @Override
   public Mono<RewardBatchDTO> suspendTransactions(String merchantId, String initiativeId, String rewardBatchId, TransactionsRequest request) {
 
@@ -92,7 +89,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
             Utilities.sanitizeString(reason)
     );
 
-    return rewardBatchService.suspendTransactions(rewardBatchId, request)
+    return rewardBatchService.suspendTransactions(rewardBatchId, initiativeId, request)
             .flatMap(rewardBatchMapper::toDTO);
   }
 }

@@ -4,16 +4,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import it.gov.pagopa.common.web.exception.RewardBatchException;
-import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
-import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import java.time.YearMonth;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,10 +25,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.mongodb.core.FindAndModifyOptions;
-import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
-import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.http.HttpStatus;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -59,15 +55,14 @@ class RewardBatchServiceImplTest {
             .posType(PosType.PHYSICAL)
             .status(RewardBatchStatus.CREATED)
             .build();
-    @Mock
-  private ReactiveMongoTemplate reactiveMongoTemplate;
 
-    
+
+
 
   @BeforeEach
   void setUp(){
-    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, reactiveMongoTemplate);
-      rewardBatchServiceSpy = spy((RewardBatchServiceImpl) rewardBatchService);
+    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository);
+    rewardBatchServiceSpy = spy((RewardBatchServiceImpl) rewardBatchService);
   }
 
 
@@ -150,7 +145,7 @@ class RewardBatchServiceImplTest {
         .thenReturn(Mono.error(new DuplicateKeyException("Duplicate")));
 
     StepVerifier.create(
-            new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, reactiveMongoTemplate)
+            new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository)
                 .findOrCreateBatch("M1", posType, batchMonth, BUSINESS_NAME)
         )
         .assertNext(batch -> {
@@ -440,100 +435,127 @@ class RewardBatchServiceImplTest {
   }
 
     @Test
-    void suspendTransactions_updatesBatchCorrectly_whenTransactionsExist() {
+    void suspendTransactions_ok() {
         String batchId = "BATCH1";
-        TransactionsRequest request = new TransactionsRequest();
-        request.setTransactionIds(Arrays.asList("trx1", "trx2"));
-        request.setReason("Test reason");
 
         RewardBatch batch = RewardBatch.builder()
                 .id(batchId)
                 .status(RewardBatchStatus.CREATED)
-                .numberOfTransactions(5L)
-                .numberOfTransactionsElaborated(0L)
-                .approvedAmountCents(3000L)
-                .numberOfTransactionsSuspended(0L)
-                .build();
-
-        when(rewardBatchRepository.findById(batchId)).thenReturn(Mono.just(batch));
-
-        when(reactiveMongoTemplate.updateMulti(
-                any(Query.class),
-                any(Update.class),
-                eq(RewardTransaction.class))
-        ).thenReturn(Mono.just(UpdateResult.acknowledged(2, 2L, null)));
-
-        RewardBatchServiceImpl.TotalAmount totalAmount = new RewardBatchServiceImpl.TotalAmount();
-        totalAmount.setTotal(2500L);
-
-        when(reactiveMongoTemplate.aggregate(any(), eq(RewardTransaction.class), eq(RewardBatchServiceImpl.TotalAmount.class)))
-                .thenReturn(Flux.just(totalAmount));
-
-        RewardBatch updatedBatch = RewardBatch.builder()
-                .id(batchId)
-                .numberOfTransactions(3L)
-                .numberOfTransactionsElaborated(2L)
-                .approvedAmountCents(500L)
-                .numberOfTransactionsSuspended(2L)
-                .build();
-
-        when(reactiveMongoTemplate.findAndModify(any(Query.class), any(Update.class),
-                any(FindAndModifyOptions.class), eq(RewardBatch.class)))
-                .thenReturn(Mono.just(updatedBatch));
-
-        StepVerifier.create(rewardBatchService.suspendTransactions(batchId, request))
-                .assertNext(b -> {
-                    assert b.getNumberOfTransactions() == 3L;
-                    assert b.getNumberOfTransactionsElaborated() == 2L;
-                    assert b.getApprovedAmountCents() == 500L;
-                    assert b.getNumberOfTransactionsSuspended() == 2L;
-                })
-                .verifyComplete();
-    }
-
-    @Test
-    void suspendTransactions_returnsBatchUnchanged_whenNoTransactionsModified() {
-        String batchId = "BATCH2";
-        TransactionsRequest request = new TransactionsRequest();
-        request.setTransactionIds(Collections.singletonList("trx1"));
-        request.setReason("Test reason");
-
-        RewardBatch batch = RewardBatch.builder()
-                .id(batchId)
-                .status(RewardBatchStatus.CREATED)
-                .numberOfTransactions(3L)
-                .numberOfTransactionsElaborated(1L)
                 .approvedAmountCents(1000L)
-                .numberOfTransactionsSuspended(1L)
                 .build();
 
-        when(rewardBatchRepository.findById(batchId)).thenReturn(Mono.just(batch));
+        TransactionsRequest request = new TransactionsRequest();
+        request.setTransactionIds(Arrays.asList("TX1", "TX2"));
+        request.setReason("Check");
 
-        when(reactiveMongoTemplate.updateMulti(
-                any(Query.class),
-                any(Update.class),
-                eq(RewardTransaction.class))
-        ).thenReturn(Mono.just(UpdateResult.acknowledged(0, 0L, null)));
+        String initiativeId = "INIT1";
 
-        StepVerifier.create(rewardBatchService.suspendTransactions(batchId, request))
-                .assertNext(b -> {
-                    assert b.getNumberOfTransactions() == 3L;
-                    assert b.getNumberOfTransactionsElaborated() == 1L;
-                    assert b.getApprovedAmountCents() == 1000L;
-                    assert b.getNumberOfTransactionsSuspended() == 1L;
-                })
+        when(rewardBatchRepository.findById(batchId))
+                .thenReturn(Mono.just(batch));
+
+        when(rewardBatchRepository.updateTransactionsStatus(
+                batchId,
+                request.getTransactionIds(),
+                RewardBatchTrxStatus.SUSPENDED,
+                request.getReason()
+        )).thenReturn(Mono.just(2L));
+
+        when(rewardTransactionRepository.sumSuspendedAccruedRewardCents(
+                batchId,
+                request.getTransactionIds(),
+                initiativeId
+        )).thenReturn(Mono.just(300L));
+
+        when(rewardBatchRepository.updateTotals(
+                batchId,
+                2L,
+                -300L,
+                0L,
+                2L
+        )).thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
+                .expectNext(batch)
+                .verifyComplete();
+    }
+
+
+    @Test
+    void suspendTransactions_noModifiedTransactions() {
+        String batchId = "BATCH1";
+
+        RewardBatch batch = RewardBatch.builder()
+                .id(batchId)
+                .status(RewardBatchStatus.CREATED)
+                .build();
+
+        TransactionsRequest request = new TransactionsRequest();
+        request.setTransactionIds(Arrays.asList("TX3", "TX4"));
+        request.setReason("Check");
+
+        String initiativeId = "INIT1";
+
+        when(rewardBatchRepository.findById(batchId))
+                .thenReturn(Mono.just(batch));
+
+        when(rewardBatchRepository.updateTransactionsStatus(
+                batchId,
+                request.getTransactionIds(),
+                RewardBatchTrxStatus.SUSPENDED,
+                request.getReason()
+        )).thenReturn(Mono.just(0L));
+
+        StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
+                .expectNext(batch)
                 .verifyComplete();
 
-        verify(reactiveMongoTemplate, never())
-                .findAndModify(any(Query.class), any(Update.class), any(FindAndModifyOptions.class), eq(RewardBatch.class));
+        verify(rewardTransactionRepository, never()).sumSuspendedAccruedRewardCents(any(), any(), any());
+        verify(rewardBatchRepository, never()).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
     }
 
     @Test
-    void suspendTransactions_throwsException_whenBatchApproved() {
+    void suspendTransactions_suspendedTotalZero_returnsOriginalBatch() {
+        String batchId = "batch123";
+        String initiativeId = "init123";
+        TransactionsRequest request = new TransactionsRequest();
+        request.setTransactionIds(List.of("trx1", "trx2"));
+        request.setReason("Test reason");
+
+        RewardBatch batch = new RewardBatch();
+        batch.setId(batchId);
+        batch.setStatus(RewardBatchStatus.CREATED);
+
+        when(rewardBatchRepository.findById(batchId)).thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.updateTransactionsStatus(
+                eq(batchId),
+                anyList(),
+                eq(RewardBatchTrxStatus.SUSPENDED),
+                anyString()
+        )).thenReturn(Mono.just(2L));
+
+        when(rewardTransactionRepository.sumSuspendedAccruedRewardCents(
+                batchId,
+                request.getTransactionIds(),
+                initiativeId
+        )).thenReturn(Mono.just(0L));
+
+        Mono<RewardBatch> result = rewardBatchService.suspendTransactions(batchId, initiativeId, request);
+
+        StepVerifier.create(result)
+                .expectNext(batch)
+                .verifyComplete();
+
+        verify(rewardBatchRepository, never()).updateTotals(anyString(), anyInt(), anyLong(), anyInt(), anyInt());
+    }
+
+    @Test
+    void suspendTransactions_throwsException_whenBatchApproved_serviceLevel() {
         String batchId = "BATCH_APPROVED";
         TransactionsRequest request = new TransactionsRequest();
         request.setTransactionIds(Collections.singletonList("trx1"));
         request.setReason("Test reason");
+
+        String initiativeId = "INIT1";
 
         RewardBatch batch = RewardBatch.builder()
                 .id(batchId)
@@ -542,13 +564,15 @@ class RewardBatchServiceImplTest {
 
         when(rewardBatchRepository.findById(batchId)).thenReturn(Mono.just(batch));
 
-        StepVerifier.create(rewardBatchService.suspendTransactions(batchId, request))
-                .expectErrorMatches(throwable -> throwable instanceof IllegalStateException &&
-                        throwable.getMessage().equals("Cannot suspend transactions on an APPROVED batch"))
+        StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
+                .expectErrorMatches(throwable ->
+                        throwable instanceof IllegalStateException &&
+                                throwable.getMessage().equals("Cannot suspend transactions on an APPROVED batch"))
                 .verify();
 
-        verify(reactiveMongoTemplate, never())
-                .updateMulti(any(), any(), eq(RewardTransaction.class));
+        verify(rewardBatchRepository, never()).updateTransactionsStatus(any(), any(), any(), any());
+        verify(rewardTransactionRepository, never()).sumSuspendedAccruedRewardCents(any(), any(), any());
+        verify(rewardBatchRepository, never()).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
     }
 
     @Test

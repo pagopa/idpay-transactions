@@ -2,13 +2,11 @@ package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Mono;
 
-import java.util.List;
 
 public interface RewardBatchService {
 
@@ -20,6 +18,5 @@ public interface RewardBatchService {
   Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId);
 
   Mono<Void> sendRewardBatch(String merchantId, String batchId);
-  Mono<RewardBatch> suspendTransactions(String rewardBatchId, TransactionsRequest request);
-  Mono<Long> updateTransactionsStatus(String rewardBatchId, List<String> transactionIds, RewardBatchTrxStatus newStatus, String reason);
+  Mono<RewardBatch> suspendTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request);
 }

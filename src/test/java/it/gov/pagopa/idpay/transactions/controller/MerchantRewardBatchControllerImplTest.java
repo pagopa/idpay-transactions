@@ -26,7 +26,6 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 
 @WebFluxTest(controllers = MerchantRewardBatchControllerImpl.class)
 class MerchantRewardBatchControllerImplTest {
@@ -174,7 +173,7 @@ class MerchantRewardBatchControllerImplTest {
                 .id(rewardBatchId)
                 .build();
 
-        when(rewardBatchService.suspendTransactions(eq(rewardBatchId), eq(request)))
+        when(rewardBatchService.suspendTransactions(eq(rewardBatchId), eq(INITIATIVE_ID), eq(request)))
                 .thenReturn(Mono.just(batch));
         when(rewardBatchMapper.toDTO(batch)).thenReturn(Mono.just(dto));
 
@@ -191,9 +190,11 @@ class MerchantRewardBatchControllerImplTest {
                     assertEquals(rewardBatchId, res.getId());
                 });
 
-        verify(rewardBatchService, times(1)).suspendTransactions(eq(rewardBatchId), eq(request));
+        verify(rewardBatchService, times(1))
+                .suspendTransactions(eq(rewardBatchId), eq(INITIATIVE_ID), eq(request));
         verify(rewardBatchMapper, times(1)).toDTO(batch);
     }
+
 
     @Test
     void suspendTransactionsBatchApproved_shouldReturnError() {
@@ -202,7 +203,7 @@ class MerchantRewardBatchControllerImplTest {
         request.setTransactionIds(List.of("trx1"));
         request.setReason("Test reason");
 
-        when(rewardBatchService.suspendTransactions(eq(rewardBatchId), eq(request)))
+        when(rewardBatchService.suspendTransactions(eq(rewardBatchId), eq(INITIATIVE_ID), eq(request)))
                 .thenReturn(Mono.error(new IllegalStateException("Cannot suspend transactions on an APPROVED batch")));
 
         webClient.post()
@@ -217,7 +218,8 @@ class MerchantRewardBatchControllerImplTest {
                     String body = new String(res.getResponseBody());
                 });
 
-        verify(rewardBatchService, times(1)).suspendTransactions(eq(rewardBatchId), eq(request));
+        verify(rewardBatchService, times(1))
+                .suspendTransactions(eq(rewardBatchId), eq(INITIATIVE_ID), eq(request));
         verifyNoInteractions(rewardBatchMapper);
     }
     @Test

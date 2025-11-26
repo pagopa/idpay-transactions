@@ -1,9 +1,7 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
-import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
@@ -21,20 +19,12 @@ import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.NoSuchElementException;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.data.mongodb.core.FindAndModifyOptions;
-import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
-import org.springframework.data.mongodb.core.aggregation.Aggregation;
-import org.springframework.data.mongodb.core.aggregation.MatchOperation;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -45,14 +35,12 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
   private final RewardBatchRepository rewardBatchRepository;
   private final RewardTransactionRepository rewardTransactionRepository;
-  private final ReactiveMongoTemplate reactiveMongoTemplate;
+
 
   public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository,
-                                RewardTransactionRepository rewardTransactionRepository,
-                                ReactiveMongoTemplate reactiveMongoTemplate) {
+                                RewardTransactionRepository rewardTransactionRepository) {
     this.rewardBatchRepository = rewardBatchRepository;
     this.rewardTransactionRepository = rewardTransactionRepository;
-    this.reactiveMongoTemplate = reactiveMongoTemplate;
   }
 
   @Override
@@ -147,7 +135,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
 
 
     @Override
-    public Mono<RewardBatch> suspendTransactions(String rewardBatchId, TransactionsRequest request) {
+    public Mono<RewardBatch> suspendTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request) {
         return rewardBatchRepository.findById(rewardBatchId)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Batch not found: " + rewardBatchId)))
                 .flatMap(batch -> {
@@ -157,60 +145,35 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                         return Mono.error(new IllegalStateException("Cannot suspend transactions on an APPROVED batch"));
                     }
 
-                    return updateTransactionsStatus(
+                    return rewardBatchRepository.updateTransactionsStatus(
                             rewardBatchId,
                             request.getTransactionIds(),
                             RewardBatchTrxStatus.SUSPENDED,
                             request.getReason()
                     ).flatMap(modifiedCount -> {
-                        //da modificare, se 0 c'è stato un errore
                         if (modifiedCount == 0) {
                             return Mono.just(batch);
                         }
 
-                        MatchOperation match = Aggregation.match(
-                                Criteria.where("rewardBatchId").is(rewardBatchId)
-                                        .and("id").in(request.getTransactionIds())
-                                        .and("rewardBatchTrxStatus").is(RewardBatchTrxStatus.SUSPENDED)
-                        );
+                        return rewardTransactionRepository.sumSuspendedAccruedRewardCents(
+                                rewardBatchId,
+                                request.getTransactionIds(),
+                                initiativeId
+                        ).flatMap(suspendedTotal -> {
+                            if (suspendedTotal == 0) {
+                                return Mono.just(batch);
+                            }
 
-                        Aggregation agg = Aggregation.newAggregation(
-                                match,
-                                //dubbio se sia accruedRewardCents
-                                Aggregation.group().sum("amountCents").as("total")
-                        );
-
-                        return Mono.from(reactiveMongoTemplate.aggregate(agg, RewardTransaction.class, TotalAmount.class)
-                                        .next())
-                                .defaultIfEmpty(new TotalAmount())
-                                .flatMap(totalAmount -> {
-                                    long suspendedTotal = totalAmount.getTotal();
-
-                                    Update update = new Update()
-                                            .inc("numberOfTransactionsElaborated", modifiedCount)
-                                            .inc("approvedAmountCents", -suspendedTotal)
-                                            .inc("numberOfTransactionsSuspended", modifiedCount)
-                                            .currentDate("updateDate");
-
-                                    Query query = Query.query(Criteria.where("_id").is(rewardBatchId));
-                                    return reactiveMongoTemplate.findAndModify(query, update, FindAndModifyOptions.options().returnNew(true), RewardBatch.class);
-                                });
+                            return rewardBatchRepository.updateTotals(
+                                    rewardBatchId,
+                                    modifiedCount,
+                                    -suspendedTotal,
+                                    0,
+                                    modifiedCount
+                            );
+                        });
                     });
                 });
-    }
-
-    @Override
-    public Mono<Long> updateTransactionsStatus(String rewardBatchId, List<String> transactionIds, RewardBatchTrxStatus newStatus, String reason) {
-        Query query = new Query(
-                Criteria.where("rewardBatchId").is(rewardBatchId)
-                        .and("id").in(transactionIds));
-
-        Update update = new Update()
-                .set("rewardBatchTrxStatus", newStatus)
-                .set("rewardBatchRejectionReason", reason);
-
-        return reactiveMongoTemplate.updateMulti(query, update, RewardTransaction.class)
-                .map(UpdateResult::getModifiedCount);
     }
 
 private String buildBatchName(YearMonth month) {
@@ -349,7 +312,7 @@ private String buildBatchName(YearMonth month) {
 
 
     @Data
-    static class TotalAmount {
+    public static class TotalAmount {
         private long total;
     }
 }

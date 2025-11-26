@@ -1,6 +1,8 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import org.junit.jupiter.api.AfterEach;
@@ -588,6 +590,53 @@ class RewardTransactionSpecificRepositoryTest {
         assertEquals("REWARDED", updated2.getStatus());
         assertNotNull(unchanged3);
         assertNotEquals("REWARDED", unchanged3.getStatus());
+
+        rewardTransactionRepository.deleteById("id1").block();
+        rewardTransactionRepository.deleteById("id2").block();
+        rewardTransactionRepository.deleteById("id3").block();
+    }
+
+    @Test
+    void sumSuspendedAccruedRewardCents_shouldReturnCorrectSum() {
+        String rewardBatchId = "BATCH123";
+        String initiativeId = INITIATIVE_ID;
+
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .rewardBatchId(rewardBatchId)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
+                .rewards(Map.of(initiativeId, Reward.builder()
+                        .accruedRewardCents(1000L)
+                        .build()))
+                .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        rt2 = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("id2")
+                .rewardBatchId(rewardBatchId)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
+                .rewards(Map.of(initiativeId, Reward.builder()
+                        .accruedRewardCents(2000L)
+                        .build()))
+                .build();
+        rewardTransactionRepository.save(rt2).block();
+
+        rt3 = RewardTransactionFaker.mockInstanceBuilder(3)
+                .id("id3")
+                .rewardBatchId(rewardBatchId)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
+                .rewards(Map.of(initiativeId, Reward.builder()
+                        .accruedRewardCents(5000L)
+                        .build()))
+                .build();
+        rewardTransactionRepository.save(rt3).block();
+
+        Mono<Long> resultMono = rewardTransactionSpecificRepository
+                .sumSuspendedAccruedRewardCents(rewardBatchId, List.of("id1","id2","id3"), initiativeId);
+
+        Long result = resultMono.block();
+        assertNotNull(result);
+        assertEquals(1000L + 2000L, result);
 
         rewardTransactionRepository.deleteById("id1").block();
         rewardTransactionRepository.deleteById("id2").block();
