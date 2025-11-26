@@ -82,6 +82,13 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .elaborationDateTime(transaction.getElaborationDateTime())
                 .status(transaction.getStatus())
                 .channel(transaction.getChannel())
+                .trxChargeDate(transaction.getTrxChargeDate())
+                .additionalProperties(transaction.getAdditionalProperties())
+                .trxCode(transaction.getTrxCode())
+                .authorizedAmountCents(transaction.getAmountCents() - transaction.getRewards().get(initiativeId).getAccruedRewardCents())
+                .docNumber(transaction.getInvoiceData().getDocNumber())
+                .fileName(transaction.getInvoiceData().getFilename())
+                .rewardBatchTrxStatus(transaction.getRewardBatchTrxStatus())
                 .build();
 
         if (StringUtils.isNotBlank(fiscalCode)){
