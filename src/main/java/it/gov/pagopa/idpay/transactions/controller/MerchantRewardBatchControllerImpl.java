@@ -92,4 +92,21 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     return rewardBatchService.suspendTransactions(rewardBatchId, initiativeId, request)
             .flatMap(rewardBatchMapper::toDTO);
   }
+
+  @Override
+  public Mono<RewardBatchDTO> approvedTransactions(String merchantId, String initiativeId, String rewardBatchId, TransactionsRequest request) {
+
+    List<String> transactionIds = request.getTransactionIds() != null ? request.getTransactionIds() : List.of();
+
+    log.info(
+            "[APPROVED_TRANSACTIONS] Merchant {} requested to suspend {} transactions for rewardBatch {} of initiative {}",
+            Utilities.sanitizeString(merchantId),
+            transactionIds.size(),
+            rewardBatchId,
+            initiativeId
+    );
+
+    return rewardBatchService.approvedTransactions(rewardBatchId, request, initiativeId, merchantId)
+            .flatMap(rewardBatchMapper::toDTO);
+  }
 }

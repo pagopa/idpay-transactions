@@ -1,26 +1,19 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
+import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
+import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
-import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
-import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
-import lombok.Data;
-import org.springframework.dao.DuplicateKeyException;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
-import java.time.LocalDateTime;
-import java.time.YearMonth;
-import java.time.format.DateTimeFormatter;
-import java.time.format.TextStyle;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-
+import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +21,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.time.format.TextStyle;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 @Service
 @Slf4j
@@ -174,6 +175,35 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                         });
                     });
                 });
+    }
+
+    @Override
+    public Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String initiativeId, String merchantId) {
+        return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.APPROVED)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("Batch not found or status: " + rewardBatchId)))
+                .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()))
+                .flatMap(trxId -> rewardTransactionRepository.updateStatusAndReturnOld(trxId, RewardBatchTrxStatus.APPROVED))
+                .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L), (acc, trxOld) -> {
+                    switch (trxOld.getRewardBatchTrxStatus()){
+                        case RewardBatchTrxStatus.APPROVED -> log.info("Skip handler transaction {} because its already APPROVED", trxOld.getId());
+                        case RewardBatchTrxStatus.TO_CHECK, RewardBatchTrxStatus.CONSULTABLE -> acc.incrementTrxElaborated();
+                        case RewardBatchTrxStatus.SUSPENDED -> {
+                            acc.decrementTrxSuspended();
+                            if(trxOld.getRewards().get(initiativeId) != null && trxOld.getRewards().get(initiativeId).getAccruedRewardCents() != null) {
+                                acc.incrementTotalApprovedAmountCents(trxOld.getRewards().get(initiativeId).getAccruedRewardCents());
+                            }
+                        }
+                        case RewardBatchTrxStatus.REJECTED -> {
+                            acc.decrementTrxRejected();
+                            if(trxOld.getRewards().get(initiativeId) != null && trxOld.getRewards().get(initiativeId).getAccruedRewardCents() != null) {
+                                acc.incrementTotalApprovedAmountCents(trxOld.getRewards().get(initiativeId).getAccruedRewardCents());
+                            }
+                        }
+                    }
+                    return acc;
+                })
+
+                .flatMap(acc -> rewardBatchRepository.updateTotals(rewardBatchId, acc.getTrxElaborated(), acc.getTotalApprovedAmountCents(), acc.getTrxRejected(), acc.getTrxSuspended()));
     }
 
 private String buildBatchName(YearMonth month) {

@@ -20,6 +20,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.ComparisonOperators;
@@ -341,4 +342,18 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                 .defaultIfEmpty(0L);
     }
 
+
+    @Override
+    public Mono<RewardTransaction> updateStatusAndReturnOld(String trxId, RewardBatchTrxStatus status) {
+        Criteria criteria = Criteria.where(Fields.id).is(trxId);
+        return mongoTemplate.findAndModify(
+                Query.query(criteria),
+                new Update()
+                        .set(Fields.status, status),
+                FindAndModifyOptions.options()
+                        .returnNew(false)
+                        .upsert(false),
+                RewardTransaction.class
+        );
+    }
 }

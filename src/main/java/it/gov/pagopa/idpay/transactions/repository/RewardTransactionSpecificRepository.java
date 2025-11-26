@@ -34,4 +34,6 @@ public interface RewardTransactionSpecificRepository {
     Mono<Long> sumSuspendedAccruedRewardCents(String rewardBatchId, List<String> transactionIds, String initiativeId);
 
     Mono<Void> rewardTransactionsByBatchId(String batchId);
+
+    Mono<RewardTransaction> updateStatusAndReturnOld(String trxId, RewardBatchTrxStatus status);
 }

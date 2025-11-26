@@ -8,14 +8,18 @@ import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import java.time.YearMonth;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -661,5 +665,164 @@ class RewardBatchServiceImplTest {
 
         verify(rewardBatchRepository, times(0)).save(any());
         verify(rewardBatchServiceSpy, times(0)).createRewardBatchAndSave(any());
+    }
+
+    @Test
+    void approvedTransactions () {
+        String batchId = "BATCH_ID";
+        String initiativeId = "INITIATIVE_ID";
+        String merchantId = "MERCHANT_ID";
+
+        TransactionsRequest transactionsRequest = TransactionsRequest.builder()
+                .transactionIds(List.of("trxApproved", "trxToCheck", "trxConsultable", "trxSuspended", "trxRejected")).build();
+
+        RewardBatch rewardBatch = RewardBatch.builder().id(batchId).status(RewardBatchStatus.APPROVED).build();
+
+        when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.APPROVED))
+                .thenReturn(Mono.just(rewardBatch));
+
+        //Mock for approved
+        Reward rewardApproved = Reward.builder().accruedRewardCents(1000L).build();
+        Map<String, Reward> rewardApprovedMap = Map.of(initiativeId, rewardApproved);
+        RewardTransaction trxApprovedMock = RewardTransaction.builder()
+                .id("trxApproved")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
+                .rewards(rewardApprovedMap).build();
+        when(rewardTransactionRepository.updateStatusAndReturnOld("trxApproved",  RewardBatchTrxStatus.APPROVED))
+                .thenReturn(Mono.just(trxApprovedMock));
+
+        //Mock for to_check
+        Reward rewardToCheck = Reward.builder().accruedRewardCents(2000L).build();
+        Map<String, Reward> rewardToCheckMap = Map.of(initiativeId, rewardToCheck);
+        RewardTransaction trxToCheckMock = RewardTransaction.builder()
+                .id("trxToCheck")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
+                .rewards(rewardToCheckMap).build();
+        when(rewardTransactionRepository.updateStatusAndReturnOld("trxToCheck",  RewardBatchTrxStatus.APPROVED))
+                .thenReturn(Mono.just(trxToCheckMock));
+
+        //Mock for consultable
+        Reward rewardConsultable = Reward.builder().accruedRewardCents(2500L).build();
+        Map<String, Reward> rewardConsultableMap = Map.of(initiativeId, rewardConsultable);
+        RewardTransaction trxConsultableMock = RewardTransaction.builder()
+                .id("trxConsultable")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE)
+                .rewards(rewardConsultableMap).build();
+        when(rewardTransactionRepository.updateStatusAndReturnOld("trxConsultable",  RewardBatchTrxStatus.APPROVED))
+                .thenReturn(Mono.just(trxConsultableMock));
+
+        //Mock for suspended
+        Reward rewardSuspended = Reward.builder().accruedRewardCents(3000L).build();
+        Map<String, Reward> rewardSuspendedMap = Map.of(initiativeId, rewardSuspended);
+        RewardTransaction trxSuspendedMock = RewardTransaction.builder()
+                .id("trxSuspended")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
+                .rewards(rewardSuspendedMap).build();
+        when(rewardTransactionRepository.updateStatusAndReturnOld("trxSuspended",  RewardBatchTrxStatus.APPROVED))
+                .thenReturn(Mono.just(trxSuspendedMock));
+
+        //Mock for rejected
+        Reward rewardRejected = Reward.builder().accruedRewardCents(3500L).build();
+        Map<String, Reward> rewardRejectedMap = Map.of(initiativeId, rewardRejected);
+        RewardTransaction trxRejectedMock = RewardTransaction.builder()
+                .id("trxRejected")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED)
+                .rewards(rewardRejectedMap).build();
+        when(rewardTransactionRepository.updateStatusAndReturnOld("trxRejected",  RewardBatchTrxStatus.APPROVED))
+                .thenReturn(Mono.just(trxRejectedMock));
+
+        RewardBatch expectedResult = new RewardBatch();
+        when(rewardBatchRepository.updateTotals(
+                batchId,
+                2L,
+                rewardSuspended.getAccruedRewardCents()+rewardRejected.getAccruedRewardCents(),
+                -1L,
+                -1L))
+                .thenReturn(Mono.just(expectedResult));
+
+
+        RewardBatch result = rewardBatchService.approvedTransactions(batchId, transactionsRequest, initiativeId, merchantId).block();
+
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(expectedResult, result);
+        verify(rewardTransactionRepository, times(5)).updateStatusAndReturnOld(any(),any());
+        verify(rewardBatchRepository).findByIdAndStatus(any(),any());
+        verify(rewardBatchRepository).updateTotals(any(),anyLong(),anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void approvedTransactions_NotFoundBatch(){
+        String batchId = "BATCH_ID";
+        String initiativeId = "INITIATIVE_ID";
+        String merchantId = "MERCHANT_ID";
+        TransactionsRequest transactionsRequest = TransactionsRequest.builder()
+                .transactionIds(List.of("trxId")).build();
+
+        when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.APPROVED))
+                .thenReturn(Mono.empty());
+
+        Mono<RewardBatch> resultMono = rewardBatchService.approvedTransactions(batchId, transactionsRequest, initiativeId, merchantId);
+        Assertions.assertThrows(IllegalArgumentException.class, resultMono::block);
+
+        verify(rewardTransactionRepository, never()).updateStatusAndReturnOld(any(),any());
+        verify(rewardBatchRepository).findByIdAndStatus(any(),any());
+        verify(rewardBatchRepository, never()).updateTotals(any(),anyLong(),anyLong(), anyLong(), anyLong());
+
+    }
+
+    @Test
+    void approvedTransactions_ErrorInUpdateInModifyTrx(){
+        String batchId = "BATCH_ID";
+        String initiativeId = "INITIATIVE_ID";
+        String merchantId = "MERCHANT_ID";
+        TransactionsRequest transactionsRequest = TransactionsRequest.builder()
+                .transactionIds(List.of("trxId")).build();
+
+        RewardBatch rewardBatch = RewardBatch.builder().id(batchId).status(RewardBatchStatus.APPROVED).build();
+        when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.APPROVED))
+                .thenReturn(Mono.just(rewardBatch));
+
+        when(rewardTransactionRepository.updateStatusAndReturnOld("trxId",  RewardBatchTrxStatus.APPROVED))
+                .thenReturn(Mono.error(new RuntimeException("DUMMY_EXCEPTION")));
+
+        Mono<RewardBatch> resultMono = rewardBatchService.approvedTransactions(batchId, transactionsRequest, initiativeId, merchantId);
+        Assertions.assertThrows(RuntimeException.class, resultMono::block);
+
+        verify(rewardTransactionRepository).updateStatusAndReturnOld(any(),any());
+        verify(rewardBatchRepository).findByIdAndStatus(any(),any());
+        verify(rewardBatchRepository, never()).updateTotals(any(),anyLong(),anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void approvedTransactions_ErrorInUpdateBatch(){
+        String batchId = "BATCH_ID";
+        String initiativeId = "INITIATIVE_ID";
+        String merchantId = "MERCHANT_ID";
+        TransactionsRequest transactionsRequest = TransactionsRequest.builder()
+                .transactionIds(List.of("trxId")).build();
+
+        RewardBatch rewardBatch = RewardBatch.builder().id(batchId).status(RewardBatchStatus.APPROVED).build();
+        when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.APPROVED))
+                .thenReturn(Mono.just(rewardBatch));
+
+        //Mock for approved
+        Reward reward = Reward.builder().accruedRewardCents(1000L).build();
+        Map<String, Reward> rewardApprovedMap = Map.of(initiativeId, reward);
+        RewardTransaction trxMock = RewardTransaction.builder()
+                .id("trxId")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
+                .rewards(rewardApprovedMap).build();
+        when(rewardTransactionRepository.updateStatusAndReturnOld("trxId",  RewardBatchTrxStatus.APPROVED))
+                .thenReturn(Mono.just(trxMock));
+
+        when(rewardBatchRepository.updateTotals(batchId,1L,  0L,0,0))
+                .thenReturn(Mono.error(new RuntimeException("DUMMY_EXCEPTION")));
+
+        Mono<RewardBatch> resultMono = rewardBatchService.approvedTransactions(batchId, transactionsRequest, initiativeId, merchantId);
+        Assertions.assertThrows(RuntimeException.class, resultMono::block);
+
+        verify(rewardTransactionRepository).updateStatusAndReturnOld(any(),any());
+        verify(rewardBatchRepository).findByIdAndStatus(any(),any());
+        verify(rewardBatchRepository).updateTotals(any(),anyLong(),anyLong(), anyLong(), anyLong());
     }
 }
