@@ -114,6 +114,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .docNumber(transaction.getInvoiceData().getDocNumber())
                 .fileName(transaction.getInvoiceData().getFilename())
                 .rewardBatchTrxStatus(transaction.getRewardBatchTrxStatus())
+                .pointOfSaleId(transaction.getPointOfSaleId())
                 .build();
 
         if (StringUtils.isNotBlank(fiscalCode)){
