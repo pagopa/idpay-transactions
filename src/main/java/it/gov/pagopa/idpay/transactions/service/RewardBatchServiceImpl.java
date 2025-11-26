@@ -45,18 +45,18 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   }
 
   @Override
-  public Mono<Page<RewardBatch>> getMerchantRewardBatches(String merchantId, String status, String assignedOperator, String initiativeId, Pageable pageable) {
-    return rewardBatchRepository.findRewardBatchByMerchantId(merchantId, status, assignedOperator, initiativeId, pageable)
+  public Mono<Page<RewardBatch>> getMerchantRewardBatches(String merchantId, String status, String assigneeLevel, Pageable pageable) {
+    return rewardBatchRepository.findRewardBatchByMerchantId(merchantId, status, assigneeLevel, pageable)
         .collectList()
-        .zipWith(rewardBatchRepository.getCount(merchantId, initiativeId, status, assignedOperator))
+        .zipWith(rewardBatchRepository.getCount(merchantId, status, assigneeLevel))
         .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
   }
 
   @Override
-  public Mono<Page<RewardBatch>> getAllRewardBatches(String status, String assignedOperator, Pageable pageable) {
-    return rewardBatchRepository.findRewardBatch(status, assignedOperator,pageable)
+  public Mono<Page<RewardBatch>> getAllRewardBatches(String status, String assigneeLevel, Pageable pageable) {
+    return rewardBatchRepository.findRewardBatch(status, assigneeLevel, pageable)
         .collectList()
-        .zipWith(rewardBatchRepository.getCount(status, assignedOperator))
+        .zipWith(rewardBatchRepository.getCount(status, assigneeLevel))
         .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
   }
 

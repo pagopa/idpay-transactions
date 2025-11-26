@@ -3,7 +3,6 @@ package it.gov.pagopa.idpay.transactions.repository;
 import com.nimbusds.oauth2.sdk.util.StringUtils;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch.Fields;
-import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import java.time.LocalDateTime;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -24,8 +23,8 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     this.mongoTemplate = mongoTemplate;
   }
   @Override
-  public Flux<RewardBatch> findRewardBatchByMerchantId(String merchantId, String initiativeId, String status, String assignedOperator, Pageable pageable) {
-    Criteria criteria = getCriteria(merchantId, initiativeId, status, assignedOperator);
+  public Flux<RewardBatch> findRewardBatchByMerchantId(String merchantId, String status, String assigneeLevel, Pageable pageable) {
+    Criteria criteria = getCriteria(merchantId, status, assigneeLevel);
 
     Query query = Query.query(criteria).with(getPageableRewardBatch(pageable));
     return mongoTemplate.find(query, RewardBatch.class);
@@ -39,12 +38,11 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     return mongoTemplate.find(query, RewardBatch.class);
   }
 
-  private static Criteria getCriteria(String merchantId, String initiativeId, String status, String assignedOperator) {
-    Criteria criteria = Criteria.where(RewardTransaction.Fields.merchantId).is(merchantId)
-        .and(RewardTransaction.Fields.initiatives).is(initiativeId);
+  private static Criteria getCriteria(String merchantId, String status, String assigneeLevel) {
+    Criteria criteria = Criteria.where(RewardBatch.Fields.merchantId).is(merchantId);
 
-    if (StringUtils.isNotBlank(assignedOperator)) {
-      criteria.and(RewardBatch.Fields.assigneeLevel).is(assignedOperator);
+    if (StringUtils.isNotBlank(assigneeLevel)) {
+      criteria.and(RewardBatch.Fields.assigneeLevel).is(assigneeLevel);
     } else {
       criteria.and(Fields.assigneeLevel).in("L1", "L2", "L3");
     }
@@ -59,8 +57,8 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Mono<Long> getCount(String merchantId, String initiativeId, String status, String assignedOperator) {
-    Criteria criteria = getCriteria(merchantId, initiativeId, status, assignedOperator);
+  public Mono<Long> getCount(String merchantId, String status, String assignedOperator) {
+    Criteria criteria = getCriteria(merchantId, status, assignedOperator);
 
     return mongoTemplate.count(Query.query(criteria), RewardBatch.class);
   }

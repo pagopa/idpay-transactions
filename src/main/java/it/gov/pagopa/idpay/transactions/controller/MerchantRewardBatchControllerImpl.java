@@ -23,12 +23,12 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
-  public Mono<RewardBatchListDTO> getMerchantRewardBatches(String merchantId, String status, String assignedOperator, String initiativeId, Pageable pageable) {
+  public Mono<RewardBatchListDTO> getMerchantRewardBatches(String merchantId, String status, String assigneeLevel, String initiativeId, Pageable pageable) {
     if (merchantId != null) {
       log.info("[GET_MERCHANT_REWARD_BATCHES] Merchant {} requested to retrieve reward batches",
           Utilities.sanitizeString(merchantId));
 
-      return this.rewardBatchService.getMerchantRewardBatches(merchantId, status, assignedOperator, initiativeId, pageable)
+      return this.rewardBatchService.getMerchantRewardBatches(merchantId, status, assigneeLevel, pageable)
           .flatMap(page ->
               Flux.fromIterable(page.getContent())
                   .flatMapSequential(rewardBatchMapper::toDTO)
@@ -45,7 +45,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     } else {
       log.info("[GET_ALL_REWARD_BATCHES] Received a request to retrieve all reward batches");
 
-      return this.rewardBatchService.getAllRewardBatches(status, assignedOperator, pageable)
+      return this.rewardBatchService.getAllRewardBatches(status, assigneeLevel, pageable)
           .flatMap(page ->
               Flux.fromIterable(page.getContent())
                   .flatMapSequential(rewardBatchMapper::toDTO)

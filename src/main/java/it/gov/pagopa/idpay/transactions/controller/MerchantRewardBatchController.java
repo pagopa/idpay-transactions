@@ -15,7 +15,7 @@ public interface MerchantRewardBatchController {
   Mono<RewardBatchListDTO> getMerchantRewardBatches(
       @RequestHeader(value = "x-merchant-id", required = false) String merchantId,
       @RequestParam(required = false) String status,
-      @RequestParam(required = false) String assignedOperator,
+      @RequestParam(required = false) String assigneeLevel,
       @PathVariable("initiativeId") String initiativeId,
       @PageableDefault(sort = "name", direction = Sort.Direction.ASC) Pageable pageable);
 
