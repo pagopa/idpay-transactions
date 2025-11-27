@@ -73,4 +73,5 @@ public class RewardTransactionDTO {
     private String franchiseName;
     private PosType pointOfSaleType;
     private String businessName;
+    private LocalDateTime updateDate;
 }
