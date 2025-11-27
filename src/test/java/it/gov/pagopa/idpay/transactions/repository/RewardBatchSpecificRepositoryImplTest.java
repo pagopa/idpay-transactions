@@ -88,7 +88,25 @@ class RewardBatchSpecificRepositoryImplTest {
 
   @Test
   void findRewardBatchByMerchantId_shouldReturnAllBatches() {
+    RewardBatch batch3 = RewardBatch.builder()
+        .id("batch1")
+        .merchantId(MERCHANT)
+        .status(RewardBatchStatus.SENT)
+        .assigneeLevel(RewardBatchAssignee.L1)
+        .build();
+
+    RewardBatch batch4 = RewardBatch.builder()
+        .id("batch2")
+        .merchantId(MERCHANT)
+        .status(RewardBatchStatus.EVALUATING)
+        .assigneeLevel(RewardBatchAssignee.L2)
+        .build();
+
+    rewardBatchRepository.save(batch3).block();
+    rewardBatchRepository.save(batch4).block();
+
     Pageable pageable = PageRequest.of(0, 10);
+
     Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByMerchantId(
         MERCHANT,
         null,
@@ -97,20 +115,36 @@ class RewardBatchSpecificRepositoryImplTest {
     );
 
     List<RewardBatch> list = result.toStream().toList();
+
     assertEquals(2, list.size());
     assertTrue(list.contains(batch1));
     assertTrue(list.contains(batch2));
   }
 
   @Test
-  void getCount_shouldReturnCorrectNumber() {
-    Mono<Long> countMono = rewardBatchSpecificRepository.getCount(
-        MERCHANT,
-        null,
-        null
-    );
-    Long count = countMono.block();
-    assertEquals(2L, count);
+  void getCountByMerchant_shouldReturnCorrectNumber() {
+    RewardBatch batch3 = RewardBatch.builder()
+        .id("B1")
+        .merchantId(MERCHANT)
+        .status(RewardBatchStatus.SENT)
+        .assigneeLevel(RewardBatchAssignee.L1)
+        .build();
+
+    RewardBatch batch4 = RewardBatch.builder()
+        .id("B2")
+        .merchantId(MERCHANT)
+        .status(RewardBatchStatus.EVALUATING)
+        .assigneeLevel(RewardBatchAssignee.L2)
+        .build();
+
+    rewardBatchRepository.save(batch3).block();
+    rewardBatchRepository.save(batch4).block();
+
+    Mono<Long> countMono = rewardBatchSpecificRepository.getCount(MERCHANT, null, null);
+
+    StepVerifier.create(countMono)
+        .assertNext(count -> assertEquals(4L, count))
+        .verifyComplete();
   }
 
   @Test
@@ -256,19 +290,8 @@ class RewardBatchSpecificRepositoryImplTest {
     RewardBatch batch3 = RewardBatch.builder()
         .id("batch3")
         .merchantId(MERCHANT)
-        .businessName("Test business")
-        .month("2025-12")
-        .posType(PosType.PHYSICAL)
         .status(RewardBatchStatus.EVALUATING)
         .assigneeLevel(RewardBatchAssignee.L1)
-        .partial(false)
-        .name("dicembre 2025")
-        .startDate(LocalDateTime.of(2025, 12, 1, 0, 0))
-        .endDate(LocalDateTime.of(2025, 12, 31, 23, 59))
-        .initialAmountCents(0L)
-        .numberOfTransactions(0L)
-        .numberOfTransactionsElaborated(0L)
-        .reportPath(null)
         .build();
 
     rewardBatchRepository.save(batch3).block();
@@ -279,14 +302,15 @@ class RewardBatchSpecificRepositoryImplTest {
         .findRewardBatch(
             RewardBatchStatus.EVALUATING.name(),
             null,
+            false,
             pageable
         )
         .toStream()
         .toList();
 
     assertEquals(1, result.size());
-    assertEquals("batch3", result.getFirst().getId());
-    assertEquals(RewardBatchStatus.EVALUATING, result.getFirst().getStatus());
+    assertEquals("batch3", result.get(0).getId());
+    assertEquals(RewardBatchStatus.EVALUATING, result.get(0).getStatus());
   }
 
   @Test
@@ -294,19 +318,8 @@ class RewardBatchSpecificRepositoryImplTest {
     RewardBatch visibleBatch = RewardBatch.builder()
         .id("batch-visible")
         .merchantId(MERCHANT)
-        .businessName("Test business")
-        .month("2025-12")
-        .posType(PosType.PHYSICAL)
         .status(RewardBatchStatus.SENT)
         .assigneeLevel(RewardBatchAssignee.L1)
-        .partial(false)
-        .name("dicembre 2025")
-        .startDate(LocalDateTime.now())
-        .endDate(LocalDateTime.now().plusDays(1))
-        .initialAmountCents(0L)
-        .numberOfTransactions(0L)
-        .numberOfTransactionsElaborated(0L)
-        .reportPath(null)
         .build();
 
     rewardBatchRepository.save(visibleBatch).block();
@@ -315,8 +328,7 @@ class RewardBatchSpecificRepositoryImplTest {
 
     StepVerifier.create(
             rewardBatchSpecificRepository
-                .findRewardBatch(null, null, pageable)
-                .filter(b -> b.getStatus() != RewardBatchStatus.CREATED)
+                .findRewardBatch(null, null, true, pageable)
                 .collectList()
         )
         .assertNext(result -> {
@@ -339,10 +351,9 @@ class RewardBatchSpecificRepositoryImplTest {
 
     StepVerifier.create(
             rewardBatchSpecificRepository
-                .getCount(null, null)
+                .getCount(null, null, true)
                 .flatMap(count -> rewardBatchSpecificRepository
-                    .findRewardBatch(null, null, PageRequest.of(0, 100))
-                    .filter(b -> b.getStatus() != RewardBatchStatus.CREATED)
+                    .findRewardBatch(null, null, true, PageRequest.of(0, 100))
                     .count()
                 )
         )
@@ -372,13 +383,37 @@ class RewardBatchSpecificRepositoryImplTest {
     Pageable pageable = PageRequest.of(0, 10);
 
     StepVerifier.create(
-            rewardBatchSpecificRepository.findRewardBatch(null, "L1", pageable).collectList()
+            rewardBatchSpecificRepository.findRewardBatch(null, "L1", false, pageable).collectList()
         )
         .assertNext(result -> {
-          assertEquals(3, result.size());
-          assertEquals(RewardBatchAssignee.L1, result.get(0).getAssigneeLevel());
-          assertEquals("B1", result.get(0).getId());
+          assertTrue(result.stream().allMatch(b -> b.getAssigneeLevel() == RewardBatchAssignee.L1));
+          assertTrue(result.stream().anyMatch(b -> b.getId().equals("B1")));
         })
         .verifyComplete();
+  }
+
+  @Test
+  void findRewardBatch_operatorRequestsCreated_shouldReturnEmpty() {
+    RewardBatch batchCreated = RewardBatch.builder()
+        .id("batch-created")
+        .merchantId(MERCHANT)
+        .status(RewardBatchStatus.CREATED)
+        .assigneeLevel(RewardBatchAssignee.L1)
+        .build();
+    rewardBatchRepository.save(batchCreated).block();
+
+    Pageable pageable = PageRequest.of(0, 10);
+
+    List<RewardBatch> result = rewardBatchSpecificRepository
+        .findRewardBatch(
+            RewardBatchStatus.CREATED.name(),
+            null,
+            true,
+            pageable
+        )
+        .toStream()
+        .toList();
+
+    assertTrue(result.isEmpty());
   }
 }

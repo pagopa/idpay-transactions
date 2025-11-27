@@ -8,6 +8,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch.Fields;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -63,7 +64,6 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   private Criteria buildCriteria(String status, String assigneeLevel, boolean isOperator) {
-
     List<Criteria> subCriteria = new ArrayList<>();
 
     if (StringUtils.isNotBlank(assigneeLevel)) {
@@ -73,42 +73,37 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
       );
     }
 
-    if (StringUtils.isNotBlank(status)) {
-      if (isOperator) {
-        if (!status.equals(RewardBatchStatus.CREATED.name())) {
-          subCriteria.add(
-              Criteria.where(RewardBatch.Fields.status)
-                  .is(RewardBatchStatus.valueOf(status))
-          );
-        } else {
-          subCriteria.add(Criteria.where(Fields.id).in(Collections.emptyList()));
-        }
+    EnumSet<RewardBatchStatus> allowedStatuses = isOperator
+        ? EnumSet.of(
+        RewardBatchStatus.SENT,
+        RewardBatchStatus.EVALUATING,
+        RewardBatchStatus.APPROVED
+    )
+        : EnumSet.of(
+            RewardBatchStatus.CREATED,
+            RewardBatchStatus.SENT,
+            RewardBatchStatus.EVALUATING,
+            RewardBatchStatus.APPROVED
+        );
+
+    if (StringUtils.isBlank(status)) {
+      subCriteria.add(
+          Criteria.where(RewardBatch.Fields.status)
+              .in(allowedStatuses)
+      );
+    } else {
+      RewardBatchStatus requestedStatus = RewardBatchStatus.valueOf(status);
+
+      if (!allowedStatuses.contains(requestedStatus)) {
+        subCriteria.add(
+            Criteria.where(Fields.id).in(Collections.emptyList())
+        );
       } else {
         subCriteria.add(
             Criteria.where(RewardBatch.Fields.status)
-                .is(RewardBatchStatus.valueOf(status))
+                .is(requestedStatus)
         );
       }
-    } else {
-      if (isOperator) {
-        subCriteria.add(
-            Criteria.where(RewardBatch.Fields.status)
-                .in(
-                    RewardBatchStatus.SENT,
-                    RewardBatchStatus.EVALUATING,
-                    RewardBatchStatus.APPROVED
-                )
-        );
-      }
-      subCriteria.add(
-          Criteria.where(RewardBatch.Fields.status)
-              .in(
-                  RewardBatchStatus.CREATED,
-                  RewardBatchStatus.SENT,
-                  RewardBatchStatus.EVALUATING,
-                  RewardBatchStatus.APPROVED
-              )
-      );
     }
 
     return new Criteria().andOperator(subCriteria.toArray(new Criteria[0]));
