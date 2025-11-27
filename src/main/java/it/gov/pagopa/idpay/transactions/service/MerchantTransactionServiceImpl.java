@@ -118,6 +118,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .pointOfSaleId(transaction.getPointOfSaleId() == null ? "-" : transaction.getPointOfSaleId())
                 .rewardBatchRejectionReason(transaction.getRewardBatchRejectionReason() == null ? "-" : transaction.getRewardBatchRejectionReason())
                 .franchiseName(transaction.getFranchiseName() == null ? "-" : transaction.getFranchiseName())
+
                 .build();
 
         if (StringUtils.isNotBlank(fiscalCode)){
