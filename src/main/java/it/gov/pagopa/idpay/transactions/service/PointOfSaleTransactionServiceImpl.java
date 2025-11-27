@@ -138,7 +138,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
             FilePart file,
             String docNumber) {
 
-        // TODO: implementare logica reale.
+        //implementare logica reale.
         return Mono.error(new UnsupportedOperationException("Not implemented yet"));
     }
 
