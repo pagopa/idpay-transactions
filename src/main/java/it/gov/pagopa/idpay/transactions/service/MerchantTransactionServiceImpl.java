@@ -19,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.Comparator;
 
@@ -94,23 +95,31 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
             String organizationRole,
             Pageable pageable) {
 
-        boolean merchantFilteringConsultable =
-                !isOperator(organizationRole)
-                        && filters.getRewardBatchTrxStatus() == RewardBatchTrxStatus.CONSULTABLE;
-
-        if (merchantFilteringConsultable) {
-            return getForMerchantConsultable(filters, organizationRole, pageable);
+        TrxFiltersDTO effectiveFilters;
+        if (!isOperator(organizationRole)
+                && filters.getRewardBatchTrxStatus() == RewardBatchTrxStatus.CONSULTABLE) {
+            effectiveFilters = new TrxFiltersDTO(
+                    filters.getMerchantId(),
+                    filters.getInitiativeId(),
+                    filters.getFiscalCode(),
+                    filters.getStatus(),
+                    filters.getRewardBatchId(),
+                    null,
+                    filters.getPointOfSaleId()
+            );
+        } else {
+            effectiveFilters = filters;
         }
 
-        if (StringUtils.isNotBlank(filters.getFiscalCode())) {
-            return Mono.just(filters.getFiscalCode())
-                    .flatMap(userRestClient::retrieveFiscalCodeInfo)
+        if (StringUtils.isNotBlank(effectiveFilters.getFiscalCode())) {
+            return userRestClient.retrieveFiscalCodeInfo(effectiveFilters.getFiscalCode())
                     .map(FiscalCodeInfoPDV::getToken)
-                    .flatMap(userId -> getMerchantTransactionDTOs(filters, userId, organizationRole, pageable));
+                    .flatMap(userId -> getMerchantTransactionDTOs(effectiveFilters, userId, organizationRole, pageable));
         } else {
-            return getMerchantTransactionDTOs(filters, null, organizationRole, pageable);
+            return getMerchantTransactionDTOs(effectiveFilters, null, organizationRole, pageable);
         }
     }
+
 
     private Mono<Tuple2<List<MerchantTransactionDTO>, Long>> getMerchantTransactionDTOs(
             TrxFiltersDTO filters,
@@ -179,47 +188,6 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                     .doOnNext(out::setFiscalCode)
                     .then(Mono.just(out));
         }
-    }
-
-    private Mono<Tuple2<List<MerchantTransactionDTO>, Long>> getForMerchantConsultable(
-            TrxFiltersDTO filters,
-            String organizationRole,
-            Pageable pageable) {
-
-        TrxFiltersDTO filtersConsultable = new TrxFiltersDTO(
-                filters.getMerchantId(),
-                filters.getInitiativeId(),
-                filters.getFiscalCode(),
-                filters.getStatus(),
-                filters.getRewardBatchId(),
-                RewardBatchTrxStatus.CONSULTABLE,
-                filters.getPointOfSaleId()
-        );
-
-        TrxFiltersDTO filtersToCheck = new TrxFiltersDTO(
-                filters.getMerchantId(),
-                filters.getInitiativeId(),
-                filters.getFiscalCode(),
-                filters.getStatus(),
-                filters.getRewardBatchId(),
-                RewardBatchTrxStatus.TO_CHECK,
-                filters.getPointOfSaleId()
-        );
-
-        Mono<Tuple2<List<MerchantTransactionDTO>, Long>> consultableMono =
-                getMerchantTransactionDTOs(filtersConsultable, null, organizationRole, pageable);
-
-        Mono<Tuple2<List<MerchantTransactionDTO>, Long>> toCheckMono =
-                getMerchantTransactionDTOs(filtersToCheck, null, organizationRole, pageable);
-
-        return Mono.zip(consultableMono, toCheckMono)
-                .map(zip -> {
-                    List<MerchantTransactionDTO> merged = new ArrayList<>(zip.getT1().getT1());
-                    merged.addAll(zip.getT2().getT1());
-
-                    long total = zip.getT1().getT2() + zip.getT2().getT2();
-                    return reactor.util.function.Tuples.of(merged, total);
-                });
     }
 
     private RewardBatchTrxStatus parseRewardBatchTrxStatus(String rewardBatchTrxStatus) {

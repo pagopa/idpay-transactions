@@ -5,14 +5,12 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
-import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.counters.RewardCounters;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -54,7 +52,6 @@ class MerchantTransactionServiceImplTest {
                 new MerchantTransactionServiceImpl(userRestClient, rewardTransactionRepository);
     }
 
-    @Disabled
     @Test
     void getMerchantTransactionList_withFiscalCode() {
         LocalDateTime now = LocalDateTime.now();
@@ -113,7 +110,6 @@ class MerchantTransactionServiceImplTest {
         verifyNoMoreInteractions(rewardTransactionRepository);
     }
 
-    @Disabled
     @Test
     void getMerchantTransactionList_noFiscalCode() {
         LocalDateTime now = LocalDateTime.now();
