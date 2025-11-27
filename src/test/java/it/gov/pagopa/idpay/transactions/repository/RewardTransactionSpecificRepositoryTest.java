@@ -642,4 +642,42 @@ class RewardTransactionSpecificRepositoryTest {
         rewardTransactionRepository.deleteById("id2").block();
         rewardTransactionRepository.deleteById("id3").block();
     }
+
+    @Test
+    void updateStatusAndReturnOld() {
+        String trxSuspendedId = "TRX_SUSPENDED_ID";
+        RewardTransaction trxToSave = RewardTransaction.builder()
+                .id(trxSuspendedId)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED).build();
+
+        rewardTransactionRepository.save(trxToSave).block();
+
+        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(trxSuspendedId, RewardBatchTrxStatus.APPROVED).block();
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(RewardBatchTrxStatus.SUSPENDED, result.getRewardBatchTrxStatus());
+
+        RewardTransaction afterUpdate = rewardTransactionRepository.findById(trxSuspendedId).block();
+        Assertions.assertNotNull(afterUpdate);
+        Assertions.assertEquals(RewardBatchTrxStatus.APPROVED, afterUpdate.getRewardBatchTrxStatus());
+
+    }
+
+    @Test
+    void updateStatusAndReturnOld_ApprovedTrx() {
+        String trxSuspendedId = "TRX_APPROVED_ID";
+        RewardTransaction trxToSave = RewardTransaction.builder()
+                .id(trxSuspendedId)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED).build();
+
+        rewardTransactionRepository.save(trxToSave).block();
+
+        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(trxSuspendedId, RewardBatchTrxStatus.APPROVED).block();
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(RewardBatchTrxStatus.SUSPENDED, result.getRewardBatchTrxStatus());
+
+        RewardTransaction afterUpdate = rewardTransactionRepository.findById(trxSuspendedId).block();
+        Assertions.assertNotNull(afterUpdate);
+        Assertions.assertEquals(RewardBatchTrxStatus.APPROVED, afterUpdate.getRewardBatchTrxStatus());
+
+    }
 }

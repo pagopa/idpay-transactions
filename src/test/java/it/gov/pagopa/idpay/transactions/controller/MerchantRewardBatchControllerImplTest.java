@@ -279,4 +279,41 @@ class MerchantRewardBatchControllerImplTest {
         verify(rewardBatchService, times(1)).rewardBatchConfirmation(INITIATIVE_ID, rewardBatchId);
     }
 
+    @Test
+    void approvedTransactionsOk() {
+        String rewardBatchId = "BATCH";
+        TransactionsRequest request = new TransactionsRequest();
+        request.setTransactionIds(List.of("trx1", "trx2"));
+
+        RewardBatch batch = RewardBatch.builder()
+                .id(rewardBatchId)
+                .status(RewardBatchStatus.APPROVED)
+                .build();
+
+        RewardBatchDTO dto = RewardBatchDTO.builder()
+                .id(rewardBatchId)
+                .build();
+
+        when(rewardBatchService.approvedTransactions(rewardBatchId, request, INITIATIVE_ID, MERCHANT_ID))
+                .thenReturn(Mono.just(batch));
+        when(rewardBatchMapper.toDTO(batch)).thenReturn(Mono.just(dto));
+
+        webClient.post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/approved",
+                        INITIATIVE_ID, rewardBatchId)
+                .header("x-merchant-id", MERCHANT_ID)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(RewardBatchDTO.class)
+                .value(res -> {
+                    assertNotNull(res);
+                    assertEquals(rewardBatchId, res.getId());
+                });
+
+        verify(rewardBatchService, times(1))
+                .approvedTransactions(any(), any(), any(), any());
+        verify(rewardBatchMapper, times(1)).toDTO(batch);
+    }
+
 }

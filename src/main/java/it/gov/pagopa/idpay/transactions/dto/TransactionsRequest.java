@@ -18,6 +18,5 @@ public class TransactionsRequest {
     @NotEmpty
     private List<String> transactionIds;
 
-    @NotNull
     private String reason;
 }

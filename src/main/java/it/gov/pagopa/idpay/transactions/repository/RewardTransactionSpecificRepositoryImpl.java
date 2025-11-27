@@ -349,7 +349,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         return mongoTemplate.findAndModify(
                 Query.query(criteria),
                 new Update()
-                        .set(Fields.status, status),
+                        .set(Fields.rewardBatchTrxStatus, status),
                 FindAndModifyOptions.options()
                         .returnNew(false)
                         .upsert(false),
