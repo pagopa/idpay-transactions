@@ -1,6 +1,5 @@
 package it.gov.pagopa.idpay.transactions.utils;
 
-import org.springframework.http.HttpStatus;
 
 public final class ExceptionConstants {
     private ExceptionConstants(){}
@@ -16,6 +15,8 @@ public final class ExceptionConstants {
         public static final String REWARD_BATCH_MONTH_TOO_EARLY = "REWARD_BATCH_MONTH_TOO_EARLY";
         public static final String REWARD_BATCH_TOO_MANY_REQUESTS = "REWARD_BATCH_TOO_MANY_REQUESTS";
         public static final String REWARD_BATCH_GENERIC_ERROR = "REWARD_BATCH_GENERIC_ERROR";
+        public static final String POINT_OF_SALE_NOT_ALLOWED = "POINT_OF_SALE_NOT_ALLOWED";
+
     }
 
     public static final class ExceptionMessage {
