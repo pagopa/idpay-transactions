@@ -2,7 +2,6 @@ package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
-import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import org.junit.jupiter.api.AfterEach;
@@ -296,7 +295,7 @@ class RewardTransactionSpecificRepositoryTest {
         );
 
         Flux<RewardTransaction> transactionInProgressList =
-                rewardTransactionSpecificRepository.findByFilter(filters, USER_ID, OrganizationRole.MERCHANT, paging);
+                rewardTransactionSpecificRepository.findByFilter(filters, USER_ID, paging);
 
         List<RewardTransaction> result = transactionInProgressList.toStream().toList();
         assertEquals(1, result.size());
@@ -334,7 +333,6 @@ class RewardTransactionSpecificRepositoryTest {
                 POINT_OF_SALE_ID,
                 USER_ID,
                 "",
-                OrganizationRole.MERCHANT,
                 sorted
         );
 
@@ -374,7 +372,6 @@ class RewardTransactionSpecificRepositoryTest {
                 POINT_OF_SALE_ID,
                 USER_ID,
                 "",
-                OrganizationRole.MERCHANT,
                 unsorted
         );
 
@@ -418,7 +415,6 @@ class RewardTransactionSpecificRepositoryTest {
                 POINT_OF_SALE_ID,
                 USER_ID,
                 PRODUCT_GTIN,
-                OrganizationRole.MERCHANT,
                 pageable
         );
 
@@ -469,7 +465,6 @@ class RewardTransactionSpecificRepositoryTest {
                 POINT_OF_SALE_ID,
                 USER_ID,
                 "",
-                OrganizationRole.MERCHANT,
                 ascSort
         ).toStream().toList();
 
@@ -484,7 +479,6 @@ class RewardTransactionSpecificRepositoryTest {
                 POINT_OF_SALE_ID,
                 USER_ID,
                 "",
-                OrganizationRole.MERCHANT,
                 descSort
         ).toStream().toList();
 
@@ -526,7 +520,6 @@ class RewardTransactionSpecificRepositoryTest {
                 POINT_OF_SALE_ID,
                 USER_ID,
                 "",
-                OrganizationRole.MERCHANT,
                 pageable
         );
 
@@ -567,7 +560,6 @@ class RewardTransactionSpecificRepositoryTest {
                 POINT_OF_SALE_ID,
                 USER_ID,
                 "",
-                OrganizationRole.MERCHANT,
                 pageable
         );
 
@@ -604,8 +596,7 @@ class RewardTransactionSpecificRepositoryTest {
                 filters,
                 POINT_OF_SALE_ID,
                 null,
-                null,
-                OrganizationRole.MERCHANT
+                null
         );
 
         assertEquals(1L, count.block());

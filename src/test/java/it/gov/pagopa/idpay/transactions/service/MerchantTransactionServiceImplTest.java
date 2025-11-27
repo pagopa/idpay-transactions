@@ -5,16 +5,17 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
-import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
+import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.counters.RewardCounters;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
@@ -26,8 +27,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -49,14 +49,13 @@ class MerchantTransactionServiceImplTest {
     private static final String FISCAL_CODE = "FISCALCODE1";
 
     @BeforeEach
-    void setUp(){
-        merchantTransactionService = new MerchantTransactionServiceImpl(userRestClient, rewardTransactionRepository);
+    void setUp() {
+        merchantTransactionService =
+                new MerchantTransactionServiceImpl(userRestClient, rewardTransactionRepository);
     }
 
-    @Disabled
     @Test
     void getMerchantTransactionList_withFiscalCode() {
-        // given
         LocalDateTime now = LocalDateTime.now();
 
         RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
@@ -69,89 +68,54 @@ class MerchantTransactionServiceImplTest {
                 .trxDate(now)
                 .build();
 
-        Pageable paging = PageRequest.of(0, 10,
-                Sort.by(RewardTransaction.Fields.elaborationDateTime).descending());
+        Pageable paging = PageRequest.of(
+                0,
+                10,
+                Sort.by(RewardTransaction.Fields.elaborationDateTime).descending()
+        );
 
         FiscalCodeInfoPDV fiscalCodeInfo = new FiscalCodeInfoPDV(USER_ID);
 
         when(userRestClient.retrieveFiscalCodeInfo(anyString()))
                 .thenReturn(Mono.just(fiscalCodeInfo));
 
-        when(rewardTransactionRepository.findByFilter(
-                any(),
-                eq(USER_ID),
-                eq(OrganizationRole.MERCHANT),
-                eq(paging)))
+        when(rewardTransactionRepository.findByFilter(any(), eq(USER_ID), eq(paging)))
                 .thenReturn(Flux.just(rt1));
 
-        when(rewardTransactionRepository.getCount(
-                any(),
-                isNull(),
-                isNull(),
-                eq(USER_ID),
-                eq(OrganizationRole.MERCHANT)))
+        when(rewardTransactionRepository.getCount(any(), isNull(), isNull(), eq(USER_ID)))
                 .thenReturn(Mono.just(1L));
 
-        // when
-        Mono<MerchantTransactionsListDTO> resultMono =
+        MerchantTransactionsListDTO result =
                 merchantTransactionService.getMerchantTransactions(
                         MERCHANT_ID,
-                        OrganizationRole.MERCHANT,
+                        "merchant",
                         INITIATIVE_ID,
-                        FISCAL_CODE,   // fiscalCode presente
+                        FISCAL_CODE,
                         null,
                         null,
                         null,
                         null,
                         paging
-                );
+                ).block();
 
-        MerchantTransactionsListDTO result = resultMono.block();
+        assertFirstPage(result);
 
-        // then
-        assertNotNull(result);
-        assertEquals(0, result.getPageNo());
-        assertEquals(10, result.getPageSize());
-        assertEquals(1, result.getTotalElements());
-        assertEquals(1, result.getTotalPages());
-        assertNotNull(result.getContent());
-        assertEquals(1, result.getContent().size());
+        List<MerchantTransactionDTO> content = Objects.requireNonNull(result).getContent();
+        assertNotNull(content);
+        assertFalse(content.isEmpty());
 
-        MerchantTransactionDTO dto = result.getContent().get(0);
-        assertEquals(rt1.getId(), dto.getTrxId());
-        assertEquals(rt1.getAmountCents(), dto.getEffectiveAmountCents());
-        assertEquals(
-                rt1.getRewards().get(INITIATIVE_ID).getAccruedRewardCents(),
-                dto.getRewardAmountCents()
-        );
-        // con fiscalCode passato come filtro, viene impostato direttamente
-        assertEquals(FISCAL_CODE, dto.getFiscalCode());
-        assertEquals(rt1.getStatus(), dto.getStatus());
-        assertEquals(rt1.getElaborationDateTime(), dto.getElaborationDateTime());
-        assertEquals(rt1.getTrxDate(), dto.getTrxDate());
-        assertEquals(rt1.getChannel(), dto.getChannel());
-        assertEquals(rt1.getTrxChargeDate(), dto.getTrxChargeDate());
-        assertEquals(rt1.getAdditionalProperties(), dto.getAdditionalProperties());
-        assertEquals(rt1.getTrxCode(), dto.getTrxCode());
-        assertEquals(rt1.getRewardBatchTrxStatus(), dto.getRewardBatchTrxStatus());
-        assertEquals(rt1.getPointOfSaleId(), dto.getPointOfSaleId());
-        // authorizedAmountCents = importo - reward
-        assertEquals(
-                rt1.getAmountCents() - rt1.getRewards().get(INITIATIVE_ID).getAccruedRewardCents(),
-                dto.getAuthorizedAmountCents()
-        );
+        MerchantTransactionDTO dto = content.get(0);
+        assertMerchantTransactionMatches(rt1, dto, FISCAL_CODE);
 
         verify(userRestClient).retrieveFiscalCodeInfo(FISCAL_CODE);
         verify(userRestClient, never()).retrieveUserInfo(anyString());
-        verify(rewardTransactionRepository).findByFilter(any(), eq(USER_ID), eq(OrganizationRole.MERCHANT), eq(paging));
-        verify(rewardTransactionRepository).getCount(any(), isNull(), isNull(), eq(USER_ID), eq(OrganizationRole.MERCHANT));
+        verify(rewardTransactionRepository).findByFilter(any(), eq(USER_ID), eq(paging));
+        verify(rewardTransactionRepository).getCount(any(), isNull(), isNull(), eq(USER_ID));
         verifyNoMoreInteractions(rewardTransactionRepository);
     }
 
-    @Disabled
     @Test
     void getMerchantTransactionList_noFiscalCode() {
-        // given
         LocalDateTime now = LocalDateTime.now();
 
         RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
@@ -164,107 +128,49 @@ class MerchantTransactionServiceImplTest {
                 .trxDate(now)
                 .build();
 
-        Pageable paging = PageRequest.of(0, 10,
-                Sort.by(RewardTransaction.Fields.elaborationDateTime).descending());
+        Pageable paging = PageRequest.of(
+                0,
+                10,
+                Sort.by(RewardTransaction.Fields.elaborationDateTime).descending()
+        );
 
-        // in assenza di fiscalCode il service chiama retrieveUserInfo(userId)
         UserInfoPDV userInfoPDV = new UserInfoPDV(FISCAL_CODE);
 
-        when(rewardTransactionRepository.findByFilter(
-                any(),
-                isNull(),
-                eq(OrganizationRole.MERCHANT),
-                eq(paging)))
+        when(rewardTransactionRepository.findByFilter(any(), isNull(), eq(paging)))
                 .thenReturn(Flux.just(rt1));
 
-        when(rewardTransactionRepository.getCount(
-                any(),
-                isNull(),
-                isNull(),
-                isNull(),
-                eq(OrganizationRole.MERCHANT)))
+        when(rewardTransactionRepository.getCount(any(), isNull(), isNull(), isNull()))
                 .thenReturn(Mono.just(1L));
 
         when(userRestClient.retrieveUserInfo(USER_ID))
                 .thenReturn(Mono.just(userInfoPDV));
 
-        // when
-        Mono<MerchantTransactionsListDTO> resultMono =
+        MerchantTransactionsListDTO result =
                 merchantTransactionService.getMerchantTransactions(
                         MERCHANT_ID,
-                        OrganizationRole.MERCHANT,
+                        "merchant",
                         INITIATIVE_ID,
-                        null,  // fiscalCode assente
+                        null,
                         null,
                         null,
                         null,
                         null,
                         paging
-                );
+                ).block();
 
-        MerchantTransactionsListDTO result = resultMono.block();
+        assertFirstPage(result);
 
-        // then
-        assertNotNull(result);
-        assertEquals(0, result.getPageNo());
-        assertEquals(10, result.getPageSize());
-        assertEquals(1, result.getTotalElements());
-        assertEquals(1, result.getTotalPages());
-        assertNotNull(result.getContent());
-        assertEquals(1, result.getContent().size());
+        List<MerchantTransactionDTO> content = Objects.requireNonNull(result).getContent();
+        assertNotNull(content);
+        assertFalse(content.isEmpty());
 
-        MerchantTransactionDTO dto = result.getContent().get(0);
-        assertEquals(rt1.getId(), dto.getTrxId());
-        assertEquals(rt1.getAmountCents(), dto.getEffectiveAmountCents());
-        assertEquals(
-                rt1.getRewards().get(INITIATIVE_ID).getAccruedRewardCents(),
-                dto.getRewardAmountCents()
-        );
-        // qui il fiscalCode arriva da PDV (UserInfoPDV.pii)
-        assertEquals(FISCAL_CODE, dto.getFiscalCode());
-        assertEquals(rt1.getStatus(), dto.getStatus());
-        assertEquals(rt1.getElaborationDateTime(), dto.getElaborationDateTime());
-        assertEquals(rt1.getTrxDate(), dto.getTrxDate());
-        assertEquals(rt1.getChannel(), dto.getChannel());
-        assertEquals(rt1.getTrxChargeDate(), dto.getTrxChargeDate());
-        assertEquals(rt1.getAdditionalProperties(), dto.getAdditionalProperties());
-        assertEquals(rt1.getTrxCode(), dto.getTrxCode());
-        assertEquals(rt1.getRewardBatchTrxStatus(), dto.getRewardBatchTrxStatus());
-        assertEquals(rt1.getPointOfSaleId(), dto.getPointOfSaleId());
-        assertEquals(
-                rt1.getAmountCents() - rt1.getRewards().get(INITIATIVE_ID).getAccruedRewardCents(),
-                dto.getAuthorizedAmountCents()
-        );
+        MerchantTransactionDTO dto = content.get(0);
+        assertMerchantTransactionMatches(rt1, dto, FISCAL_CODE);
 
-        verify(rewardTransactionRepository).findByFilter(any(), isNull(), eq(OrganizationRole.MERCHANT), eq(paging));
-        verify(rewardTransactionRepository).getCount(any(), isNull(), isNull(), isNull(), eq(OrganizationRole.MERCHANT));
+        verify(rewardTransactionRepository).findByFilter(any(), isNull(), eq(paging));
+        verify(rewardTransactionRepository).getCount(any(), isNull(), isNull(), isNull());
         verify(userRestClient).retrieveUserInfo(USER_ID);
         verify(userRestClient, never()).retrieveFiscalCodeInfo(anyString());
-    }
-
-    @Test
-    void getMerchantTransactions_shouldThrowForbiddenForMerchantToCheck() {
-        Pageable paging = PageRequest.of(0, 10);
-
-        ResponseStatusException ex = assertThrows(
-                ResponseStatusException.class,
-                () -> merchantTransactionService.getMerchantTransactions(
-                        MERCHANT_ID,
-                        OrganizationRole.MERCHANT,
-                        INITIATIVE_ID,
-                        null,
-                        null,
-                        null,
-                        "TO_CHECK",
-                        null,
-                        paging
-                )
-        );
-
-        assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
-        assertEquals("403 FORBIDDEN \"Status TO_CHECK not allowed for merchants\"", ex.getMessage());
-
-        verifyNoInteractions(rewardTransactionRepository, userRestClient);
     }
 
     @Test
@@ -275,7 +181,7 @@ class MerchantTransactionServiceImplTest {
                 ResponseStatusException.class,
                 () -> merchantTransactionService.getMerchantTransactions(
                         MERCHANT_ID,
-                        OrganizationRole.MERCHANT,
+                        "merchant",
                         INITIATIVE_ID,
                         null,
                         null,
@@ -283,7 +189,7 @@ class MerchantTransactionServiceImplTest {
                         "WRONG_STATUS",
                         null,
                         paging
-                )
+                ).block()
         );
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
@@ -293,6 +199,201 @@ class MerchantTransactionServiceImplTest {
         );
 
         verifyNoInteractions(rewardTransactionRepository, userRestClient);
+    }
+
+    /**
+     * Non-operator + transaction TO_CHECK -> DTO espone CONSULTABLE.
+     */
+    @Test
+    void getMerchantTransactionList_nonOperatorToCheckExposedAsConsultable() {
+        LocalDateTime now = LocalDateTime.now();
+
+        RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .userId(USER_ID)
+                .amountCents(5000L)
+                .status("REWARDED")
+                .elaborationDateTime(now)
+                .rewards(getReward())
+                .trxDate(now)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
+                .build();
+
+        Pageable paging = PageRequest.of(
+                0,
+                10,
+                Sort.by(RewardTransaction.Fields.elaborationDateTime).descending()
+        );
+
+        FiscalCodeInfoPDV fiscalCodeInfo = new FiscalCodeInfoPDV(USER_ID);
+
+        when(userRestClient.retrieveFiscalCodeInfo(FISCAL_CODE))
+                .thenReturn(Mono.just(fiscalCodeInfo));
+
+        when(rewardTransactionRepository.findByFilter(any(), eq(USER_ID), eq(paging)))
+                .thenReturn(Flux.just(rt1));
+
+        when(rewardTransactionRepository.getCount(any(), isNull(), isNull(), eq(USER_ID)))
+                .thenReturn(Mono.just(1L));
+
+        MerchantTransactionsListDTO result =
+                merchantTransactionService.getMerchantTransactions(
+                        MERCHANT_ID,
+                        "merchant", // non-operator
+                        INITIATIVE_ID,
+                        FISCAL_CODE,
+                        null,
+                        null,
+                        null,
+                        null,
+                        paging
+                ).block();
+
+        assertFirstPage(result);
+
+        List<MerchantTransactionDTO> content = Objects.requireNonNull(result).getContent();
+        assertNotNull(content);
+        assertFalse(content.isEmpty());
+
+        MerchantTransactionDTO dto = content.get(0);
+
+        // stato TO_CHECK interno ma esposto come CONSULTABLE al merchant
+        assertEquals(RewardBatchTrxStatus.CONSULTABLE, dto.getRewardBatchTrxStatus());
+        assertEquals(FISCAL_CODE, dto.getFiscalCode());
+    }
+
+    /**
+     * Non-operator + filtro rewardBatchTrxStatus=CONSULTABLE -> il filtro sullo stato viene rimosso.
+     */
+    @Test
+    void getMerchantTransactions_nonOperatorConsultableFilterRewritten() {
+        LocalDateTime now = LocalDateTime.now();
+
+        RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .userId(USER_ID)
+                .amountCents(5000L)
+                .status("REWARDED")
+                .elaborationDateTime(now)
+                .rewards(getReward())
+                .trxDate(now)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE)
+                .build();
+
+        Pageable paging = PageRequest.of(
+                0,
+                10,
+                Sort.by(RewardTransaction.Fields.elaborationDateTime).descending()
+        );
+
+        UserInfoPDV userInfoPDV = new UserInfoPDV(FISCAL_CODE);
+
+        when(rewardTransactionRepository.findByFilter(any(), isNull(), eq(paging)))
+                .thenReturn(Flux.just(rt1));
+
+        when(rewardTransactionRepository.getCount(any(), isNull(), isNull(), isNull()))
+                .thenReturn(Mono.just(1L));
+
+        when(userRestClient.retrieveUserInfo(USER_ID))
+                .thenReturn(Mono.just(userInfoPDV));
+
+        MerchantTransactionsListDTO result =
+                merchantTransactionService.getMerchantTransactions(
+                        MERCHANT_ID,
+                        "merchant", // non-operator
+                        INITIATIVE_ID,
+                        null,
+                        null,
+                        null,
+                        RewardBatchTrxStatus.CONSULTABLE.name(),
+                        null,
+                        paging
+                ).block();
+
+        assertFirstPage(result);
+
+        ArgumentCaptor<TrxFiltersDTO> filtersCaptor = ArgumentCaptor.forClass(TrxFiltersDTO.class);
+        verify(rewardTransactionRepository).findByFilter(filtersCaptor.capture(), isNull(), eq(paging));
+
+        TrxFiltersDTO effectiveFilters = filtersCaptor.getValue();
+        assertNotNull(effectiveFilters);
+        assertNull(effectiveFilters.getRewardBatchTrxStatus(),
+                "Per i non-operator il filtro CONSULTABLE deve essere rimosso");
+    }
+
+    /**
+     * getProcessedTransactionStatuses:
+     *  - operator vede tutti gli stati
+     *  - non-operator non vede TO_CHECK
+     */
+    @Test
+    void getProcessedTransactionStatuses_operatorVsNonOperator() {
+        List<String> operatorStatuses = merchantTransactionService
+                .getProcessedTransactionStatuses(
+                        MERCHANT_ID,
+                        "operator1", // è nella lista OPERATORS
+                        INITIATIVE_ID
+                ).block();
+
+        List<String> merchantStatuses = merchantTransactionService
+                .getProcessedTransactionStatuses(
+                        MERCHANT_ID,
+                        "merchant",
+                        INITIATIVE_ID
+                ).block();
+
+        assertNotNull(operatorStatuses);
+        assertNotNull(merchantStatuses);
+
+        List<String> allEnumStatuses = Arrays.stream(RewardBatchTrxStatus.values())
+                .map(Enum::name)
+                .toList();
+
+        assertEquals(allEnumStatuses.size(), operatorStatuses.size());
+        assertTrue(operatorStatuses.contains(RewardBatchTrxStatus.TO_CHECK.name()));
+
+        assertFalse(merchantStatuses.contains(RewardBatchTrxStatus.TO_CHECK.name()));
+        assertEquals(allEnumStatuses.size() - 1, merchantStatuses.size());
+    }
+
+    // ------------- metodi di supporto -------------
+
+    private void assertFirstPage(MerchantTransactionsListDTO result) {
+        assertNotNull(result);
+        assertEquals(0, result.getPageNo());
+        assertEquals(10, result.getPageSize());
+        assertEquals(1, result.getTotalElements());
+        assertEquals(1, result.getTotalPages());
+
+        List<MerchantTransactionDTO> content = result.getContent();
+        assertNotNull(content);
+        assertEquals(1, content.size());
+    }
+
+    private void assertMerchantTransactionMatches(RewardTransaction expected,
+                                                  MerchantTransactionDTO actual,
+                                                  String expectedFiscalCode) {
+        assertEquals(expected.getId(), actual.getTrxId());
+        assertEquals(expected.getAmountCents(), actual.getEffectiveAmountCents());
+        assertEquals(
+                expected.getRewards().get(INITIATIVE_ID).getAccruedRewardCents(),
+                actual.getRewardAmountCents()
+        );
+        assertEquals(expectedFiscalCode, actual.getFiscalCode());
+        assertEquals(expected.getStatus(), actual.getStatus());
+        assertEquals(expected.getElaborationDateTime(), actual.getElaborationDateTime());
+        assertEquals(expected.getTrxDate(), actual.getTrxDate());
+        assertEquals(expected.getChannel(), actual.getChannel());
+        assertEquals(expected.getTrxChargeDate(), actual.getTrxChargeDate());
+        assertEquals(expected.getAdditionalProperties(), actual.getAdditionalProperties());
+        assertEquals(expected.getTrxCode(), actual.getTrxCode());
+        assertEquals(expected.getRewardBatchTrxStatus(), actual.getRewardBatchTrxStatus());
+        assertEquals(expected.getPointOfSaleId(), actual.getPointOfSaleId());
+        assertEquals(
+                expected.getAmountCents()
+                        - expected.getRewards().get(INITIATIVE_ID).getAccruedRewardCents(),
+                actual.getAuthorizedAmountCents()
+        );
     }
 
     private static Map<String, Reward> getReward() {
@@ -316,5 +417,4 @@ class MerchantTransactionServiceImplTest {
         reward.put(INITIATIVE_ID, rewardElement);
         return reward;
     }
-
 }
