@@ -196,16 +196,9 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
 
     @Override
     public Mono<RewardBatch> rejectTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request) {
-        return rewardBatchRepository.findById(rewardBatchId)
-                .switchIfEmpty(Mono.error(new IllegalArgumentException("Batch not found: " + rewardBatchId)))
-                .flatMapMany(batch -> {
-
-                    if (!RewardBatchStatus.EVALUATING.equals(batch.getStatus())) {
-                        return Flux.error(new IllegalStateException("Cannot reject transactions on an APPROVED batch"));
-                    }
-
-                    return Flux.fromIterable(request.getTransactionIds());
-                })
+        return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.EVALUATING)
+                .switchIfEmpty(Mono.error(new IllegalStateException("Reward batch  %s not  found  or  not in  a  valid  state".formatted(rewardBatchId))))
+                .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()))
                 .flatMap(trxId -> rewardTransactionRepository
                         .updateStatusAndReturnOld(rewardBatchId, trxId, RewardBatchTrxStatus.REJECTED)
                 )
