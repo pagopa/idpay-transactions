@@ -165,8 +165,8 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .authorizedAmountCents(
                         transaction.getAmountCents()
                                 - transaction.getRewards().get(initiativeId).getAccruedRewardCents())
-                .docNumber(transaction.getInvoiceData().getDocNumber())
-                .fileName(transaction.getInvoiceData().getFilename())
+                .docNumber(transaction.getInvoiceData() != null ? transaction.getInvoiceData().getDocNumber() : null)
+                .fileName(transaction.getInvoiceData() != null ? transaction.getInvoiceData().getFilename() : null)
                 .rewardBatchTrxStatus(exposed)
                 .pointOfSaleId(transaction.getPointOfSaleId())
                 .build();
