@@ -5,7 +5,6 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
-import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.counters.RewardCounters;
@@ -92,7 +91,6 @@ class MerchantTransactionServiceImplTest {
         when(rewardTransactionRepository.findByFilter(
                 any(),
                 eq(USER_ID),
-                eq(OrganizationRole.MERCHANT),
                 eq(paging)))
                 .thenReturn(Flux.just(rt1));
 
@@ -100,16 +98,15 @@ class MerchantTransactionServiceImplTest {
                 any(),
                 isNull(),
                 isNull(),
-                eq(USER_ID),
-                eq(OrganizationRole.MERCHANT)))
+                eq(USER_ID)))
                 .thenReturn(Mono.just(1L));
 
         Mono<MerchantTransactionsListDTO> resultMono =
                 merchantTransactionService.getMerchantTransactions(
                         MERCHANT_ID,
-                        OrganizationRole.MERCHANT,
                         INITIATIVE_ID,
                         FISCAL_CODE,
+                        null,
                         null,
                         null,
                         null,
@@ -122,8 +119,8 @@ class MerchantTransactionServiceImplTest {
         assertEquals(expectedList, result);
 
         verify(userRestClient).retrieveFiscalCodeInfo(FISCAL_CODE);
-        verify(rewardTransactionRepository).findByFilter(any(), eq(USER_ID), eq(OrganizationRole.MERCHANT), eq(paging));
-        verify(rewardTransactionRepository).getCount(any(), isNull(), isNull(), eq(USER_ID), eq(OrganizationRole.MERCHANT));
+        verify(rewardTransactionRepository).findByFilter(any(), eq(USER_ID),  eq(paging));
+        verify(rewardTransactionRepository).getCount(any(), isNull(), isNull(), eq(USER_ID));
         verifyNoMoreInteractions(rewardTransactionRepository);
     }
 
@@ -164,7 +161,6 @@ class MerchantTransactionServiceImplTest {
         when(rewardTransactionRepository.findByFilter(
                 any(),
                 isNull(),
-                eq(OrganizationRole.MERCHANT),
                 eq(paging)))
                 .thenReturn(Flux.just(rt1));
 
@@ -172,8 +168,7 @@ class MerchantTransactionServiceImplTest {
                 any(),
                 isNull(),
                 isNull(),
-                isNull(),
-                eq(OrganizationRole.MERCHANT)))
+                isNull()))
                 .thenReturn(Mono.just(1L));
 
         when(userRestClient.retrieveUserInfo(anyString()))
@@ -182,8 +177,8 @@ class MerchantTransactionServiceImplTest {
         Mono<MerchantTransactionsListDTO> resultMono =
                 merchantTransactionService.getMerchantTransactions(
                         MERCHANT_ID,
-                        OrganizationRole.MERCHANT,
                         INITIATIVE_ID,
+                        null,
                         null,
                         null,
                         null,
@@ -196,8 +191,8 @@ class MerchantTransactionServiceImplTest {
         assertNotNull(result);
         assertEquals(expectedList, result);
 
-        verify(rewardTransactionRepository).findByFilter(any(), isNull(), eq(OrganizationRole.MERCHANT), eq(paging));
-        verify(rewardTransactionRepository).getCount(any(), isNull(), isNull(), isNull(), eq(OrganizationRole.MERCHANT));
+        verify(rewardTransactionRepository).findByFilter(any(), isNull(), eq(paging));
+        verify(rewardTransactionRepository).getCount(any(), isNull(), isNull(), isNull());
         verify(userRestClient, atLeastOnce()).retrieveUserInfo(anyString());
     }
 
@@ -209,12 +204,12 @@ class MerchantTransactionServiceImplTest {
                 ResponseStatusException.class,
                 () -> merchantTransactionService.getMerchantTransactions(
                         MERCHANT_ID,
-                        OrganizationRole.MERCHANT,
                         INITIATIVE_ID,
                         null,
                         null,
                         null,
                         "TO_CHECK",
+                        null,
                         null,
                         paging
                 )
@@ -234,12 +229,12 @@ class MerchantTransactionServiceImplTest {
                 ResponseStatusException.class,
                 () -> merchantTransactionService.getMerchantTransactions(
                         MERCHANT_ID,
-                        OrganizationRole.MERCHANT,
                         INITIATIVE_ID,
                         null,
                         null,
                         null,
                         "WRONG_STATUS",
+                        null,
                         null,
                         paging
                 )

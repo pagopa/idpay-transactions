@@ -1,7 +1,6 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
-import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.MerchantTransactionService;
 import org.junit.jupiter.api.Test;
@@ -28,25 +27,44 @@ class MerchantTransactionControllerImplTest {
 
         MerchantTransactionsListDTO merchantTransactionsListDTO = MerchantTransactionsListDTO.builder()
                 .pageNo(0)
-                .pageSize(10)
+                .pageSize(20)
                 .totalElements(1)
-                .totalPages(1).build();
+                .totalPages(1)
+                .build();
 
-        Pageable paging = PageRequest.of(0, 10, Sort.by(RewardTransaction.Fields.elaborationDateTime).descending());
+        Pageable paging = PageRequest.of(
+                0,
+                20,
+                Sort.by(RewardTransaction.Fields.elaborationDateTime).descending()
+        );
 
-        //no filter
-        Mockito.when(merchantTransactionService.getMerchantTransactions("test", OrganizationRole.MERCHANT, null, null, null, null, null, null, paging))
+        Mockito.when(merchantTransactionService.getMerchantTransactions(
+                        "test",
+                        null,
+                        "INITIATIVE_ID",
+                        null, null, null, null, null,
+                        paging))
                 .thenReturn(Mono.just(merchantTransactionsListDTO));
 
         webClient.get()
-                .uri(uriBuilder -> uriBuilder.path("/idpay/merchant/portal/initiatives/{initiativeId}/transactions/processed")
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/merchant/portal/initiatives/{initiativeId}/transactions/processed")
                         .build("INITIATIVE_ID"))
                 .header("x-merchant-id", "test")
                 .exchange()
                 .expectStatus().isOk()
-                .expectBody(MerchantTransactionsListDTO.class).isEqualTo(merchantTransactionsListDTO);
+                .expectBody(MerchantTransactionsListDTO.class)
+                .isEqualTo(merchantTransactionsListDTO);
 
-        Mockito.verify(merchantTransactionService, Mockito.times(1)).getMerchantTransactions("test", OrganizationRole.INVITALIA, null, null, null, null, null, null, paging);
+        Mockito.verify(merchantTransactionService, Mockito.times(1))
+                .getMerchantTransactions(
+                        "test",
+                        null,
+                        "INITIATIVE_ID",
+                        null, null, null, null, null,
+                        paging
+                );
     }
+
 
 }

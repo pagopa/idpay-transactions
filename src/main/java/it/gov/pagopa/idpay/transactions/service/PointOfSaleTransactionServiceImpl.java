@@ -6,7 +6,6 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
-import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
@@ -46,8 +45,6 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                                     String status,
                                                                     Pageable pageable) {
 
-        OrganizationRole organizationRole = OrganizationRole.MERCHANT; // POS = esercente
-
         TrxFiltersDTO filters = new TrxFiltersDTO(
                 merchantId,
                 initiativeId,
@@ -62,9 +59,9 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
             return userRestClient.retrieveFiscalCodeInfo(fiscalCode)
                     .map(FiscalCodeInfoPDV::getToken)
                     .flatMap(userId ->
-                            getTransactions(filters, pointOfSaleId, userId, productGtin, organizationRole, pageable));
+                            getTransactions(filters, pointOfSaleId, userId, productGtin, pageable));
         } else {
-            return getTransactions(filters, pointOfSaleId, null, productGtin, organizationRole, pageable);
+            return getTransactions(filters, pointOfSaleId, null, productGtin, pageable);
         }
     }
 
@@ -118,18 +115,16 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                           String pointOfSaleId,
                                                           String userId,
                                                           String productGtin,
-                                                          OrganizationRole organizationRole,
                                                           Pageable pageable) {
 
         return rewardTransactionRepository
-                .findByFilterTrx(filters, pointOfSaleId, userId, productGtin, organizationRole, pageable)
+                .findByFilterTrx(filters, pointOfSaleId, userId, productGtin, pageable)
                 .collectList()
                 .zipWith(rewardTransactionRepository.getCount(
                         filters,
                         pointOfSaleId,
                         productGtin,
-                        userId,
-                        organizationRole
+                        userId
                 ))
                 .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
     }
