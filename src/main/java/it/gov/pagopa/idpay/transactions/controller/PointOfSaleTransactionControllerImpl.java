@@ -7,7 +7,9 @@ import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -48,5 +50,20 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
     log.info("[DOWNLOAD_TRANSACTION] Requested to download invoice for transaction {}",
             Utilities.sanitizeString(transactionId));
     return pointOfSaleTransactionService.downloadTransactionInvoice(merchantId, pointOfSaleId, transactionId);
+  }
+
+  @Override
+  public Mono<Void> updateInvoiceFile(String transactionId, String merchantId, String pointOfSaleId,
+                                      FilePart file, String docNumber) {
+    final String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
+    final String sanitizedTrxCode = Utilities.sanitizeString(transactionId);
+    final String sanitizedPointOfSaleId = Utilities.sanitizeString(pointOfSaleId);
+
+    log.info(
+        "[UPDATE_INVOICE_TRANSACTION] The merchant {} is requesting a invoice update for the transactionId {} at POS {}",
+        sanitizedMerchantId, sanitizedTrxCode, sanitizedPointOfSaleId
+    );
+    return pointOfSaleTransactionService.updateInvoiceTransaction(transactionId, merchantId,
+        pointOfSaleId, file, docNumber);
   }
 }

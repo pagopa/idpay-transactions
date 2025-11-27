@@ -69,4 +69,5 @@ public class RewardTransactionDTO {
     private InvoiceData invoiceData;
     private InvoiceData creditNoteData;
     private String trxCode;
+    private LocalDateTime updateDate;
 }

@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.dto.mapper;
 
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
+import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
@@ -66,6 +67,11 @@ public class RewardTransactionMapper {
             rewardTrx.setInvoiceData(rewardTrxDto.getInvoiceData());
             rewardTrx.setCreditNoteData(rewardTrxDto.getCreditNoteData());
             rewardTrx.setTrxCode((rewardTrxDto.getTrxCode()));
+            if(SyncTrxStatus.INVOICED.name().equals(rewardTrxDto.getStatus())){
+              rewardTrx.setInvoiceUploadDate(rewardTrxDto.getUpdateDate());
+            }
+
+
         }
 
         return rewardTrx;

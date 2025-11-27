@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import it.gov.pagopa.common.web.exception.ClientException;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
@@ -20,14 +21,24 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.codec.multipart.FilePart;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+@MockitoSettings(strictness = Strictness.LENIENT)
 @ExtendWith(MockitoExtension.class)
 class PointOfSaleTransactionServiceImplTest {
 
@@ -51,6 +62,10 @@ class PointOfSaleTransactionServiceImplTest {
   private static final String USER_ID = "USERID1";
   private static final String STATUS = "REWARDED";
   private static final String TRX_ID = "TRX_ID";
+  private static final String DOC_NUMBER = "DOC123";
+  private static final String NEW_DOC_NUMBER = "new_DOC123";
+  private static final String OLD_FILENAME = "old_invoice.pdf";
+  private static final String NEW_FILENAME = "new_invoice.pdf";
 
 
   @BeforeEach
@@ -425,5 +440,175 @@ class PointOfSaleTransactionServiceImplTest {
 
     verify(invoiceStorageClient).getFileSignedUrl(
         "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/rewarded.pdf");
+  }
+
+  @Test
+  void updateInvoiceTransaction_success() throws IOException {
+      Path tempPath = Files.createTempFile("new_invoice", ".pdf");
+      Files.write(tempPath, "test content".getBytes());
+
+      FilePart filePart = createMockFilePart(tempPath.getFileName().toString(), MediaType.APPLICATION_PDF_VALUE);
+      RewardTransaction trx = RewardTransaction.builder()
+              .id(TRX_ID)
+              .merchantId(MERCHANT_ID)
+              .pointOfSaleId(POINT_OF_SALE_ID)
+              .status("INVOICED")
+              .invoiceData(InvoiceData.builder().filename(OLD_FILENAME).docNumber("OLD_DOC").build())
+              .build();
+
+      when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID))
+              .thenReturn(Mono.just(trx));
+      when(filePart.transferTo(any(Path.class))).thenAnswer(invocation -> {
+          Path target = invocation.getArgument(0);
+          Files.copy(tempPath, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+          return Mono.empty();
+      });
+      when(invoiceStorageClient.deleteFile(anyString())).thenReturn(null);
+      when(invoiceStorageClient.upload(any(), anyString(), anyString())).thenReturn(null);
+      when(rewardTransactionRepository.save(any(RewardTransaction.class))).thenReturn(Mono.just(trx));
+
+      Mono<Void> result = pointOfSaleTransactionService.updateInvoiceTransaction(
+              TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, NEW_DOC_NUMBER);
+
+      StepVerifier.create(result)
+              .verifyComplete();
+
+      verify(rewardTransactionRepository).findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+      verify(invoiceStorageClient).deleteFile(
+              "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/old_invoice.pdf");
+      verify(invoiceStorageClient).upload(any(), eq(
+                      "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/" + tempPath.getFileName().toString()),
+              eq(MediaType.APPLICATION_PDF_VALUE));
+      verify(rewardTransactionRepository).save(any(RewardTransaction.class));
+
+      Files.deleteIfExists(tempPath);
+  }
+
+  @Test
+  void updateInvoiceTransaction_transactionNotFound() {
+    FilePart filePart = createMockFilePart(NEW_FILENAME, MediaType.APPLICATION_PDF_VALUE);
+
+    when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID))
+        .thenReturn(Mono.empty());
+
+    Mono<Void> result = pointOfSaleTransactionService.updateInvoiceTransaction(
+        TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, NEW_DOC_NUMBER);
+
+    StepVerifier.create(result)
+        .expectErrorMatches(throwable -> throwable instanceof ClientExceptionNoBody &&
+            ((ClientExceptionNoBody) throwable).getHttpStatus() == HttpStatus.BAD_REQUEST &&
+            throwable.getMessage().equals(TRANSACTION_MISSING_INVOICE))
+        .verify();
+
+    verify(rewardTransactionRepository).findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+    verifyNoInteractions(invoiceStorageClient);
+  }
+
+  @Test
+  void updateInvoiceTransaction_statusNotInvoiced() {
+    FilePart filePart = createMockFilePart(NEW_FILENAME, MediaType.APPLICATION_PDF_VALUE);
+    RewardTransaction trx = RewardTransaction.builder()
+        .id(TRX_ID)
+        .merchantId(MERCHANT_ID)
+        .pointOfSaleId(POINT_OF_SALE_ID)
+        .status("REWARDED")
+        .invoiceData(InvoiceData.builder().filename(OLD_FILENAME).build())
+        .build();
+
+    when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID))
+        .thenReturn(Mono.just(trx));
+
+    Mono<Void> result = pointOfSaleTransactionService.updateInvoiceTransaction(
+        TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, NEW_DOC_NUMBER);
+
+    StepVerifier.create(result)
+        .expectErrorMatches(throwable -> throwable instanceof ClientExceptionNoBody &&
+            ((ClientExceptionNoBody) throwable).getHttpStatus() == HttpStatus.BAD_REQUEST &&
+            throwable.getMessage().equals(TRANSACTION_MISSING_INVOICE))
+        .verify();
+
+    verify(rewardTransactionRepository).findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+    verifyNoInteractions(invoiceStorageClient);
+  }
+
+  @Test
+  void updateInvoiceTransaction_merchantIdMismatch() {
+    FilePart filePart = createMockFilePart(NEW_FILENAME, MediaType.APPLICATION_PDF_VALUE);
+    RewardTransaction trx = RewardTransaction.builder()
+        .id(TRX_ID)
+        .merchantId("DIFFERENT_MERCHANT")
+        .pointOfSaleId(POINT_OF_SALE_ID)
+        .status("INVOICED")
+        .invoiceData(InvoiceData.builder().filename(OLD_FILENAME).build())
+        .build();
+
+    when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID))
+        .thenReturn(Mono.just(trx));
+
+    Mono<Void> result = pointOfSaleTransactionService.updateInvoiceTransaction(
+        TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, NEW_DOC_NUMBER);
+
+    StepVerifier.create(result)
+        .expectErrorMatches(throwable -> throwable instanceof ClientException &&
+            ((ClientException) throwable).getHttpStatus() == HttpStatus.BAD_REQUEST)
+        .verify();
+
+    verify(rewardTransactionRepository).findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+    verifyNoInteractions(invoiceStorageClient);
+  }
+
+  @Test
+  void updateInvoiceTransaction_pointOfSaleIdMismatch() {
+    FilePart filePart = createMockFilePart(NEW_FILENAME, MediaType.APPLICATION_PDF_VALUE);
+    RewardTransaction trx = RewardTransaction.builder()
+        .id(TRX_ID)
+        .merchantId(MERCHANT_ID)
+        .pointOfSaleId("DIFFERENT_POS")
+        .status("INVOICED")
+        .invoiceData(InvoiceData.builder().filename(OLD_FILENAME).build())
+        .build();
+
+    when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID))
+        .thenReturn(Mono.just(trx));
+
+    Mono<Void> result = pointOfSaleTransactionService.updateInvoiceTransaction(
+        TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, NEW_DOC_NUMBER);
+
+    StepVerifier.create(result)
+        .expectErrorMatches(throwable -> throwable instanceof ClientException &&
+            ((ClientException) throwable).getHttpStatus() == HttpStatus.BAD_REQUEST)
+        .verify();
+
+    verify(rewardTransactionRepository).findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+    verifyNoInteractions(invoiceStorageClient);
+  }
+
+  @Test
+  void updateInvoiceTransaction_invalidFileFormat() {
+    FilePart filePart = createMockFilePart("invalid.txt", "text/plain");
+
+      ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class,()-> pointOfSaleTransactionService.updateInvoiceTransaction(
+        TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, NEW_DOC_NUMBER));
+
+      assertEquals("File must be a PDF or XML", ex.getCause().getMessage());
+  }
+
+  @Test
+  void updateInvoiceTransaction_nullFile() {
+      ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class,()-> pointOfSaleTransactionService.updateInvoiceTransaction(
+              TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, null, DOC_NUMBER));
+
+      assertEquals("File is required", ex.getCause().getMessage());
+  }
+
+  private FilePart createMockFilePart(String filename, String contentType) {
+    FilePart filePart = mock(FilePart.class);
+    HttpHeaders headers = new HttpHeaders();
+    if (contentType != null) {
+      headers.setContentType(MediaType.parseMediaType(contentType));
+    }
+    when(filePart.filename()).thenReturn(filename);
+    when(filePart.headers()).thenReturn(headers);
+    return filePart;
   }
 }
