@@ -298,4 +298,17 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                 RewardTransaction.class).subscribe();
         return Mono.empty();
     }
+
+    @Override
+    public Flux<RewardTransaction> findInvoicedTransactionsWithoutBatch(int pageSize) {
+        Pageable pageable = PageRequest.of(0, pageSize);
+
+        Criteria criteria = Criteria
+            .where(Fields.status).is(SyncTrxStatus.INVOICED)
+            .and(Fields.rewardBatchId).isNull();
+
+        Query query = Query.query(criteria).with(pageable);
+
+        return mongoTemplate.find(query, RewardTransaction.class);
+    }
 }

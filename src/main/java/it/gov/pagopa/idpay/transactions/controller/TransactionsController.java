@@ -6,6 +6,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import reactor.core.publisher.Flux;
@@ -40,5 +41,10 @@ public interface TransactionsController {
     Mono<RewardTransaction> findByTrxIdAndUserId(
             @PathVariable(value = "trxId") String trxId,
             @PathVariable(value = "userId") String userId
+    );
+
+    @PostMapping("/cleanup")
+    Mono<Void> cleanupInvoicedTransactions(
+        @RequestParam(defaultValue = "200") Integer chunkSize
     );
 }

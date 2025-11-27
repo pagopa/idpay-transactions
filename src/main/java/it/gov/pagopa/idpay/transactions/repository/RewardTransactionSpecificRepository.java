@@ -31,4 +31,6 @@ public interface RewardTransactionSpecificRepository {
     Mono<RewardTransaction> findByTrxIdAndUserId(String trxId, String userId);
 
     Mono<Void> rewardTransactionsByBatchId(String batchId);
+
+    Flux<RewardTransaction> findInvoicedTransactionsWithoutBatch(int pageSize);
 }
