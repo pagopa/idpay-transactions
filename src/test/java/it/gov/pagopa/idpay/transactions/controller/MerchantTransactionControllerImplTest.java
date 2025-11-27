@@ -54,7 +54,6 @@ class MerchantTransactionControllerImplTest {
                 eq(paging)
         )).thenReturn(Mono.just(merchantTransactionsListDTO));
 
-        // when
         Mono<MerchantTransactionsListDTO> resultMono = merchantTransactionController.getMerchantTransactions(
                 "test",
                 "INITIATIVE_ID",
@@ -69,8 +68,7 @@ class MerchantTransactionControllerImplTest {
 
         MerchantTransactionsListDTO result = resultMono.block();
 
-        // then
-        assertSame(merchantTransactionsListDTO, result); // è esattamente lo stesso oggetto restituito dal service
+        assertSame(merchantTransactionsListDTO, result);
         assertEquals(0, result.getPageNo());
         assertEquals(10, result.getPageSize());
         assertEquals(1, result.getTotalElements());
