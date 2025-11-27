@@ -73,9 +73,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     List<Criteria> subCriteria = new ArrayList<>();
 
     if (StringUtils.isNotBlank(assigneeLevel)) {
-      subCriteria.add(
-          Criteria.where(RewardBatch.Fields.assigneeLevel)
-              .is(RewardBatchAssignee.valueOf(assigneeLevel))
+      subCriteria.add(Criteria.where(RewardBatch.Fields.assigneeLevel).is(RewardBatchAssignee.valueOf(assigneeLevel))
       );
     } else {
       subCriteria.add(
@@ -87,23 +85,15 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     }
 
     if (StringUtils.isNotBlank(status)) {
-
-      RewardBatchStatus statusEnum = RewardBatchStatus.valueOf(status);
-
-      if (statusEnum == RewardBatchStatus.CREATED) {
-        subCriteria.add(
-            Criteria.where(RewardBatch.Fields.status).ne(RewardBatchStatus.CREATED)
-        );
-      } else {
-        subCriteria.add(
-            Criteria.where(RewardBatch.Fields.status).is(statusEnum)
-        );
-      }
-
+      subCriteria.add(
+          Criteria.where(RewardBatch.Fields.status)
+              .is(RewardBatchStatus.valueOf(status))
+      );
     } else {
       subCriteria.add(
           Criteria.where(RewardBatch.Fields.status)
               .in(
+                  RewardBatchStatus.CREATED,
                   RewardBatchStatus.SENT,
                   RewardBatchStatus.EVALUATING,
                   RewardBatchStatus.APPROVED
