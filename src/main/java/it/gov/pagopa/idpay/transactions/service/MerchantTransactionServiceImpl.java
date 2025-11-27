@@ -20,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 
@@ -103,7 +104,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .trxId(transaction.getId())
                 .effectiveAmountCents(transaction.getAmountCents())
                 .rewardAmountCents(transaction.getRewards().get(initiativeId).getAccruedRewardCents())
-                .trxDate(transaction.getTrxDate())
+                .trxDate(transaction.getTrxDate() == null ? LocalDateTime.MIN : transaction.getTrxDate())
                 .elaborationDateTime(transaction.getElaborationDateTime())
                 .status(transaction.getStatus())
                 .channel(transaction.getChannel())
@@ -114,9 +115,9 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .docNumber(transaction.getInvoiceData() != null ? transaction.getInvoiceData().getDocNumber() : null)
                 .fileName(transaction.getInvoiceData() != null ? transaction.getInvoiceData().getFilename() : null)
                 .rewardBatchTrxStatus(transaction.getRewardBatchTrxStatus())
-                .pointOfSaleId(transaction.getPointOfSaleId())
-                .rewardBatchRejectionReason(transaction.getRewardBatchRejectionReason())
-                .franchiseName(transaction.getFranchiseName())
+                .pointOfSaleId(transaction.getPointOfSaleId() == null ? "-" : transaction.getPointOfSaleId())
+                .rewardBatchRejectionReason(transaction.getRewardBatchRejectionReason() == null ? "-" : transaction.getRewardBatchRejectionReason())
+                .franchiseName(transaction.getFranchiseName() == null ? "-" : transaction.getFranchiseName())
                 .build();
 
         if (StringUtils.isNotBlank(fiscalCode)){
