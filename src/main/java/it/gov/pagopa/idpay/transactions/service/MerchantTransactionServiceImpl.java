@@ -146,7 +146,6 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
         RewardBatchTrxStatus original = transaction.getRewardBatchTrxStatus();
         RewardBatchTrxStatus exposed = original;
 
-        // Remap TO_CHECK → CONSULTABLE per merchant
         if (!isOperator(organizationRole) && original == RewardBatchTrxStatus.TO_CHECK) {
             exposed = RewardBatchTrxStatus.CONSULTABLE;
         }
