@@ -139,43 +139,61 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     public Mono<RewardBatch> suspendTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request) {
         return rewardBatchRepository.findById(rewardBatchId)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Batch not found: " + rewardBatchId)))
-                .flatMap(batch -> {
+                .flatMapMany(batch -> {
 
                     if (RewardBatchStatus.APPROVED.equals(batch.getStatus())) {
-                        log.info("Batch {} APPROVED, skipping suspension", rewardBatchId);
-                        return Mono.error(new IllegalStateException("Cannot suspend transactions on an APPROVED batch"));
+                        return Flux.error(new IllegalStateException("Cannot suspend transactions on an APPROVED batch"));
                     }
 
-                    return rewardBatchRepository.updateTransactionsStatus(
-                            rewardBatchId,
-                            request.getTransactionIds(),
-                            RewardBatchTrxStatus.SUSPENDED,
-                            request.getReason()
-                    ).flatMap(modifiedCount -> {
-                        if (modifiedCount == 0) {
-                            return Mono.just(batch);
+                    return Flux.fromIterable(request.getTransactionIds());
+                })
+                .flatMap(trxId -> rewardTransactionRepository
+                        .updateStatusAndReturnOld(rewardBatchId, trxId, RewardBatchTrxStatus.SUSPENDED)
+                )
+                .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L), (acc, trxOld) -> {
+
+                    if (trxOld == null) {
+                        return acc;
+                    }
+
+                    Long accrued = trxOld.getRewards().get(initiativeId) != null
+                            ? trxOld.getRewards().get(initiativeId).getAccruedRewardCents()
+                            : null;
+
+                    switch (trxOld.getRewardBatchTrxStatus()) {
+
+                        case RewardBatchTrxStatus.SUSPENDED -> log.info("Skipping  handler  for transaction  {}:  status  is already  SUSPENDED",  trxOld.getId());
+
+                        case RewardBatchTrxStatus.TO_CHECK,
+                             RewardBatchTrxStatus.CONSULTABLE,
+                             RewardBatchTrxStatus.APPROVED -> {
+                            acc.decrementTrxElaborated();
+                            acc.incrementTrxSuspended();
+
+                            if (accrued != null) {
+                                acc.decrementTotalApprovedAmountCents(accrued);
+                            }
                         }
 
-                        return rewardTransactionRepository.sumSuspendedAccruedRewardCents(
-                                rewardBatchId,
-                                request.getTransactionIds(),
-                                initiativeId
-                        ).flatMap(suspendedTotal -> {
-                            if (suspendedTotal == 0) {
-                                return Mono.just(batch);
-                            }
+                        case RewardBatchTrxStatus.REJECTED -> {
+                            acc.decrementTrxRejected();
+                            acc.incrementTrxSuspended();
+                        }
+                    }
 
-                            return rewardBatchRepository.updateTotals(
-                                    rewardBatchId,
-                                    modifiedCount,
-                                    -suspendedTotal,
-                                    0,
-                                    modifiedCount
-                            );
-                        });
-                    });
-                });
+                    return acc;
+                })
+                .flatMap(acc ->
+                        rewardBatchRepository.updateTotals(
+                                rewardBatchId,
+                                acc.getTrxElaborated(),
+                                acc.getTotalApprovedAmountCents(),
+                                acc.getTrxRejected(),
+                                acc.getTrxSuspended()
+                        )
+                );
     }
+
 
     @Override
     public Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String initiativeId, String merchantId) {

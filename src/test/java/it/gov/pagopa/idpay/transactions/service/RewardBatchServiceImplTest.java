@@ -13,8 +13,6 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import java.time.YearMonth;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -441,52 +439,54 @@ class RewardBatchServiceImplTest {
     @Test
     void suspendTransactions_ok() {
         String batchId = "BATCH1";
+        String initiativeId = "INIT1";
 
         RewardBatch batch = RewardBatch.builder()
                 .id(batchId)
                 .status(RewardBatchStatus.CREATED)
-                .approvedAmountCents(1000L)
                 .build();
 
         TransactionsRequest request = new TransactionsRequest();
-        request.setTransactionIds(Arrays.asList("TX1", "TX2"));
+        request.setTransactionIds(List.of("TX1", "TX2"));
         request.setReason("Check");
 
-        String initiativeId = "INIT1";
+        RewardTransaction oldTx1 = new RewardTransaction();
+        oldTx1.setId("TX1");
+        oldTx1.setRewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK);
+        oldTx1.setRewards(Map.of(
+                initiativeId,
+                Reward.builder().accruedRewardCents(100L).build()
+        ));
+
+        RewardTransaction oldTx2 = new RewardTransaction();
+        oldTx2.setId("TX2");
+        oldTx2.setRewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED);
+        oldTx2.setRewards(Map.of(
+                initiativeId,
+                Reward.builder().accruedRewardCents(200L).build()
+        ));
 
         when(rewardBatchRepository.findById(batchId))
                 .thenReturn(Mono.just(batch));
 
-        when(rewardBatchRepository.updateTransactionsStatus(
-                batchId,
-                request.getTransactionIds(),
-                RewardBatchTrxStatus.SUSPENDED,
-                request.getReason()
-        )).thenReturn(Mono.just(2L));
+        when(rewardTransactionRepository.updateStatusAndReturnOld(batchId, "TX1", RewardBatchTrxStatus.SUSPENDED))
+                .thenReturn(Mono.just(oldTx1));
 
-        when(rewardTransactionRepository.sumSuspendedAccruedRewardCents(
-                batchId,
-                request.getTransactionIds(),
-                initiativeId
-        )).thenReturn(Mono.just(300L));
+        when(rewardTransactionRepository.updateStatusAndReturnOld(batchId, "TX2", RewardBatchTrxStatus.SUSPENDED))
+                .thenReturn(Mono.just(oldTx2));
 
-        when(rewardBatchRepository.updateTotals(
-                batchId,
-                2L,
-                -300L,
-                0L,
-                2L
-        )).thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.updateTotals(batchId, -2L, -300L, 0L, 2L))
+                .thenReturn(Mono.just(batch));
 
         StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
                 .expectNext(batch)
                 .verifyComplete();
     }
 
-
     @Test
     void suspendTransactions_noModifiedTransactions() {
         String batchId = "BATCH1";
+        String initiativeId = "INIT1";
 
         RewardBatch batch = RewardBatch.builder()
                 .id(batchId)
@@ -494,72 +494,71 @@ class RewardBatchServiceImplTest {
                 .build();
 
         TransactionsRequest request = new TransactionsRequest();
-        request.setTransactionIds(Arrays.asList("TX3", "TX4"));
+        request.setTransactionIds(List.of("TX3", "TX4"));
         request.setReason("Check");
 
-        String initiativeId = "INIT1";
+        RewardTransaction oldTx = new RewardTransaction();
+        oldTx.setRewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED);
+        oldTx.setRewards(Map.of());
 
         when(rewardBatchRepository.findById(batchId))
                 .thenReturn(Mono.just(batch));
 
-        when(rewardBatchRepository.updateTransactionsStatus(
-                batchId,
-                request.getTransactionIds(),
-                RewardBatchTrxStatus.SUSPENDED,
-                request.getReason()
-        )).thenReturn(Mono.just(0L));
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(batchId), anyString(), eq(RewardBatchTrxStatus.SUSPENDED)))
+                .thenReturn(Mono.just(oldTx));
+
+        when(rewardBatchRepository.updateTotals(batchId, 0L, 0L, 0L, 0L))
+                .thenReturn(Mono.just(batch));
 
         StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
                 .expectNext(batch)
                 .verifyComplete();
 
-        verify(rewardTransactionRepository, never()).sumSuspendedAccruedRewardCents(any(), any(), any());
-        verify(rewardBatchRepository, never()).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
+        verify(rewardBatchRepository).updateTotals(batchId, 0L, 0L, 0L, 0L);
     }
 
     @Test
     void suspendTransactions_suspendedTotalZero_returnsOriginalBatch() {
         String batchId = "batch123";
         String initiativeId = "init123";
+
         TransactionsRequest request = new TransactionsRequest();
         request.setTransactionIds(List.of("trx1", "trx2"));
         request.setReason("Test reason");
 
-        RewardBatch batch = new RewardBatch();
-        batch.setId(batchId);
-        batch.setStatus(RewardBatchStatus.CREATED);
+        RewardBatch batch = RewardBatch.builder()
+                .id(batchId)
+                .status(RewardBatchStatus.CREATED)
+                .build();
 
-        when(rewardBatchRepository.findById(batchId)).thenReturn(Mono.just(batch));
-        when(rewardBatchRepository.updateTransactionsStatus(
-                eq(batchId),
-                anyList(),
-                eq(RewardBatchTrxStatus.SUSPENDED),
-                anyString()
-        )).thenReturn(Mono.just(2L));
+        RewardTransaction oldTx = new RewardTransaction();
+        oldTx.setRewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK);
+        oldTx.setRewards(Map.of(initiativeId, Reward.builder().accruedRewardCents(null).build()));
 
-        when(rewardTransactionRepository.sumSuspendedAccruedRewardCents(
-                batchId,
-                request.getTransactionIds(),
-                initiativeId
-        )).thenReturn(Mono.just(0L));
+        when(rewardBatchRepository.findById(batchId))
+                .thenReturn(Mono.just(batch));
 
-        Mono<RewardBatch> result = rewardBatchService.suspendTransactions(batchId, initiativeId, request);
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(batchId), anyString(), eq(RewardBatchTrxStatus.SUSPENDED)))
+                .thenReturn(Mono.just(oldTx));
 
-        StepVerifier.create(result)
+        when(rewardBatchRepository.updateTotals(anyString(), anyLong(), anyLong(), anyLong(), anyLong()))
+                .thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
                 .expectNext(batch)
                 .verifyComplete();
 
-        verify(rewardBatchRepository, never()).updateTotals(anyString(), anyInt(), anyLong(), anyInt(), anyInt());
+        verify(rewardBatchRepository).updateTotals(batchId, -2L, 0L, 0L, 2L);
     }
 
     @Test
     void suspendTransactions_throwsException_whenBatchApproved_serviceLevel() {
         String batchId = "BATCH_APPROVED";
-        TransactionsRequest request = new TransactionsRequest();
-        request.setTransactionIds(Collections.singletonList("trx1"));
-        request.setReason("Test reason");
-
         String initiativeId = "INIT1";
+
+        TransactionsRequest request = new TransactionsRequest();
+        request.setTransactionIds(List.of("trx1"));
+        request.setReason("Test reason");
 
         RewardBatch batch = RewardBatch.builder()
                 .id(batchId)
@@ -569,14 +568,44 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findById(batchId)).thenReturn(Mono.just(batch));
 
         StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
-                .expectErrorMatches(throwable ->
-                        throwable instanceof IllegalStateException &&
-                                throwable.getMessage().equals("Cannot suspend transactions on an APPROVED batch"))
+                .expectErrorMatches(ex ->
+                        ex instanceof IllegalStateException &&
+                                ex.getMessage().equals("Cannot suspend transactions on an APPROVED batch"))
                 .verify();
 
-        verify(rewardBatchRepository, never()).updateTransactionsStatus(any(), any(), any(), any());
-        verify(rewardTransactionRepository, never()).sumSuspendedAccruedRewardCents(any(), any(), any());
+        verify(rewardTransactionRepository, never()).updateStatusAndReturnOld(any(), any(), any());
         verify(rewardBatchRepository, never()).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void suspendTransactions_handlesRejectedTransaction() {
+        String batchId = "batchRejected";
+        String initiativeId = "initRejected";
+
+        TransactionsRequest request = new TransactionsRequest();
+        request.setTransactionIds(List.of("trx1"));
+        request.setReason("Test reason");
+
+        RewardBatch batch = RewardBatch.builder()
+                .id(batchId)
+                .status(RewardBatchStatus.CREATED)
+                .build();
+
+        RewardTransaction rejectedTx = new RewardTransaction();
+        rejectedTx.setRewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED);
+        rejectedTx.setRewards(Map.of(initiativeId, Reward.builder().accruedRewardCents(100L).build()));
+
+        when(rewardBatchRepository.findById(batchId)).thenReturn(Mono.just(batch));
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(batchId), anyString(), eq(RewardBatchTrxStatus.SUSPENDED)))
+                .thenReturn(Mono.just(rejectedTx));
+
+        when(rewardBatchRepository.updateTotals(batchId, 0L, 0L, -1L, 1L)).thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
+                .expectNext(batch)
+                .verifyComplete();
+
+        verify(rewardBatchRepository).updateTotals(batchId, 0L, 0L, -1L, 1L);
     }
 
     @Test
