@@ -73,25 +73,37 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     List<Criteria> subCriteria = new ArrayList<>();
 
     if (StringUtils.isNotBlank(assigneeLevel)) {
-      subCriteria.add(Criteria.where(RewardBatch.Fields.assigneeLevel).is(RewardBatchAssignee.valueOf(assigneeLevel))
+      subCriteria.add(
+          Criteria.where(RewardBatch.Fields.assigneeLevel)
+              .is(RewardBatchAssignee.valueOf(assigneeLevel))
       );
     } else {
       subCriteria.add(
           Criteria.where(RewardBatch.Fields.assigneeLevel)
-              .in(RewardBatchAssignee.L1, RewardBatchAssignee.L2, RewardBatchAssignee.L3)
+              .in(RewardBatchAssignee.L1,
+                  RewardBatchAssignee.L2,
+                  RewardBatchAssignee.L3)
       );
     }
 
     if (StringUtils.isNotBlank(status)) {
-      subCriteria.add(
-          Criteria.where(RewardBatch.Fields.status)
-              .is(RewardBatchStatus.valueOf(status))
-      );
+
+      RewardBatchStatus statusEnum = RewardBatchStatus.valueOf(status);
+
+      if (statusEnum == RewardBatchStatus.CREATED) {
+        subCriteria.add(
+            Criteria.where(RewardBatch.Fields.status).ne(RewardBatchStatus.CREATED)
+        );
+      } else {
+        subCriteria.add(
+            Criteria.where(RewardBatch.Fields.status).is(statusEnum)
+        );
+      }
+
     } else {
       subCriteria.add(
           Criteria.where(RewardBatch.Fields.status)
               .in(
-                  RewardBatchStatus.CREATED,
                   RewardBatchStatus.SENT,
                   RewardBatchStatus.EVALUATING,
                   RewardBatchStatus.APPROVED
