@@ -6,7 +6,6 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
-import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
@@ -17,6 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -31,7 +31,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
   private final InvoiceStorageClient invoiceStorageClient;
 
   protected PointOfSaleTransactionServiceImpl(
-      UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository, InvoiceStorageClient invoiceStorageClient) {
+          UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository, InvoiceStorageClient invoiceStorageClient) {
     this.userRestClient = userRestClient;
     this.rewardTransactionRepository = rewardTransactionRepository;
     this.invoiceStorageClient = invoiceStorageClient;
@@ -45,8 +45,6 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                                     String fiscalCode,
                                                                     String status,
                                                                     Pageable pageable) {
-
-        OrganizationRole organizationRole = OrganizationRole.MERCHANT; // POS = esercente
 
         TrxFiltersDTO filters = new TrxFiltersDTO(
                 merchantId,
@@ -62,9 +60,9 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
             return userRestClient.retrieveFiscalCodeInfo(fiscalCode)
                     .map(FiscalCodeInfoPDV::getToken)
                     .flatMap(userId ->
-                            getTransactions(filters, pointOfSaleId, userId, productGtin, organizationRole, pageable));
+                            getTransactions(filters, pointOfSaleId, userId, productGtin, pageable));
         } else {
-            return getTransactions(filters, pointOfSaleId, null, productGtin, organizationRole, pageable);
+            return getTransactions(filters, pointOfSaleId, null, productGtin, pageable);
         }
     }
 
@@ -118,20 +116,30 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                           String pointOfSaleId,
                                                           String userId,
                                                           String productGtin,
-                                                          OrganizationRole organizationRole,
                                                           Pageable pageable) {
 
         return rewardTransactionRepository
-                .findByFilterTrx(filters, pointOfSaleId, userId, productGtin, organizationRole, pageable)
+                .findByFilterTrx(filters, pointOfSaleId, userId, productGtin, pageable)
                 .collectList()
                 .zipWith(rewardTransactionRepository.getCount(
                         filters,
                         pointOfSaleId,
                         productGtin,
-                        userId,
-                        organizationRole
+                        userId
                 ))
                 .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
+    }
+
+    @Override
+    public Mono<Void> updateInvoiceTransaction(
+            String transactionId,
+            String merchantId,
+            String pointOfSaleId,
+            FilePart file,
+            String docNumber) {
+
+        //implementare logica reale.
+        return Mono.error(new UnsupportedOperationException("Not implemented yet"));
     }
 
 }

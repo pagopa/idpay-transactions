@@ -5,8 +5,6 @@ import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_
 import static org.springframework.integration.IntegrationPatternType.filter;
 
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
-import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
@@ -94,8 +92,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     private Criteria getCriteria(TrxFiltersDTO filters,
                                  String pointOfSaleId,
                                  String userId,
-                                 String productGtin,
-                                 OrganizationRole organizationRole) {
+                                 String productGtin) {
 
         Criteria criteria = Criteria.where(RewardTransaction.Fields.merchantId).is(filters.getMerchantId())
                 .and(RewardTransaction.Fields.initiatives).is(filters.getInitiativeId());
@@ -125,9 +122,6 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         if (filters.getRewardBatchTrxStatus() != null) {
             criteria.and(Fields.rewardBatchTrxStatus)
                     .is(filters.getRewardBatchTrxStatus().name());
-        } else if (organizationRole == OrganizationRole.MERCHANT) {
-            criteria.and(Fields.rewardBatchTrxStatus)
-                    .ne(RewardBatchTrxStatus.TO_CHECK.name());
         }
 
         return criteria;
@@ -137,9 +131,8 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     @Override
     public Flux<RewardTransaction> findByFilter(TrxFiltersDTO filters,
                                                 String userId,
-                                                OrganizationRole organizationRole,
                                                 Pageable pageable) {
-        Criteria criteria = getCriteria(filters, null, userId, null, organizationRole);
+        Criteria criteria = getCriteria(filters, null, userId, null);
         return mongoTemplate.find(Query.query(criteria).with(getPageable(pageable)), RewardTransaction.class);
     }
 
@@ -149,10 +142,9 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                                                    String pointOfSaleId,
                                                    String userId,
                                                    String productGtin,
-                                                   OrganizationRole organizationRole,
                                                    Pageable pageable) {
 
-        Criteria criteria = getCriteria(filters, pointOfSaleId, userId, productGtin, organizationRole);
+        Criteria criteria = getCriteria(filters, pointOfSaleId, userId, productGtin);
 
         Pageable mappedPageable = mapSort(pageable);
 
@@ -241,10 +233,9 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     public Mono<Long> getCount(TrxFiltersDTO filters,
                                String pointOfSaleId,
                                String productGtin,
-                               String userId,
-                               OrganizationRole organizationRole) {
+                               String userId) {
 
-        Criteria criteria = getCriteria(filters, pointOfSaleId, userId, productGtin, organizationRole);
+        Criteria criteria = getCriteria(filters, pointOfSaleId, userId, productGtin);
 
         return mongoTemplate.count(Query.query(criteria), RewardTransaction.class);
     }

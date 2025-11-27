@@ -13,7 +13,6 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
-import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
@@ -24,6 +23,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -32,6 +33,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+@MockitoSettings(strictness = Strictness.LENIENT)
 @ExtendWith(MockitoExtension.class)
 class PointOfSaleTransactionServiceImplTest {
 
@@ -75,7 +77,6 @@ class PointOfSaleTransactionServiceImplTest {
                 eq(POINT_OF_SALE_ID),
                 eq(USER_ID),
                 eq(""),
-                eq(OrganizationRole.MERCHANT),
                 eq(pageable)))
                 .thenReturn(Flux.just(trx));
 
@@ -83,8 +84,7 @@ class PointOfSaleTransactionServiceImplTest {
                 any(TrxFiltersDTO.class),
                 eq(POINT_OF_SALE_ID),
                 eq(""),
-                eq(USER_ID),
-                eq(OrganizationRole.MERCHANT)))
+                eq(USER_ID)))
                 .thenReturn(Mono.just(1L));
 
         Mono<Page<RewardTransaction>> result = pointOfSaleTransactionService
@@ -95,7 +95,7 @@ class PointOfSaleTransactionServiceImplTest {
                 .assertNext(page -> {
                     assertEquals(1, page.getTotalElements());
                     assertEquals(1, page.getContent().size());
-                    assertEquals(trx.getIdTrxAcquirer(), page.getContent().get(0).getIdTrxAcquirer());
+                    assertEquals(trx.getIdTrxAcquirer(), page.getContent().getFirst().getIdTrxAcquirer());
                 })
                 .verifyComplete();
 
@@ -105,15 +105,13 @@ class PointOfSaleTransactionServiceImplTest {
                 eq(POINT_OF_SALE_ID),
                 eq(USER_ID),
                 eq(""),
-                eq(OrganizationRole.MERCHANT),
                 eq(pageable)
         );
         verify(rewardTransactionRepository).getCount(
                 any(TrxFiltersDTO.class),
                 eq(POINT_OF_SALE_ID),
                 eq(""),
-                eq(USER_ID),
-                eq(OrganizationRole.MERCHANT)
+                eq(USER_ID)
         );
     }
 
@@ -126,7 +124,6 @@ class PointOfSaleTransactionServiceImplTest {
                 eq(POINT_OF_SALE_ID),
                 isNull(),
                 isNull(),
-                eq(OrganizationRole.MERCHANT),
                 eq(pageable)))
                 .thenReturn(Flux.just(trx));
 
@@ -134,8 +131,7 @@ class PointOfSaleTransactionServiceImplTest {
                 any(TrxFiltersDTO.class),
                 eq(POINT_OF_SALE_ID),
                 isNull(),
-                isNull(),
-                eq(OrganizationRole.MERCHANT)))
+                isNull()))
                 .thenReturn(Mono.just(1L));
 
         Mono<Page<RewardTransaction>> result = pointOfSaleTransactionService
@@ -146,7 +142,7 @@ class PointOfSaleTransactionServiceImplTest {
                 .assertNext(page -> {
                     assertEquals(1, page.getTotalElements());
                     assertEquals(1, page.getContent().size());
-                    assertEquals(trx.getIdTrxAcquirer(), page.getContent().get(0).getIdTrxAcquirer());
+                    assertEquals(trx.getIdTrxAcquirer(), page.getContent().getFirst().getIdTrxAcquirer());
                 })
                 .verifyComplete();
 
@@ -155,15 +151,13 @@ class PointOfSaleTransactionServiceImplTest {
                 eq(POINT_OF_SALE_ID),
                 isNull(),
                 isNull(),
-                eq(OrganizationRole.MERCHANT),
                 eq(pageable)
         );
         verify(rewardTransactionRepository).getCount(
                 any(TrxFiltersDTO.class),
                 eq(POINT_OF_SALE_ID),
                 isNull(),
-                isNull(),
-                eq(OrganizationRole.MERCHANT)
+                isNull()
         );
         verifyNoInteractions(userRestClient);
     }
