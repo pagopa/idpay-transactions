@@ -301,7 +301,8 @@ private String buildBatchName(YearMonth month) {
     return rewardBatchRepository.findRewardBatchById(rewardBatchId)
     .switchIfEmpty(Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
             ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)))
-    .filter(rewardBatch -> !rewardBatch.getStatus().equals(RewardBatchStatus.APPROVED))
+    .filter(rewardBatch -> rewardBatch.getStatus().equals(RewardBatchStatus.EVALUATING)
+                            &&  !rewardBatch.getAssigneeLevel().equals(RewardBatchAssignee.L3 ))
             .map(rewardBatch -> {
               rewardBatch.setStatus(RewardBatchStatus.APPROVED);
               rewardBatch.setUpdateDate(LocalDateTime.now());
@@ -321,7 +322,7 @@ private String buildBatchName(YearMonth month) {
                     return Mono.just(savedBatch);
                 }
             }).switchIfEmpty(Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
-                    ExceptionConstants.ExceptionCode.REWARD_BATCH_ALREADY_APPROVED
+                    ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST
             )));
   }
   Mono<RewardBatch> createRewardBatchAndSave(RewardBatch savedBatch) {
