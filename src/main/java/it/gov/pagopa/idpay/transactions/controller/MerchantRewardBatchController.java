@@ -42,11 +42,12 @@ Mono<RewardBatch>  rewardBatchConfirmation(
         @PathVariable("initiativeId") String initiativeId,
         @PathVariable("rewardBatchId") String rewardBatchId);
 
- // @PutMapping("initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/rejected")
- //Mono<RewardBatch>  rejectTransactions(
- //        @PathVariable("initiativeId") String initiativeId,
- //        @PathVariable("rewardBatchId") String rewardBatchId);
-
+  @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/rejected")
+  Mono<RewardBatchDTO> rejectTransactions(
+          @RequestHeader(value = "x-merchant-id", required = false) String merchantId,
+          @PathVariable("initiativeId") String initiativeId,
+          @PathVariable("rewardBatchId") String rewardBatchId,
+          @RequestBody @Valid TransactionsRequest request);
 
 
   @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/approved")

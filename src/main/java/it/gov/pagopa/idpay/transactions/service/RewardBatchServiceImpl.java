@@ -141,7 +141,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Batch not found: " + rewardBatchId)))
                 .flatMapMany(batch -> {
 
-                    if (RewardBatchStatus.APPROVED.equals(batch.getStatus())) {
+                    if (!RewardBatchStatus.EVALUATING.equals(batch.getStatus())) {
                         return Flux.error(new IllegalStateException("Cannot suspend transactions on an APPROVED batch"));
                     }
 
@@ -179,6 +179,74 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                             acc.decrementTrxRejected();
                             acc.incrementTrxSuspended();
                         }
+                    }
+
+                    return acc;
+                })
+                .flatMap(acc ->
+                        rewardBatchRepository.updateTotals(
+                                rewardBatchId,
+                                acc.getTrxElaborated(),
+                                acc.getTotalApprovedAmountCents(),
+                                acc.getTrxRejected(),
+                                acc.getTrxSuspended()
+                        )
+                );
+    }
+
+    @Override
+    public Mono<RewardBatch> rejectTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request) {
+        return rewardBatchRepository.findById(rewardBatchId)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("Batch not found: " + rewardBatchId)))
+                .flatMapMany(batch -> {
+
+                    if (!RewardBatchStatus.EVALUATING.equals(batch.getStatus())) {
+                        return Flux.error(new IllegalStateException("Cannot reject transactions on an APPROVED batch"));
+                    }
+
+                    return Flux.fromIterable(request.getTransactionIds());
+                })
+                .flatMap(trxId -> rewardTransactionRepository
+                        .updateStatusAndReturnOld(rewardBatchId, trxId, RewardBatchTrxStatus.REJECTED)
+                )
+                .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L),
+                        (acc, trxOld) -> {
+
+                    if (trxOld == null) {
+                        return acc;
+                    }
+
+                    Long accrued = trxOld.getRewards().get(initiativeId) != null
+                            ? trxOld.getRewards().get(initiativeId).getAccruedRewardCents()
+                            : null;
+
+                    switch (trxOld.getRewardBatchTrxStatus()) {
+
+                        case RewardBatchTrxStatus.REJECTED -> log.info("Skipping  handler  for transaction  {}:  status  is already  REJECTED",  trxOld.getId());
+
+                        case RewardBatchTrxStatus.APPROVED -> {
+                            acc.incrementTrxRejected();
+
+                            if (accrued != null) {
+                                acc.decrementTotalApprovedAmountCents(accrued);
+                            }
+                        }
+
+                            case RewardBatchTrxStatus.TO_CHECK,
+                                    RewardBatchTrxStatus.CONSULTABLE -> {
+                                acc.incrementTrxElaborated();
+                                acc.incrementTrxRejected();
+
+                                if (accrued != null) {
+                                    acc.decrementTotalApprovedAmountCents(accrued);
+                                }
+                            }
+
+                            case RewardBatchTrxStatus.SUSPENDED -> {
+                                acc.decrementTrxSuspended();
+                                acc.incrementTrxRejected();
+                            }
+
                     }
 
                     return acc;
