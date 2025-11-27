@@ -14,7 +14,7 @@ import java.util.List;
 public interface MerchantTransactionController {
     @GetMapping("/initiatives/{initiativeId}/transactions/processed")
     Mono<MerchantTransactionsListDTO> getMerchantTransactions(@RequestHeader("x-merchant-id") String merchantId,
-                                                              @RequestHeader(value = "x-organization-role", required = false) OrganizationRole organizationRole,
+                                                              @RequestHeader("x-organization-role") OrganizationRole organizationRole,
                                                               @PathVariable("initiativeId") String initiativeId,
                                                               @RequestParam(required = false) String fiscalCode,
                                                               @RequestParam(required = false) String status,
