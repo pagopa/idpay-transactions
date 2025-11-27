@@ -84,6 +84,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         .assigneeLevel(RewardBatchAssignee.L1)
         .numberOfTransactionsSuspended(0L)
         .numberOfTransactionsRejected(0L)
+        .creationDate(LocalDateTime.now())
+        .updateDate(LocalDateTime.now())
         .build();
 
     return rewardBatchRepository.save(batch);

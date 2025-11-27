@@ -11,7 +11,9 @@ import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionsListDTO;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
@@ -21,6 +23,7 @@ public interface PointOfSaleTransactionController {
   @GetMapping("/initiatives/{initiativeId}/point-of-sales/{pointOfSaleId}/transactions/processed")
   Mono<PointOfSaleTransactionsListDTO> getPointOfSaleTransactions(
       @RequestHeader("x-merchant-id") String merchantId,
+      @RequestHeader(name = "x-point-of-sale-id", required = false) String tokenPointOfSaleId,
       @PathVariable("initiativeId") String initiativeId,
       @PathVariable("pointOfSaleId") String pointOfSaleId,
       @RequestParam(required = false) String productGtin,
@@ -65,6 +68,17 @@ public interface PointOfSaleTransactionController {
   @GetMapping("/{pointOfSaleId}/transactions/{transactionId}/download")
   Mono<DownloadInvoiceResponseDTO> downloadInvoiceFile(
       @RequestHeader("x-merchant-id") String merchantId,
+      @RequestHeader(name = "x-point-of-sale-id", required = false) String tokenPointOfSaleId,
       @PathVariable("pointOfSaleId") String pointOfSaleId,
       @PathVariable("transactionId") String transactionId);
+
+  @PutMapping(path = "/transactions/{transactionId}/invoice/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @ResponseStatus(code = HttpStatus.NO_CONTENT)
+  Mono<Void> updateInvoiceFile(
+          @PathVariable("transactionId") String transactionId,
+          @RequestHeader("x-merchant-id") String merchantId,
+          @RequestHeader("x-point-of-sale-id") String pointOfSaleId,
+          @RequestPart("file") FilePart file,
+          @RequestPart(value = "docNumber", required = false) String docNumber
+  );
 }

@@ -1,10 +1,14 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
+import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.service.MerchantTransactionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
 import java.util.List;

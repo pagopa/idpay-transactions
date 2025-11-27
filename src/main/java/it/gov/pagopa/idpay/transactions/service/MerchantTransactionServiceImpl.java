@@ -154,7 +154,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .trxId(transaction.getId())
                 .effectiveAmountCents(transaction.getAmountCents())
                 .rewardAmountCents(transaction.getRewards().get(initiativeId).getAccruedRewardCents())
-                .trxDate(transaction.getTrxDate())
+                .trxDate(transaction.getTrxDate() == null ? LocalDateTime.MIN : transaction.getTrxDate())
                 .elaborationDateTime(transaction.getElaborationDateTime())
                 .status(transaction.getStatus())
                 .channel(transaction.getChannel())

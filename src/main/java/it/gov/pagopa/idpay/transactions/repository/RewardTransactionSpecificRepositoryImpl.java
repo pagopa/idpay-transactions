@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.repository;
 
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_NAME;
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
+import static org.springframework.integration.IntegrationPatternType.filter;
 
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
@@ -125,6 +126,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
         return criteria;
     }
+
 
     @Override
     public Flux<RewardTransaction> findByFilter(TrxFiltersDTO filters,
