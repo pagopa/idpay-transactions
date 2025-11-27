@@ -12,6 +12,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.*;
@@ -85,6 +87,31 @@ class MerchantTransactionControllerImplTest {
                 isNull(),
                 eq(paging)
         );
+        verifyNoMoreInteractions(merchantTransactionService);
+    }
+
+    @Test
+    void getProcessedTransactionStatusesOk() {
+        String merchantId = "merchantId";
+        String organizationRole = "ORG_ROLE";
+        String initiativeId = "INITIATIVE_ID";
+
+        List<String> statuses = List.of("AUTHORIZED", "REWARDED");
+
+        when(merchantTransactionService.getProcessedTransactionStatuses(
+                merchantId, organizationRole, initiativeId
+        )).thenReturn(Mono.just(statuses));
+
+        Mono<List<String>> resultMono = merchantTransactionController.getProcessedTransactionStatuses(
+                merchantId, organizationRole, initiativeId
+        );
+
+        List<String> result = resultMono.block();
+
+        assertEquals(statuses, result);
+
+        verify(merchantTransactionService, times(1))
+                .getProcessedTransactionStatuses(merchantId, organizationRole, initiativeId);
         verifyNoMoreInteractions(merchantTransactionService);
     }
 }

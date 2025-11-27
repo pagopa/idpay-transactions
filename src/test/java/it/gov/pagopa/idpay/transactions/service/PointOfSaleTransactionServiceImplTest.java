@@ -8,7 +8,6 @@ import static org.mockito.Mockito.*;
 
 import it.gov.pagopa.common.web.exception.ClientException;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
-import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
@@ -29,17 +28,10 @@ import org.mockito.quality.Strictness;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.codec.multipart.FilePart;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 @MockitoSettings(strictness = Strictness.LENIENT)
 @ExtendWith(MockitoExtension.class)
@@ -103,7 +95,7 @@ class PointOfSaleTransactionServiceImplTest {
                 .assertNext(page -> {
                     assertEquals(1, page.getTotalElements());
                     assertEquals(1, page.getContent().size());
-                    assertEquals(trx.getIdTrxAcquirer(), page.getContent().get(0).getIdTrxAcquirer());
+                    assertEquals(trx.getIdTrxAcquirer(), page.getContent().getFirst().getIdTrxAcquirer());
                 })
                 .verifyComplete();
 
@@ -150,7 +142,7 @@ class PointOfSaleTransactionServiceImplTest {
                 .assertNext(page -> {
                     assertEquals(1, page.getTotalElements());
                     assertEquals(1, page.getContent().size());
-                    assertEquals(trx.getIdTrxAcquirer(), page.getContent().get(0).getIdTrxAcquirer());
+                    assertEquals(trx.getIdTrxAcquirer(), page.getContent().getFirst().getIdTrxAcquirer());
                 })
                 .verifyComplete();
 
