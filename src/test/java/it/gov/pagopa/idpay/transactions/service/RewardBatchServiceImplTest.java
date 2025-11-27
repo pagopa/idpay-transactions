@@ -195,6 +195,8 @@ class RewardBatchServiceImplTest {
   @Test
   void getMerchantRewardBatches_returnsPagedResult() {
     String merchantId = "M1";
+    String status = null;
+    String assigneeLevel = null;
     Pageable pageable = PageRequest.of(0, 2);
 
     RewardBatch rb1 = RewardBatch.builder()
@@ -209,13 +211,17 @@ class RewardBatchServiceImplTest {
         .name("novembre 2025")
         .build();
 
-    Mockito.when(rewardBatchRepository.findRewardBatchByMerchantId(merchantId, pageable))
+    Mockito.when(rewardBatchRepository.findRewardBatchByMerchantId(
+            merchantId,
+            status,
+            assigneeLevel,
+            pageable))
         .thenReturn(Flux.just(rb1, rb2));
 
-    Mockito.when(rewardBatchRepository.getCount(merchantId))
+    Mockito.when(rewardBatchRepository.getCount(merchantId, status, assigneeLevel))
         .thenReturn(Mono.just(5L));
 
-    StepVerifier.create(rewardBatchService.getMerchantRewardBatches(merchantId, pageable))
+    StepVerifier.create(rewardBatchService.getMerchantRewardBatches(merchantId, status, assigneeLevel, pageable))
         .assertNext(page -> {
           assert page.getContent().size() == 2;
           assert page.getContent().get(0).getId().equals("B1");
@@ -226,22 +232,28 @@ class RewardBatchServiceImplTest {
         })
         .verifyComplete();
 
-    Mockito.verify(rewardBatchRepository).findRewardBatchByMerchantId(merchantId, pageable);
-    Mockito.verify(rewardBatchRepository).getCount(merchantId);
+    Mockito.verify(rewardBatchRepository).findRewardBatchByMerchantId(merchantId, status, assigneeLevel, pageable);
+    Mockito.verify(rewardBatchRepository).getCount(merchantId, status, assigneeLevel);
   }
 
   @Test
   void getMerchantRewardBatches_emptyPage() {
     String merchantId = "M1";
+    String status = null;
+    String assigneeLevel = null;
     Pageable pageable = PageRequest.of(1, 2);
 
-    Mockito.when(rewardBatchRepository.findRewardBatchByMerchantId(merchantId, pageable))
+    Mockito.when(rewardBatchRepository.findRewardBatchByMerchantId(
+            merchantId,
+            status,
+            assigneeLevel,
+            pageable))
         .thenReturn(Flux.empty());
 
-    Mockito.when(rewardBatchRepository.getCount(merchantId))
+    Mockito.when(rewardBatchRepository.getCount(merchantId, status, assigneeLevel))
         .thenReturn(Mono.just(0L));
 
-    StepVerifier.create(rewardBatchService.getMerchantRewardBatches(merchantId, pageable))
+    StepVerifier.create(rewardBatchService.getMerchantRewardBatches(merchantId, status, assigneeLevel, pageable))
         .assertNext(page -> {
           assert page.getContent().isEmpty();
           assert page.getTotalElements() == 0;
@@ -252,6 +264,8 @@ class RewardBatchServiceImplTest {
 
   @Test
   void getAllRewardBatches_returnsPagedResult() {
+    String status = null;
+    String assigneeLevel = null;
     Pageable pageable = PageRequest.of(0, 2);
 
     RewardBatch rb1 = RewardBatch.builder()
@@ -266,13 +280,13 @@ class RewardBatchServiceImplTest {
         .name("novembre 2025")
         .build();
 
-    Mockito.when(rewardBatchRepository.findRewardBatch(pageable))
+    Mockito.when(rewardBatchRepository.findRewardBatch(status, assigneeLevel, pageable))
         .thenReturn(Flux.just(rb1, rb2));
 
-    Mockito.when(rewardBatchRepository.getCount())
+    Mockito.when(rewardBatchRepository.getCount(status, assigneeLevel))
         .thenReturn(Mono.just(10L));
 
-    StepVerifier.create(rewardBatchService.getAllRewardBatches(pageable))
+    StepVerifier.create(rewardBatchService.getAllRewardBatches(status, assigneeLevel, pageable))
         .assertNext(page -> {
           assert page.getContent().size() == 2;
           assert page.getTotalElements() == 10;
@@ -280,21 +294,23 @@ class RewardBatchServiceImplTest {
         })
         .verifyComplete();
 
-    Mockito.verify(rewardBatchRepository).findRewardBatch(pageable);
-    Mockito.verify(rewardBatchRepository).getCount();
+    Mockito.verify(rewardBatchRepository).findRewardBatch(status, assigneeLevel, pageable);
+    Mockito.verify(rewardBatchRepository).getCount(status, assigneeLevel);
   }
 
   @Test
   void getAllRewardBatches_empty() {
+    String status = null;
+    String assigneeLevel = null;
     Pageable pageable = PageRequest.of(0, 2);
 
-    Mockito.when(rewardBatchRepository.findRewardBatch(pageable))
+    Mockito.when(rewardBatchRepository.findRewardBatch(status, assigneeLevel, pageable))
         .thenReturn(Flux.empty());
 
-    Mockito.when(rewardBatchRepository.getCount())
+    Mockito.when(rewardBatchRepository.getCount(status, assigneeLevel))
         .thenReturn(Mono.just(0L));
 
-    StepVerifier.create(rewardBatchService.getAllRewardBatches(pageable))
+    StepVerifier.create(rewardBatchService.getAllRewardBatches(status, assigneeLevel, pageable))
         .assertNext(page -> {
           assert page.getContent().isEmpty();
           assert page.getTotalElements() == 0;
