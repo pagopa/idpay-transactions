@@ -34,7 +34,7 @@ class MerchantTransactionControllerImplTest {
 
         Pageable paging = PageRequest.of(0, 10, Sort.by(RewardTransaction.Fields.elaborationDateTime).descending());
 
-        //no filter
+
         Mockito.when(merchantTransactionService.getMerchantTransactions("test", OrganizationRole.MERCHANT, null, null, null, null, null, null, paging))
                 .thenReturn(Mono.just(merchantTransactionsListDTO));
 
