@@ -164,10 +164,17 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
 
                         case RewardBatchTrxStatus.SUSPENDED -> log.info("Skipping  handler  for transaction  {}:  status  is already  SUSPENDED",  trxOld.getId());
 
+                        case RewardBatchTrxStatus.APPROVED -> {
+                            acc.incrementTrxSuspended();
+
+                            if (accrued != null) {
+                                acc.decrementTotalApprovedAmountCents(accrued);
+                            }
+                        }
+
                         case RewardBatchTrxStatus.TO_CHECK,
-                             RewardBatchTrxStatus.CONSULTABLE,
-                             RewardBatchTrxStatus.APPROVED -> {
-                            acc.decrementTrxElaborated();
+                             RewardBatchTrxStatus.CONSULTABLE -> {
+                            acc.incrementTrxElaborated();
                             acc.incrementTrxSuspended();
 
                             if (accrued != null) {
