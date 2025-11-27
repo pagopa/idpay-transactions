@@ -7,6 +7,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch.Fields;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -35,8 +36,8 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Flux<RewardBatch> findRewardBatch(String status, String assigneeLevel, Pageable pageable) {
-    Criteria criteria = buildCriteria(status, assigneeLevel);
+  public Flux<RewardBatch> findRewardBatch(String status, String assigneeLevel, boolean isOperator, Pageable pageable) {
+    Criteria criteria = buildCriteria(status, assigneeLevel, isOperator);
     Query query = Query.query(criteria).with(getPageableRewardBatch(pageable));
     return mongoTemplate.find(query, RewardBatch.class);
   }
@@ -46,50 +47,59 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
 
     if (StringUtils.isNotBlank(assigneeLevel)) {
       criteria.and(RewardBatch.Fields.assigneeLevel).is(assigneeLevel);
-    } else {
-      criteria.and(Fields.assigneeLevel).in(
-          RewardBatchAssignee.L1,
-          RewardBatchAssignee.L2,
-          RewardBatchAssignee.L3
-      );
     }
 
     if (StringUtils.isNotBlank(status)) {
       criteria.and(RewardBatch.Fields.status).is(status);
     } else {
-      criteria.and(Fields.status).in(
-          RewardBatchStatus.CREATED,
-          RewardBatchStatus.SENT,
-          RewardBatchStatus.EVALUATING,
-          RewardBatchStatus.APPROVED
-      );
-    }
-
+        criteria.and(Fields.status).in(
+            RewardBatchStatus.CREATED,
+            RewardBatchStatus.SENT,
+            RewardBatchStatus.EVALUATING,
+            RewardBatchStatus.APPROVED
+        );
+      }
     return criteria;
   }
 
-  private Criteria buildCriteria(String status, String assigneeLevel) {
+  private Criteria buildCriteria(String status, String assigneeLevel, boolean isOperator) {
 
     List<Criteria> subCriteria = new ArrayList<>();
 
     if (StringUtils.isNotBlank(assigneeLevel)) {
-      subCriteria.add(Criteria.where(RewardBatch.Fields.assigneeLevel).is(RewardBatchAssignee.valueOf(assigneeLevel))
-      );
-    } else {
       subCriteria.add(
           Criteria.where(RewardBatch.Fields.assigneeLevel)
-              .in(RewardBatchAssignee.L1,
-                  RewardBatchAssignee.L2,
-                  RewardBatchAssignee.L3)
+              .is(RewardBatchAssignee.valueOf(assigneeLevel))
       );
     }
 
     if (StringUtils.isNotBlank(status)) {
-      subCriteria.add(
-          Criteria.where(RewardBatch.Fields.status)
-              .is(RewardBatchStatus.valueOf(status))
-      );
+      if (isOperator) {
+        if (!status.equals(RewardBatchStatus.CREATED.name())) {
+          subCriteria.add(
+              Criteria.where(RewardBatch.Fields.status)
+                  .is(RewardBatchStatus.valueOf(status))
+          );
+        } else {
+          subCriteria.add(Criteria.where(Fields.id).in(Collections.emptyList()));
+        }
+      } else {
+        subCriteria.add(
+            Criteria.where(RewardBatch.Fields.status)
+                .is(RewardBatchStatus.valueOf(status))
+        );
+      }
     } else {
+      if (isOperator) {
+        subCriteria.add(
+            Criteria.where(RewardBatch.Fields.status)
+                .in(
+                    RewardBatchStatus.SENT,
+                    RewardBatchStatus.EVALUATING,
+                    RewardBatchStatus.APPROVED
+                )
+        );
+      }
       subCriteria.add(
           Criteria.where(RewardBatch.Fields.status)
               .in(
@@ -104,9 +114,8 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     return new Criteria().andOperator(subCriteria.toArray(new Criteria[0]));
   }
 
-
   @Override
-  public Mono<Long> getCount(String merchantId, String status, String assigneeLevel) {
+  public Mono<Long> getCount(String merchantId, String status, String assigneeLevel ) {
     Criteria criteria = getCriteria(merchantId, status, assigneeLevel);
 
     return mongoTemplate.count(Query.query(criteria), RewardBatch.class);
@@ -126,8 +135,8 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Mono<Long> getCount(String status, String assigneeLevel) {
-    Criteria criteria = buildCriteria(status, assigneeLevel);
+  public Mono<Long> getCount(String status, String assigneeLevel, boolean isOperator) {
+    Criteria criteria = buildCriteria(status, assigneeLevel, isOperator);
     return mongoTemplate.count(Query.query(criteria), RewardBatch.class);
   }
 

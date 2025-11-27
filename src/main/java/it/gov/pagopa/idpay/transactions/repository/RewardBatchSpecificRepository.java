@@ -8,7 +8,7 @@ import reactor.core.publisher.Mono;
 public interface RewardBatchSpecificRepository {
   Flux<RewardBatch> findRewardBatchByMerchantId(String merchantId, String status, String assigneeLevel, Pageable pageable);
   Mono<RewardBatch> incrementTotals(String batchId, long accruedAmountCents);
-  Flux<RewardBatch> findRewardBatch(String status, String assigneeLevel, Pageable pageable);
+  Flux<RewardBatch> findRewardBatch(String status, String assigneeLevel, boolean isOperator, Pageable pageable);
   Mono<Long> getCount(String merchantId, String status, String assigneeLevel);
-  Mono<Long> getCount(String status, String assigneeLevel);
+  Mono<Long> getCount(String status, String assigneeLevel, boolean isOperator);
 }

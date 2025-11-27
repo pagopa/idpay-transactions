@@ -47,11 +47,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   }
 
   @Override
-  public Mono<Page<RewardBatch>> getMerchantRewardBatches(String merchantId, String status, String assigneeLevel, String organizationRole, Pageable pageable) {
-    boolean callerIsOperator = isOperator(organizationRole);
-
+  public Mono<Page<RewardBatch>> getMerchantRewardBatches(String merchantId, String status, String assigneeLevel, Pageable pageable) {
     return rewardBatchRepository.findRewardBatchByMerchantId(merchantId, status, assigneeLevel, pageable)
-        .filter(batch -> !callerIsOperator || batch.getStatus() != RewardBatchStatus.CREATED)
         .collectList()
         .zipWith(rewardBatchRepository.getCount(merchantId, status, assigneeLevel))
         .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
@@ -60,18 +57,15 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   @Override
   public Mono<Page<RewardBatch>> getAllRewardBatches(String status, String assigneeLevel, String organizationRole, Pageable pageable) {
     boolean callerIsOperator = isOperator(organizationRole);
-
-    return rewardBatchRepository.findRewardBatch(status, assigneeLevel, pageable)
-        .filter(batch -> !callerIsOperator || batch.getStatus() != RewardBatchStatus.CREATED)
+    return rewardBatchRepository.findRewardBatch(status, assigneeLevel, callerIsOperator, pageable)
         .collectList()
-        .zipWith(rewardBatchRepository.getCount(status, assigneeLevel))
+        .zipWith(rewardBatchRepository.getCount(status, assigneeLevel, callerIsOperator))
         .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
   }
 
   private boolean isOperator(String role) {
     return role != null && OPERATORS.contains(role.toLowerCase());
   }
-
 
   private Mono<RewardBatch> createBatch(String merchantId, PosType posType, String month, String businessName) {
 
