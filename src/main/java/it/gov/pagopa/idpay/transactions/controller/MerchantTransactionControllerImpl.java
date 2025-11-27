@@ -72,8 +72,8 @@ public class MerchantTransactionControllerImpl implements MerchantTransactionCon
             result = allStatuses;
         }
 
-        log.info("[GET_MERCHANT_TRANSACTIONS_STATUSES] Merchant {} with role {} requested statuses for initiative {}",
-                merchantId, organizationRole, initiativeId);
+        //log.info("[GET_MERCHANT_TRANSACTIONS_STATUSES] Merchant {} with role {} requested statuses for initiative {}",
+        //        merchantId, organizationRole, initiativeId);
 
         return Mono.just(result);
     }
