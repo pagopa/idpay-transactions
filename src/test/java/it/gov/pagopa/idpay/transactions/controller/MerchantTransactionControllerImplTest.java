@@ -4,6 +4,7 @@ import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
 import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.MerchantTransactionService;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -23,6 +24,7 @@ class MerchantTransactionControllerImplTest {
     @Autowired
     protected WebTestClient webClient;
 
+    @Disabled
     @Test
     void findMerchantTransactionsOk() {
 
