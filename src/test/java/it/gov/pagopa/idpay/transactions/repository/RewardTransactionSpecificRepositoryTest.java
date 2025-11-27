@@ -698,7 +698,7 @@ class RewardTransactionSpecificRepositoryTest {
         rewardTransactionRepository.save(trxToSave).block();
 
         RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED).block();
-        Assertions.assertNull(result);
+        Assertions.assertNotNull(result);
 
         RewardTransaction afterUpdate = rewardTransactionRepository.findById(trxSuspendedId).block();
         Assertions.assertNotNull(afterUpdate);

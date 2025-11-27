@@ -676,9 +676,9 @@ class RewardBatchServiceImplTest {
         TransactionsRequest transactionsRequest = TransactionsRequest.builder()
                 .transactionIds(List.of("trxApproved", "trxToCheck", "trxConsultable", "trxSuspended", "trxRejected")).build();
 
-        RewardBatch rewardBatch = RewardBatch.builder().id(batchId).status(RewardBatchStatus.APPROVED).build();
+        RewardBatch rewardBatch = RewardBatch.builder().id(batchId).status(RewardBatchStatus.EVALUATING).build();
 
-        when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.APPROVED))
+        when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.just(rewardBatch));
 
         //Mock for approved
@@ -686,6 +686,7 @@ class RewardBatchServiceImplTest {
         Map<String, Reward> rewardApprovedMap = Map.of(initiativeId, rewardApproved);
         RewardTransaction trxApprovedMock = RewardTransaction.builder()
                 .id("trxApproved")
+                .rewardBatchId(batchId)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
                 .rewards(rewardApprovedMap).build();
         when(rewardTransactionRepository.updateStatusAndReturnOld(batchId, "trxApproved",  RewardBatchTrxStatus.APPROVED))
@@ -696,6 +697,7 @@ class RewardBatchServiceImplTest {
         Map<String, Reward> rewardToCheckMap = Map.of(initiativeId, rewardToCheck);
         RewardTransaction trxToCheckMock = RewardTransaction.builder()
                 .id("trxToCheck")
+                .rewardBatchId(batchId)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
                 .rewards(rewardToCheckMap).build();
         when(rewardTransactionRepository.updateStatusAndReturnOld(batchId, "trxToCheck",  RewardBatchTrxStatus.APPROVED))
@@ -706,6 +708,7 @@ class RewardBatchServiceImplTest {
         Map<String, Reward> rewardConsultableMap = Map.of(initiativeId, rewardConsultable);
         RewardTransaction trxConsultableMock = RewardTransaction.builder()
                 .id("trxConsultable")
+                .rewardBatchId(batchId)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE)
                 .rewards(rewardConsultableMap).build();
         when(rewardTransactionRepository.updateStatusAndReturnOld(batchId, "trxConsultable",  RewardBatchTrxStatus.APPROVED))
@@ -716,6 +719,7 @@ class RewardBatchServiceImplTest {
         Map<String, Reward> rewardSuspendedMap = Map.of(initiativeId, rewardSuspended);
         RewardTransaction trxSuspendedMock = RewardTransaction.builder()
                 .id("trxSuspended")
+                .rewardBatchId(batchId)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
                 .rewards(rewardSuspendedMap).build();
         when(rewardTransactionRepository.updateStatusAndReturnOld(batchId, "trxSuspended",  RewardBatchTrxStatus.APPROVED))
@@ -726,6 +730,7 @@ class RewardBatchServiceImplTest {
         Map<String, Reward> rewardRejectedMap = Map.of(initiativeId, rewardRejected);
         RewardTransaction trxRejectedMock = RewardTransaction.builder()
                 .id("trxRejected")
+                .rewardBatchId(batchId)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED)
                 .rewards(rewardRejectedMap).build();
         when(rewardTransactionRepository.updateStatusAndReturnOld(batchId, "trxRejected",  RewardBatchTrxStatus.APPROVED))
@@ -734,7 +739,7 @@ class RewardBatchServiceImplTest {
         RewardBatch expectedResult = new RewardBatch();
         when(rewardBatchRepository.updateTotals(
                 batchId,
-                2L,
+                2L, //TO_CHECK and CONSULTABLE
                 rewardSuspended.getAccruedRewardCents()+rewardRejected.getAccruedRewardCents(),
                 -1L,
                 -1L))
@@ -758,11 +763,11 @@ class RewardBatchServiceImplTest {
         TransactionsRequest transactionsRequest = TransactionsRequest.builder()
                 .transactionIds(List.of("trxId")).build();
 
-        when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.APPROVED))
+        when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.empty());
 
         Mono<RewardBatch> resultMono = rewardBatchService.approvedTransactions(batchId, transactionsRequest, initiativeId, merchantId);
-        Assertions.assertThrows(IllegalArgumentException.class, resultMono::block);
+        Assertions.assertThrows(IllegalStateException.class, resultMono::block);
 
         verify(rewardTransactionRepository, never()).updateStatusAndReturnOld(any(), any(),any());
         verify(rewardBatchRepository).findByIdAndStatus(any(),any());
@@ -778,8 +783,8 @@ class RewardBatchServiceImplTest {
         TransactionsRequest transactionsRequest = TransactionsRequest.builder()
                 .transactionIds(List.of("trxId")).build();
 
-        RewardBatch rewardBatch = RewardBatch.builder().id(batchId).status(RewardBatchStatus.APPROVED).build();
-        when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.APPROVED))
+        RewardBatch rewardBatch = RewardBatch.builder().id(batchId).status(RewardBatchStatus.EVALUATING).build();
+        when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.just(rewardBatch));
 
         when(rewardTransactionRepository.updateStatusAndReturnOld(batchId, "trxId",  RewardBatchTrxStatus.APPROVED))
@@ -801,8 +806,8 @@ class RewardBatchServiceImplTest {
         TransactionsRequest transactionsRequest = TransactionsRequest.builder()
                 .transactionIds(List.of("trxId")).build();
 
-        RewardBatch rewardBatch = RewardBatch.builder().id(batchId).status(RewardBatchStatus.APPROVED).build();
-        when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.APPROVED))
+        RewardBatch rewardBatch = RewardBatch.builder().id(batchId).status(RewardBatchStatus.EVALUATING).build();
+        when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.just(rewardBatch));
 
         //Mock for approved
@@ -811,6 +816,7 @@ class RewardBatchServiceImplTest {
         RewardTransaction trxMock = RewardTransaction.builder()
                 .id("trxId")
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
+                .rewardBatchId(batchId)
                 .rewards(rewardApprovedMap).build();
         when(rewardTransactionRepository.updateStatusAndReturnOld(batchId, "trxId",  RewardBatchTrxStatus.APPROVED))
                 .thenReturn(Mono.just(trxMock));
