@@ -688,7 +688,7 @@ class RewardBatchServiceImplTest {
                 .id("trxApproved")
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
                 .rewards(rewardApprovedMap).build();
-        when(rewardTransactionRepository.updateStatusAndReturnOld("trxApproved",  RewardBatchTrxStatus.APPROVED))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(batchId, "trxApproved",  RewardBatchTrxStatus.APPROVED))
                 .thenReturn(Mono.just(trxApprovedMock));
 
         //Mock for to_check
@@ -698,7 +698,7 @@ class RewardBatchServiceImplTest {
                 .id("trxToCheck")
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
                 .rewards(rewardToCheckMap).build();
-        when(rewardTransactionRepository.updateStatusAndReturnOld("trxToCheck",  RewardBatchTrxStatus.APPROVED))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(batchId, "trxToCheck",  RewardBatchTrxStatus.APPROVED))
                 .thenReturn(Mono.just(trxToCheckMock));
 
         //Mock for consultable
@@ -708,7 +708,7 @@ class RewardBatchServiceImplTest {
                 .id("trxConsultable")
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE)
                 .rewards(rewardConsultableMap).build();
-        when(rewardTransactionRepository.updateStatusAndReturnOld("trxConsultable",  RewardBatchTrxStatus.APPROVED))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(batchId, "trxConsultable",  RewardBatchTrxStatus.APPROVED))
                 .thenReturn(Mono.just(trxConsultableMock));
 
         //Mock for suspended
@@ -718,7 +718,7 @@ class RewardBatchServiceImplTest {
                 .id("trxSuspended")
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
                 .rewards(rewardSuspendedMap).build();
-        when(rewardTransactionRepository.updateStatusAndReturnOld("trxSuspended",  RewardBatchTrxStatus.APPROVED))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(batchId, "trxSuspended",  RewardBatchTrxStatus.APPROVED))
                 .thenReturn(Mono.just(trxSuspendedMock));
 
         //Mock for rejected
@@ -728,7 +728,7 @@ class RewardBatchServiceImplTest {
                 .id("trxRejected")
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED)
                 .rewards(rewardRejectedMap).build();
-        when(rewardTransactionRepository.updateStatusAndReturnOld("trxRejected",  RewardBatchTrxStatus.APPROVED))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(batchId, "trxRejected",  RewardBatchTrxStatus.APPROVED))
                 .thenReturn(Mono.just(trxRejectedMock));
 
         RewardBatch expectedResult = new RewardBatch();
@@ -745,7 +745,7 @@ class RewardBatchServiceImplTest {
 
         Assertions.assertNotNull(result);
         Assertions.assertEquals(expectedResult, result);
-        verify(rewardTransactionRepository, times(5)).updateStatusAndReturnOld(any(),any());
+        verify(rewardTransactionRepository, times(5)).updateStatusAndReturnOld(any(), any(),any());
         verify(rewardBatchRepository).findByIdAndStatus(any(),any());
         verify(rewardBatchRepository).updateTotals(any(),anyLong(),anyLong(), anyLong(), anyLong());
     }
@@ -764,7 +764,7 @@ class RewardBatchServiceImplTest {
         Mono<RewardBatch> resultMono = rewardBatchService.approvedTransactions(batchId, transactionsRequest, initiativeId, merchantId);
         Assertions.assertThrows(IllegalArgumentException.class, resultMono::block);
 
-        verify(rewardTransactionRepository, never()).updateStatusAndReturnOld(any(),any());
+        verify(rewardTransactionRepository, never()).updateStatusAndReturnOld(any(), any(),any());
         verify(rewardBatchRepository).findByIdAndStatus(any(),any());
         verify(rewardBatchRepository, never()).updateTotals(any(),anyLong(),anyLong(), anyLong(), anyLong());
 
@@ -782,13 +782,13 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.APPROVED))
                 .thenReturn(Mono.just(rewardBatch));
 
-        when(rewardTransactionRepository.updateStatusAndReturnOld("trxId",  RewardBatchTrxStatus.APPROVED))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(batchId, "trxId",  RewardBatchTrxStatus.APPROVED))
                 .thenReturn(Mono.error(new RuntimeException("DUMMY_EXCEPTION")));
 
         Mono<RewardBatch> resultMono = rewardBatchService.approvedTransactions(batchId, transactionsRequest, initiativeId, merchantId);
         Assertions.assertThrows(RuntimeException.class, resultMono::block);
 
-        verify(rewardTransactionRepository).updateStatusAndReturnOld(any(),any());
+        verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(),any());
         verify(rewardBatchRepository).findByIdAndStatus(any(),any());
         verify(rewardBatchRepository, never()).updateTotals(any(),anyLong(),anyLong(), anyLong(), anyLong());
     }
@@ -812,7 +812,7 @@ class RewardBatchServiceImplTest {
                 .id("trxId")
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
                 .rewards(rewardApprovedMap).build();
-        when(rewardTransactionRepository.updateStatusAndReturnOld("trxId",  RewardBatchTrxStatus.APPROVED))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(batchId, "trxId",  RewardBatchTrxStatus.APPROVED))
                 .thenReturn(Mono.just(trxMock));
 
         when(rewardBatchRepository.updateTotals(batchId,1L,  0L,0,0))
@@ -821,7 +821,7 @@ class RewardBatchServiceImplTest {
         Mono<RewardBatch> resultMono = rewardBatchService.approvedTransactions(batchId, transactionsRequest, initiativeId, merchantId);
         Assertions.assertThrows(RuntimeException.class, resultMono::block);
 
-        verify(rewardTransactionRepository).updateStatusAndReturnOld(any(),any());
+        verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(),any());
         verify(rewardBatchRepository).findByIdAndStatus(any(),any());
         verify(rewardBatchRepository).updateTotals(any(),anyLong(),anyLong(), anyLong(), anyLong());
     }

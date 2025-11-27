@@ -179,13 +179,13 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
 
     @Override
     public Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String initiativeId, String merchantId) {
-        return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.APPROVED)
-                .switchIfEmpty(Mono.error(new IllegalArgumentException("Batch not found or status: " + rewardBatchId)))
+        return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.EVALUATING)
+                .switchIfEmpty(Mono.error(new IllegalStateException("Reward batch  %s not  found  or  not in  a  valid  state".formatted(rewardBatchId)))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()))
-                .flatMap(trxId -> rewardTransactionRepository.updateStatusAndReturnOld(trxId, RewardBatchTrxStatus.APPROVED))
+                .flatMap(trxId -> rewardTransactionRepository.updateStatusAndReturnOld(rewardBatchId, trxId, RewardBatchTrxStatus.APPROVED))
                 .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L), (acc, trxOld) -> {
                     switch (trxOld.getRewardBatchTrxStatus()){
-                        case RewardBatchTrxStatus.APPROVED -> log.info("Skip handler transaction {} because its already APPROVED", trxOld.getId());
+                        case RewardBatchTrxStatus.APPROVED -> log.info("Skipping  handler  for transaction  {}:  status  is already  APPROVED",  trxOld.getId());
                         case RewardBatchTrxStatus.TO_CHECK, RewardBatchTrxStatus.CONSULTABLE -> acc.incrementTrxElaborated();
                         case RewardBatchTrxStatus.SUSPENDED -> {
                             acc.decrementTrxSuspended();
@@ -203,7 +203,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                     return acc;
                 })
 
-                .flatMap(acc -> rewardBatchRepository.updateTotals(rewardBatchId, acc.getTrxElaborated(), acc.getTotalApprovedAmountCents(), acc.getTrxRejected(), acc.getTrxSuspended()));
+                .flatMap(acc -> rewardBatchRepository.updateTotals(rewardBatchId, acc.getTrxElaborated(), acc.getTotalApprovedAmountCents(), acc.getTrxRejected(), acc.getTrxSuspended())));
     }
 
 private String buildBatchName(YearMonth month) {

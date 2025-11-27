@@ -344,8 +344,9 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
 
     @Override
-    public Mono<RewardTransaction> updateStatusAndReturnOld(String trxId, RewardBatchTrxStatus status) {
-        Criteria criteria = Criteria.where(Fields.id).is(trxId);
+    public Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus status) {
+        Criteria criteria = Criteria.where(Fields.id).is(trxId)
+                .and(Fields.rewardBatchId).is(batchId);
         return mongoTemplate.findAndModify(
                 Query.query(criteria),
                 new Update()
@@ -354,6 +355,12 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                         .returnNew(false)
                         .upsert(false),
                 RewardTransaction.class
-        );
+        ).flatMap(trx -> {
+            if (trx == null){
+                log.info("Transaction not found for id {} and reward batch {}", trxId, batchId);
+                return Mono.empty();
+            }
+            return Mono.just(trx);
+        });
     }
 }
