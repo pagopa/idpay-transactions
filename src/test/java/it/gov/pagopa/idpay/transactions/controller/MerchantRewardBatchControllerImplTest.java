@@ -267,7 +267,7 @@ class MerchantRewardBatchControllerImplTest {
 
         when(rewardBatchService.rewardBatchConfirmation(INITIATIVE_ID, rewardBatchId))
                 .thenReturn(Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
-                        ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST)));
+                        ExceptionConstants.ExceptionCode.REWARD_BATCH_ALREADY_APPROVED)));
 
         webClient.put()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchid}/approved", INITIATIVE_ID, rewardBatchId)
@@ -313,6 +313,44 @@ class MerchantRewardBatchControllerImplTest {
 
         verify(rewardBatchService, times(1))
                 .approvedTransactions(any(), any(), any(), any());
+        verify(rewardBatchMapper, times(1)).toDTO(batch);
+    }
+
+    @Test
+    void rejectTransactionsOk() {
+        String rewardBatchId = "BATCH";
+        TransactionsRequest request = new TransactionsRequest();
+        request.setTransactionIds(List.of("trx1", "trx2"));
+        request.setReason("reason");
+
+        RewardBatch batch = RewardBatch.builder()
+                .id(rewardBatchId)
+                .status(RewardBatchStatus.EVALUATING)
+                .build();
+
+        RewardBatchDTO dto = RewardBatchDTO.builder()
+                .id(rewardBatchId)
+                .build();
+
+        when(rewardBatchService.rejectTransactions(rewardBatchId, INITIATIVE_ID, request))
+                .thenReturn(Mono.just(batch));
+        when(rewardBatchMapper.toDTO(batch)).thenReturn(Mono.just(dto));
+
+        webClient.post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/rejected",
+                        INITIATIVE_ID, rewardBatchId)
+                .header("x-merchant-id", MERCHANT_ID)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(RewardBatchDTO.class)
+                .value(res -> {
+                    assertNotNull(res);
+                    assertEquals(rewardBatchId, res.getId());
+                });
+
+        verify(rewardBatchService, times(1))
+                .rejectTransactions(any(), any(), any());
         verify(rewardBatchMapper, times(1)).toDTO(batch);
     }
 

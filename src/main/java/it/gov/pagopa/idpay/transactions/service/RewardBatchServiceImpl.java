@@ -222,7 +222,8 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
 
                     switch (trxOld.getRewardBatchTrxStatus()) {
 
-                        case RewardBatchTrxStatus.REJECTED -> log.info("Skipping  handler  for transaction  {}:  status  is already  REJECTED",  trxOld.getId());
+                        case RewardBatchTrxStatus.REJECTED ->
+                                log.info("Skipping  handler  for transaction  {}:  status  is already  REJECTED",  trxOld.getId());
 
                         case RewardBatchTrxStatus.APPROVED -> {
                             acc.incrementTrxRejected();
@@ -233,7 +234,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                         }
 
                             case RewardBatchTrxStatus.TO_CHECK,
-                                    RewardBatchTrxStatus.CONSULTABLE -> {
+                                 RewardBatchTrxStatus.CONSULTABLE -> {
                                 acc.incrementTrxElaborated();
                                 acc.incrementTrxRejected();
 
