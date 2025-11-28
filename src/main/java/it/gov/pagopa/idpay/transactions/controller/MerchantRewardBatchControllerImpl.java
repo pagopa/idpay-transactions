@@ -27,46 +27,33 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
-  public Mono<RewardBatchListDTO> getMerchantRewardBatches(String merchantId, String organizationRole, String status, String assigneeLevel, String initiativeId, Pageable pageable) {
+  public Mono<RewardBatchListDTO> getRewardBatches(String merchantId, String organizationRole, String status, String assigneeLevel, String initiativeId, Pageable pageable) {
 
-    if (merchantId != null) {
-      log.info("[GET_MERCHANT_REWARD_BATCHES] Merchant {} requested to retrieve reward batches",
-          Utilities.sanitizeString(merchantId));
-
-      return this.rewardBatchService.getMerchantRewardBatches(merchantId, status, assigneeLevel, pageable)
-          .flatMap(page ->
-              Flux.fromIterable(page.getContent())
-                  .flatMapSequential(rewardBatchMapper::toDTO)
-                  .collectList()
-                  .map(dtoList -> new RewardBatchListDTO(
-                      dtoList,
-                      page.getNumber(),
-                      page.getSize(),
-                      (int) page.getTotalElements(),
-                      page.getTotalPages()
-                  ))
-          );
-
-    } else if (organizationRole != null){
-      log.info("[GET_ALL_REWARD_BATCHES] Received a request to retrieve all reward batches");
-
-      return this.rewardBatchService.getAllRewardBatches(status, assigneeLevel, organizationRole, pageable)
-          .flatMap(page ->
-              Flux.fromIterable(page.getContent())
-                  .flatMapSequential(rewardBatchMapper::toDTO)
-                  .collectList()
-                  .map(dtoList -> new RewardBatchListDTO(
-                      dtoList,
-                      page.getNumber(),
-                      page.getSize(),
-                      (int) page.getTotalElements(),
-                      page.getTotalPages()
-                  ))
-          );
+    if (merchantId == null && organizationRole == null) {
+      throw new ClientExceptionWithBody(
+          HttpStatus.BAD_REQUEST,
+          ExceptionCode.TRANSACTIONS_MISSING_MANDATORY_FILTERS,
+          ExceptionMessage.MISSING_TRANSACTIONS_FILTERS
+      );
     }
-    else {
-      throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, ExceptionCode.TRANSACTIONS_MISSING_MANDATORY_FILTERS, ExceptionMessage.MISSING_TRANSACTIONS_FILTERS);
-    }
+
+    log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}, Role: {}",
+        merchantId != null ? Utilities.sanitizeString(merchantId) : "null",
+        organizationRole != null ? organizationRole : "null");
+
+    return rewardBatchService.getRewardBatches(merchantId, organizationRole, status, assigneeLevel, pageable)
+        .flatMap(page ->
+            Flux.fromIterable(page.getContent())
+                .flatMapSequential(rewardBatchMapper::toDTO)
+                .collectList()
+                .map(dtoList -> new RewardBatchListDTO(
+                    dtoList,
+                    page.getNumber(),
+                    page.getSize(),
+                    (int) page.getTotalElements(),
+                    page.getTotalPages()
+                ))
+        );
   }
 
   @Override

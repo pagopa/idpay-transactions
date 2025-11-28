@@ -12,7 +12,7 @@ import reactor.core.publisher.Mono;
 public interface MerchantRewardBatchController {
 
   @GetMapping("/initiatives/{initiativeId}/reward-batches")
-  Mono<RewardBatchListDTO> getMerchantRewardBatches(
+  Mono<RewardBatchListDTO> getRewardBatches(
       @RequestHeader(value = "x-merchant-id", required = false) String merchantId,
       @RequestHeader(value = "x-organization-role", required = false) String organizationRole,
       @RequestParam(required = false) String status,

@@ -40,7 +40,7 @@ class MerchantRewardBatchControllerImplTest {
   private static final String INITIATIVE_ID = "INIT1";
 
   @Test
-  void getMerchantRewardBatchesOk() {
+  void getRewardBatchesForMerchantOk() {
     RewardBatch batch = RewardBatch.builder()
         .id("BATCH1")
         .name("Reward Batch 1")
@@ -57,8 +57,9 @@ class MerchantRewardBatchControllerImplTest {
         .name(batch.getName())
         .build();
 
-    when(rewardBatchService.getMerchantRewardBatches(
+    when(rewardBatchService.getRewardBatches(
         eq(MERCHANT_ID),
+        isNull(),
         isNull(),
         isNull(),
         any(Pageable.class)))
@@ -87,16 +88,13 @@ class MerchantRewardBatchControllerImplTest {
           assertEquals(10, response.getPageSize());
         });
 
-    verify(rewardBatchService, times(1)).getMerchantRewardBatches(
-        eq(MERCHANT_ID),
-        isNull(),
-        isNull(),
-        any(Pageable.class));
+    verify(rewardBatchService, times(1))
+        .getRewardBatches(eq(MERCHANT_ID), isNull(), isNull(), isNull(), any(Pageable.class));
     verify(rewardBatchMapper, times(1)).toDTO(batch);
   }
 
   @Test
-  void getAllRewardBatchesOk() {
+  void getRewardBatchesForOperatorOk() {
     RewardBatch batch = RewardBatch.builder()
         .id("BATCH1")
         .name("Reward Batch 1")
@@ -115,10 +113,11 @@ class MerchantRewardBatchControllerImplTest {
 
     String organizationRole = "OPERATOR";
 
-    when(rewardBatchService.getAllRewardBatches(
-        isNull(),
+    when(rewardBatchService.getRewardBatches(
         isNull(),
         eq(organizationRole),
+        isNull(),
+        isNull(),
         any(Pageable.class)))
         .thenReturn(Mono.just(page));
 
@@ -145,11 +144,8 @@ class MerchantRewardBatchControllerImplTest {
           assertEquals(10, response.getPageSize());
         });
 
-    verify(rewardBatchService, times(1)).getAllRewardBatches(
-        isNull(),
-        isNull(),
-        eq(organizationRole),
-        any(Pageable.class));
+    verify(rewardBatchService, times(1))
+        .getRewardBatches(isNull(), eq(organizationRole), isNull(), isNull(), any(Pageable.class));
     verify(rewardBatchMapper, times(1)).toDTO(batch);
   }
 

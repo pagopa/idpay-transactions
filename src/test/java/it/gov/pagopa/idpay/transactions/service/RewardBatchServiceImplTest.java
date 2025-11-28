@@ -1,6 +1,8 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 
 import it.gov.pagopa.common.web.exception.RewardBatchException;
@@ -201,123 +203,120 @@ class RewardBatchServiceImplTest {
   }
 
   @Test
-  void getMerchantRewardBatches_returnsPagedResult() {
+  void getRewardBatches_forMerchant_returnsPagedResult() {
     String merchantId = "M1";
+    String organizationRole = null;
     String status = null;
     String assigneeLevel = null;
     Pageable pageable = PageRequest.of(0, 2);
 
-    RewardBatch rb1 = RewardBatch.builder().id("B1").merchantId(merchantId).name("novembre 2025")
-        .build();
-    RewardBatch rb2 = RewardBatch.builder().id("B2").merchantId(merchantId).name("novembre 2025")
-        .build();
+    RewardBatch rb1 = RewardBatch.builder().id("B1").merchantId(merchantId).name("novembre 2025").build();
+    RewardBatch rb2 = RewardBatch.builder().id("B2").merchantId(merchantId).name("novembre 2025").build();
 
     Mockito.when(
-            rewardBatchRepository.findRewardBatchByMerchantId(merchantId, status, assigneeLevel,
-                pageable))
-        .thenReturn(Flux.just(rb1, rb2));
-    Mockito.when(rewardBatchRepository.getCount(merchantId, status, assigneeLevel))
-        .thenReturn(Mono.just(5L));
+        rewardBatchRepository.findRewardBatchesCombined(merchantId, status, assigneeLevel, false, pageable)
+    ).thenReturn(Flux.just(rb1, rb2));
+
+    Mockito.when(
+        rewardBatchRepository.getCountCombined(merchantId, status, assigneeLevel, false)
+    ).thenReturn(Mono.just(5L));
 
     StepVerifier.create(
-            rewardBatchService.getMerchantRewardBatches(merchantId, status, assigneeLevel, pageable)
+            rewardBatchService.getRewardBatches(merchantId, organizationRole, status, assigneeLevel, pageable)
         )
         .assertNext(page -> {
-          assert page.getContent().size() == 2;
-          assert page.getContent().get(0).getId().equals("B1");
-          assert page.getContent().get(1).getId().equals("B2");
-          assert page.getTotalElements() == 5;
-          assert page.getPageable().equals(pageable);
+          assertEquals(2, page.getContent().size());
+          assertEquals("B1", page.getContent().get(0).getId());
+          assertEquals("B2", page.getContent().get(1).getId());
+          assertEquals(5, page.getTotalElements());
+          assertEquals(pageable, page.getPageable());
         })
         .verifyComplete();
   }
 
   @Test
-  void getMerchantRewardBatches_emptyPage() {
+  void getRewardBatches_forMerchant_emptyPage() {
     String merchantId = "M1";
+    String organizationRole = null;
     String status = null;
     String assigneeLevel = null;
     Pageable pageable = PageRequest.of(1, 2);
 
-    Mockito.when(rewardBatchRepository.findRewardBatchByMerchantId(
-            merchantId,
-            status,
-            assigneeLevel,
-            pageable))
-        .thenReturn(Flux.empty());
+    Mockito.when(
+        rewardBatchRepository.findRewardBatchesCombined(merchantId, status, assigneeLevel, false, pageable)
+    ).thenReturn(Flux.empty());
 
-    Mockito.when(rewardBatchRepository.getCount(merchantId, status, assigneeLevel))
-        .thenReturn(Mono.just(0L));
+    Mockito.when(
+        rewardBatchRepository.getCountCombined(merchantId, status, assigneeLevel, false)
+    ).thenReturn(Mono.just(0L));
 
     StepVerifier.create(
-            rewardBatchService.getMerchantRewardBatches(merchantId, status, assigneeLevel, pageable)
+            rewardBatchService.getRewardBatches(merchantId, organizationRole, status, assigneeLevel, pageable)
         )
         .assertNext(page -> {
-          assert page.getContent().isEmpty();
-          assert page.getTotalElements() == 0;
-          assert page.getPageable().equals(pageable);
+          assertTrue(page.getContent().isEmpty());
+          assertEquals(0, page.getTotalElements());
+          assertEquals(pageable, page.getPageable());
         })
         .verifyComplete();
   }
 
   @Test
-  void getAllRewardBatches_returnsPagedResult() {
+  void getRewardBatches_forOperator_returnsPagedResult() {
+    String merchantId = null;
+    String organizationRole = "operator1";
     String status = null;
     String assigneeLevel = null;
-    String organizationRole = null;
     Pageable pageable = PageRequest.of(0, 2);
 
-    RewardBatch batchA = RewardBatch.builder()
-        .id("B1")
-        .merchantId("MERCHANT1")
-        .name("novembre 2025")
-        .build();
+    RewardBatch batchA = RewardBatch.builder().id("B1").merchantId("MERCHANT1").name("novembre 2025").build();
+    RewardBatch batchB = RewardBatch.builder().id("B2").merchantId("MERCHANT2").name("novembre 2025").build();
 
-    RewardBatch batchB = RewardBatch.builder()
-        .id("B2")
-        .merchantId("MERCHANT2")
-        .name("novembre 2025")
-        .build();
+    Mockito.when(
+        rewardBatchRepository.findRewardBatchesCombined(merchantId, status, assigneeLevel, true, pageable)
+    ).thenReturn(Flux.just(batchA, batchB));
 
-    Mockito.when(rewardBatchRepository.findRewardBatch(status, assigneeLevel, false, pageable))
-        .thenReturn(Flux.just(batchA, batchB));
-
-    Mockito.when(rewardBatchRepository.getCount(status, assigneeLevel, false))
-        .thenReturn(Mono.just(10L));
+    Mockito.when(
+        rewardBatchRepository.getCountCombined(merchantId, status, assigneeLevel, true)
+    ).thenReturn(Mono.just(10L));
 
     StepVerifier.create(
-            rewardBatchService.getAllRewardBatches(status, assigneeLevel, organizationRole, pageable)
+            rewardBatchService.getRewardBatches(merchantId, organizationRole, status, assigneeLevel, pageable)
         )
         .assertNext(page -> {
-          assert page.getContent().size() == 2;
-          assert page.getTotalElements() == 10;
-          assert page.getPageable().equals(pageable);
+          assertEquals(2, page.getContent().size());
+          assertEquals(10, page.getTotalElements());
+          assertEquals(pageable, page.getPageable());
         })
         .verifyComplete();
 
-    Mockito.verify(rewardBatchRepository).findRewardBatch(status, assigneeLevel, false, pageable);
-    Mockito.verify(rewardBatchRepository).getCount(status, assigneeLevel, false);
+    Mockito.verify(rewardBatchRepository).findRewardBatchesCombined(merchantId, status, assigneeLevel, true, pageable);
+    Mockito.verify(rewardBatchRepository).getCountCombined(merchantId, status, assigneeLevel, true);
   }
 
   @Test
-  void getAllRewardBatches_empty() {
+  void getRewardBatches_forOperator_emptyPage() {
+    String merchantId = null;
+    String organizationRole = "operator1";
     String status = null;
     String assigneeLevel = null;
-    String organizationRole = null;
     Pageable pageable = PageRequest.of(0, 2);
 
-    Mockito.when(rewardBatchRepository.findRewardBatch(status, assigneeLevel, false, pageable))
-        .thenReturn(Flux.empty());
+    Mockito.when(
+        rewardBatchRepository.findRewardBatchesCombined(merchantId, status, assigneeLevel, true, pageable)
+    ).thenReturn(Flux.empty());
 
-    Mockito.when(rewardBatchRepository.getCount(status, assigneeLevel, false))
-        .thenReturn(Mono.just(0L));
+    Mockito.when(
+        rewardBatchRepository.getCountCombined(merchantId, status, assigneeLevel, true)
+    ).thenReturn(Mono.just(0L));
 
     StepVerifier.create(
-            rewardBatchService.getAllRewardBatches(status, assigneeLevel, organizationRole, pageable)
+            rewardBatchService.getRewardBatches(merchantId, organizationRole, status, assigneeLevel, pageable)
         )
         .assertNext(page -> {
-          assert page.getContent().isEmpty();
-          assert page.getTotalElements() == 0;
+          assertTrue(page.getContent().isEmpty());
+          assertEquals(0, page.getTotalElements());
+          assertEquals(pageable, page.getPageable());
         })
         .verifyComplete();
   }
@@ -447,6 +446,4 @@ class RewardBatchServiceImplTest {
     assertFalse(result);
   }
 }
-
-
 

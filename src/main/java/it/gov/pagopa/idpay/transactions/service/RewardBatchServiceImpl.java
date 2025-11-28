@@ -47,19 +47,12 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   }
 
   @Override
-  public Mono<Page<RewardBatch>> getMerchantRewardBatches(String merchantId, String status, String assigneeLevel, Pageable pageable) {
-    return rewardBatchRepository.findRewardBatchByMerchantId(merchantId, status, assigneeLevel, pageable)
-        .collectList()
-        .zipWith(rewardBatchRepository.getCount(merchantId, status, assigneeLevel))
-        .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
-  }
-
-  @Override
-  public Mono<Page<RewardBatch>> getAllRewardBatches(String status, String assigneeLevel, String organizationRole, Pageable pageable) {
+  public Mono<Page<RewardBatch>> getRewardBatches(String merchantId, String organizationRole, String status, String assigneeLevel, Pageable pageable) {
     boolean callerIsOperator = isOperator(organizationRole);
-    return rewardBatchRepository.findRewardBatch(status, assigneeLevel, callerIsOperator, pageable)
+
+    return rewardBatchRepository.findRewardBatchesCombined(merchantId, status, assigneeLevel, callerIsOperator, pageable)
         .collectList()
-        .zipWith(rewardBatchRepository.getCount(status, assigneeLevel, callerIsOperator))
+        .zipWith(rewardBatchRepository.getCountCombined(merchantId, status, assigneeLevel, callerIsOperator))
         .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
   }
 
