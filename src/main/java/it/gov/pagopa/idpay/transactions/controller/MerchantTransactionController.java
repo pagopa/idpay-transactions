@@ -24,8 +24,6 @@ public interface MerchantTransactionController {
 
     @GetMapping("/initiatives/{initiativeId}/transactions/processed/statuses")
     Mono<List<String>> getProcessedTransactionStatuses(
-            @RequestHeader("x-merchant-id") String merchantId,
-            @RequestHeader(value = "x-organization-role", required = false) String organizationRole,
-            @PathVariable("initiativeId") String initiativeId);
+            @RequestHeader(value = "x-organization-role", required = false) String organizationRole);
 
 }
