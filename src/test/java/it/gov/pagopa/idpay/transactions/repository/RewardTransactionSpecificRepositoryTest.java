@@ -924,4 +924,23 @@ class RewardTransactionSpecificRepositoryTest {
         Assertions.assertEquals(reason, afterUpdate.getRewardBatchRejectionReason());
 
     }
+
+    @Test
+    void findByFilter_trxBatchStatus() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .initiatives(List.of(INITIATIVE_ID))
+                .rewardBatchId("batchId")
+                .status("INVOICED")
+                .samplingKey(1)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
+                .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        RewardTransaction result = rewardTransactionRepository.findByFilter(rt1.getRewardBatchId(), INITIATIVE_ID, List.of(RewardBatchTrxStatus.TO_CHECK)).blockFirst();
+
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(rt1.getId(), result.getId());
+
+    }
 }

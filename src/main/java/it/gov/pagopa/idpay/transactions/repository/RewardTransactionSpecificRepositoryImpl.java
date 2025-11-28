@@ -171,7 +171,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     private Criteria getCriteria(String rewardBatchId, String initiativeId, List<RewardBatchTrxStatus> statusList) {
         return Criteria.where(RewardTransaction.Fields.rewardBatchId).is(rewardBatchId)
                 .and(RewardTransaction.Fields.initiatives).is(initiativeId)
-                .and(RewardTransaction.Fields.status).in(statusList);
+                .and(Fields.rewardBatchTrxStatus).in(statusList);
     }
 
 
