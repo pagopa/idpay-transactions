@@ -209,7 +209,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
                   String oldBatchId = rewardTransaction.getRewardBatchId();
                   String currentMonth = LocalDateTime.now().getMonth().name();
-                  PosType posType = PosType.valueOf(rewardTransaction.getPosType());
+                  PosType posType = rewardTransaction.getPointOfSaleType();
                   String businessName = rewardTransaction.getBusinessName();
 
                   String initiativeId = rewardTransaction.getInitiatives().get(0);
