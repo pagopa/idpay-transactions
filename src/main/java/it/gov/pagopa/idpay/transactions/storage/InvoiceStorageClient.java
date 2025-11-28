@@ -78,13 +78,13 @@ public class InvoiceStorageClient {
         log.info("Uploading (contentType={}) into azure blob at destination {}", Utilities.sanitizeString(contentType), Utilities.sanitizeString(destination));
 
         return blobContainerClient.getBlobClient(destination)
-            .uploadWithResponse(new BlobParallelUploadOptions(inputStream), null, null);
+                .uploadWithResponse(new BlobParallelUploadOptions(inputStream), null, null);
     }
 
     public Response<Boolean> deleteFile(String destination) {
         log.info("Deleting file {} from azure blob container", Utilities.sanitizeString(destination));
 
         return blobContainerClient.getBlobClient(destination)
-            .deleteIfExistsWithResponse(DeleteSnapshotsOptionType.INCLUDE, null, null, null);
+                .deleteIfExistsWithResponse(DeleteSnapshotsOptionType.INCLUDE, null, null, null);
     }
 }
