@@ -43,14 +43,12 @@ public class MerchantTransactionControllerImpl implements MerchantTransactionCon
 
     @Override
     public Mono<List<String>> getProcessedTransactionStatuses(
-            String merchantId,
-            String organizationRole,
-            String initiativeId) {
+            String organizationRole) {
 
-        log.info("[GET_MERCHANT_TRANSACTIONS_STATUSES] Merchant {} with role {} requested statuses for initiative {}",
-                merchantId, organizationRole, initiativeId);
+        log.info("[GET_MERCHANT_TRANSACTIONS_STATUSES] Requested statuses for role {}",
+                organizationRole);
 
         return merchantTransactionService.getProcessedTransactionStatuses(
-                merchantId, organizationRole, initiativeId);
+                organizationRole);
     }
 }

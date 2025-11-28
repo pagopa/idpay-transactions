@@ -71,9 +71,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
 
     @Override
     public Mono<List<String>> getProcessedTransactionStatuses(
-            String merchantId,
-            String organizationRole,
-            String initiativeId) {
+            String organizationRole) {
 
         List<String> allStatuses = Arrays.stream(RewardBatchTrxStatus.values())
                 .map(Enum::name)

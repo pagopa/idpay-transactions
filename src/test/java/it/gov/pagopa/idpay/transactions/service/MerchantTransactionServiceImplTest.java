@@ -201,9 +201,6 @@ class MerchantTransactionServiceImplTest {
         verifyNoInteractions(rewardTransactionRepository, userRestClient);
     }
 
-    /**
-     * Non-operator + transaction TO_CHECK -> DTO espone CONSULTABLE.
-     */
     @Test
     void getMerchantTransactionList_nonOperatorToCheckExposedAsConsultable() {
         LocalDateTime now = LocalDateTime.now();
@@ -257,7 +254,6 @@ class MerchantTransactionServiceImplTest {
 
         MerchantTransactionDTO dto = content.get(0);
 
-        // stato TO_CHECK interno ma esposto come CONSULTABLE al merchant
         assertEquals(RewardBatchTrxStatus.CONSULTABLE, dto.getRewardBatchTrxStatus());
         assertEquals(FISCAL_CODE, dto.getFiscalCode());
     }
@@ -321,26 +317,16 @@ class MerchantTransactionServiceImplTest {
                 "Per i non-operator il filtro CONSULTABLE deve essere rimosso");
     }
 
-    /**
-     * getProcessedTransactionStatuses:
-     *  - operator vede tutti gli stati
-     *  - non-operator non vede TO_CHECK
-     */
+
     @Test
     void getProcessedTransactionStatuses_operatorVsNonOperator() {
         List<String> operatorStatuses = merchantTransactionService
                 .getProcessedTransactionStatuses(
-                        MERCHANT_ID,
-                        "operator1", // è nella lista OPERATORS
-                        INITIATIVE_ID
-                ).block();
+                        "operator1").block();
 
         List<String> merchantStatuses = merchantTransactionService
                 .getProcessedTransactionStatuses(
-                        MERCHANT_ID,
-                        "merchant",
-                        INITIATIVE_ID
-                ).block();
+                        "merchant").block();
 
         assertNotNull(operatorStatuses);
         assertNotNull(merchantStatuses);
@@ -355,9 +341,7 @@ class MerchantTransactionServiceImplTest {
         assertFalse(merchantStatuses.contains(RewardBatchTrxStatus.TO_CHECK.name()));
         assertEquals(allEnumStatuses.size() - 1, merchantStatuses.size());
     }
-
-    // ------------- metodi di supporto -------------
-
+    
     private void assertFirstPage(MerchantTransactionsListDTO result) {
         assertNotNull(result);
         assertEquals(0, result.getPageNo());
