@@ -5,6 +5,10 @@ import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
+import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
+import java.util.Set;
+import org.springframework.dao.DuplicateKeyException;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
@@ -36,6 +40,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
   private final RewardBatchRepository rewardBatchRepository;
   private final RewardTransactionRepository rewardTransactionRepository;
+  private static final Set<String> OPERATORS = Set.of("operator1", "operator2", "operator3");
 
 
   public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository,
@@ -56,19 +61,17 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   }
 
   @Override
-  public Mono<Page<RewardBatch>> getMerchantRewardBatches(String merchantId, Pageable pageable) {
-    return rewardBatchRepository.findRewardBatchByMerchantId(merchantId, pageable)
+  public Mono<Page<RewardBatch>> getRewardBatches(String merchantId, String organizationRole, String status, String assigneeLevel, Pageable pageable) {
+    boolean callerIsOperator = isOperator(organizationRole);
+
+    return rewardBatchRepository.findRewardBatchesCombined(merchantId, status, assigneeLevel, callerIsOperator, pageable)
         .collectList()
-        .zipWith(rewardBatchRepository.getCount(merchantId))
+        .zipWith(rewardBatchRepository.getCountCombined(merchantId, status, assigneeLevel, callerIsOperator))
         .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
   }
 
-  @Override
-  public Mono<Page<RewardBatch>> getAllRewardBatches(Pageable pageable) {
-    return rewardBatchRepository.findRewardBatch(pageable)
-        .collectList()
-        .zipWith(rewardBatchRepository.getCount())
-        .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
+  private boolean isOperator(String role) {
+    return role != null && OPERATORS.contains(role.toLowerCase());
   }
 
   private Mono<RewardBatch> createBatch(String merchantId, PosType posType, String month, String businessName) {
@@ -95,6 +98,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         .assigneeLevel(RewardBatchAssignee.L1)
         .numberOfTransactionsSuspended(0L)
         .numberOfTransactionsRejected(0L)
+        .creationDate(LocalDateTime.now())
+        .updateDate(LocalDateTime.now())
         .build();
 
     return rewardBatchRepository.save(batch);
@@ -292,8 +297,6 @@ private String buildBatchName(YearMonth month) {
 
   return String.format("%s %s", monthName, year);
 }
-
-
 
 
     @Override

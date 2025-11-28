@@ -1,11 +1,17 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
+import com.nimbusds.oauth2.sdk.util.StringUtils;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
-import java.util.List;
 
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.List;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -27,33 +33,15 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Flux<RewardBatch> findRewardBatchByMerchantId(String merchantId, Pageable pageable){
-
-    Criteria criteria = getCriteria(merchantId);
-
-    return mongoTemplate.find(
-        Query.query(criteria).with(getPageableRewardBatch(pageable)),
-        RewardBatch.class);
-
-  }
-
-  @Override
-  public Flux<RewardBatch> findRewardBatch(Pageable pageable){
-
-    Query query = new Query().with(getPageableRewardBatch(pageable));
-
+  public Flux<RewardBatch> findRewardBatchesCombined(String merchantId, String status, String assigneeLevel, boolean isOperator, Pageable pageable) {
+    Criteria criteria = buildCombinedCriteria(merchantId, status, assigneeLevel, isOperator);
+    Query query = Query.query(criteria).with(getPageableRewardBatch(pageable));
     return mongoTemplate.find(query, RewardBatch.class);
-
-  }
-
-  private static Criteria getCriteria(String merchantId) {
-    return Criteria.where(RewardBatch.Fields.merchantId).is(merchantId);
   }
 
   @Override
-  public Mono<Long> getCount(String merchantId) {
-    Criteria criteria = getCriteria(merchantId);
-
+  public Mono<Long> getCountCombined(String merchantId, String status, String assigneeLevel, boolean isOperator) {
+    Criteria criteria = buildCombinedCriteria(merchantId, status, assigneeLevel, isOperator);
     return mongoTemplate.count(Query.query(criteria), RewardBatch.class);
   }
 
@@ -63,7 +51,6 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
         Query.query(Criteria.where("_id").is(batchId)),
         new Update()
             .inc("initialAmountCents", accruedAmountCents)
-            .inc("approvedAmountCents", accruedAmountCents)
             .inc("numberOfTransactions", 1)
             .set("updateDate", LocalDateTime.now()),
         FindAndModifyOptions.options().returnNew(true),
@@ -71,10 +58,54 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     );
   }
 
-  @Override
-  public Mono<Long> getCount() {
+  private Criteria buildCombinedCriteria(String merchantId, String status, String assigneeLevel, boolean isOperator) {
+    List<Criteria> subCriteria = new ArrayList<>();
 
-    return mongoTemplate.count(new Query(), RewardBatch.class);
+    if (StringUtils.isNotBlank(merchantId)) {
+      subCriteria.add(Criteria.where(RewardBatch.Fields.merchantId).is(merchantId));
+    }
+
+    if (StringUtils.isNotBlank(assigneeLevel)) {
+      subCriteria.add(
+          Criteria.where(RewardBatch.Fields.assigneeLevel)
+              .is(RewardBatchAssignee.valueOf(assigneeLevel))
+      );
+    }
+
+    EnumSet<RewardBatchStatus> allowedStatuses = isOperator
+        ? EnumSet.of(
+        RewardBatchStatus.SENT,
+        RewardBatchStatus.EVALUATING,
+        RewardBatchStatus.APPROVED
+    )
+        : EnumSet.of(
+            RewardBatchStatus.CREATED,
+            RewardBatchStatus.SENT,
+            RewardBatchStatus.EVALUATING,
+            RewardBatchStatus.APPROVED
+        );
+
+    if (StringUtils.isBlank(status)) {
+      subCriteria.add(
+          Criteria.where(RewardBatch.Fields.status)
+              .in(allowedStatuses)
+      );
+    } else {
+      RewardBatchStatus requestedStatus = RewardBatchStatus.valueOf(status);
+
+      if (!allowedStatuses.contains(requestedStatus)) {
+        subCriteria.add(
+            Criteria.where(RewardBatch.Fields.id).in(Collections.emptyList())
+        );
+      } else {
+        subCriteria.add(
+            Criteria.where(RewardBatch.Fields.status)
+                .is(requestedStatus)
+        );
+      }
+    }
+
+    return new Criteria().andOperator(subCriteria.toArray(new Criteria[0]));
   }
 
   @Override

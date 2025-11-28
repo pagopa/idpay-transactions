@@ -11,8 +11,7 @@ import reactor.core.publisher.Mono;
 public interface RewardBatchService {
 
   Mono<RewardBatch> findOrCreateBatch(String merchantId, PosType posType, String month, String businessName);
-  Mono<Page<RewardBatch>> getMerchantRewardBatches(String merchantId, Pageable pageable);
-  Mono<Page<RewardBatch>> getAllRewardBatches(Pageable pageable);
+  Mono<Page<RewardBatch>> getRewardBatches(String merchantId, String organizationRole, String status, String assigneeLevel, Pageable pageable);
   Mono<RewardBatch> incrementTotals(String batchId, long accruedAmountCents);
 
   Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId);
