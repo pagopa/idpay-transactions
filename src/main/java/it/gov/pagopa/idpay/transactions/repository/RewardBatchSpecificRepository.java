@@ -6,10 +6,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public interface RewardBatchSpecificRepository {
-  Flux<RewardBatch> findRewardBatchByMerchantId(String merchantId, Pageable pageable);
   Mono<RewardBatch> incrementTotals(String batchId, long accruedAmountCents);
   Mono<RewardBatch> decrementTotals(String batchId, long accruedAmountCents);
-  Flux<RewardBatch> findRewardBatch(Pageable pageable);
-  Mono<Long> getCount(String merchantId);
-  Mono<Long> getCount();
+  Flux<RewardBatch> findRewardBatchesCombined(String merchantId, String status, String assigneeLevel, boolean isOperator, Pageable pageable);
+  Mono<Long> getCountCombined(String merchantId, String status, String assigneeLevel, boolean isOperator);
 }

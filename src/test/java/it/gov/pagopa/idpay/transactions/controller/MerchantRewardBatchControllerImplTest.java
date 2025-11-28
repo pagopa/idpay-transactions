@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
@@ -9,6 +10,7 @@ import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.service.RewardBatchService;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
@@ -38,7 +40,7 @@ class MerchantRewardBatchControllerImplTest {
   private static final String INITIATIVE_ID = "INIT1";
 
   @Test
-  void getMerchantRewardBatchesOk() {
+  void getRewardBatchesForMerchantOk() {
     RewardBatch batch = RewardBatch.builder()
         .id("BATCH1")
         .name("Reward Batch 1")
@@ -55,7 +57,12 @@ class MerchantRewardBatchControllerImplTest {
         .name(batch.getName())
         .build();
 
-    when(rewardBatchService.getMerchantRewardBatches(eq(MERCHANT_ID), any(Pageable.class)))
+    when(rewardBatchService.getRewardBatches(
+        eq(MERCHANT_ID),
+        isNull(),
+        isNull(),
+        isNull(),
+        any(Pageable.class)))
         .thenReturn(Mono.just(page));
 
     when(rewardBatchMapper.toDTO(batch))
@@ -71,22 +78,23 @@ class MerchantRewardBatchControllerImplTest {
         .exchange()
         .expectStatus().isOk()
         .expectBody(RewardBatchListDTO.class)
-        .value(res -> {
-          assertNotNull(res);
-          assertEquals(1, res.getContent().size());
-          assertEquals("BATCH1", res.getContent().getFirst().getId());
-          assertEquals("Reward Batch 1", res.getContent().getFirst().getName());
-          assertEquals(1, res.getTotalElements());
-          assertEquals(1, res.getTotalPages());
-          assertEquals(10, res.getPageSize());
+        .value(response -> {
+          assertNotNull(response);
+          assertEquals(1, response.getContent().size());
+          assertEquals("BATCH1", response.getContent().getFirst().getId());
+          assertEquals("Reward Batch 1", response.getContent().getFirst().getName());
+          assertEquals(1, response.getTotalElements());
+          assertEquals(1, response.getTotalPages());
+          assertEquals(10, response.getPageSize());
         });
 
-    verify(rewardBatchService, times(1)).getMerchantRewardBatches(eq(MERCHANT_ID), any(Pageable.class));
+    verify(rewardBatchService, times(1))
+        .getRewardBatches(eq(MERCHANT_ID), isNull(), isNull(), isNull(), any(Pageable.class));
     verify(rewardBatchMapper, times(1)).toDTO(batch);
   }
 
   @Test
-  void getRewardBatchesOk() {
+  void getRewardBatchesForOperatorOk() {
     RewardBatch batch = RewardBatch.builder()
         .id("BATCH1")
         .name("Reward Batch 1")
@@ -103,7 +111,14 @@ class MerchantRewardBatchControllerImplTest {
         .name(batch.getName())
         .build();
 
-    when(rewardBatchService.getAllRewardBatches(any(Pageable.class)))
+    String organizationRole = "OPERATOR";
+
+    when(rewardBatchService.getRewardBatches(
+        isNull(),
+        eq(organizationRole),
+        isNull(),
+        isNull(),
+        any(Pageable.class)))
         .thenReturn(Mono.just(page));
 
     when(rewardBatchMapper.toDTO(batch))
@@ -115,20 +130,22 @@ class MerchantRewardBatchControllerImplTest {
             .queryParam("page", 0)
             .queryParam("size", 10)
             .build(INITIATIVE_ID))
+        .header("x-organization-role", organizationRole)
         .exchange()
         .expectStatus().isOk()
         .expectBody(RewardBatchListDTO.class)
-        .value(res -> {
-          assertNotNull(res);
-          assertEquals(1, res.getContent().size());
-          assertEquals("BATCH1", res.getContent().getFirst().getId());
-          assertEquals("Reward Batch 1", res.getContent().getFirst().getName());
-          assertEquals(1, res.getTotalElements());
-          assertEquals(1, res.getTotalPages());
-          assertEquals(10, res.getPageSize());
+        .value(response -> {
+          assertNotNull(response);
+          assertEquals(1, response.getContent().size());
+          assertEquals("BATCH1", response.getContent().getFirst().getId());
+          assertEquals("Reward Batch 1", response.getContent().getFirst().getName());
+          assertEquals(1, response.getTotalElements());
+          assertEquals(1, response.getTotalPages());
+          assertEquals(10, response.getPageSize());
         });
 
-    verify(rewardBatchService, times(1)).getAllRewardBatches(any(Pageable.class));
+    verify(rewardBatchService, times(1))
+        .getRewardBatches(isNull(), eq(organizationRole), isNull(), isNull(), any(Pageable.class));
     verify(rewardBatchMapper, times(1)).toDTO(batch);
   }
 
@@ -150,5 +167,22 @@ class MerchantRewardBatchControllerImplTest {
 
     verify(rewardBatchService, times(1))
         .sendRewardBatch(MERCHANT_ID, batchId);
+  }
+
+  @Test
+  void getRewardBatches_shouldThrowBadRequest_whenNoMerchantAndNoRole() {
+    webClient.get()
+        .uri(uriBuilder -> uriBuilder
+            .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches")
+            .queryParam("page", 0)
+            .queryParam("size", 10)
+            .build(INITIATIVE_ID))
+        .exchange()
+        .expectStatus().isBadRequest()
+        .expectBody()
+        .consumeWith(response -> {
+          String body = new String(response.getResponseBody());
+          assertTrue(body.contains(ExceptionMessage.MISSING_TRANSACTIONS_FILTERS));
+        });
   }
 }
