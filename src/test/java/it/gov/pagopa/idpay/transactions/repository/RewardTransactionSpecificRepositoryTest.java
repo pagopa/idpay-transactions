@@ -764,4 +764,36 @@ class RewardTransactionSpecificRepositoryTest {
         rewardTransactionRepository.deleteById("id2").block();
         rewardTransactionRepository.deleteById("id3").block();
     }
+
+    @Test
+    void findInvoicedTransactionsWithoutBatch_returnsOnlyMatchingTransactions() {
+
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .rewardBatchId(null)
+            .status("INVOICED")
+            .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        rt2 = RewardTransactionFaker.mockInstanceBuilder(2)
+            .id("id2")
+            .rewardBatchId("BATCH1")
+            .status("INVOICED")
+            .build();
+        rewardTransactionRepository.save(rt2).block();
+
+        rt3 = RewardTransactionFaker.mockInstanceBuilder(3)
+            .id("id3")
+            .rewardBatchId(null)
+            .status("CANCELLED")
+            .build();
+        rewardTransactionRepository.save(rt3).block();
+
+        Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findInvoicedTransactionsWithoutBatch(10);
+
+        List<RewardTransaction> list = result.collectList().block();
+        Assertions.assertNotNull(list);
+        Assertions.assertEquals(1, list.size());
+        Assertions.assertEquals("id1", list.get(0).getId());
+    }
 }

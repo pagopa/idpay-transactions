@@ -64,59 +64,108 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
     }
 
     @Override
-    public Mono<Void> assignInvoicedTransactionsToBatches(Integer chunkSize) {
-        log.info("[BATCH_ASSIGNMENT] Using chunkSize={}", chunkSize);
+    public Mono<Void> assignInvoicedTransactionsToBatches(Integer chunkSize, boolean processAll) {
+        log.info("[BATCH_ASSIGNMENT] Using chunkSize={}, processAll={}", chunkSize, processAll);
 
-        return processOperation(chunkSize);
+        if (processAll) {
+          return processAllOperation(chunkSize);
+        } else {
+          return processSingleOperation(chunkSize);
+        }
     }
 
-    private Mono<Void> processOperation(int chunkSize) {
-        return rewardTrxRepository.findInvoicedTransactionsWithoutBatch(chunkSize)
-            .collectList()
-            .flatMap(list -> {
-                if (list.isEmpty()) {
-                    log.info("[BATCH_ASSIGNMENT] Completed. No more transactions to process.");
-                    return Mono.empty();
-                }
+    private Mono<Void> processAllOperation(int chunkSize) {
+      return rewardTrxRepository.findInvoicedTransactionsWithoutBatch(chunkSize)
+          .collectList()
+          .flatMap(list -> {
+            if (list.isEmpty()) {
+              log.info("[BATCH_ASSIGNMENT] Completed. No more transactions to process.");
+              return Mono.empty();
+            }
 
-                log.info("[BATCH_ASSIGNMENT] Processing {} transactions...", list.size());
+            log.info("[BATCH_ASSIGNMENT] Processing {} transactions...", list.size());
 
-                return Flux.fromIterable(list)
-                    .concatMap(this::processTransaction)
-                    .then(Mono.defer(() -> processOperation(chunkSize)));
-            });
+            return Flux.fromIterable(list)
+                .concatMap(this::processTransaction)
+                .then(Mono.defer(() -> processAllOperation(chunkSize)));
+          });
+    }
+
+    private Mono<Void> processSingleOperation(int chunkSize) {
+      return rewardTrxRepository.findInvoicedTransactionsWithoutBatch(chunkSize)
+          .collectList()
+          .flatMap(list -> {
+
+            if (list.isEmpty()) {
+              log.info("[BATCH_ASSIGNMENT] Completed. No transactions to process.");
+              return Mono.empty();
+            }
+
+            log.info("[BATCH_ASSIGNMENT] Processing {} transactions (single-run mode).", list.size());
+
+            return Flux.fromIterable(list)
+                .concatMap(this::processTransaction)
+                .then();
+          });
     }
 
     private Mono<RewardTransaction> processTransaction(RewardTransaction trx) {
+      log.info("[BATCH_ASSIGNMENT][{}] Start processing transaction with status='{}', rewardBatchId='{}'",
+          trx.getId(), trx.getStatus(), trx.getRewardBatchId());
 
-        return setTrxMissingFields(trx)
-            .flatMap(this::enrichBatchData)
-            .flatMap(rewardTrxRepository::save);
+      return setTrxMissingFields(trx)
+          .flatMap(this::enrichBatchData)
+          .flatMap(rewardTrxRepository::save)
+          .doOnSuccess(savedTrx -> {
+            log.info("[BATCH_ASSIGNMENT][{}] Transaction processed successfully.", savedTrx.getId());
+
+            log.info("[BATCH_ASSIGNMENT][{}] Enriched fields: "
+                    + "franchiseName='{}', pointOfSaleType='{}', businessName='{}'",
+                savedTrx.getId(),
+                savedTrx.getFranchiseName(),
+                savedTrx.getPointOfSaleType(),
+                savedTrx.getBusinessName()
+            );
+          });
     }
 
     private Mono<RewardTransaction> setTrxMissingFields(RewardTransaction trx) {
 
-        if (trx.getInvoiceUploadDate() == null) {
-            trx.setInvoiceUploadDate(trx.getTrxChargeDate());
-        }
+      if (trx.getInvoiceUploadDate() == null) {
+        trx.setInvoiceUploadDate(trx.getTrxChargeDate());
+        log.info("[BATCH_ASSIGNMENT][{}] invoiceUploadDate was null, set to trxChargeDate={}",
+            trx.getId(), trx.getTrxChargeDate());
+      }
 
-        return merchantRestClient.getPointOfSale(trx.getMerchantId(), trx.getPointOfSaleId())
-            .map(pos -> {
+      return merchantRestClient.getPointOfSale(trx.getMerchantId(), trx.getPointOfSaleId())
+          .map(pos -> {
 
-                if (trx.getFranchiseName() == null) {
-                    trx.setFranchiseName(pos.getFranchiseName());
-                }
+            boolean enriched = false;
 
-                if (trx.getPointOfSaleType() == null) {
-                    trx.setPointOfSaleType(PosType.valueOf(pos.getType().name()));
-                }
+            if (trx.getFranchiseName() == null) {
+              trx.setFranchiseName(pos.getFranchiseName());
+              log.info("[BATCH_ASSIGNMENT][{}] franchiseName set to '{}'", trx.getId(), pos.getFranchiseName());
+              enriched = true;
+            }
 
-                if (trx.getBusinessName() == null) {
-                    trx.setBusinessName(pos.getBusinessName());
-                }
+            if (trx.getPointOfSaleType() == null) {
+              trx.setPointOfSaleType(PosType.valueOf(pos.getType().name()));
+              log.info("[BATCH_ASSIGNMENT][{}] pointOfSaleType set to '{}'", trx.getId(), pos.getType());
+              enriched = true;
+            }
 
-                return trx;
-            });
+            if (trx.getBusinessName() == null) {
+              trx.setBusinessName(pos.getBusinessName());
+              log.info("[BATCH_ASSIGNMENT][{}] businessName set to '{}'", trx.getId(), pos.getBusinessName());
+              enriched = true;
+            }
+
+            if (!enriched) {
+              log.info("[BATCH_ASSIGNMENT][{}] No enrichment needed, all fields already present", trx.getId());
+            }
+
+            return trx;
+          });
     }
 
     private Mono<RewardTransaction> enrichBatchData(RewardTransaction trx) {
@@ -145,6 +194,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
                         trx.setRewardBatchInclusionDate(LocalDateTime.now());
                         trx.setRewardBatchRejectionReason(null);
                         trx.setSamplingKey(computeSamplingKey(trx.getId()));
+                        trx.setUpdateDate(LocalDateTime.now());
                         return trx;
                     })
             );

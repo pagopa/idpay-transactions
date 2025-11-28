@@ -45,6 +45,7 @@ public interface TransactionsController {
 
     @PostMapping("/cleanup")
     Mono<Void> cleanupInvoicedTransactions(
-        @RequestParam(defaultValue = "200") Integer chunkSize
+        @RequestParam(defaultValue = "200") Integer chunkSize,
+        @RequestParam(defaultValue = "false") boolean processAll
     );
 }

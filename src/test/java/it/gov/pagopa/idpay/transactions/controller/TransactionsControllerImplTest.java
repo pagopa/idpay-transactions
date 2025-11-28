@@ -8,18 +8,19 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
 
 import java.time.LocalDateTime;
+import reactor.core.publisher.Mono;
 
 @WebFluxTest(controllers = {TransactionsController.class})
 class TransactionsControllerImplTest {
-    @MockBean
+    @MockitoBean
     RewardTransactionService rewardTransactionService;
 
     @Autowired
@@ -199,5 +200,39 @@ class TransactionsControllerImplTest {
                 .expectBodyList(RewardTransaction.class).contains(rt);
         Mockito.verify(rewardTransactionService, Mockito.times(1)).findByIdTrxIssuer(Mockito.eq("idTrxIssuer2"), Mockito.any(), Mockito.any(),Mockito.any(),Mockito.any(),Mockito.eq(expectedPageable2));
 
+    }
+
+    @Test
+    void cleanupInvoicedTransactions_defaultChunkSize() {
+        Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(Mockito.anyInt(), Mockito.anyBoolean()))
+            .thenReturn(Mono.empty());
+
+        webClient.post()
+            .uri("/idpay/transactions/cleanup")
+            .exchange()
+            .expectStatus().isOk()
+            .expectBody().isEmpty();
+
+        Mockito.verify(rewardTransactionService, Mockito.times(1))
+            .assignInvoicedTransactionsToBatches(200, false);
+    }
+
+    @Test
+    void cleanupInvoicedTransactions_customChunkSize() {
+        Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(Mockito.anyInt(), Mockito.anyBoolean()))
+            .thenReturn(Mono.empty());
+
+        int customChunkSize = 500;
+
+        webClient.post()
+            .uri(uriBuilder -> uriBuilder.path("/idpay/transactions/cleanup")
+                .queryParam("chunkSize", customChunkSize)
+                .build())
+            .exchange()
+            .expectStatus().isOk()
+            .expectBody().isEmpty();
+
+        Mockito.verify(rewardTransactionService, Mockito.times(1))
+            .assignInvoicedTransactionsToBatches(customChunkSize, false);
     }
 }
