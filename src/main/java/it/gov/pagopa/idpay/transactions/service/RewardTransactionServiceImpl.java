@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import com.google.common.hash.Hashing;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
@@ -9,6 +10,7 @@ import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -23,14 +25,17 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
     private final RewardTransactionRepository rewardTrxRepository;
     private final RewardBatchService rewardBatchService;
     private final MerchantRestClient merchantRestClient;
+    private final int seed;
 
 
     public RewardTransactionServiceImpl(RewardTransactionRepository rewardTrxRepository,
         RewardBatchService rewardBatchService,
-        MerchantRestClient merchantRestClient) {
+        MerchantRestClient merchantRestClient,
+        @Value(value="${app.sampling}") int seed) {
         this.rewardTrxRepository = rewardTrxRepository;
         this.rewardBatchService = rewardBatchService;
         this.merchantRestClient = merchantRestClient;
+        this.seed = seed;
     }
 
     @Override
@@ -78,7 +83,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
                 return Flux.fromIterable(list)
                     .concatMap(this::processTransaction)
-                    .then();
+                    .then(Mono.defer(() -> processOperation(chunkSize)));
             });
     }
 
@@ -139,8 +144,28 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
                         trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
                         trx.setRewardBatchInclusionDate(LocalDateTime.now());
                         trx.setRewardBatchRejectionReason(null);
+                        trx.setSamplingKey(computeSamplingKey(trx.getId()));
                         return trx;
                     })
             );
     }
+
+  /**
+   * Computes a deterministic 32-bit sampling key from the given id string.
+   * <p>
+   * The same id combined with the same seed will always produce the same
+   * sampling key. Different ids are expected to be uniformly distributed
+   * over the 32-bit integer space, which makes this value suitable for
+   * random-like ordering and sampling (e.g. sorting by this key and taking
+   * the first N elements).
+   *
+   * @param id the identifier of the transaction (or any unique string); must not be {@code null}
+   * @return a 32-bit signed integer representing the sampling key
+   */
+  public int computeSamplingKey(String id) {
+    return Hashing
+        .murmur3_32_fixed(this.seed)
+        .hashUnencodedChars(id)
+        .asInt();
+  }
 }
