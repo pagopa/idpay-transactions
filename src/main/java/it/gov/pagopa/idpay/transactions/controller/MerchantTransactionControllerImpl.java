@@ -29,7 +29,7 @@ public class MerchantTransactionControllerImpl implements MerchantTransactionCon
                                                                      String rewardBatchTrxStatus,
                                                                      String pointOfSaleId,
                                                                      Pageable pageable) {
-        log.info("[GET_MERCHANT_TRANSACTIONS] Merchant {} requested to retrieve transactions", Utilities.sanitizeString(merchantId));
+        log.info("[GET_MERCHANT_TRANSACTIONS] Merchant {} requested to retrieve transactions", merchantId);
         return merchantTransactionService.getMerchantTransactions(
                 merchantId,
                 organizationRole,
@@ -44,14 +44,9 @@ public class MerchantTransactionControllerImpl implements MerchantTransactionCon
 
     @Override
     public Mono<List<String>> getProcessedTransactionStatuses(
-            String merchantId,
-            String organizationRole,
-            String initiativeId) {
-
-        log.info("[GET_MERCHANT_TRANSACTIONS_STATUSES] Merchant {} with role {} requested statuses for initiative {}",
-                merchantId, organizationRole, initiativeId);
+            String organizationRole) {
 
         return merchantTransactionService.getProcessedTransactionStatuses(
-                merchantId, organizationRole, initiativeId);
+                organizationRole);
     }
 }
