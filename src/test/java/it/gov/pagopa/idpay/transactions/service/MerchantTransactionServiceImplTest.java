@@ -201,6 +201,9 @@ class MerchantTransactionServiceImplTest {
         verifyNoInteractions(rewardTransactionRepository, userRestClient);
     }
 
+    /**
+     * Non-operator + transaction TO_CHECK -> DTO espone CONSULTABLE.
+     */
     @Test
     void getMerchantTransactionList_nonOperatorToCheckExposedAsConsultable() {
         LocalDateTime now = LocalDateTime.now();

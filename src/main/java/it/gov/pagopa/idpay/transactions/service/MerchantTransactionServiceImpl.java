@@ -168,11 +168,8 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .trxChargeDate(transaction.getTrxChargeDate())
                 .additionalProperties(transaction.getAdditionalProperties())
                 .trxCode(transaction.getTrxCode())
-                .authorizedAmountCents( transaction.getRewards().get(initiativeId).getAccruedRewardCents() > 0
-                        ? transaction.getAmountCents()
-                            - transaction.getRewards().get(initiativeId).getAccruedRewardCents()
-                        : transaction.getAmountCents()
-                            + transaction.getRewards().get(initiativeId).getAccruedRewardCents())
+                .authorizedAmountCents(transaction.getAmountCents()
+                            - transaction.getRewards().get(initiativeId).getAccruedRewardCents())
                 .docNumber(transaction.getInvoiceData() != null ? transaction.getInvoiceData().getDocNumber() : null)
                 .fileName(transaction.getInvoiceData() != null ? transaction.getInvoiceData().getFilename() : null)
                 .rewardBatchTrxStatus(exposed)
