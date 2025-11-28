@@ -39,7 +39,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
 
     log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}, Role: {}",
         merchantId != null ? Utilities.sanitizeString(merchantId) : "null",
-        organizationRole != null ? organizationRole : "null");
+        organizationRole != null ? Utilities.sanitizeString(organizationRole) : "null");
 
     return rewardBatchService.getRewardBatches(merchantId, organizationRole, status, assigneeLevel, pageable)
         .flatMap(page ->
