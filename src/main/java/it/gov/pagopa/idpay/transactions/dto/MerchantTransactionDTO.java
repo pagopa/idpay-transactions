@@ -36,4 +36,6 @@ public class MerchantTransactionDTO {
     String docNumber;
     String fileName;
     RewardBatchTrxStatus rewardBatchTrxStatus;
+    String rewardBatchRejectionReason;
+    String franchiseName;
 }
