@@ -344,13 +344,22 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
 
     @Override
-    public Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus status) {
+    public Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus status, String reason) {
         Criteria criteria = Criteria.where(Fields.id).is(trxId)
                 .and(Fields.rewardBatchId).is(batchId);
+
+        Update update = new Update()
+                .set(Fields.rewardBatchTrxStatus, status);
+
+        if(reason != null){
+            update.set(RewardTransaction.Fields.rewardBatchRejectionReason, reason);
+        } else {
+            update.unset(RewardTransaction.Fields.rewardBatchRejectionReason);
+        }
+
         return mongoTemplate.findAndModify(
                 Query.query(criteria),
-                new Update()
-                        .set(Fields.rewardBatchTrxStatus, status),
+                update,
                 FindAndModifyOptions.options()
                         .returnNew(false)
                         .upsert(false),

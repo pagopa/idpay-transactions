@@ -79,6 +79,9 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
 
     List<String> transactionIds = request.getTransactionIds() != null ? request.getTransactionIds() : List.of();
     String reason = request.getReason();
+    if(request.getReason() == null || request.getReason().isEmpty()){
+      throw new IllegalStateException("The 'reason' field is mandatory.");
+    }
 
     log.info(
             "[SUSPEND_TRANSACTIONS] Requested to suspend {} transactions for rewardBatch {} of initiative {} with reason '{}'",
@@ -99,8 +102,12 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     List<String> transactionIds = request.getTransactionIds() != null ? request.getTransactionIds() : List.of();
     String reason = request.getReason();
 
+    if(request.getReason() == null || request.getReason().isEmpty()){
+      throw new IllegalStateException("The 'reason' field is mandatory.");
+    }
+
     log.info(
-            "[SUSPEND_TRANSACTIONS] Requested to suspend {} transactions for rewardBatch {} of initiative {} with reason '{}'",
+            "[SUSPEND_TRANSACTIONS] Requested to rejected {} transactions for rewardBatch {} of initiative {} with reason '{}'",
             transactionIds.size(),
             rewardBatchId,
             initiativeId,

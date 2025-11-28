@@ -654,7 +654,7 @@ class RewardTransactionSpecificRepositoryTest {
 
         rewardTransactionRepository.save(trxToSave).block();
 
-        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED).block();
+        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED, null).block();
         Assertions.assertNotNull(result);
         Assertions.assertEquals(RewardBatchTrxStatus.SUSPENDED, result.getRewardBatchTrxStatus());
 
@@ -672,17 +672,19 @@ class RewardTransactionSpecificRepositoryTest {
         RewardTransaction trxToSave = RewardTransaction.builder()
                 .id(trxSuspendedId)
                 .rewardBatchId(batchId)
+                .rewardBatchRejectionReason("TEST")
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED).build();
 
         rewardTransactionRepository.save(trxToSave).block();
 
-        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED).block();
+        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED, null).block();
         Assertions.assertNotNull(result);
         Assertions.assertEquals(RewardBatchTrxStatus.SUSPENDED, result.getRewardBatchTrxStatus());
 
         RewardTransaction afterUpdate = rewardTransactionRepository.findById(trxSuspendedId).block();
         Assertions.assertNotNull(afterUpdate);
         Assertions.assertEquals(RewardBatchTrxStatus.APPROVED, afterUpdate.getRewardBatchTrxStatus());
+        Assertions.assertNull(afterUpdate.getRewardBatchRejectionReason());
 
     }
 
@@ -697,7 +699,7 @@ class RewardTransactionSpecificRepositoryTest {
 
         rewardTransactionRepository.save(trxToSave).block();
 
-        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED).block();
+        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED, null).block();
         Assertions.assertNotNull(result);
 
         RewardTransaction afterUpdate = rewardTransactionRepository.findById(trxSuspendedId).block();
@@ -717,12 +719,34 @@ class RewardTransactionSpecificRepositoryTest {
 
         rewardTransactionRepository.save(trxToSave).block();
 
-        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED).block();
+        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED, null).block();
         Assertions.assertNull(result);
 
         RewardTransaction afterUpdate = rewardTransactionRepository.findById(trxSuspendedId).block();
         Assertions.assertNotNull(afterUpdate);
         Assertions.assertEquals(RewardBatchTrxStatus.APPROVED, afterUpdate.getRewardBatchTrxStatus());
+
+    }
+
+    @Test
+    void updateStatusAndReturnOld_RejectedTrxAlreadyApprove() {
+        String trxSuspendedId = "TRX_APPROVED_ID";
+        String batchId = "BATCH_ID";
+        String reason = "REASON_TEST";
+        RewardTransaction trxToSave = RewardTransaction.builder()
+                .id(trxSuspendedId)
+                .rewardBatchId(batchId)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED).build();
+
+        rewardTransactionRepository.save(trxToSave).block();
+
+        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.REJECTED, reason).block();
+        Assertions.assertNotNull(result);
+
+        RewardTransaction afterUpdate = rewardTransactionRepository.findById(trxSuspendedId).block();
+        Assertions.assertNotNull(afterUpdate);
+        Assertions.assertEquals(RewardBatchTrxStatus.REJECTED, afterUpdate.getRewardBatchTrxStatus());
+        Assertions.assertEquals(reason, afterUpdate.getRewardBatchRejectionReason());
 
     }
 }

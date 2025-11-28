@@ -141,7 +141,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                 .switchIfEmpty(Mono.error(new IllegalStateException("Reward batch  %s not  found  or  not in  a  valid  state".formatted(rewardBatchId))))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()))
                 .flatMap(trxId -> rewardTransactionRepository
-                        .updateStatusAndReturnOld(rewardBatchId, trxId, RewardBatchTrxStatus.SUSPENDED)
+                        .updateStatusAndReturnOld(rewardBatchId, trxId, RewardBatchTrxStatus.SUSPENDED, request.getReason())
                 )
                 .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L), (acc, trxOld) -> {
 
@@ -200,7 +200,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                 .switchIfEmpty(Mono.error(new IllegalStateException("Reward batch  %s not  found  or  not in  a  valid  state".formatted(rewardBatchId))))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()))
                 .flatMap(trxId -> rewardTransactionRepository
-                        .updateStatusAndReturnOld(rewardBatchId, trxId, RewardBatchTrxStatus.REJECTED)
+                        .updateStatusAndReturnOld(rewardBatchId, trxId, RewardBatchTrxStatus.REJECTED, request.getReason())
                 )
                 .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L),
                         (acc, trxOld) -> {
@@ -262,7 +262,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
         return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.EVALUATING)
                 .switchIfEmpty(Mono.error(new IllegalStateException("Reward batch  %s not  found  or  not in  a  valid  state".formatted(rewardBatchId))))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()))
-                .flatMap(trxId -> rewardTransactionRepository.updateStatusAndReturnOld(rewardBatchId, trxId, RewardBatchTrxStatus.APPROVED))
+                .flatMap(trxId -> rewardTransactionRepository.updateStatusAndReturnOld(rewardBatchId, trxId, RewardBatchTrxStatus.APPROVED, null))
                 .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L), (acc, trxOld) -> {
                     switch (trxOld.getRewardBatchTrxStatus()){
                         case RewardBatchTrxStatus.APPROVED -> log.info("Skipping  handler  for transaction  {}:  status  is already  APPROVED",  trxOld.getId());
