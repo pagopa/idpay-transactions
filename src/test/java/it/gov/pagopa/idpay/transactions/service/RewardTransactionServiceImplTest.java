@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.Reward;
@@ -28,10 +29,20 @@ class RewardTransactionServiceImplTest {
     @Mock
     private RewardBatchService rewardBatchService;
 
+    @Mock
+    private MerchantRestClient merchantRestClient;
+
+    private final int seed = 15121984;
+
     private RewardTransactionService rewardTransactionService;
     @BeforeEach
     void setUp(){
-        rewardTransactionService = new RewardTransactionServiceImpl(rewardTransactionRepository, rewardBatchService);
+        rewardTransactionService = new RewardTransactionServiceImpl(
+            rewardTransactionRepository,
+            rewardBatchService,
+            merchantRestClient,
+            seed
+        );
     }
 
     @Test
@@ -103,6 +114,7 @@ class RewardTransactionServiceImplTest {
     @Test
     void save_invoiced_enrichesBatch() {
         RewardTransaction rt = RewardTransaction.builder()
+            .id("TRX1")
             .userId("USERID")
             .amountCents(3000L)
             .trxDate(LocalDateTime.of(2022, 9, 19, 15, 43, 39))
@@ -113,6 +125,7 @@ class RewardTransactionServiceImplTest {
             .pointOfSaleId("POS1")
             .businessName("Test Business")
             .trxChargeDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
+            .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39)) // <--- aggiunto
             .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(1000L).build()))
             .initiatives(List.of("initiative1"))
             .build();
