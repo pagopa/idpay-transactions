@@ -141,4 +141,25 @@ class RewardTransactionServiceImplTest {
         Assertions.assertNotNull(result.getRewardBatchInclusionDate());
         Mockito.verify(rewardTransactionRepository, Mockito.times(1)).save(Mockito.any());
     }
+
+    @Test
+    void findByTrxIdAndUserId() {
+        // Given
+        RewardTransaction rt = RewardTransaction.builder()
+                .userId("USERID")
+                .amountCents(3000L)
+                .trxDate(LocalDateTime.of(2022, 9, 19, 15,43,39))
+                .idTrxIssuer("IDTRXISSUER")
+                .build();
+
+        Mockito.when(rewardTransactionRepository.findByTrxIdAndUserId("TRXID", "USERID"))
+                .thenReturn(Mono.just(rt));
+
+        // When
+        Mono<RewardTransaction> result = rewardTransactionService.findByTrxIdAndUserId("TRXID", "USERID");
+        Assertions.assertNotNull(result);
+        RewardTransaction resultRT = result.block();
+        Assertions.assertNotNull(resultRT);
+        Assertions.assertEquals(rt, resultRT);
+    }
 }
