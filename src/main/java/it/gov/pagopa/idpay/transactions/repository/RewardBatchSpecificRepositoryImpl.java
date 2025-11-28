@@ -65,6 +65,19 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
+  public Mono<RewardBatch> decrementTotals(String batchId, long accruedAmountCents) {
+    return mongoTemplate.findAndModify(
+        Query.query(Criteria.where("_id").is(batchId)),
+        new Update()
+            .inc("initialAmountCents", -accruedAmountCents)
+            .inc("numberOfTransactions", -1)
+            .set("updateDate", LocalDateTime.now()),
+        FindAndModifyOptions.options().returnNew(true),
+        RewardBatch.class
+    );
+  }
+
+  @Override
   public Mono<Long> getCount() {
 
     return mongoTemplate.count(new Query(), RewardBatch.class);
