@@ -45,9 +45,6 @@ public class MerchantTransactionControllerImpl implements MerchantTransactionCon
     public Mono<List<String>> getProcessedTransactionStatuses(
             String organizationRole) {
 
-        log.info("[GET_MERCHANT_TRANSACTIONS_STATUSES] Requested statuses for role {}",
-                organizationRole);
-
         return merchantTransactionService.getProcessedTransactionStatuses(
                 organizationRole);
     }
