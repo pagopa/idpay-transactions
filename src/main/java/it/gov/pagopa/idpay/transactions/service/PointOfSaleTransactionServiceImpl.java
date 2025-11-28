@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
@@ -10,6 +11,8 @@ import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
+import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.Page;
@@ -19,6 +22,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.TRANSACTION_MISSING_INVOICE;
 
@@ -131,15 +140,75 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     }
 
     @Override
-    public Mono<Void> updateInvoiceTransaction(
-            String transactionId,
-            String merchantId,
-            String pointOfSaleId,
-            FilePart file,
-            String docNumber) {
+    public Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId, String pointOfSaleId, FilePart file, String docNumber) {
+        try {
+            Utilities.checkFileExtensionOrThrow(file);
 
-        //implementare logica reale.
-        return Mono.error(new UnsupportedOperationException("Not implemented yet"));
+            return rewardTransactionRepository.findTransaction(merchantId, pointOfSaleId, transactionId)
+                    .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
+                    .flatMap(rewardTransaction -> {
+                        String status = rewardTransaction.getStatus();
+                        InvoiceData oldDocumentData = null;
+
+                        if (SyncTrxStatus.INVOICED.name().equalsIgnoreCase(status)) {
+                            oldDocumentData = rewardTransaction.getInvoiceData();
+                        } else {
+                            throw new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE);
+                        }
+                        if (!rewardTransaction.getMerchantId().equals(merchantId)) {
+                            throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, ExceptionConstants.ExceptionCode.GENERIC_ERROR,
+                                    "The merchant with id [%s] associated to the transaction is not equal to the merchant with id [%s]".formatted(
+                                            rewardTransaction.getMerchantId(), merchantId));
+                        }
+                        if (!rewardTransaction.getPointOfSaleId().equals(pointOfSaleId)) {
+                            throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, ExceptionConstants.ExceptionCode.GENERIC_ERROR,
+                                    "The pointOfSaleId with id [%s] associated to the transaction is not equal to the pointOfSaleId with id [%s]".formatted(
+                                            rewardTransaction.getPointOfSaleId(), pointOfSaleId));
+                        }
+
+                        String oldFilename = oldDocumentData.getFilename();
+
+                        String blobPath = String.format(
+                                "invoices/merchant/%s/pos/%s/transaction/%s/invoice/%s",
+                                merchantId, pointOfSaleId, transactionId, file.filename());
+                        String oldBlobPath = String.format(
+                                "invoices/merchant/%s/pos/%s/transaction/%s/invoice/%s",
+                                merchantId, pointOfSaleId, transactionId, oldFilename);
+                        Path tempPath = Paths.get(System.getProperty("java.io.tmpdir"), file.filename());
+
+                        return file.transferTo(tempPath)
+                                .then(Mono.fromCallable(() -> {
+                                    // Delete old file from storage
+                                    invoiceStorageClient.deleteFile(oldBlobPath);
+
+                                    // Upload new file on storage
+                                    try (InputStream is = Files.newInputStream(tempPath)) {
+                                        String contentType = file.headers().getContentType() != null
+                                                ? file.headers().getContentType().toString()
+                                                : null;
+                                        invoiceStorageClient.upload(is, blobPath, contentType);
+                                    }
+
+                                    return null;
+                                }))
+                                .onErrorMap(IOException.class, e -> {
+                                    log.error("Error uploading file to storage for transaction [{}]", Utilities.sanitizeString(transactionId), e);
+                                    throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
+                                            ExceptionConstants.ExceptionCode.GENERIC_ERROR, "Error uploading invoice file", e);
+                                })
+                                .then(Mono.fromRunnable(() ->
+                                        // Update Transaction document
+                                        rewardTransaction.setInvoiceData(InvoiceData.builder()
+                                                .filename(file.filename())
+                                                .docNumber(docNumber)
+                                                .build())
+                                ))
+                                .then(rewardTransactionRepository.save(rewardTransaction).then());
+                    });
+        } catch (Exception e) {
+            throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
+                    ExceptionConstants.ExceptionCode.GENERIC_ERROR, "Error uploading invoice file", e);
+        }
     }
 
 }
