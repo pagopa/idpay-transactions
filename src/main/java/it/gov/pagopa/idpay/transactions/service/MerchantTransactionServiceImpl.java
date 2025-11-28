@@ -174,7 +174,9 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .docNumber(transaction.getInvoiceData() != null ? transaction.getInvoiceData().getDocNumber() : null)
                 .fileName(transaction.getInvoiceData() != null ? transaction.getInvoiceData().getFilename() : null)
                 .rewardBatchTrxStatus(exposed)
-                .pointOfSaleId(transaction.getPointOfSaleId())
+                .pointOfSaleId(transaction.getPointOfSaleId() == null ? "-" : transaction.getPointOfSaleId())
+                .rewardBatchRejectionReason(transaction.getRewardBatchRejectionReason() == null ? "-" : transaction.getRewardBatchRejectionReason())
+                .franchiseName(transaction.getFranchiseName() == null ? "-" : transaction.getFranchiseName())
                 .build();
 
         if (StringUtils.isNotBlank(fiscalCode)) {
