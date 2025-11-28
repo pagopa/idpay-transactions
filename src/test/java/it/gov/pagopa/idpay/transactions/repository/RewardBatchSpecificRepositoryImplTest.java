@@ -61,8 +61,11 @@ class RewardBatchSpecificRepositoryImplTest {
         .startDate(LocalDateTime.of(2025, 11, 1, 0, 0))
         .endDate(LocalDateTime.of(2025, 11, 30, 23, 59))
         .initialAmountCents(0L)
+        .approvedAmountCents(0L)
         .numberOfTransactions(0L)
         .numberOfTransactionsElaborated(0L)
+        .numberOfTransactionsRejected(0L)
+        .numberOfTransactionsSuspended(0L)
         .reportPath(null)
         .build();
 
@@ -81,6 +84,8 @@ class RewardBatchSpecificRepositoryImplTest {
         .initialAmountCents(0L)
         .numberOfTransactions(0L)
         .numberOfTransactionsElaborated(0L)
+        .numberOfTransactionsRejected(0L)
+        .numberOfTransactionsSuspended(0L)
         .reportPath(null)
         .build();
 

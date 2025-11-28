@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
@@ -105,6 +106,7 @@ class RewardTransactionServiceImplTest {
     @Test
     void save_invoiced_enrichesBatch() {
         RewardTransaction rt = RewardTransaction.builder()
+            .id("TRX_ID")
             .userId("USERID")
             .amountCents(3000L)
             .trxDate(LocalDateTime.of(2022, 9, 19, 15, 43, 39))
@@ -117,6 +119,7 @@ class RewardTransactionServiceImplTest {
             .trxChargeDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
             .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(1000L).build()))
             .initiatives(List.of("initiative1"))
+            .status(SyncTrxStatus.INVOICED.name())
             .build();
 
         RewardBatch batch = new RewardBatch();

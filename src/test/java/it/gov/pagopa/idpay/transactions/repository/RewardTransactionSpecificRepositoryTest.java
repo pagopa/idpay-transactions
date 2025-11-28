@@ -733,6 +733,7 @@ class RewardTransactionSpecificRepositoryTest {
             .id("id1")
             .rewardBatchId(batchId)
             .status("INVOICED")
+            .samplingKey(1)
             .build();
         rewardTransactionRepository.save(rt1).block();
 
@@ -740,6 +741,7 @@ class RewardTransactionSpecificRepositoryTest {
             .id("id2")
             .rewardBatchId(batchId)
             .status("INVOICED")
+            .samplingKey(1)
             .build();
         rewardTransactionRepository.save(rt2).block();
 
@@ -747,10 +749,11 @@ class RewardTransactionSpecificRepositoryTest {
             .id("id3")
             .rewardBatchId("OTHERBATCH")
             .status("INVOICED")
+            .samplingKey(3)
             .build();
         rewardTransactionRepository.save(rt3).block();
 
-        rewardTransactionSpecificRepository.rewardTransactionsByBatchId(batchId);
+        rewardTransactionSpecificRepository.rewardTransactionsByBatchId(batchId).block();
 
         RewardTransaction updated1 = rewardTransactionRepository.findById("id1").block();
         RewardTransaction updated2 = rewardTransactionRepository.findById("id2").block();
