@@ -9,6 +9,7 @@ import static org.mockito.Mockito.*;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.Reward;
@@ -920,6 +921,8 @@ class RewardBatchServiceImplTest {
         REWARD_BATCH_OLD.setMonth(YearMonth.of(2025, 11).toString());
         REWARD_BATCH_OLD.setName("novembre 2025");
         REWARD_BATCH_OLD.setNumberOfTransactionsSuspended(10L);
+        REWARD_BATCH_OLD.setStatus(RewardBatchStatus.EVALUATING);
+        REWARD_BATCH_OLD.setAssigneeLevel(RewardBatchAssignee.L2);
 
         REWARD_BATCH_NEW.setMonth(YearMonth.of(2025, 12).toString());
         REWARD_BATCH_NEW.setName("dicembre 2025");
@@ -949,6 +952,8 @@ class RewardBatchServiceImplTest {
         REWARD_BATCH_OLD.setMonth(YearMonth.of(2025, 11).toString());
         REWARD_BATCH_OLD.setName("novembre 2025");
         REWARD_BATCH_OLD.setNumberOfTransactionsSuspended(0L);
+        REWARD_BATCH_OLD.setStatus(RewardBatchStatus.EVALUATING);
+        REWARD_BATCH_OLD.setAssigneeLevel(RewardBatchAssignee.L2);
 
         when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID)).thenReturn(Mono.just(REWARD_BATCH_OLD));
         when(rewardBatchRepository.save(any(RewardBatch.class))).thenReturn(Mono.just(REWARD_BATCH_OLD));
