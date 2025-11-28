@@ -775,7 +775,7 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Mono.just(expectedResult));
 
 
-        RewardBatch result = rewardBatchService.approvedTransactions(batchId, transactionsRequest, initiativeId, merchantId).block();
+        RewardBatch result = rewardBatchService.approvedTransactions(batchId, transactionsRequest, initiativeId).block();
 
         Assertions.assertNotNull(result);
         Assertions.assertEquals(expectedResult, result);
@@ -795,7 +795,7 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.empty());
 
-        Mono<RewardBatch> resultMono = rewardBatchService.approvedTransactions(batchId, transactionsRequest, initiativeId, merchantId);
+        Mono<RewardBatch> resultMono = rewardBatchService.approvedTransactions(batchId, transactionsRequest, initiativeId);
         Assertions.assertThrows(IllegalStateException.class, resultMono::block);
 
         verify(rewardTransactionRepository, never()).updateStatusAndReturnOld(any(), any(),any());
@@ -819,7 +819,7 @@ class RewardBatchServiceImplTest {
         when(rewardTransactionRepository.updateStatusAndReturnOld(batchId, "trxId",  RewardBatchTrxStatus.APPROVED))
                 .thenReturn(Mono.error(new RuntimeException("DUMMY_EXCEPTION")));
 
-        Mono<RewardBatch> resultMono = rewardBatchService.approvedTransactions(batchId, transactionsRequest, initiativeId, merchantId);
+        Mono<RewardBatch> resultMono = rewardBatchService.approvedTransactions(batchId, transactionsRequest, initiativeId);
         Assertions.assertThrows(RuntimeException.class, resultMono::block);
 
         verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(),any());
@@ -853,7 +853,7 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.updateTotals(batchId,1L,  0L,0,0))
                 .thenReturn(Mono.error(new RuntimeException("DUMMY_EXCEPTION")));
 
-        Mono<RewardBatch> resultMono = rewardBatchService.approvedTransactions(batchId, transactionsRequest, initiativeId, merchantId);
+        Mono<RewardBatch> resultMono = rewardBatchService.approvedTransactions(batchId, transactionsRequest, initiativeId);
         Assertions.assertThrows(RuntimeException.class, resultMono::block);
 
         verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(),any());

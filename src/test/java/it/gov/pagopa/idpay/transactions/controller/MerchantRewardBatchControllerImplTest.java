@@ -294,7 +294,7 @@ class MerchantRewardBatchControllerImplTest {
                 .id(rewardBatchId)
                 .build();
 
-        when(rewardBatchService.approvedTransactions(rewardBatchId, request, INITIATIVE_ID, MERCHANT_ID))
+        when(rewardBatchService.approvedTransactions(rewardBatchId, request, INITIATIVE_ID))
                 .thenReturn(Mono.just(batch));
         when(rewardBatchMapper.toDTO(batch)).thenReturn(Mono.just(dto));
 
@@ -312,7 +312,7 @@ class MerchantRewardBatchControllerImplTest {
                 });
 
         verify(rewardBatchService, times(1))
-                .approvedTransactions(any(), any(), any(), any());
+                .approvedTransactions(any(), any(), any());
         verify(rewardBatchMapper, times(1)).toDTO(batch);
     }
 
