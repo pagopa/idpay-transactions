@@ -1,6 +1,8 @@
 package it.gov.pagopa.idpay.transactions.model;
 
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
+import it.gov.pagopa.idpay.transactions.enums.PosType;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import lombok.*;
 import lombok.experimental.FieldNameConstants;
 import org.springframework.data.annotation.Id;
@@ -65,4 +67,13 @@ public class RewardTransaction {
     private InvoiceData invoiceData;
     private InvoiceData creditNoteData;
     private String trxCode;
+
+    private String rewardBatchId;
+    private RewardBatchTrxStatus rewardBatchTrxStatus;
+    private String rewardBatchRejectionReason;
+    private LocalDateTime rewardBatchInclusionDate;
+    private String franchiseName;
+    private PosType pointOfSaleType;
+    private String businessName;
+    private LocalDateTime invoiceUploadDate;
 }
