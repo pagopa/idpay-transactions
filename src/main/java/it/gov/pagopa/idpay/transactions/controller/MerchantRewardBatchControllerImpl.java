@@ -87,8 +87,8 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     log.info(
             "[SUSPEND_TRANSACTIONS] Requested to suspend {} transactions for rewardBatch {} of initiative {} with reason '{}'",
             transactionIds.size(),
-            rewardBatchId,
-            initiativeId,
+            Utilities.sanitizeString(rewardBatchId),
+            Utilities.sanitizeString(initiativeId),
             Utilities.sanitizeString(reason)
     );
 
@@ -110,8 +110,8 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     log.info(
             "[SUSPEND_TRANSACTIONS] Requested to rejected {} transactions for rewardBatch {} of initiative {} with reason '{}'",
             transactionIds.size(),
-            rewardBatchId,
-            initiativeId,
+            Utilities.sanitizeString(rewardBatchId),
+            Utilities.sanitizeString(initiativeId),
             Utilities.sanitizeString(reason)
     );
 
@@ -127,8 +127,8 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     log.info(
             "[APPROVED_TRANSACTIONS] Requested to approve {} transactions for rewardBatch {} of initiative {}",
             transactionIds.size(),
-            rewardBatchId,
-            initiativeId
+            Utilities.sanitizeString(rewardBatchId),
+            Utilities.sanitizeString(initiativeId)
     );
 
     return rewardBatchService.approvedTransactions(rewardBatchId, request, initiativeId)

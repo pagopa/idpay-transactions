@@ -8,6 +8,8 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import java.util.Set;
+
+import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import org.springframework.dao.DuplicateKeyException;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
@@ -413,7 +415,7 @@ private String buildBatchName(YearMonth month) {
 
         return rewardTransactionRepository.findByFilter(oldBatchId, initiativeId, statusList)
                 .switchIfEmpty(Flux.defer(() -> {
-                    log.info("No suspended transactions found for the batch {}", oldBatchId);
+                    log.info("No suspended transactions found for the batch {}",  Utilities.sanitizeString(oldBatchId));
                     return Flux.empty();
                 }))
                 .flatMap(rewardTransaction -> {
