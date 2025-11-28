@@ -71,9 +71,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
 
     @Override
     public Mono<List<String>> getProcessedTransactionStatuses(
-            String merchantId,
-            String organizationRole,
-            String initiativeId) {
+            String organizationRole) {
 
         List<String> allStatuses = Arrays.stream(RewardBatchTrxStatus.values())
                 .map(Enum::name)
@@ -170,13 +168,14 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .trxChargeDate(transaction.getTrxChargeDate())
                 .additionalProperties(transaction.getAdditionalProperties())
                 .trxCode(transaction.getTrxCode())
-                .authorizedAmountCents(
-                        transaction.getAmountCents()
-                                - transaction.getRewards().get(initiativeId).getAccruedRewardCents())
-                .docNumber(transaction.getInvoiceData() != null ? transaction.getInvoiceData().getDocNumber() : null)
-                .fileName(transaction.getInvoiceData() != null ? transaction.getInvoiceData().getFilename() : null)
+                .authorizedAmountCents(transaction.getAmountCents()
+                            - transaction.getRewards().get(initiativeId).getAccruedRewardCents())
+                .invoiceDocNumber(transaction.getInvoiceData() != null ? transaction.getInvoiceData().getDocNumber() : null)
+                .invoiceFileName(transaction.getInvoiceData() != null ? transaction.getInvoiceData().getFilename() : null)
                 .rewardBatchTrxStatus(exposed)
-                .pointOfSaleId(transaction.getPointOfSaleId())
+                .pointOfSaleId(transaction.getPointOfSaleId() == null ? "-" : transaction.getPointOfSaleId())
+                .rewardBatchRejectionReason(transaction.getRewardBatchRejectionReason() == null ? "-" : transaction.getRewardBatchRejectionReason())
+                .franchiseName(transaction.getFranchiseName() == null ? "-" : transaction.getFranchiseName())
                 .build();
 
         if (StringUtils.isNotBlank(fiscalCode)) {
