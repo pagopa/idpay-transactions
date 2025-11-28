@@ -40,16 +40,13 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
   private final UserRestClient userRestClient;
   private final RewardTransactionRepository rewardTransactionRepository;
   private final InvoiceStorageClient invoiceStorageClient;
-  private final RewardTransactionService rewardTransactionService;
   private final RewardBatchService rewardBatchService;
 
   protected PointOfSaleTransactionServiceImpl(
-          UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository, InvoiceStorageClient invoiceStorageClient,
-      RewardTransactionService rewardTransactionService, RewardBatchService rewardBatchService) {
+          UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository, InvoiceStorageClient invoiceStorageClient, RewardBatchService rewardBatchService) {
     this.userRestClient = userRestClient;
     this.rewardTransactionRepository = rewardTransactionRepository;
     this.invoiceStorageClient = invoiceStorageClient;
-    this.rewardTransactionService = rewardTransactionService;
     this.rewardBatchService = rewardBatchService;
   }
 
@@ -214,7 +211,12 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                   String currentMonth = LocalDateTime.now().getMonth().name();
                   PosType posType = PosType.valueOf(rewardTransaction.getPosType());
                   String businessName = rewardTransaction.getBusinessName();
-                  long accruedRewardCents = rewardTransaction.getRewards().get(0).getAccruedRewardCents();
+
+                  String initiativeId = rewardTransaction.getInitiatives().get(0);
+
+                  long accruedRewardCents = rewardTransaction.getRewards()
+                      .get(initiativeId)
+                      .getAccruedRewardCents();
 
                   // Recupero/creo il lotto per il mese corrente
                   return rewardBatchService.findOrCreateBatch(
