@@ -18,8 +18,6 @@ public interface MerchantTransactionService {
                                                               Pageable pageable);
 
     Mono<List<String>> getProcessedTransactionStatuses(
-            String merchantId,
-            String organizationRole,
-            String initiativeId);
+            String organizationRole);
 
 }
