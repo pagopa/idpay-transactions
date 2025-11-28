@@ -631,5 +631,39 @@ class RewardBatchSpecificRepositoryImplTest {
 
     assertTrue(result.isEmpty());
   }
+
+
+  @Test
+  void findRewardBatchById_ShouldReturnDocument() {
+    Mono<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchById(batch1.getId());
+
+    StepVerifier.create(result)
+            .expectNextMatches(batch ->
+                    batch.getId().equals(batch1.getId()) &&
+                            batch.getMerchantId().equals(batch1.getMerchantId()))
+            .verifyComplete();
+  }
+
+  @Test
+  void findRewardBatchByFilter_ShouldReturnDocument_WhenAllFiltersMatch() {
+    Mono<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByFilter(
+            batch1.getId(), batch1.getMerchantId(), batch1.getPosType().name(), batch1.getMonth());
+
+    StepVerifier.create(result)
+            .expectNextMatches(batch ->
+                    batch.getId().equals(batch1.getId()) &&
+                            batch.getPosType().equals(batch1.getPosType()))
+            .verifyComplete();
+  }
+
+  @Test
+  void findRewardBatchByFilter_ShouldReturnEmpty_WhenFiltersDoNotMatch() {
+    Mono<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByFilter(
+            null, "wrongMerchant", null, null);
+
+    StepVerifier.create(result)
+            .verifyComplete();
+  }
+
 }
 
