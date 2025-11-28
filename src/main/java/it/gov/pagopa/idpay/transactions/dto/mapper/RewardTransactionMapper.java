@@ -73,6 +73,8 @@ public class RewardTransactionMapper {
             if(SyncTrxStatus.INVOICED.name().equals(rewardTrxDto.getStatus())){
               rewardTrx.setInvoiceUploadDate(rewardTrxDto.getUpdateDate());
             }
+            rewardTrx.setExtendedAuthorization(rewardTrxDto.getExtendedAuthorization());
+            rewardTrx.setVoucherAmountCents(rewardTrxDto.getVoucherAmountCents());
 
         }
 

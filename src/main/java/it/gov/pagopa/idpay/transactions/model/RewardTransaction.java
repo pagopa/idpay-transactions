@@ -76,4 +76,6 @@ public class RewardTransaction {
     private PosType pointOfSaleType;
     private String businessName;
     private LocalDateTime invoiceUploadDate;
+    private Boolean extendedAuthorization;
+    private Long voucherAmountCents;
 }

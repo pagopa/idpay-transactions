@@ -74,4 +74,6 @@ public class RewardTransactionDTO {
     private PosType pointOfSaleType;
     private String businessName;
     private LocalDateTime updateDate;
+    private Boolean extendedAuthorization;
+    private Long voucherAmountCents;
 }
