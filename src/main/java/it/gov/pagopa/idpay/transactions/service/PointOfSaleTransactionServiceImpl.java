@@ -19,6 +19,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+import it.gov.pagopa.idpay.transactions.utils.Utilities;
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 
 import java.io.IOException;
 import java.io.InputStream;
