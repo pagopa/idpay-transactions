@@ -539,7 +539,6 @@ class RewardBatchSpecificRepositoryImplTest {
     assertNotEquals(batch1.getUpdateDate(), updated.getUpdateDate());
   }
 
-}
 
   @Test
   void getCount_withoutMerchant_shouldExcludeCreated() {

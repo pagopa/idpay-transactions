@@ -1,22 +1,13 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
-import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_NAME;
-import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
-import static org.springframework.integration.IntegrationPatternType.filter;
-
-import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import com.mongodb.client.result.UpdateResult;
+import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
 import it.gov.pagopa.idpay.transactions.service.RewardBatchServiceImpl;
 import it.gov.pagopa.idpay.transactions.utils.AggregationConstants;
-
-import java.util.List;
-import java.util.Optional;
-
-import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.PageRequest;
@@ -35,6 +26,12 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.regex.Pattern;
+
+import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_NAME;
+import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
 
 @Slf4j
 public class RewardTransactionSpecificRepositoryImpl implements RewardTransactionSpecificRepository {
@@ -166,6 +163,16 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         }
     }
 
+    @Override
+    public Flux<RewardTransaction> findByFilter(String rewardBatchId, String initiativeId, List<RewardBatchTrxStatus> statusList) {
+        Criteria criteria = getCriteria(rewardBatchId, initiativeId, statusList);
+        return mongoTemplate.find(Query.query(criteria), RewardTransaction.class);
+    }
+    private Criteria getCriteria(String rewardBatchId, String initiativeId, List<RewardBatchTrxStatus> statusList) {
+        return Criteria.where(RewardTransaction.Fields.rewardBatchId).is(rewardBatchId)
+                .and(RewardTransaction.Fields.initiatives).is(initiativeId)
+                .and(RewardTransaction.Fields.status).in(statusList);
+    }
 
 
     @Override
