@@ -228,7 +228,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                       )
                       .flatMap(newRewardBatch -> {
                         // Se la data del lotto è la stessa, non sposto nulla
-                        if (currentMonth.equals(newRewardBatch.getMonth())) {
+                        if (currentMonth.toString().equals(newRewardBatch.getMonth())) {
                           return rewardTransactionRepository.save(rewardTransaction).then();
                         }
                         // Altrimenti: sposto gli importi dal lotto dal vecchio al nuovo
@@ -237,12 +237,12 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                               // Associo la transaction al nuovo lotto
                               rewardTransaction.setRewardBatchId(newRewardBatch.getId());
                               rewardTransaction.setUpdateDate(LocalDateTime.now());
-                              rewardBatchService.incrementTotals(
-                                  rewardTransaction.getRewardBatchId(),
-                                  accruedRewardCents
-                              );
-                              rewardTransactionRepository.save(rewardTransaction);
                             }))
+                            .then(rewardBatchService.incrementTotals(
+                                rewardTransaction.getRewardBatchId(),
+                                accruedRewardCents
+                            ))
+                            .then(rewardTransactionRepository.save(rewardTransaction))
                             .then();
                       });
                 }));
