@@ -30,6 +30,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.YearMonth;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.TRANSACTION_MISSING_INVOICE;
 
@@ -208,7 +209,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                   rewardTransaction.setUpdateDate(LocalDateTime.now());
 
                   String oldBatchId = rewardTransaction.getRewardBatchId();
-                  String currentMonth = LocalDateTime.now().getMonth().name();
+                  YearMonth currentMonth = YearMonth.now();
                   PosType posType = rewardTransaction.getPointOfSaleType();
                   String businessName = rewardTransaction.getBusinessName();
 
@@ -222,7 +223,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                   return rewardBatchService.findOrCreateBatch(
                           merchantId,
                           posType,
-                          currentMonth,
+                          currentMonth.toString(),
                           businessName
                       )
                       .flatMap(newRewardBatch -> {
