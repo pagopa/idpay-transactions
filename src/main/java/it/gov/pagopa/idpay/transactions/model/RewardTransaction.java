@@ -76,4 +76,5 @@ public class RewardTransaction {
     private PosType pointOfSaleType;
     private String businessName;
     private LocalDateTime invoiceUploadDate;
+    private LocalDateTime updateDate;
 }
