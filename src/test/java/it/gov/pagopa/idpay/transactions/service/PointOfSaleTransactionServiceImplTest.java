@@ -7,7 +7,8 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import it.gov.pagopa.common.web.exception.ClientException;
-import org.junit.jupiter.api.Disabled;
+import it.gov.pagopa.idpay.transactions.model.Reward;
+import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.http.HttpHeaders;
@@ -20,7 +21,6 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
-import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
@@ -42,6 +42,8 @@ import reactor.test.StepVerifier;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
 
 @MockitoSettings(strictness = Strictness.LENIENT)
 @ExtendWith(MockitoExtension.class)
@@ -377,7 +379,6 @@ class PointOfSaleTransactionServiceImplTest {
         verify(invoiceStorageClient).getFileSignedUrl(anyString());
     }
 
-    @Disabled
     @Test
     void updateInvoiceTransaction_success() throws IOException {
         Path tempPath = Files.createTempFile("new_invoice", ".pdf");
@@ -385,13 +386,24 @@ class PointOfSaleTransactionServiceImplTest {
 
         FilePart filePart = createMockFilePart(tempPath.getFileName().toString(),
                 MediaType.APPLICATION_PDF_VALUE);
-        RewardTransaction trx = RewardTransaction.builder()
-                .id(TRX_ID)
-                .merchantId(MERCHANT_ID)
-                .pointOfSaleId(POINT_OF_SALE_ID)
-                .status("INVOICED")
-                .invoiceData(InvoiceData.builder().filename(OLD_FILENAME).docNumber("OLD_DOC").build())
-                .build();
+    RewardTransaction trx =
+        RewardTransaction.builder()
+            .id(TRX_ID)
+            .merchantId(MERCHANT_ID)
+            .pointOfSaleId(POINT_OF_SALE_ID)
+            .initiatives(List.of("1234"))
+            .status("INVOICED")
+            .invoiceData(InvoiceData.builder().filename(OLD_FILENAME).docNumber("OLD_DOC").build())
+            .rewardBatchId("OLD_BATCH_ID")
+            .pointOfSaleType(it.gov.pagopa.idpay.transactions.enums.PosType.ONLINE)
+            .businessName("Test Business")
+            .rewards(Map.of("1234", Reward.builder()
+                    .accruedRewardCents(1000L)
+                    .build()))
+            .build();
+
+        RewardBatch newBatch = new RewardBatch();
+        newBatch.setId("NEW_BATCH_ID");
 
         when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
@@ -402,6 +414,12 @@ class PointOfSaleTransactionServiceImplTest {
         });
         when(invoiceStorageClient.deleteFile(anyString())).thenReturn(null);
         when(invoiceStorageClient.upload(any(), anyString(), anyString())).thenReturn(null);
+        when(rewardBatchService.findOrCreateBatch(eq(MERCHANT_ID), any(), anyString(), eq("Test Business")))
+                .thenReturn(Mono.just(newBatch));
+        when(rewardBatchService.decrementTotals(eq("OLD_BATCH_ID"), eq(1000L)))
+                .thenReturn(Mono.empty());
+        when(rewardBatchService.incrementTotals(eq("NEW_BATCH_ID"), eq(1000L)))
+                .thenReturn(Mono.empty());
         when(rewardTransactionRepository.save(any(RewardTransaction.class))).thenReturn(Mono.just(trx));
 
         Mono<Void> result = pointOfSaleTransactionService.updateInvoiceTransaction(
@@ -417,6 +435,9 @@ class PointOfSaleTransactionServiceImplTest {
                         "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/"
                                 + tempPath.getFileName().toString()),
                 eq(MediaType.APPLICATION_PDF_VALUE));
+        verify(rewardBatchService).findOrCreateBatch(eq(MERCHANT_ID), any(), anyString(), eq("Test Business"));
+        verify(rewardBatchService).decrementTotals(eq("OLD_BATCH_ID"), eq(1000L));
+        verify(rewardBatchService).incrementTotals(eq("NEW_BATCH_ID"), eq(1000L));
         verify(rewardTransactionRepository).save(any(RewardTransaction.class));
 
         Files.deleteIfExists(tempPath);
