@@ -228,22 +228,19 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                       )
                       .flatMap(newRewardBatch -> {
                         // Se il lotto non è cambiato, aggiorno solo la transaction
-                        if (newRewardBatch.getId().equals(rewardTransaction.getRewardBatchId())) {
+                        if (newRewardBatch.getId().equals(oldBatchId)) {
                           return rewardTransactionRepository.save(rewardTransaction).then();
                         }
                         // Altrimenti: sposto gli importi dal lotto dal vecchio al nuovo
                         return rewardBatchService.decrementTotals(oldBatchId, accruedRewardCents)
-                            .then(Mono.fromRunnable(() -> {
-                              // Associo la transaction al nuovo lotto
-                              rewardTransaction.setRewardBatchId(newRewardBatch.getId());
-                              rewardTransaction.setUpdateDate(LocalDateTime.now());
-                            }))
-                            .then(rewardBatchService.incrementTotals(
-                                rewardTransaction.getRewardBatchId(),
-                                accruedRewardCents
-                            ))
-                            .then(rewardTransactionRepository.save(rewardTransaction))
-                            .then();
+                                .then(rewardBatchService.incrementTotals(newRewardBatch.getId(), accruedRewardCents))
+                                .then(Mono.fromRunnable(() -> {
+                                    // Associo la transaction al nuovo lotto
+                                    rewardTransaction.setRewardBatchId(newRewardBatch.getId());
+                                    rewardTransaction.setUpdateDate(LocalDateTime.now());
+                                }))
+                                .then(rewardTransactionRepository.save(rewardTransaction))
+                                .then();
                       });
                 }));
           });
