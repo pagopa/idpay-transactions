@@ -237,12 +237,11 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                               // Associo la transaction al nuovo lotto
                               rewardTransaction.setRewardBatchId(newRewardBatch.getId());
                               rewardTransaction.setUpdateDate(LocalDateTime.now());
-                            }))
-                            .then(rewardBatchService.incrementTotals(
+                            }).then(
+                                    rewardBatchService.incrementTotals(
                                 rewardTransaction.getRewardBatchId(),
                                 accruedRewardCents
-                            ))
-                            .then(rewardTransactionRepository.save(rewardTransaction))
+                            ).then(rewardTransactionRepository.save(rewardTransaction))))
                             .then();
                       });
                 }));
