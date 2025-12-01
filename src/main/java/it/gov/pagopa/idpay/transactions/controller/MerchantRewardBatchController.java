@@ -1,6 +1,10 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
+import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
+import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -27,4 +31,30 @@ public interface MerchantRewardBatchController {
       @PathVariable("initiativeId") String initiativeId,
       @PathVariable("batchId") String batchId
       );
+
+  @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/suspended")
+  Mono<RewardBatchDTO> suspendTransactions(
+          @PathVariable("initiativeId") String initiativeId,
+          @PathVariable("rewardBatchId") String rewardBatchId,
+          @RequestBody @Valid TransactionsRequest request);
+
+
+@PutMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/approved")
+Mono<RewardBatch>  rewardBatchConfirmation(
+        @PathVariable("initiativeId") String initiativeId,
+        @PathVariable("rewardBatchId") String rewardBatchId);
+
+  @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/rejected")
+  Mono<RewardBatchDTO> rejectTransactions(
+          @PathVariable("initiativeId") String initiativeId,
+          @PathVariable("rewardBatchId") String rewardBatchId,
+          @RequestBody @Valid TransactionsRequest request);
+
+
+  @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/approved")
+  Mono<RewardBatchDTO> approvedTransactions(
+          @PathVariable("initiativeId") String initiativeId,
+          @PathVariable("rewardBatchId") String rewardBatchId,
+          @RequestBody @Valid TransactionsRequest request);
+
 }

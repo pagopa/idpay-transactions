@@ -1,8 +1,11 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
+import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
+import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
+import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.service.RewardBatchService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
@@ -13,6 +16,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 @RestController
 @Slf4j
@@ -62,4 +67,71 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
                 Utilities.sanitizeString(merchantId), Utilities.sanitizeString(batchId));
         return this.rewardBatchService.sendRewardBatch(merchantId, batchId);
     }
+
+  @Override
+  public  Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId) {
+    log.info("[REWARD_BATCH_CONFIRMATION] Batch confirmation fot batch batchId {}",
+            Utilities.sanitizeString(rewardBatchId));
+    return rewardBatchService.rewardBatchConfirmation(initiativeId, rewardBatchId);
+  }
+
+  @Override
+  public Mono<RewardBatchDTO> suspendTransactions(String initiativeId, String rewardBatchId, TransactionsRequest request) {
+
+    List<String> transactionIds = request.getTransactionIds() != null ? request.getTransactionIds() : List.of();
+    String reason = request.getReason();
+    if(request.getReason() == null || request.getReason().isEmpty()){
+      throw new IllegalStateException("The 'reason' field is mandatory.");
+    }
+
+    log.info(
+            "[SUSPEND_TRANSACTIONS] Requested to suspend {} transactions for rewardBatch {} of initiative {} with reason '{}'",
+            transactionIds.size(),
+            Utilities.sanitizeString(rewardBatchId),
+            Utilities.sanitizeString(initiativeId),
+            Utilities.sanitizeString(reason)
+    );
+
+    return rewardBatchService.suspendTransactions(rewardBatchId, initiativeId, request)
+            .flatMap(rewardBatchMapper::toDTO);
+  }
+
+
+  @Override
+  public Mono<RewardBatchDTO> rejectTransactions(String initiativeId, String rewardBatchId, TransactionsRequest request) {
+
+    List<String> transactionIds = request.getTransactionIds() != null ? request.getTransactionIds() : List.of();
+    String reason = request.getReason();
+
+    if(request.getReason() == null || request.getReason().isEmpty()){
+      throw new IllegalStateException("The 'reason' field is mandatory.");
+    }
+
+    log.info(
+            "[SUSPEND_TRANSACTIONS] Requested to rejected {} transactions for rewardBatch {} of initiative {} with reason '{}'",
+            transactionIds.size(),
+            Utilities.sanitizeString(rewardBatchId),
+            Utilities.sanitizeString(initiativeId),
+            Utilities.sanitizeString(reason)
+    );
+
+    return rewardBatchService.rejectTransactions(rewardBatchId, initiativeId, request)
+            .flatMap(rewardBatchMapper::toDTO);
+  }
+
+  @Override
+  public Mono<RewardBatchDTO> approvedTransactions(String initiativeId, String rewardBatchId, TransactionsRequest request) {
+
+    List<String> transactionIds = request.getTransactionIds() != null ? request.getTransactionIds() : List.of();
+
+    log.info(
+            "[APPROVED_TRANSACTIONS] Requested to approve {} transactions for rewardBatch {} of initiative {}",
+            transactionIds.size(),
+            Utilities.sanitizeString(rewardBatchId),
+            Utilities.sanitizeString(initiativeId)
+    );
+
+    return rewardBatchService.approvedTransactions(rewardBatchId, request, initiativeId)
+            .flatMap(rewardBatchMapper::toDTO);
+  }
 }

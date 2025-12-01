@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import com.google.common.hash.Hashing;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH;
 
 import com.google.common.hash.Hashing;
