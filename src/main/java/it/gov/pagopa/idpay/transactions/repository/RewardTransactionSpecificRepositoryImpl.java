@@ -1,5 +1,8 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
+import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_NAME;
+import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
+
 import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
@@ -29,9 +32,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
-
-import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_NAME;
-import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
 
 @Slf4j
 public class RewardTransactionSpecificRepositoryImpl implements RewardTransactionSpecificRepository {
