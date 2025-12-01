@@ -192,7 +192,7 @@ class RewardTransactionServiceImplTest {
   @Test
   void computeSamplingKey_shouldChangeWhenSeedChanges() {
     String id = "6543e5b9d9f31b0d94f6d21c";
-    RewardTransactionServiceImpl hasher2 = new RewardTransactionServiceImpl(rewardTransactionRepository, rewardBatchService, 0x22222222);
+    RewardTransactionServiceImpl hasher2 = new RewardTransactionServiceImpl(rewardTransactionRepository, rewardBatchService, merchantRestClient,0x22222222);
 
     int h1 = ((RewardTransactionServiceImpl)rewardTransactionService).computeSamplingKey(id);
     int h2 = hasher2.computeSamplingKey(id);

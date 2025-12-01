@@ -3,7 +3,6 @@ package it.gov.pagopa.idpay.transactions.service;
 import com.google.common.hash.Hashing;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH;
 
-import com.google.common.hash.Hashing;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
