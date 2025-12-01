@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.repository;
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_NAME;
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
 
+import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
