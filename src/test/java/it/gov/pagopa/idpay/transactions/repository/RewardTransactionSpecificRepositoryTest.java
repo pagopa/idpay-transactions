@@ -837,6 +837,8 @@ class RewardTransactionSpecificRepositoryTest {
         Assertions.assertNotNull(afterUpdate);
         Assertions.assertEquals(RewardBatchTrxStatus.APPROVED, afterUpdate.getRewardBatchTrxStatus());
 
+        rewardTransactionRepository.deleteById(trxToSave.getId()).block();
+
     }
 
     @Test
@@ -861,6 +863,8 @@ class RewardTransactionSpecificRepositoryTest {
         Assertions.assertEquals(RewardBatchTrxStatus.APPROVED, afterUpdate.getRewardBatchTrxStatus());
         Assertions.assertNull(afterUpdate.getRewardBatchRejectionReason());
 
+        rewardTransactionRepository.deleteById(trxToSave.getId()).block();
+
     }
 
     @Test
@@ -881,6 +885,8 @@ class RewardTransactionSpecificRepositoryTest {
         Assertions.assertNotNull(afterUpdate);
         Assertions.assertEquals(RewardBatchTrxStatus.APPROVED, afterUpdate.getRewardBatchTrxStatus());
 
+        rewardTransactionRepository.deleteById(trxToSave.getId()).block();
+
     }
 
     @Test
@@ -900,6 +906,8 @@ class RewardTransactionSpecificRepositoryTest {
         RewardTransaction afterUpdate = rewardTransactionRepository.findById(trxSuspendedId).block();
         Assertions.assertNotNull(afterUpdate);
         Assertions.assertEquals(RewardBatchTrxStatus.APPROVED, afterUpdate.getRewardBatchTrxStatus());
+
+        rewardTransactionRepository.deleteById(trxToSave.getId()).block();
 
     }
 
@@ -923,6 +931,8 @@ class RewardTransactionSpecificRepositoryTest {
         Assertions.assertEquals(RewardBatchTrxStatus.REJECTED, afterUpdate.getRewardBatchTrxStatus());
         Assertions.assertEquals(reason, afterUpdate.getRewardBatchRejectionReason());
 
+        rewardTransactionRepository.deleteById(trxToSave.getId()).block();
+
     }
 
     @Test
@@ -941,6 +951,8 @@ class RewardTransactionSpecificRepositoryTest {
 
         Assertions.assertNotNull(result);
         Assertions.assertEquals(rt1.getId(), result.getId());
+
+        rewardTransactionRepository.deleteById(rt1.getId()).block();
 
     }
 }
