@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
@@ -35,7 +36,7 @@ import java.util.Set;
 @Service
 @Slf4j
 public class RewardBatchServiceImpl implements RewardBatchService {
-  private static final String ERROR_MESSAGE_NOT_FOUND_BATCH = "Reward batch  %s not  found  or  not in  a  valid  state";
+
 
   private final RewardBatchRepository rewardBatchRepository;
   private final RewardTransactionRepository rewardTransactionRepository;
@@ -146,7 +147,9 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     @Override
     public Mono<RewardBatch> suspendTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request) {
         return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.EVALUATING)
-                .switchIfEmpty(Mono.error(new IllegalStateException(ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(HttpStatus.NOT_FOUND,
+                        ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
+                        ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()))
                 .flatMap(trxId -> rewardTransactionRepository
                         .updateStatusAndReturnOld(rewardBatchId, trxId, RewardBatchTrxStatus.SUSPENDED, request.getReason())
@@ -205,7 +208,9 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     @Override
     public Mono<RewardBatch> rejectTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request) {
         return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.EVALUATING)
-                .switchIfEmpty(Mono.error(new IllegalStateException(ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(HttpStatus.NOT_FOUND,
+                        ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
+                        ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()))
                 .flatMap(trxId -> rewardTransactionRepository
                         .updateStatusAndReturnOld(rewardBatchId, trxId, RewardBatchTrxStatus.REJECTED, request.getReason())
@@ -268,7 +273,9 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     @Override
     public Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String initiativeId) {
         return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.EVALUATING)
-                .switchIfEmpty(Mono.error(new IllegalStateException(ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(HttpStatus.NOT_FOUND,
+                        ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
+                        ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()))
                 .flatMap(trxId -> rewardTransactionRepository.updateStatusAndReturnOld(rewardBatchId, trxId, RewardBatchTrxStatus.APPROVED, null))
                 .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L), (acc, trxOld) -> {
@@ -305,8 +312,10 @@ private String buildBatchName(YearMonth month) {
     @Override
     public Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId)      {
     return rewardBatchRepository.findRewardBatchById(rewardBatchId)
-    .switchIfEmpty(Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
-            ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)))
+    .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+            HttpStatus.NOT_FOUND,
+            ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND,
+            ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
     .filter(rewardBatch -> rewardBatch.getStatus().equals(RewardBatchStatus.EVALUATING)
                             &&  !rewardBatch.getAssigneeLevel().equals(RewardBatchAssignee.L3 ))
             .map(rewardBatch -> {
@@ -327,8 +336,10 @@ private String buildBatchName(YearMonth month) {
                 } else {
                     return Mono.just(savedBatch);
                 }
-            }).switchIfEmpty(Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
-                    ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST
+            }).switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST,
+                    ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_INVALID_STATE_BATCH
             )));
   }
   Mono<RewardBatch> createRewardBatchAndSave(RewardBatch savedBatch) {

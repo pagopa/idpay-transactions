@@ -7,6 +7,7 @@ import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.service.RewardBatchService;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
@@ -81,7 +82,9 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     List<String> transactionIds = request.getTransactionIds() != null ? request.getTransactionIds() : List.of();
     String reason = request.getReason();
     if(request.getReason() == null || request.getReason().isEmpty()){
-      throw new IllegalStateException("The 'reason' field is mandatory.");
+      throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
+              ExceptionCode.REASON_FIELD_IS_MANDATORY,
+              ExceptionConstants.ExceptionMessage.REASON_FIELD_IS_MANDATORY);
     }
 
     log.info(
@@ -104,11 +107,13 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     String reason = request.getReason();
 
     if(request.getReason() == null || request.getReason().isEmpty()){
-      throw new IllegalStateException("The 'reason' field is mandatory.");
+      throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
+              ExceptionCode.REASON_FIELD_IS_MANDATORY,
+              ExceptionConstants.ExceptionMessage.REASON_FIELD_IS_MANDATORY);
     }
 
     log.info(
-            "[SUSPEND_TRANSACTIONS] Requested to rejected {} transactions for rewardBatch {} of initiative {} with reason '{}'",
+            "[REJECT_TRANSACTIONS] Requested to rejected {} transactions for rewardBatch {} of initiative {} with reason '{}'",
             transactionIds.size(),
             Utilities.sanitizeString(rewardBatchId),
             Utilities.sanitizeString(initiativeId),
