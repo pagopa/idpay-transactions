@@ -22,7 +22,7 @@ public interface MerchantRewardBatchController {
       @RequestParam(required = false) String status,
       @RequestParam(required = false) String assigneeLevel,
       @PathVariable("initiativeId") String initiativeId,
-      @PageableDefault(sort = "name", direction = Sort.Direction.ASC) Pageable pageable);
+      @PageableDefault(sort = "month", direction = Sort.Direction.ASC) Pageable pageable);
 
   @PostMapping("/initiatives/{initiativeId}/reward-batches/{batchId}/send")
   @ResponseStatus(HttpStatus.NO_CONTENT)

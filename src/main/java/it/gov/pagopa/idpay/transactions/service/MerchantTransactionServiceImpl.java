@@ -21,7 +21,6 @@ import reactor.util.function.Tuple2;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.Comparator;
 
 @Service
 public class MerchantTransactionServiceImpl implements MerchantTransactionService {
@@ -133,7 +132,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                         filters.getFiscalCode(),
                         organizationRole
                 ))
-                .collectSortedList(Comparator.comparing(MerchantTransactionDTO::getElaborationDateTime).reversed())
+                .collectList()
                 .zipWith(
                         rewardTransactionRepository.getCount(
                                 filters,
