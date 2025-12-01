@@ -258,6 +258,7 @@ class RewardTransactionServiceImplTest {
 
     RewardBatch batch = new RewardBatch();
     batch.setId("BATCH_ID");
+    batch.setStatus(RewardBatchStatus.CREATED);
 
     Mockito.when(rewardBatchService.findOrCreateBatch(
         rt.getMerchantId(),
