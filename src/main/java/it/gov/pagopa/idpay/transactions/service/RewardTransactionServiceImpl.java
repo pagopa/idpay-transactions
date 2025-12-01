@@ -12,6 +12,7 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import lombok.extern.slf4j.Slf4j;
@@ -73,7 +74,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
     public Mono<Void> assignInvoicedTransactionsToBatches(Integer chunkSize, boolean processAll, String trxId) {
 
       if (trxId != null && !trxId.isEmpty()) {
-        log.info("[BATCH_ASSIGNMENT] Processing transaction with ID={}", trxId);
+        log.info("[BATCH_ASSIGNMENT] Processing transaction with ID={}", Utilities.sanitizeString(trxId));
         return rewardTrxRepository.findInvoicedTrxByIdWithoutBatch(trxId)
             .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.NOT_FOUND, String.format(TRANSACTION_NOT_FOUND, trxId))))
             .flatMap(this::processTransaction)
