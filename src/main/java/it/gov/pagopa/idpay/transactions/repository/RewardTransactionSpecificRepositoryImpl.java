@@ -4,22 +4,23 @@ import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
 
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
+import it.gov.pagopa.idpay.transactions.service.RewardBatchServiceImpl;
 import it.gov.pagopa.idpay.transactions.utils.AggregationConstants;
-import java.util.Optional;
-
-import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.ComparisonOperators;
 import org.springframework.data.mongodb.core.aggregation.ConditionalOperators;
+import org.springframework.data.mongodb.core.aggregation.MatchOperation;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -27,9 +28,15 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.regex.Pattern;
+
+import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_NAME;
+import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
 
 @Slf4j
-public class RewardTransactionSpecificRepositoryImpl implements RewardTransactionSpecificRepository{
+public class RewardTransactionSpecificRepositoryImpl implements RewardTransactionSpecificRepository {
     private final ReactiveMongoTemplate mongoTemplate;
 
     public RewardTransactionSpecificRepositoryImpl(ReactiveMongoTemplate mongoTemplate) {
@@ -131,7 +138,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     public Flux<RewardTransaction> findByFilter(TrxFiltersDTO filters,
                                                 String userId,
                                                 Pageable pageable) {
-        Criteria criteria = getCriteria(filters, null, userId, null);
+        Criteria criteria = getCriteria(filters, filters.getPointOfSaleId(), userId, null);
         return mongoTemplate.find(Query.query(criteria).with(getPageable(pageable)), RewardTransaction.class);
     }
 
@@ -158,6 +165,16 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         }
     }
 
+    @Override
+    public Flux<RewardTransaction> findByFilter(String rewardBatchId, String initiativeId, List<RewardBatchTrxStatus> statusList) {
+        Criteria criteria = getCriteria(rewardBatchId, initiativeId, statusList);
+        return mongoTemplate.find(Query.query(criteria), RewardTransaction.class);
+    }
+    private Criteria getCriteria(String rewardBatchId, String initiativeId, List<RewardBatchTrxStatus> statusList) {
+        return Criteria.where(RewardTransaction.Fields.rewardBatchId).is(rewardBatchId)
+                .and(RewardTransaction.Fields.initiatives).is(initiativeId)
+                .and(Fields.rewardBatchTrxStatus).in(statusList);
+    }
 
 
     @Override
@@ -281,11 +298,105 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
     @Override
     public Mono<Void> rewardTransactionsByBatchId(String batchId) {
-        Criteria criteria = Criteria.where(Fields.rewardBatchId).is(batchId);
-        mongoTemplate.updateMulti(
+        // all transactions of batchId lot
+        Criteria batchCriteria = Criteria.where(Fields.rewardBatchId).is(batchId);
+
+        // 1) All the trx in the lot -> REWARDED
+        //    Use modifiedCount to find out how many have been updaetd
+        Mono<Long> totalMono = mongoTemplate.updateMulti(
+                        Query.query(batchCriteria),
+                        new Update().set(Fields.status, SyncTrxStatus.REWARDED),
+                        RewardTransaction.class
+                )
+                .map(UpdateResult::getModifiedCount);
+
+        return totalMono
+                // if there are no transactions, is done
+                .filter(total -> total > 0)
+                .flatMap(total -> {
+                    int toVerify = (int) Math.ceil(total * 0.15);
+
+                    // 2) Query to select the top 15% sorted by samplingKey
+                    Query sampleQuery = Query.query(batchCriteria);
+                    sampleQuery.with(Sort.by(Sort.Direction.ASC, Fields.samplingKey));
+                    sampleQuery.limit(toVerify);
+                    sampleQuery.fields().include(Fields.id);
+
+                    // Extract the list of ids (String) directly
+                    Mono<List<String>> idsToVerifyMono = mongoTemplate
+                            .find(sampleQuery, RewardTransaction.class)
+                            .map(RewardTransaction::getId)
+                            .collectList();
+
+                    // 3) Override: 15% sample -> TO_CHECK
+                    return idsToVerifyMono
+                            .filter(ids -> !ids.isEmpty())
+                            .flatMap(idsToVerify -> {
+                                Criteria toVerifyCriteria = Criteria.where(Fields.id).in(idsToVerify);
+
+                                return mongoTemplate.updateMulti(
+                                                Query.query(toVerifyCriteria),
+                                                new Update().set(Fields.rewardBatchTrxStatus, RewardBatchTrxStatus.TO_CHECK),
+                                                RewardTransaction.class
+                                        )
+                                        .then();
+                            });
+                })
+                .then();
+    }
+
+    @Override
+    public Mono<Long> sumSuspendedAccruedRewardCents(String rewardBatchId, List<String> transactionIds, String initiativeId) {
+
+        MatchOperation match = Aggregation.match(
+                Criteria.where("rewardBatchId").is(rewardBatchId)
+                        .and("id").in(transactionIds)
+                        .and("rewardBatchTrxStatus").is(RewardBatchTrxStatus.SUSPENDED)
+        );
+
+        Aggregation agg = Aggregation.newAggregation(
+                match,
+                Aggregation.project().andExpression("objectToArray(rewards)").as("rewardsArray"),
+                Aggregation.unwind("rewardsArray"),
+                Aggregation.match(Criteria.where("rewardsArray.k").is(initiativeId)),
+                Aggregation.group().sum("rewardsArray.v.accruedRewardCents").as("total")
+        );
+
+        return mongoTemplate
+                .aggregate(agg, RewardTransaction.class, RewardBatchServiceImpl.TotalAmount.class)
+                .next()
+                .map(RewardBatchServiceImpl.TotalAmount::getTotal)
+                .defaultIfEmpty(0L);
+    }
+
+
+    @Override
+    public Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus status, String reason) {
+        Criteria criteria = Criteria.where(Fields.id).is(trxId)
+                .and(Fields.rewardBatchId).is(batchId);
+
+        Update update = new Update()
+                .set(Fields.rewardBatchTrxStatus, status);
+
+        if(reason != null){
+            update.set(RewardTransaction.Fields.rewardBatchRejectionReason, reason);
+        } else {
+            update.unset(RewardTransaction.Fields.rewardBatchRejectionReason);
+        }
+
+        return mongoTemplate.findAndModify(
                 Query.query(criteria),
-                new Update().set(Fields.status, SyncTrxStatus.REWARDED),
-                RewardTransaction.class).subscribe();
-        return Mono.empty();
+                update,
+                FindAndModifyOptions.options()
+                        .returnNew(false)
+                        .upsert(false),
+                RewardTransaction.class
+        ).flatMap(trx -> {
+            if (trx == null){
+                log.info("Transaction not found for id {} and reward batch {}", trxId, batchId);
+                return Mono.empty();
+            }
+            return Mono.just(trx);
+        });
     }
 }
