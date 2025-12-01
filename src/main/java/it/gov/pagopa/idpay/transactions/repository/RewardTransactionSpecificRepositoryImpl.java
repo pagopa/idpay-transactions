@@ -33,9 +33,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_NAME;
-import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
-
 @Slf4j
 public class RewardTransactionSpecificRepositoryImpl implements RewardTransactionSpecificRepository {
     private final ReactiveMongoTemplate mongoTemplate;
