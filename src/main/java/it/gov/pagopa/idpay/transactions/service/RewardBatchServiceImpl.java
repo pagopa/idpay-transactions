@@ -339,7 +339,7 @@ private String buildBatchName(YearMonth month) {
             }).switchIfEmpty(Mono.error(new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
                     ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST,
-                    ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_INVALID_STATE_BATCH
+                    ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
             )));
   }
   Mono<RewardBatch> createRewardBatchAndSave(RewardBatch savedBatch) {
