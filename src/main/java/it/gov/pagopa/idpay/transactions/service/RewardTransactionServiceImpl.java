@@ -1,8 +1,12 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH;
+
 import com.google.common.hash.Hashing;
+import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
@@ -12,6 +16,7 @@ import java.time.YearMonth;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -120,11 +125,12 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
             log.info("[BATCH_ASSIGNMENT][{}] Transaction processed successfully.", savedTrx.getId());
 
             log.info("[BATCH_ASSIGNMENT][{}] Enriched fields: "
-                    + "franchiseName='{}', pointOfSaleType='{}', businessName='{}'",
+                    + "franchiseName='{}', pointOfSaleType='{}', businessName='{}', rewardBatchId='{}'",
                 savedTrx.getId(),
                 savedTrx.getFranchiseName(),
                 savedTrx.getPointOfSaleType(),
-                savedTrx.getBusinessName()
+                savedTrx.getBusinessName(),
+                savedTrx.getRewardBatchId()
             );
           });
     }
@@ -186,18 +192,23 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
                     batchMonth,
                     trx.getBusinessName()
             )
-            .flatMap(rewardBatch ->
-                rewardBatchService.incrementTotals(rewardBatch.getId(), accruedRewardCents)
-                    .map(batch -> {
-                        trx.setRewardBatchId(batch.getId());
-                        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-                        trx.setRewardBatchInclusionDate(LocalDateTime.now());
-                        trx.setRewardBatchRejectionReason(null);
-                        trx.setSamplingKey(computeSamplingKey(trx.getId()));
-                        trx.setUpdateDate(LocalDateTime.now());
-                        return trx;
-                    })
-            );
+            .flatMap(rewardBatch -> {
+
+              if (rewardBatch.getStatus() != RewardBatchStatus.CREATED) {
+                throw new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_STATUS_MISMATCH);
+              }
+
+              return rewardBatchService.incrementTotals(rewardBatch.getId(), accruedRewardCents)
+                  .map(batch -> {
+                    trx.setRewardBatchId(batch.getId());
+                    trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
+                    trx.setRewardBatchInclusionDate(LocalDateTime.now());
+                    trx.setRewardBatchRejectionReason(null);
+                    trx.setSamplingKey(computeSamplingKey(trx.getId()));
+                    trx.setUpdateDate(LocalDateTime.now());
+                    return trx;
+                  });
+            });
     }
 
   /**

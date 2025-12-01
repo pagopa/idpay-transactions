@@ -1,9 +1,11 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.PointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.PointOfSaleTypeEnum;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
@@ -18,10 +20,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
+import reactor.test.StepVerifier;
 
 @ExtendWith(MockitoExtension.class)
 class RewardTransactionServiceImplTest {
@@ -134,6 +138,7 @@ class RewardTransactionServiceImplTest {
 
         RewardBatch batch = new RewardBatch();
         batch.setId("BATCH1");
+        batch.setStatus(RewardBatchStatus.CREATED);
 
         Mockito.when(rewardBatchService.findOrCreateBatch(
             rt.getMerchantId(),
@@ -189,6 +194,7 @@ class RewardTransactionServiceImplTest {
 
         RewardBatch batch = new RewardBatch();
         batch.setId("BATCH1");
+        batch.setStatus(RewardBatchStatus.CREATED);
 
         Mockito.when(rewardTransactionRepository.findInvoicedTransactionsWithoutBatch(chunkSize))
             .thenReturn(Flux.just(trx1, trx2))
@@ -260,6 +266,7 @@ class RewardTransactionServiceImplTest {
 
         RewardBatch batch = new RewardBatch();
         batch.setId("BATCH1");
+        batch.setStatus(RewardBatchStatus.CREATED);
 
         Mockito.when(rewardTransactionRepository.findInvoicedTransactionsWithoutBatch(chunkSize))
             .thenReturn(Flux.just(trx1, trx2));
@@ -334,6 +341,7 @@ class RewardTransactionServiceImplTest {
 
         RewardBatch batch = new RewardBatch();
         batch.setId("BATCH1");
+        batch.setStatus(RewardBatchStatus.CREATED);
 
         Mockito.when(rewardTransactionRepository.findInvoicedTransactionsWithoutBatch(chunkSize))
             .thenReturn(Flux.just(trx))
@@ -381,6 +389,7 @@ class RewardTransactionServiceImplTest {
 
         RewardBatch batch = new RewardBatch();
         batch.setId("BATCH1");
+        batch.setStatus(RewardBatchStatus.CREATED);
 
         Mockito.when(rewardTransactionRepository.findInvoicedTransactionsWithoutBatch(chunkSize))
             .thenReturn(Flux.just(trx))
@@ -428,6 +437,7 @@ class RewardTransactionServiceImplTest {
 
         RewardBatch batch = new RewardBatch();
         batch.setId("BATCH1");
+        batch.setStatus(RewardBatchStatus.CREATED);
 
         Mockito.when(rewardTransactionRepository.findInvoicedTransactionsWithoutBatch(chunkSize))
             .thenReturn(Flux.just(trx))
@@ -455,5 +465,43 @@ class RewardTransactionServiceImplTest {
                 saved.getPointOfSaleType() == PosType.ONLINE &&
                 "BusinessName".equals(saved.getBusinessName())
         ));
+    }
+
+    @Test
+    void enrichBatchData_throwsException_whenBatchStatusNotCreated() {
+
+        RewardTransaction rt = RewardTransaction.builder()
+            .id("TRX_ERR")
+            .userId("USERID")
+            .status("INVOICED")
+            .merchantId("MERCHANT1")
+            .pointOfSaleType(PosType.ONLINE)
+            .pointOfSaleId("POS1")
+            .businessName("Test Business")
+            .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
+            .trxChargeDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
+            .initiatives(List.of("initiative1"))
+            .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(500L).build()))
+            .build();
+
+        RewardBatch batch = new RewardBatch();
+        batch.setId("BATCH_ERR");
+        batch.setStatus(RewardBatchStatus.SENT);
+
+        Mockito.when(rewardBatchService.findOrCreateBatch(
+            Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()
+        )).thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardTransactionService.save(rt))
+            .expectErrorSatisfies(ex -> {
+              Assertions.assertInstanceOf(ClientExceptionNoBody.class, ex);
+                ClientExceptionNoBody cex = (ClientExceptionNoBody) ex;
+
+                Assertions.assertEquals(HttpStatus.BAD_REQUEST, cex.getHttpStatus());
+            })
+            .verify();
+
+        Mockito.verify(rewardBatchService, Mockito.never())
+            .incrementTotals(Mockito.anyString(), Mockito.anyLong());
     }
 }
