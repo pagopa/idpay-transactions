@@ -238,6 +238,34 @@ class RewardBatchSpecificRepositoryImplTest {
   }
 
   @Test
+  void decrementTotals_shouldUpdateFieldsCorrectly() {
+    // Prima incrementiamo per avere valori positivi
+    rewardBatchSpecificRepository
+        .incrementTotals(batch1.getId(), 1000L)
+        .block();
+
+    RewardBatch batchBeforeDecrement = rewardBatchRepository.findById(batch1.getId()).block();
+    assertNotNull(batchBeforeDecrement);
+
+    long decrement = 500L;
+
+    RewardBatch updated = rewardBatchSpecificRepository
+        .decrementTotals(batch1.getId(), decrement)
+        .block();
+
+    assertNotNull(updated);
+    assertEquals(batchBeforeDecrement.getInitialAmountCents() - decrement, updated.getInitialAmountCents());
+    assertEquals(batchBeforeDecrement.getNumberOfTransactions() - 1, updated.getNumberOfTransactions());
+    assertNotNull(updated.getUpdateDate());
+
+    RewardBatch fromDb = rewardBatchRepository.findById(batch1.getId()).block();
+    assertNotNull(fromDb);
+    assertEquals(updated.getInitialAmountCents(), fromDb.getInitialAmountCents());
+    assertEquals(updated.getNumberOfTransactions(), fromDb.getNumberOfTransactions());
+    assertNotNull(fromDb.getUpdateDate());
+  }
+
+  @Test
   void findRewardBatchByMerchantId_withSpecificStatus_shouldFilterCorrectly() {
     RewardBatch batch3 = RewardBatch.builder()
         .id("batch3")

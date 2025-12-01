@@ -10,6 +10,7 @@ import java.util.List;
 
 public interface RewardBatchSpecificRepository {
   Mono<RewardBatch> incrementTotals(String batchId, long accruedAmountCents);
+  Mono<RewardBatch> decrementTotals(String batchId, long accruedAmountCents);
   Flux<RewardBatch> findRewardBatchesCombined(String merchantId, String status, String assigneeLevel, boolean isOperator, Pageable pageable);
   Mono<Long> getCountCombined(String merchantId, String status, String assigneeLevel, boolean isOperator);
   Mono<Long> updateTransactionsStatus(String rewardBatchId, List<String> transactionIds, RewardBatchTrxStatus newStatus, String reason);

@@ -79,4 +79,5 @@ public class RewardTransaction {
 
     //key used for randomly select a transaction for evaluation
     private int samplingKey;
+    private LocalDateTime updateDate;
 }

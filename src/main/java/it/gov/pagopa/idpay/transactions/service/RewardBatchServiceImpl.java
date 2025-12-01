@@ -112,6 +112,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     return rewardBatchRepository.incrementTotals(batchId, accruedAmountCents);
   }
 
+  public Mono<RewardBatch> decrementTotals(String batchId, long accruedAmountCents) {
+    return rewardBatchRepository.decrementTotals(batchId, accruedAmountCents);
+  }
+
 @Override
 public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
   return rewardBatchRepository.findById(batchId)
