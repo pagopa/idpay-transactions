@@ -5,18 +5,13 @@ import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
-import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
-import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
-import java.util.Set;
-
-import it.gov.pagopa.idpay.transactions.utils.Utilities;
-import org.springframework.dao.DuplicateKeyException;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
+import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
@@ -35,10 +30,12 @@ import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 @Service
 @Slf4j
 public class RewardBatchServiceImpl implements RewardBatchService {
+  private static final String ERROR_MESSAGE_NOT_FOUND_BATCH = "Reward batch  %s not  found  or  not in  a  valid  state";
 
   private final RewardBatchRepository rewardBatchRepository;
   private final RewardTransactionRepository rewardTransactionRepository;
@@ -149,7 +146,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     @Override
     public Mono<RewardBatch> suspendTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request) {
         return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.EVALUATING)
-                .switchIfEmpty(Mono.error(new IllegalStateException("Reward batch  %s not  found  or  not in  a  valid  state".formatted(rewardBatchId))))
+                .switchIfEmpty(Mono.error(new IllegalStateException(ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()))
                 .flatMap(trxId -> rewardTransactionRepository
                         .updateStatusAndReturnOld(rewardBatchId, trxId, RewardBatchTrxStatus.SUSPENDED, request.getReason())
@@ -208,7 +205,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     @Override
     public Mono<RewardBatch> rejectTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request) {
         return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.EVALUATING)
-                .switchIfEmpty(Mono.error(new IllegalStateException("Reward batch  %s not  found  or  not in  a  valid  state".formatted(rewardBatchId))))
+                .switchIfEmpty(Mono.error(new IllegalStateException(ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()))
                 .flatMap(trxId -> rewardTransactionRepository
                         .updateStatusAndReturnOld(rewardBatchId, trxId, RewardBatchTrxStatus.REJECTED, request.getReason())
@@ -271,7 +268,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     @Override
     public Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String initiativeId) {
         return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.EVALUATING)
-                .switchIfEmpty(Mono.error(new IllegalStateException("Reward batch  %s not  found  or  not in  a  valid  state".formatted(rewardBatchId))))
+                .switchIfEmpty(Mono.error(new IllegalStateException(ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()))
                 .flatMap(trxId -> rewardTransactionRepository.updateStatusAndReturnOld(rewardBatchId, trxId, RewardBatchTrxStatus.APPROVED, null))
                 .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L), (acc, trxOld) -> {

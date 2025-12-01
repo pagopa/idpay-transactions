@@ -207,7 +207,7 @@ class MerchantRewardBatchControllerImplTest {
                 .id(rewardBatchId)
                 .build();
 
-        when(rewardBatchService.suspendTransactions(eq(rewardBatchId), eq(INITIATIVE_ID), eq(request)))
+        when(rewardBatchService.suspendTransactions(rewardBatchId, INITIATIVE_ID, request))
                 .thenReturn(Mono.just(batch));
         when(rewardBatchMapper.toDTO(batch)).thenReturn(Mono.just(dto));
 
@@ -225,7 +225,7 @@ class MerchantRewardBatchControllerImplTest {
                 });
 
         verify(rewardBatchService, times(1))
-                .suspendTransactions(eq(rewardBatchId), eq(INITIATIVE_ID), eq(request));
+                .suspendTransactions(rewardBatchId, INITIATIVE_ID, request);
         verify(rewardBatchMapper, times(1)).toDTO(batch);
     }
 
@@ -237,7 +237,7 @@ class MerchantRewardBatchControllerImplTest {
         request.setTransactionIds(List.of("trx1"));
         request.setReason("Test reason");
 
-        when(rewardBatchService.suspendTransactions(eq(rewardBatchId), eq(INITIATIVE_ID), eq(request)))
+        when(rewardBatchService.suspendTransactions(rewardBatchId, INITIATIVE_ID, request))
                 .thenReturn(Mono.error(new IllegalStateException("Cannot suspend transactions on an APPROVED batch")));
 
         webClient.post()
@@ -247,13 +247,10 @@ class MerchantRewardBatchControllerImplTest {
                 .bodyValue(request)
                 .exchange()
                 .expectStatus().is5xxServerError()
-                .expectBody()
-                .consumeWith(res -> {
-                    String body = new String(res.getResponseBody());
-                });
+                .expectBody();
 
         verify(rewardBatchService, times(1))
-                .suspendTransactions(eq(rewardBatchId), eq(INITIATIVE_ID), eq(request));
+                .suspendTransactions(rewardBatchId, INITIATIVE_ID, request);
         verifyNoInteractions(rewardBatchMapper);
     }
     @Test

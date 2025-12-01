@@ -51,8 +51,9 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
         Query.query(Criteria.where("_id").is(batchId)),
         new Update()
             .inc("initialAmountCents", accruedAmountCents)
+            .inc(RewardBatch.Fields.approvedAmountCents, accruedAmountCents)
             .inc("numberOfTransactions", 1)
-            .set("updateDate", LocalDateTime.now()),
+            .set(RewardBatch.Fields.updateDate, LocalDateTime.now()),
         FindAndModifyOptions.options().returnNew(true),
         RewardBatch.class
     );
@@ -64,8 +65,9 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
         Query.query(Criteria.where("_id").is(batchId)),
         new Update()
             .inc("initialAmountCents", -accruedAmountCents)
+            .inc(RewardBatch.Fields.approvedAmountCents, -accruedAmountCents)
             .inc("numberOfTransactions", -1)
-            .set("updateDate", LocalDateTime.now()),
+            .set(RewardBatch.Fields.updateDate, LocalDateTime.now()),
         FindAndModifyOptions.options().returnNew(true),
         RewardBatch.class
     );
