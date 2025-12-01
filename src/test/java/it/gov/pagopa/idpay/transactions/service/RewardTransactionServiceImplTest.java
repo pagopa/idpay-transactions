@@ -269,7 +269,7 @@ class RewardTransactionServiceImplTest {
         Mockito.when(rewardTransactionRepository.save(Mockito.any()))
             .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        Mono<Void> result = rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, true);
+        Mono<Void> result = rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, true, null);
         result.block();
 
         Mockito.verify(rewardTransactionRepository, Mockito.times(2))
@@ -340,7 +340,7 @@ class RewardTransactionServiceImplTest {
         Mockito.when(rewardTransactionRepository.save(Mockito.any()))
             .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        Mono<Void> result = rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, processAll);
+        Mono<Void> result = rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, processAll, null);
 
         result.block();
 
@@ -367,7 +367,7 @@ class RewardTransactionServiceImplTest {
         Mockito.when(rewardTransactionRepository.findInvoicedTransactionsWithoutBatch(chunkSize))
             .thenReturn(Flux.empty());
 
-        Mono<Void> result = rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, processAll);
+        Mono<Void> result = rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, processAll, null);
 
         result.block();
 
@@ -415,7 +415,7 @@ class RewardTransactionServiceImplTest {
         Mockito.when(rewardTransactionRepository.save(Mockito.any()))
             .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, false).block();
+        rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, false, null).block();
 
         Mockito.verify(rewardTransactionRepository).save(Mockito.argThat(saved ->
             saved.getInvoiceUploadDate().equals(trx.getTrxChargeDate()) &&
@@ -463,7 +463,7 @@ class RewardTransactionServiceImplTest {
         Mockito.when(rewardTransactionRepository.save(Mockito.any()))
             .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, false).block();
+        rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, false, null).block();
 
         Mockito.verify(rewardTransactionRepository).save(Mockito.argThat(saved ->
             saved.getInvoiceUploadDate().equals(trx.getInvoiceUploadDate()) &&
@@ -511,7 +511,7 @@ class RewardTransactionServiceImplTest {
         Mockito.when(rewardTransactionRepository.save(Mockito.any()))
             .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, false).block();
+        rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, false, null).block();
 
         Mockito.verify(rewardTransactionRepository).save(Mockito.argThat(saved ->
             saved.getInvoiceUploadDate().equals(trx.getInvoiceUploadDate()) &&
@@ -558,4 +558,94 @@ class RewardTransactionServiceImplTest {
         Mockito.verify(rewardBatchService, Mockito.never())
             .incrementTotals(Mockito.anyString(), Mockito.anyLong());
     }
+
+  @Test
+  void assignInvoicedTransactionsToBatches_processSingleTransaction_found() {
+    String trxId = "TRX123";
+
+    RewardTransaction trx = RewardTransaction.builder()
+        .id(trxId)
+        .status("INVOICED")
+        .trxChargeDate(LocalDateTime.of(2025, 11, 19, 10, 0))
+        .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 10, 0))
+        .initiatives(List.of("initiative1"))
+        .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(100L).build()))
+        .merchantId("MERCHANT1")
+        .pointOfSaleType(PosType.ONLINE)
+        .pointOfSaleId("POS1")
+        .businessName("BusinessName")
+        .build();
+
+    RewardBatch batch = new RewardBatch();
+    batch.setId("BATCH1");
+    batch.setStatus(RewardBatchStatus.CREATED);
+
+    Mockito.when(rewardTransactionRepository.findById(trxId)).thenReturn(Mono.just(trx));
+    Mockito.when(merchantRestClient.getPointOfSale(Mockito.any(), Mockito.any()))
+        .thenReturn(Mono.just(PointOfSaleDTO.builder()
+            .type(PointOfSaleTypeEnum.ONLINE)
+            .franchiseName("FranchiseName")
+            .businessName("BusinessName")
+            .build()));
+    Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
+        .thenReturn(Mono.just(batch));
+    Mockito.when(rewardBatchService.incrementTotals(Mockito.anyString(), Mockito.anyLong()))
+        .thenReturn(Mono.just(batch));
+    Mockito.when(rewardTransactionRepository.save(Mockito.any()))
+        .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+    StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(200, false, trxId))
+        .verifyComplete();
+
+    Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findById(trxId);
+    Mockito.verify(rewardTransactionRepository, Mockito.times(1)).save(Mockito.any());
+  }
+
+  @Test
+  void assignInvoicedTransactionsToBatches_processSingleTransaction_notFound() {
+    String trxId = "TRX_NOT_EXIST";
+
+    Mockito.when(rewardTransactionRepository.findById(trxId))
+        .thenReturn(Mono.empty());
+
+    StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(200, false, trxId))
+        .expectErrorSatisfies(ex -> {
+          Assertions.assertInstanceOf(ClientExceptionNoBody.class, ex);
+          ClientExceptionNoBody cex = (ClientExceptionNoBody) ex;
+          Assertions.assertEquals(HttpStatus.NOT_FOUND, cex.getHttpStatus());
+          Assertions.assertTrue(cex.getMessage().contains(trxId));
+        })
+        .verify();
+
+    Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findById(trxId);
+    Mockito.verifyNoMoreInteractions(rewardTransactionRepository, merchantRestClient, rewardBatchService);
+  }
+
+  @Test
+  void assignInvoicedTransactionsToBatches_trxIdNull_shouldProcessSingleOperation() {
+    int chunkSize = 200;
+    boolean processAll = false;
+
+    Mockito.when(rewardTransactionRepository.findInvoicedTransactionsWithoutBatch(chunkSize))
+        .thenReturn(Flux.empty());
+
+    StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, processAll, null))
+        .verifyComplete();
+
+    Mockito.verify(rewardTransactionRepository, Mockito.never()).findById(Mockito.anyString());
+  }
+
+  @Test
+  void assignInvoicedTransactionsToBatches_trxIdEmpty_shouldProcessSingleOperation() {
+    int chunkSize = 200;
+    boolean processAll = false;
+
+    Mockito.when(rewardTransactionRepository.findInvoicedTransactionsWithoutBatch(chunkSize))
+        .thenReturn(Flux.empty());
+
+    StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, processAll, ""))
+        .verifyComplete();
+
+    Mockito.verify(rewardTransactionRepository, Mockito.never()).findById(Mockito.anyString());
+  }
 }

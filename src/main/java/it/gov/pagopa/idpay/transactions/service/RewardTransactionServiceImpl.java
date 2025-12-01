@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.service;
 
 import com.google.common.hash.Hashing;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.TRANSACTION_NOT_FOUND;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
@@ -69,14 +70,23 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
     }
 
     @Override
-    public Mono<Void> assignInvoicedTransactionsToBatches(Integer chunkSize, boolean processAll) {
-        log.info("[BATCH_ASSIGNMENT] Using chunkSize={}, processAll={}", chunkSize, processAll);
+    public Mono<Void> assignInvoicedTransactionsToBatches(Integer chunkSize, boolean processAll, String trxId) {
 
-        if (processAll) {
-          return processAllOperation(chunkSize);
-        } else {
-          return processSingleOperation(chunkSize);
-        }
+      if (trxId != null && !trxId.isEmpty()) {
+        log.info("[BATCH_ASSIGNMENT] Processing transaction with ID={}", trxId);
+        return rewardTrxRepository.findById(trxId)
+            .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.NOT_FOUND, String.format(TRANSACTION_NOT_FOUND, trxId))))
+            .flatMap(this::processTransaction)
+            .then();
+      }
+
+      log.info("[BATCH_ASSIGNMENT] Using chunkSize={}, processAll={}", chunkSize, processAll);
+
+      if (processAll) {
+        return processAllOperation(chunkSize);
+      } else {
+        return processSingleOperation(chunkSize);
+      }
     }
 
     private Mono<Void> processAllOperation(int chunkSize) {
