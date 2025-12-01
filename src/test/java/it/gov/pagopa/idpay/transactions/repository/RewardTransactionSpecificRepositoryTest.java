@@ -2,6 +2,8 @@ package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import org.junit.jupiter.api.AfterEach;
@@ -394,6 +396,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .build();
 
         Map<String,String> additionalProperties = Map.of("productGtin", PRODUCT_GTIN);
+
         rt1.setAdditionalProperties(additionalProperties);
 
         rewardTransactionRepository.save(rt1).block();
@@ -730,6 +733,7 @@ class RewardTransactionSpecificRepositoryTest {
             .id("id1")
             .rewardBatchId(batchId)
             .status("INVOICED")
+            .samplingKey(1)
             .build();
         rewardTransactionRepository.save(rt1).block();
 
@@ -737,6 +741,7 @@ class RewardTransactionSpecificRepositoryTest {
             .id("id2")
             .rewardBatchId(batchId)
             .status("INVOICED")
+            .samplingKey(1)
             .build();
         rewardTransactionRepository.save(rt2).block();
 
@@ -744,10 +749,11 @@ class RewardTransactionSpecificRepositoryTest {
             .id("id3")
             .rewardBatchId("OTHERBATCH")
             .status("INVOICED")
+            .samplingKey(3)
             .build();
         rewardTransactionRepository.save(rt3).block();
 
-        rewardTransactionSpecificRepository.rewardTransactionsByBatchId(batchId);
+        rewardTransactionSpecificRepository.rewardTransactionsByBatchId(batchId).block();
 
         RewardTransaction updated1 = rewardTransactionRepository.findById("id1").block();
         RewardTransaction updated2 = rewardTransactionRepository.findById("id2").block();
@@ -763,5 +769,190 @@ class RewardTransactionSpecificRepositoryTest {
         rewardTransactionRepository.deleteById("id1").block();
         rewardTransactionRepository.deleteById("id2").block();
         rewardTransactionRepository.deleteById("id3").block();
+    }
+
+    @Test
+    void sumSuspendedAccruedRewardCents_shouldReturnCorrectSum() {
+        String rewardBatchId = "BATCH123";
+        String initiativeId = INITIATIVE_ID;
+
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .rewardBatchId(rewardBatchId)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
+                .rewards(Map.of(initiativeId, Reward.builder()
+                        .accruedRewardCents(1000L)
+                        .build()))
+                .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        rt2 = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("id2")
+                .rewardBatchId(rewardBatchId)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
+                .rewards(Map.of(initiativeId, Reward.builder()
+                        .accruedRewardCents(2000L)
+                        .build()))
+                .build();
+        rewardTransactionRepository.save(rt2).block();
+
+        rt3 = RewardTransactionFaker.mockInstanceBuilder(3)
+                .id("id3")
+                .rewardBatchId(rewardBatchId)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
+                .rewards(Map.of(initiativeId, Reward.builder()
+                        .accruedRewardCents(5000L)
+                        .build()))
+                .build();
+        rewardTransactionRepository.save(rt3).block();
+
+        Mono<Long> resultMono = rewardTransactionSpecificRepository
+                .sumSuspendedAccruedRewardCents(rewardBatchId, List.of("id1","id2","id3"), initiativeId);
+
+        Long result = resultMono.block();
+        assertNotNull(result);
+        assertEquals(1000L + 2000L, result);
+
+        rewardTransactionRepository.deleteById("id1").block();
+        rewardTransactionRepository.deleteById("id2").block();
+        rewardTransactionRepository.deleteById("id3").block();
+    }
+
+    @Test
+    void updateStatusAndReturnOld() {
+        String trxSuspendedId = "TRX_SUSPENDED_ID";
+        String batchId = "BATCH_ID";
+        RewardTransaction trxToSave = RewardTransaction.builder()
+                .id(trxSuspendedId)
+                .rewardBatchId(batchId)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED).build();
+
+        rewardTransactionRepository.save(trxToSave).block();
+
+        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED, null).block();
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(RewardBatchTrxStatus.SUSPENDED, result.getRewardBatchTrxStatus());
+
+        RewardTransaction afterUpdate = rewardTransactionRepository.findById(trxSuspendedId).block();
+        Assertions.assertNotNull(afterUpdate);
+        Assertions.assertEquals(RewardBatchTrxStatus.APPROVED, afterUpdate.getRewardBatchTrxStatus());
+
+        rewardTransactionRepository.deleteById(trxToSave.getId()).block();
+
+    }
+
+    @Test
+    void updateStatusAndReturnOld_ApprovedTrx() {
+        String trxSuspendedId = "TRX_APPROVED_ID";
+        String batchId = "BATCH_ID";
+
+        RewardTransaction trxToSave = RewardTransaction.builder()
+                .id(trxSuspendedId)
+                .rewardBatchId(batchId)
+                .rewardBatchRejectionReason("TEST")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED).build();
+
+        rewardTransactionRepository.save(trxToSave).block();
+
+        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED, null).block();
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(RewardBatchTrxStatus.SUSPENDED, result.getRewardBatchTrxStatus());
+
+        RewardTransaction afterUpdate = rewardTransactionRepository.findById(trxSuspendedId).block();
+        Assertions.assertNotNull(afterUpdate);
+        Assertions.assertEquals(RewardBatchTrxStatus.APPROVED, afterUpdate.getRewardBatchTrxStatus());
+        Assertions.assertNull(afterUpdate.getRewardBatchRejectionReason());
+
+        rewardTransactionRepository.deleteById(trxToSave.getId()).block();
+
+    }
+
+    @Test
+    void updateStatusAndReturnOld_ApprovedTrxAlreadyApprove() {
+        String trxSuspendedId = "TRX_APPROVED_ID";
+        String batchId = "BATCH_ID";
+        RewardTransaction trxToSave = RewardTransaction.builder()
+                .id(trxSuspendedId)
+                .rewardBatchId(batchId)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED).build();
+
+        rewardTransactionRepository.save(trxToSave).block();
+
+        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED, null).block();
+        Assertions.assertNotNull(result);
+
+        RewardTransaction afterUpdate = rewardTransactionRepository.findById(trxSuspendedId).block();
+        Assertions.assertNotNull(afterUpdate);
+        Assertions.assertEquals(RewardBatchTrxStatus.APPROVED, afterUpdate.getRewardBatchTrxStatus());
+
+        rewardTransactionRepository.deleteById(trxToSave.getId()).block();
+
+    }
+
+    @Test
+    void updateStatusAndReturnOld_forTrxInAnotherBatch() {
+        String trxSuspendedId = "TRX_APPROVED_ID";
+        String batchId = "BATCH_ID";
+        RewardTransaction trxToSave = RewardTransaction.builder()
+                .id(trxSuspendedId)
+                .rewardBatchId("BATCH_ID_2")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED).build();
+
+        rewardTransactionRepository.save(trxToSave).block();
+
+        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED, null).block();
+        Assertions.assertNull(result);
+
+        RewardTransaction afterUpdate = rewardTransactionRepository.findById(trxSuspendedId).block();
+        Assertions.assertNotNull(afterUpdate);
+        Assertions.assertEquals(RewardBatchTrxStatus.APPROVED, afterUpdate.getRewardBatchTrxStatus());
+
+        rewardTransactionRepository.deleteById(trxToSave.getId()).block();
+
+    }
+
+    @Test
+    void updateStatusAndReturnOld_RejectedTrxAlreadyApprove() {
+        String trxSuspendedId = "TRX_APPROVED_ID";
+        String batchId = "BATCH_ID";
+        String reason = "REASON_TEST";
+        RewardTransaction trxToSave = RewardTransaction.builder()
+                .id(trxSuspendedId)
+                .rewardBatchId(batchId)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED).build();
+
+        rewardTransactionRepository.save(trxToSave).block();
+
+        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.REJECTED, reason).block();
+        Assertions.assertNotNull(result);
+
+        RewardTransaction afterUpdate = rewardTransactionRepository.findById(trxSuspendedId).block();
+        Assertions.assertNotNull(afterUpdate);
+        Assertions.assertEquals(RewardBatchTrxStatus.REJECTED, afterUpdate.getRewardBatchTrxStatus());
+        Assertions.assertEquals(reason, afterUpdate.getRewardBatchRejectionReason());
+
+        rewardTransactionRepository.deleteById(trxToSave.getId()).block();
+
+    }
+
+    @Test
+    void findByFilter_trxBatchStatus() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .initiatives(List.of(INITIATIVE_ID))
+                .rewardBatchId("batchId")
+                .status("INVOICED")
+                .samplingKey(1)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
+                .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        RewardTransaction result = rewardTransactionRepository.findByFilter(rt1.getRewardBatchId(), INITIATIVE_ID, List.of(RewardBatchTrxStatus.TO_CHECK)).blockFirst();
+
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(rt1.getId(), result.getId());
+
+        rewardTransactionRepository.deleteById(rt1.getId()).block();
+
     }
 }
