@@ -39,9 +39,7 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
           HttpStatus.FORBIDDEN,
           ExceptionConstants.ExceptionCode.POINT_OF_SALE_NOT_ALLOWED,
           String.format(
-              "Point of sale mismatch: expected [%s], but received [%s]",
-              pointOfSaleId,
-              tokenPointOfSaleId
+              "Point of sale mismatch: expected [%s], but received [%s]", tokenPointOfSaleId, pointOfSaleId
           )
       ));
     }
@@ -73,9 +71,7 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
           HttpStatus.FORBIDDEN,
           ExceptionConstants.ExceptionCode.POINT_OF_SALE_NOT_ALLOWED,
           String.format(
-              "Point of sale mismatch: expected [%s], but received [%s]",
-              pointOfSaleId,
-              tokenPointOfSaleId
+              "Point of sale mismatch: expected [%s], but received [%s]", tokenPointOfSaleId, pointOfSaleId
           )
       ));
     }
