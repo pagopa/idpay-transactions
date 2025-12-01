@@ -186,7 +186,8 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
     private Mono<RewardTransaction> enrichBatchData(RewardTransaction trx) {
 
-        LocalDate trxDate = trx.getInvoiceUploadDate().toLocalDate();
+        LocalDate trxDate = trx.getInvoiceUploadDate() != null ?
+                trx.getInvoiceUploadDate().toLocalDate() :  trx.getTrxChargeDate().toLocalDate();
         YearMonth trxMonth = YearMonth.from(trxDate);
         String batchMonth = trxMonth.toString();
 
