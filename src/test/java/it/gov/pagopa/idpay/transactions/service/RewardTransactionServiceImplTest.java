@@ -580,7 +580,7 @@ class RewardTransactionServiceImplTest {
     batch.setId("BATCH1");
     batch.setStatus(RewardBatchStatus.CREATED);
 
-    Mockito.when(rewardTransactionRepository.findById(trxId)).thenReturn(Mono.just(trx));
+    Mockito.when(rewardTransactionRepository.findInvoicedTrxByIdWithoutBatch(trxId)).thenReturn(Mono.just(trx));
     Mockito.when(merchantRestClient.getPointOfSale(Mockito.any(), Mockito.any()))
         .thenReturn(Mono.just(PointOfSaleDTO.builder()
             .type(PointOfSaleTypeEnum.ONLINE)
@@ -597,7 +597,7 @@ class RewardTransactionServiceImplTest {
     StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(200, false, trxId))
         .verifyComplete();
 
-    Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findById(trxId);
+    Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findInvoicedTrxByIdWithoutBatch(trxId);
     Mockito.verify(rewardTransactionRepository, Mockito.times(1)).save(Mockito.any());
   }
 
@@ -605,7 +605,7 @@ class RewardTransactionServiceImplTest {
   void assignInvoicedTransactionsToBatches_processSingleTransaction_notFound() {
     String trxId = "TRX_NOT_EXIST";
 
-    Mockito.when(rewardTransactionRepository.findById(trxId))
+    Mockito.when(rewardTransactionRepository.findInvoicedTrxByIdWithoutBatch(trxId))
         .thenReturn(Mono.empty());
 
     StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(200, false, trxId))
@@ -617,7 +617,7 @@ class RewardTransactionServiceImplTest {
         })
         .verify();
 
-    Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findById(trxId);
+    Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findInvoicedTrxByIdWithoutBatch(trxId);
     Mockito.verifyNoMoreInteractions(rewardTransactionRepository, merchantRestClient, rewardBatchService);
   }
 
@@ -632,7 +632,7 @@ class RewardTransactionServiceImplTest {
     StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, processAll, null))
         .verifyComplete();
 
-    Mockito.verify(rewardTransactionRepository, Mockito.never()).findById(Mockito.anyString());
+    Mockito.verify(rewardTransactionRepository, Mockito.never()).findInvoicedTrxByIdWithoutBatch(Mockito.anyString());
   }
 
   @Test
@@ -646,6 +646,6 @@ class RewardTransactionServiceImplTest {
     StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, processAll, ""))
         .verifyComplete();
 
-    Mockito.verify(rewardTransactionRepository, Mockito.never()).findById(Mockito.anyString());
+    Mockito.verify(rewardTransactionRepository, Mockito.never()).findInvoicedTrxByIdWithoutBatch(Mockito.anyString());
   }
 }

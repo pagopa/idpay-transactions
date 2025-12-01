@@ -74,7 +74,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
       if (trxId != null && !trxId.isEmpty()) {
         log.info("[BATCH_ASSIGNMENT] Processing transaction with ID={}", trxId);
-        return rewardTrxRepository.findById(trxId)
+        return rewardTrxRepository.findInvoicedTrxByIdWithoutBatch(trxId)
             .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.NOT_FOUND, String.format(TRANSACTION_NOT_FOUND, trxId))))
             .flatMap(this::processTransaction)
             .then();

@@ -410,4 +410,15 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
         return mongoTemplate.find(query, RewardTransaction.class);
     }
+
+    @Override
+    public Mono<RewardTransaction> findInvoicedTrxByIdWithoutBatch(String trxId) {
+        Criteria criteria = Criteria.where(Fields.id).is(trxId)
+            .and(Fields.status).is(SyncTrxStatus.INVOICED)
+            .and(Fields.rewardBatchId).isNull();
+
+        Query query = Query.query(criteria);
+
+        return Mono.from(mongoTemplate.findOne(query, RewardTransaction.class));
+    }
 }

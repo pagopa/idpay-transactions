@@ -21,6 +21,7 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import reactor.test.StepVerifier;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -987,4 +988,60 @@ class RewardTransactionSpecificRepositoryTest {
     Assertions.assertEquals(1, list.size());
     Assertions.assertEquals("id1", list.get(0).getId());
   }
+
+    @Test
+    void findInvoicedTrxByIdWithoutBatch_returnsTransaction_whenMatching() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .status("INVOICED")
+            .rewardBatchId(null)
+            .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        Mono<RewardTransaction> resultMono = rewardTransactionSpecificRepository.findInvoicedTrxByIdWithoutBatch("id1");
+
+        RewardTransaction result = resultMono.block();
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals("id1", result.getId());
+        Assertions.assertEquals("INVOICED", result.getStatus());
+        Assertions.assertNull(result.getRewardBatchId());
+
+        rewardTransactionRepository.deleteById(rt1.getId()).block();
+    }
+
+    @Test
+    void findInvoicedTrxByIdWithoutBatch_returnsEmpty_whenNotMatching() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .status("CANCELLED")
+            .rewardBatchId(null)
+            .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        Mono<RewardTransaction> resultMono = rewardTransactionSpecificRepository.findInvoicedTrxByIdWithoutBatch("id1");
+
+        StepVerifier.create(resultMono)
+            .expectNextCount(0)
+            .verifyComplete();
+
+        rewardTransactionRepository.deleteById(rt1.getId()).block();
+    }
+
+    @Test
+    void findInvoicedTrxByIdWithoutBatch_returnsEmpty_whenRewardBatchIdNotNull() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .status("INVOICED")
+            .rewardBatchId("BATCH1")
+            .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        Mono<RewardTransaction> resultMono = rewardTransactionSpecificRepository.findInvoicedTrxByIdWithoutBatch("id1");
+
+        StepVerifier.create(resultMono)
+            .expectNextCount(0)
+            .verifyComplete();
+
+        rewardTransactionRepository.deleteById(rt1.getId()).block();
+    }
 }
