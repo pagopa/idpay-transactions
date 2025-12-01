@@ -136,7 +136,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     public Flux<RewardTransaction> findByFilter(TrxFiltersDTO filters,
                                                 String userId,
                                                 Pageable pageable) {
-        Criteria criteria = getCriteria(filters, null, userId, null);
+        Criteria criteria = getCriteria(filters, filters.getPointOfSaleId(), userId, null);
         return mongoTemplate.find(Query.query(criteria).with(getPageable(pageable)), RewardTransaction.class);
     }
 
