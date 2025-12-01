@@ -7,6 +7,8 @@ import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 
@@ -15,6 +17,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -195,5 +199,68 @@ class RewardTransactionServiceImplTest {
         Assertions.assertThrows(NullPointerException.class, () -> {
             ((RewardTransactionServiceImpl)rewardTransactionService).computeSamplingKey(null);
         });
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "true",
+        "false"
+    })
+    void save_invoiced_shouldUseDateBasedOnInvoiceUploadDatePresence(
+        boolean hasInvoiceUploadDate) {
+
+        LocalDateTime invoiceUploadDate = hasInvoiceUploadDate
+            ? LocalDateTime.of(2025, 11, 1, 1, 1)
+            : null;
+        LocalDateTime trxChargeDate = LocalDateTime.of(2025, 10, 1, 1, 1);
+
+        LocalDateTime expectedBatchDate = hasInvoiceUploadDate ?
+                LocalDateTime.of(2025, 11, 1, 1, 1) :
+                LocalDateTime.of(2025, 10, 1, 1, 1);
+
+        YearMonth expectedBatchMonth = YearMonth.from(expectedBatchDate);
+
+        RewardTransaction rt = RewardTransaction.builder()
+            .id("TRX_ID")
+            .userId("USERID")
+            .amountCents(3000L)
+            .trxDate(LocalDateTime.now())
+            .idTrxIssuer("IDTRXISSUER")
+            .status(SyncTrxStatus.INVOICED.name())
+            .merchantId("MERCHANT1")
+            .pointOfSaleType(PosType.ONLINE)
+            .pointOfSaleId("POS1")
+            .businessName("Test Business")
+            .invoiceUploadDate(invoiceUploadDate)
+            .trxChargeDate(trxChargeDate)
+            .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(1000L).build()))
+            .initiatives(List.of("initiative1"))
+            .build();
+
+        RewardBatch batch = new RewardBatch();
+        batch.setId("BATCH_ID");
+
+        Mockito.when(rewardBatchService.findOrCreateBatch(
+            rt.getMerchantId(),
+            rt.getPointOfSaleType(),
+            expectedBatchMonth.toString(),
+            rt.getBusinessName()
+        )).thenReturn(Mono.just(batch));
+
+        Mockito.when(rewardBatchService.incrementTotals(batch.getId(), 1000L))
+            .thenReturn(Mono.just(batch));
+
+        Mockito.when(rewardTransactionRepository.save(Mockito.any()))
+            .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        RewardTransaction result = rewardTransactionService.save(rt).block();
+
+        Assertions.assertNotNull(result);
+        Mockito.verify(rewardBatchService).findOrCreateBatch(
+            rt.getMerchantId(),
+            rt.getPointOfSaleType(),
+            expectedBatchMonth.toString(),
+            rt.getBusinessName()
+        );
     }
 }
