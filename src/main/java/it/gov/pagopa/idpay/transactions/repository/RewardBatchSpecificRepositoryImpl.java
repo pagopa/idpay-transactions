@@ -54,13 +54,25 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     );
   }
 
+  @Override
+  public Mono<RewardBatch> decrementTotals(String batchId, long accruedAmountCents) {
+    return mongoTemplate.findAndModify(
+        Query.query(Criteria.where("_id").is(batchId)),
+        new Update()
+            .inc("initialAmountCents", -accruedAmountCents)
+            .inc("numberOfTransactions", -1)
+            .set("updateDate", LocalDateTime.now()),
+        FindAndModifyOptions.options().returnNew(true),
+        RewardBatch.class
+    );
+  }
+
   private Criteria buildCombinedCriteria(String merchantId, String status, String assigneeLevel, boolean isOperator) {
     List<Criteria> subCriteria = new ArrayList<>();
 
     if (StringUtils.isNotBlank(merchantId)) {
       subCriteria.add(Criteria.where(RewardBatch.Fields.merchantId).is(merchantId));
     }
-
     if (StringUtils.isNotBlank(assigneeLevel)) {
       subCriteria.add(
           Criteria.where(RewardBatch.Fields.assigneeLevel)
@@ -102,7 +114,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     }
 
     return new Criteria().andOperator(subCriteria.toArray(new Criteria[0]));
-  }
+}
 
   private Pageable getPageableRewardBatch(Pageable pageable) {
     if (pageable == null || pageable.getSort().isUnsorted()) {
