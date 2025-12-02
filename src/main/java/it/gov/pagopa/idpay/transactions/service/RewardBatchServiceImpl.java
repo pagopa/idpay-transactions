@@ -396,7 +396,7 @@ private String buildBatchName(YearMonth month) {
     }
 
 
-    private Mono<RewardBatch> processSingleBatchSafe(String rewardBatchId, String initiativeId) {
+    public Mono<RewardBatch> processSingleBatchSafe(String rewardBatchId, String initiativeId) {
 
         // Chiama la logica originale
         return this.processSingleBatch(rewardBatchId, initiativeId)
