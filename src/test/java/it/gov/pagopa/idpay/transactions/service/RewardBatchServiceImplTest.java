@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
@@ -450,14 +451,11 @@ class RewardBatchServiceImplTest {
     Mockito.when(rewardBatchRepository.save(any()))
         .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-    Mockito.when(rewardTransactionRepository.rewardTransactionsByBatchId("B1"))
-        .thenReturn(Mono.empty());
-
     StepVerifier.create(rewardBatchService.sendRewardBatch("M1", "B1"))
         .verifyComplete();
 
     Mockito.verify(rewardBatchRepository).save(any());
-    Mockito.verify(rewardTransactionRepository).rewardTransactionsByBatchId("B1");
+    Mockito.verify(rewardTransactionRepository, never()).rewardTransactionsByBatchId(any());
   }
 
   @Test
@@ -614,7 +612,7 @@ class RewardBatchServiceImplTest {
 
         StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
                 .expectErrorMatches(ex ->
-                        ex instanceof IllegalStateException &&
+                        ex instanceof ClientExceptionWithBody &&
                                 ex.getMessage().replaceAll("\\s+", " ")
                                         .contains("Reward batch BATCH_APPROVED not found or not in a valid state")
                 )
@@ -982,8 +980,8 @@ class RewardBatchServiceImplTest {
 
         StepVerifier.create(result)
                 .expectErrorMatches(throwable ->
-                        throwable instanceof RewardBatchException &&
-                                ((RewardBatchException) throwable).getHttpStatus().equals(HttpStatus.NOT_FOUND)
+                        throwable instanceof ClientExceptionWithBody &&
+                                ((ClientExceptionWithBody) throwable).getHttpStatus().equals(HttpStatus.NOT_FOUND)
                 )
                 .verify();
 
@@ -1000,8 +998,8 @@ class RewardBatchServiceImplTest {
 
         StepVerifier.create(result)
                 .expectErrorMatches(throwable ->
-                        throwable instanceof RewardBatchException &&
-                                ((RewardBatchException) throwable).getHttpStatus().equals(HttpStatus.BAD_REQUEST)
+                        throwable instanceof ClientExceptionWithBody &&
+                                ((ClientExceptionWithBody) throwable).getHttpStatus().equals(HttpStatus.BAD_REQUEST)
                 )
                 .verify();
 
@@ -1107,7 +1105,7 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Mono.empty());
 
         Mono<RewardBatch> resultMono = rewardBatchService.approvedTransactions(batchId, transactionsRequest, initiativeId);
-        Assertions.assertThrows(IllegalStateException.class, resultMono::block);
+        Assertions.assertThrows(ClientExceptionWithBody.class, resultMono::block);
 
         verify(rewardTransactionRepository, never()).updateStatusAndReturnOld(any(), any(),any(), any());
         verify(rewardBatchRepository).findByIdAndStatus(any(),any());
@@ -1269,7 +1267,7 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Mono.empty());
 
         Mono<RewardBatch> resultMono = rewardBatchService.rejectTransactions(batchId, initiativeId, transactionsRequest);
-        Assertions.assertThrows(IllegalStateException.class, resultMono::block);
+        Assertions.assertThrows(ClientExceptionWithBody.class, resultMono::block);
 
         verify(rewardTransactionRepository, never()).updateStatusAndReturnOld(any(), any(),any(), any());
         verify(rewardBatchRepository).findByIdAndStatus(any(),any());

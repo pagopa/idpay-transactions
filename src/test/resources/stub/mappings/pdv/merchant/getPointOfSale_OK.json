@@ -1,0 +1,17 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/idpay/merchant/portal/(MERCHANT_OK_[0-9]+)/point-of-sales/(POS_OK_[0-9]+)"
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "type": "ONLINE",
+      "franchiseName": "Franchise name",
+      "businessName": "Business name"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}
