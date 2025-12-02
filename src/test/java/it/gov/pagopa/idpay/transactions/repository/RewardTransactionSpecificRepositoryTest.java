@@ -21,6 +21,7 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import reactor.test.StepVerifier;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -954,5 +955,93 @@ class RewardTransactionSpecificRepositoryTest {
 
         rewardTransactionRepository.deleteById(rt1.getId()).block();
 
+    }
+
+  @Test
+  void findInvoicedTransactionsWithoutBatch_returnsOnlyMatchingTransactions() {
+
+    rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+        .id("id1")
+        .rewardBatchId(null)
+        .status("INVOICED")
+        .build();
+    rewardTransactionRepository.save(rt1).block();
+
+    rt2 = RewardTransactionFaker.mockInstanceBuilder(2)
+        .id("id2")
+        .rewardBatchId("BATCH1")
+        .status("INVOICED")
+        .build();
+    rewardTransactionRepository.save(rt2).block();
+
+    rt3 = RewardTransactionFaker.mockInstanceBuilder(3)
+        .id("id3")
+        .rewardBatchId(null)
+        .status("CANCELLED")
+        .build();
+    rewardTransactionRepository.save(rt3).block();
+
+    Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findInvoicedTransactionsWithoutBatch(10);
+
+    List<RewardTransaction> list = result.collectList().block();
+    Assertions.assertNotNull(list);
+    Assertions.assertEquals(1, list.size());
+    Assertions.assertEquals("id1", list.get(0).getId());
+  }
+
+    @Test
+    void findInvoicedTrxByIdWithoutBatch_returnsTransaction_whenMatching() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .status("INVOICED")
+            .rewardBatchId(null)
+            .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        Mono<RewardTransaction> resultMono = rewardTransactionSpecificRepository.findInvoicedTrxByIdWithoutBatch("id1");
+
+        RewardTransaction result = resultMono.block();
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals("id1", result.getId());
+        Assertions.assertEquals("INVOICED", result.getStatus());
+        Assertions.assertNull(result.getRewardBatchId());
+
+        rewardTransactionRepository.deleteById(rt1.getId()).block();
+    }
+
+    @Test
+    void findInvoicedTrxByIdWithoutBatch_returnsEmpty_whenNotMatching() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .status("CANCELLED")
+            .rewardBatchId(null)
+            .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        Mono<RewardTransaction> resultMono = rewardTransactionSpecificRepository.findInvoicedTrxByIdWithoutBatch("id1");
+
+        StepVerifier.create(resultMono)
+            .expectNextCount(0)
+            .verifyComplete();
+
+        rewardTransactionRepository.deleteById(rt1.getId()).block();
+    }
+
+    @Test
+    void findInvoicedTrxByIdWithoutBatch_returnsEmpty_whenRewardBatchIdNotNull() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .status("INVOICED")
+            .rewardBatchId("BATCH1")
+            .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        Mono<RewardTransaction> resultMono = rewardTransactionSpecificRepository.findInvoicedTrxByIdWithoutBatch("id1");
+
+        StepVerifier.create(resultMono)
+            .expectNextCount(0)
+            .verifyComplete();
+
+        rewardTransactionRepository.deleteById(rt1.getId()).block();
     }
 }

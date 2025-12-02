@@ -29,13 +29,14 @@ public final class ExceptionConstants {
         public static final String GENERIC_ERROR = "Something gone wrong";
         public static final String TRANSACTIONS_MISSING_MANDATORY_FILTERS = "Mandatory filters are missing. Insert one of the following options: 1) idTrxIssuer 2) userId, trxDateStart and trxDateEnd";
         public static final String TRANSACTION_MISSING_INVOICE = "Invoice missing from transaction for which download was required";
+        public static final String TRANSACTION_NOT_FOUND = "Transaction not found for ID: %s";
         public static final String ERROR_ON_GET_FILE_URL_REQUEST = "Error occurred while attempting to get file url";
-        public static final String MISSING_TRANSACTIONS_FILTERS = "Mandatory filters are missing. Insert one of the following options: 1) organizationRole 2) merchantId,";
+        public static final String MISSING_TRANSACTIONS_FILTERS = "Mandatory filters are missing. Insert one of the following options: 1) organizationRole 2) merchantId";
+        public static final String REWARD_BATCH_STATUS_MISMATCH = "Operation not allowed: the batch is no longer in CREATED status";
 
         public static final String REASON_FIELD_IS_MANDATORY = "Reason field is mandatory";
         public static final String ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH = "Reward batch  %s not  found  or  not in  a  valid  state";
         public static final String ERROR_MESSAGE_NOT_FOUND_BATCH = "Reward batch  %s not  found";
         public static final String ERROR_MESSAGE_INVALID_STATE_BATCH = "Reward batch  %s  not in  a  valid  state";
     }
-
 }
