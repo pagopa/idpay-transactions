@@ -12,6 +12,7 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
@@ -97,6 +98,21 @@ class RewardBatchSpecificRepositoryImplTest {
     rewardBatchRepository.deleteAll().block();
   }
 
+  @Test
+  void findRewardBatchByStatus_ShouldReturnOnlyApprovingBatches() {
+    batch1.setStatus(RewardBatchStatus.CREATED);
+    batch2.setStatus(RewardBatchStatus.APPROVING);
+    RewardBatchStatus targetStatus = RewardBatchStatus.APPROVING;
+    rewardBatchRepository.saveAll(Arrays.asList(batch1, batch2)).blockLast();
+
+    // Esecuzione del metodo (chiama la logica della Criteria e Query reali)
+    Flux<RewardBatch> resultFlux = rewardBatchSpecificRepository.findRewardBatchByStatus(targetStatus);
+
+    // Verifica: Il flusso deve contenere esattamente 2 batch con lo stato APPROVING
+    StepVerifier.create(resultFlux)
+            .expectNextCount(1)
+            .verifyComplete();
+  }
   @Test
   void findRewardBatchByMerchantId_shouldReturnAllBatches() {
     RewardBatch batch3 = RewardBatch.builder()
