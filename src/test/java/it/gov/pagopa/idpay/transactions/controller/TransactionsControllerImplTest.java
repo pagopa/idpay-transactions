@@ -8,10 +8,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
 
 @WebFluxTest(controllers = {TransactionsController.class})
 class TransactionsControllerImplTest {
-    @MockBean
+    @MockitoBean
     RewardTransactionService rewardTransactionService;
 
     @Autowired
@@ -70,7 +70,6 @@ class TransactionsControllerImplTest {
                 .expectBodyList(RewardTransaction.class).contains(rt);
 
         Mockito.verify(rewardTransactionService, Mockito.times(1)).findByIdTrxIssuer(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
-
     }
 
     @Test
@@ -203,26 +202,67 @@ class TransactionsControllerImplTest {
 
     }
 
+  @Test
+  void findByTrxIdAndUserId_Ok() {
+    LocalDateTime now = LocalDateTime.of(2022, 9, 20, 13, 15,45);
+
+    RewardTransaction rt = RewardTransaction.builder()
+        .idTrxIssuer("IDTRXISSUER")
+        .userId("USERID")
+        .trxDate(now)
+        .amountCents(3000L).build();
+
+
+    Mockito.when(rewardTransactionService.findByTrxIdAndUserId("TRXID","USERID"))
+        .thenReturn(Mono.just(rt));
+
+    webClient.get()
+        .uri(uriBuilder -> uriBuilder.path("/idpay/transactions/TRXID/USERID")
+            .build())
+        .exchange()
+        .expectStatus().isOk()
+        .expectBodyList(RewardTransaction.class).contains(rt);
+
+  }
+
     @Test
-    void findByTrxIdAndUserId_Ok() {
-        LocalDateTime now = LocalDateTime.of(2022, 9, 20, 13, 15,45);
+    void cleanupInvoicedTransactions_defaultChunkSize() {
+        Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
+            .thenReturn(Mono.empty());
 
-        RewardTransaction rt = RewardTransaction.builder()
-                .idTrxIssuer("IDTRXISSUER")
-                .userId("USERID")
-                .trxDate(now)
-                .amountCents(3000L).build();
+        webClient.post()
+            .uri("/idpay/transactions/cleanup")
+            .exchange()
+            .expectStatus().isOk()
+            .expectBody().isEmpty();
 
+        Mockito.verify(rewardTransactionService, Mockito.times(1))
+            .assignInvoicedTransactionsToBatches(
+                Mockito.eq(200),
+                Mockito.eq(false),
+                Mockito.isNull());
+    }
 
-        Mockito.when(rewardTransactionService.findByTrxIdAndUserId("TRXID","USERID"))
-                .thenReturn(Mono.just(rt));
+    @Test
+    void cleanupInvoicedTransactions_customChunkSize() {
+        Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
+            .thenReturn(Mono.empty());
 
-        webClient.get()
-                .uri(uriBuilder -> uriBuilder.path("/idpay/transactions/TRXID/USERID")
-                        .build())
-                .exchange()
-                .expectStatus().isOk()
-                .expectBodyList(RewardTransaction.class).contains(rt);
+        int customChunkSize = 500;
 
+        webClient.post()
+            .uri(uriBuilder -> uriBuilder.path("/idpay/transactions/cleanup")
+                .queryParam("chunkSize", customChunkSize)
+                .build())
+            .exchange()
+            .expectStatus().isOk()
+            .expectBody().isEmpty();
+
+        Mockito.verify(rewardTransactionService, Mockito.times(1))
+            .assignInvoicedTransactionsToBatches(
+                Mockito.eq(customChunkSize),
+                Mockito.eq(false),
+                Mockito.isNull()
+            );
     }
 }
