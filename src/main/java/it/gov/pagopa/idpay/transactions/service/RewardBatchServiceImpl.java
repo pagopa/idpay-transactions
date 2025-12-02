@@ -138,7 +138,6 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
         batch.setStatus(RewardBatchStatus.SENT);
         batch.setUpdateDate(LocalDateTime.now());
         return rewardBatchRepository.save(batch)
-            .then(rewardTransactionRepository.rewardTransactionsByBatchId(batchId))
             .then();
       });
 }
