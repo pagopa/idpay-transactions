@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
+import com.mongodb.client.result.UpdateResult;
 import com.nimbusds.oauth2.sdk.util.StringUtils;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -209,6 +210,17 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
             Query.query(criteria),
             RewardBatch.class);
 
+  }
+
+  @Override
+  public Mono<Long> updateStatus(List<String> batchIdsList, RewardBatchStatus rewardBatchStatus, LocalDateTime updateDate) {
+    return mongoTemplate.updateFirst(
+            Query.query(Criteria.where("_id").in(batchIdsList)),
+            new Update()
+                    .set(RewardBatch.Fields.status, rewardBatchStatus)
+                    .set(RewardBatch.Fields.updateDate, updateDate),
+            RewardBatch.class)
+            .map(UpdateResult::getModifiedCount);
   }
 
 

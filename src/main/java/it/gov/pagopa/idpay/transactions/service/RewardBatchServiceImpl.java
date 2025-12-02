@@ -2,6 +2,8 @@ package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
+import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
+import it.gov.pagopa.idpay.transactions.dto.RewardBatchStatusRequest;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
@@ -20,6 +22,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -32,6 +35,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND;
 
 @Service
 @Slf4j
@@ -138,7 +143,6 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
         batch.setStatus(RewardBatchStatus.SENT);
         batch.setUpdateDate(LocalDateTime.now());
         return rewardBatchRepository.save(batch)
-            .then(rewardTransactionRepository.rewardTransactionsByBatchId(batchId))
             .then();
       });
 }
@@ -301,12 +305,36 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                 .flatMap(acc -> rewardBatchRepository.updateTotals(rewardBatchId, acc.getTrxElaborated(), acc.getTotalApprovedAmountCents(), acc.getTrxRejected(), acc.getTrxSuspended()));
     }
 
-private String buildBatchName(YearMonth month) {
-  String monthName = month.getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN);
-  String year = String.valueOf(month.getYear());
+    @Scheduled (cron = "${app.transactions.reward-batch.to-evaluating.schedule}")
+    void evaluateRewardBatchStatusScheduler(){
+        evaluatingRewardBatches(RewardBatchStatusRequest.builder().build())
+                .subscribe(numberUpdateBatch -> log.info("Finish change status Evaluating to {} rewards batch", numberUpdateBatch));
+    }
 
-  return String.format("%s %s", monthName, year);
-}
+    @Override
+    public Mono<Long> evaluatingRewardBatches(RewardBatchStatusRequest rewardBatchStatusRequest) {
+        Flux<RewardBatch> batchIdToElaborate;
+        if (rewardBatchStatusRequest.getRewardBatchIds() == null || rewardBatchStatusRequest.getRewardBatchIds().isEmpty()) {
+            batchIdToElaborate = rewardBatchRepository.findByStatus(RewardBatchStatus.SENT);
+        } else {
+            batchIdToElaborate = Flux.fromIterable(rewardBatchStatusRequest.getRewardBatchIds())
+                    .flatMap(batchId -> rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.SENT));
+        }
+
+        return batchIdToElaborate
+                .switchIfEmpty(Mono.error(new RewardBatchNotFound(REWARD_BATCH_NOT_FOUND, "No reward batches found with status SENT")))
+                .flatMap(rewardBatch -> rewardTransactionRepository.rewardTransactionsByBatchId(rewardBatch.getId())
+                        .thenReturn(rewardBatch.getId()))
+                .collectList()
+                .flatMap(batchIdsList -> rewardBatchRepository.updateStatus(batchIdsList, RewardBatchStatus.EVALUATING, LocalDateTime.now()));
+    }
+
+    private String buildBatchName(YearMonth month) {
+        String monthName = month.getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN);
+        String year = String.valueOf(month.getYear());
+
+        return String.format("%s %s", monthName, year);
+    }
 
 
     @Override
@@ -314,7 +342,7 @@ private String buildBatchName(YearMonth month) {
     return rewardBatchRepository.findRewardBatchById(rewardBatchId)
     .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
             HttpStatus.NOT_FOUND,
-            ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND,
+            REWARD_BATCH_NOT_FOUND,
             ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
     .filter(rewardBatch -> rewardBatch.getStatus().equals(RewardBatchStatus.EVALUATING)
                             &&  !rewardBatch.getAssigneeLevel().equals(RewardBatchAssignee.L3 ))

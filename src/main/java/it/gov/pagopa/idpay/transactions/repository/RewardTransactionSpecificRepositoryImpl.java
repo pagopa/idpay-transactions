@@ -300,7 +300,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         Criteria batchCriteria = Criteria.where(Fields.rewardBatchId).is(batchId);
 
         // 1) All the trx in the lot -> REWARDED
-        //    Use modifiedCount to find out how many have been updaetd
+        //    Use modifiedCount to find out how many have been updated
         Mono<Long> totalMono = mongoTemplate.updateMulti(
                         Query.query(batchCriteria),
                         new Update().set(Fields.status, SyncTrxStatus.REWARDED),

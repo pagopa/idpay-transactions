@@ -5,9 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
+import it.gov.pagopa.common.web.dto.ErrorDTO;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
+import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
+import it.gov.pagopa.idpay.transactions.config.ServiceExceptionConfig;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
+import it.gov.pagopa.idpay.transactions.dto.RewardBatchStatusRequest;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -15,9 +19,11 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.service.RewardBatchService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -30,6 +36,7 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 
 @WebFluxTest(controllers = MerchantRewardBatchControllerImpl.class)
+@Import({ServiceExceptionConfig.class})
 class MerchantRewardBatchControllerImplTest {
 
   @Autowired
@@ -383,6 +390,40 @@ class MerchantRewardBatchControllerImplTest {
         verify(rewardBatchService, times(1))
                 .rejectTransactions(any(), any(), any());
         verify(rewardBatchMapper, times(1)).toDTO(batch);
+    }
+
+    @Test
+    void evaluatingRewardBatches() {
+        RewardBatchStatusRequest batchRequest = RewardBatchStatusRequest.builder().rewardBatchIds(List.of("BATCH_ID")).build();
+
+        when(rewardBatchService.evaluatingRewardBatches(batchRequest)).thenReturn(Mono.just(1L));
+
+        webClient.post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/evaluate",
+                        INITIATIVE_ID)
+                .bodyValue(batchRequest)
+                .exchange()
+                .expectStatus().isOk();
+    }
+
+    @Test
+    void evaluatingRewardBatches_badRequest() {
+        RewardBatchStatusRequest batchRequest = RewardBatchStatusRequest.builder().rewardBatchIds(List.of("BATCH_ID")).build();
+
+        when(rewardBatchService.evaluatingRewardBatches(batchRequest))
+                .thenReturn(Mono.error(new RewardBatchNotFound("DUMMY_EXCEPTION", "MESSAGE_DUMMY")));
+
+        webClient.post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/evaluate",
+                        INITIATIVE_ID)
+                .bodyValue(batchRequest)
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody(ErrorDTO.class)
+                .value(errorDto -> {
+                    Assertions.assertEquals("DUMMY_EXCEPTION", errorDto.getCode());
+                    Assertions.assertEquals("MESSAGE_DUMMY", errorDto.getMessage());
+                });
     }
 
 }

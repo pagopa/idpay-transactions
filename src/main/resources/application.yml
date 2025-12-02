@@ -197,3 +197,7 @@ app:
     paginationSize: ${DELETE_PAGINATION_SIZE:45}
     delayTime: ${DELETE_DELAY_TIME:1000}
   sampling: ${SAMPLING_HASH_SEED:15121984}
+  transactions:
+    reward-batch:
+      to-evaluating:
+        schedule: ${SCHEDULE_REWARD_BATCH_TO_EVALUATING:0 0 1 * * ?} # each day at 01:00AM

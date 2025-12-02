@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.idpay.transactions.dto.RewardBatchStatusRequest;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
@@ -21,4 +22,6 @@ public interface RewardBatchService {
 
   Mono<RewardBatch> rejectTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request);
   Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String initiativeId);
+
+  Mono<Long> evaluatingRewardBatches(RewardBatchStatusRequest rewardBatchStatusRequest);
 }

@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
+import it.gov.pagopa.idpay.transactions.dto.RewardBatchStatusRequest;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import jakarta.validation.Valid;
@@ -57,4 +58,8 @@ Mono<RewardBatch>  rewardBatchConfirmation(
           @PathVariable("rewardBatchId") String rewardBatchId,
           @RequestBody @Valid TransactionsRequest request);
 
+  @PostMapping("/initiatives/{initiativeId}/reward-batches/evaluate")
+  Mono<Void> evaluatingRewardBatches(
+          @RequestBody RewardBatchStatusRequest rewardBatchIds
+  );
 }
