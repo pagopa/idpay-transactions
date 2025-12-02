@@ -8,6 +8,7 @@ import static org.mockito.Mockito.*;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
+import it.gov.pagopa.idpay.transactions.dto.RewardBatchRequest;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -16,6 +17,8 @@ import it.gov.pagopa.idpay.transactions.service.RewardBatchService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
 import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.data.domain.Page;
@@ -26,7 +29,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 @WebFluxTest(controllers = MerchantRewardBatchControllerImpl.class)
@@ -41,9 +47,98 @@ class MerchantRewardBatchControllerImplTest {
   @MockitoBean
   RewardBatchMapper rewardBatchMapper;
 
+
   private static final String MERCHANT_ID = "MERCHANT_ID";
   private static final String INITIATIVE_ID = "INIT1";
+    private static final String REWARD_BATCH_ID_1 = "REWARD_BATCH_ID_1";
+    private static final String REWARD_BATCH_ID_2 = "REWARD_BATCH_ID_2";
 
+    private static final List<String> BATCH_IDS = Arrays.asList(REWARD_BATCH_ID_1, REWARD_BATCH_ID_2);
+
+
+        // --- Caso 1: Lista ID presente e popolata ---
+// Esempio di come dovrebbero apparire i tuoi test usando WebTestClient
+
+    @Test
+    void rewardBatchConfirmationBatch_WithValidList() {
+        RewardBatchRequest request = new RewardBatchRequest(BATCH_IDS);
+
+        // 1. Simula il comportamento del Servizio che verrà chiamato dal Controller reale
+        when(rewardBatchService.rewardBatchConfirmationBatch(eq(INITIATIVE_ID), eq(BATCH_IDS)))
+                .thenReturn(Mono.empty()); // Assume successo
+
+
+
+        // 2. Esegui la chiamata HTTP
+        webClient.put()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/approved", INITIATIVE_ID) // <--- Aggiorna con l'URI corretto
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk() // Aspettati uno status 204 se restituisce Mono<Void>
+                .expectBody().isEmpty();
+
+        // 3. Verifica che il servizio delegato sia chiamato
+        verify(rewardBatchService, times(1))
+                .rewardBatchConfirmationBatch(eq(INITIATIVE_ID), eq(BATCH_IDS));
+    }
+
+        // --- Caso 2: Lista ID nella request è NULL ---
+        @Test
+        void rewardBatchConfirmationBatch_WhenRequestListIsNull() {
+            RewardBatchRequest request = new RewardBatchRequest(null);
+
+            // 1. Simula il comportamento del Servizio che verrà chiamato dal Controller reale
+            when(rewardBatchService.rewardBatchConfirmationBatch(eq(INITIATIVE_ID), eq(BATCH_IDS)))
+                    .thenReturn(Mono.empty()); // Assume successo
+
+
+
+            // 2. Esegui la chiamata HTTP
+            webClient.put()
+                    .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/approved", INITIATIVE_ID) // <--- Aggiorna con l'URI corretto
+                    .bodyValue(request)
+                    .exchange()
+                    .expectStatus().isOk() // Aspettati uno status 204 se restituisce Mono<Void>
+                    .expectBody().isEmpty();
+
+
+            // 1. Verifica che il servizio delegato sia chiamato con List.of() (Lista vuota)
+            verify(rewardBatchService, times(1))
+                    .rewardBatchConfirmationBatch(
+                            eq(INITIATIVE_ID),
+                            eq(List.of()) // Deve chiamare con List.of()
+                    );
+
+        }
+
+        // --- Caso 3: Lista ID è vuota (ma non null) ---
+        @Test
+        void rewardBatchConfirmationBatch_WhenRequestListIsEmpty() {
+            RewardBatchRequest request = new RewardBatchRequest(Collections.emptyList());
+
+            // 1. Simula il comportamento del Servizio che verrà chiamato dal Controller reale
+            when(rewardBatchService.rewardBatchConfirmationBatch(eq(INITIATIVE_ID), eq(BATCH_IDS)))
+                    .thenReturn(Mono.empty()); // Assume successo
+
+
+
+            // 2. Esegui la chiamata HTTP
+            webClient.put()
+                    .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/approved", INITIATIVE_ID) // <--- Aggiorna con l'URI corretto
+                    .bodyValue(request)
+                    .exchange()
+                    .expectStatus().isOk() // Aspettati uno status 204 se restituisce Mono<Void>
+                    .expectBody().isEmpty();
+
+
+            // 1. Verifica che il servizio delegato sia chiamato con List.of() (Lista vuota)
+            verify(rewardBatchService, times(1))
+                    .rewardBatchConfirmationBatch(
+                            eq(INITIATIVE_ID),
+                            eq(Collections.emptyList())
+                    );
+
+    }
   @Test
   void getRewardBatchesForMerchantOk() {
     RewardBatch batch = RewardBatch.builder()
