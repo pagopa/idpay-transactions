@@ -76,6 +76,110 @@ class RewardBatchServiceImplTest {
     rewardBatchServiceSpy = spy((RewardBatchServiceImpl) rewardBatchService);
   }
 
+
+
+        @Test
+        void processSingleBatch_NotFound() {
+            // Setup: Repository restituisce Mono.empty() (non trovato)
+            when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID_1)).thenReturn(Mono.empty());
+
+            // Esecuzione e Verifica: Deve lanciare NOT_FOUND
+            StepVerifier.create(rewardBatchServiceSpy.processSingleBatch(REWARD_BATCH_ID_1, INITIATIVE_ID))
+                    .verifyErrorMatches(e -> e instanceof ClientExceptionWithBody
+                            && e.getMessage().equalsIgnoreCase(ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(REWARD_BATCH_ID_1)));
+
+            // Verifica: nessun salvataggio
+            verify(rewardBatchRepository, never()).save(any());
+        }
+
+        @Test
+        void processSingleBatch_InvalidState() {
+            REWARD_BATCH_1.setStatus(RewardBatchStatus.EVALUATING);
+            when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(REWARD_BATCH_1));
+
+            StepVerifier.create(rewardBatchServiceSpy.processSingleBatch(REWARD_BATCH_ID_1, INITIATIVE_ID))
+                    .verifyErrorMatches(e -> e instanceof ClientExceptionWithBody
+                            && e.getMessage().equalsIgnoreCase(ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(REWARD_BATCH_ID_1)));
+
+            verify(rewardBatchRepository, never()).save(any());
+        }
+
+        @Test
+        void processSingleBatch_Success_NoSuspended() {
+            REWARD_BATCH_1.setStatus(RewardBatchStatus.APPROVING);
+            REWARD_BATCH_1.setAssigneeLevel(RewardBatchAssignee.L3);
+            REWARD_BATCH_1.setNumberOfTransactionsSuspended(0L);
+            // Setup: Batch valido senza transazioni sospese
+            when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(REWARD_BATCH_1));
+            // Simula il successo dell'aggiornamento transazioni approvate
+            doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsToApprove(anyString(), anyString());
+            // Simula il salvataggio finale del repository per restituire l'oggetto salvato (necessario per flatMap(save))
+            when(rewardBatchRepository.save(any(RewardBatch.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+
+            // Esecuzione e Verifica
+            StepVerifier.create(rewardBatchServiceSpy.processSingleBatch(REWARD_BATCH_ID_1, INITIATIVE_ID))
+                    .expectNextMatches(batch ->
+                            batch.getId().equals(REWARD_BATCH_ID_1) &&
+                                    batch.getStatus().equals(RewardBatchStatus.APPROVED) &&
+                                    batch.getNumberOfTransactionsSuspended().equals(0L) &&
+                                    batch.getUpdateDate() != null)
+                    .verifyComplete();
+
+            // Verifica:
+            // 1. Chiamato l'aggiornamento delle transazioni approvate
+            verify(rewardBatchServiceSpy, times(1)).updateAndSaveRewardTransactionsToApprove(REWARD_BATCH_ID_1, INITIATIVE_ID);
+            // 2. NON chiamato il flusso delle sospensioni
+            verify(rewardBatchServiceSpy, never()).createRewardBatchAndSave(any());
+            // 3. Chiamato il salvataggio finale del batch ORIGINALE
+            verify(rewardBatchRepository, times(1)).save(any(RewardBatch.class));
+        }
+
+        @Test
+        void processSingleBatch_Success_WithSuspended() {
+            REWARD_BATCH_1.setStatus(RewardBatchStatus.APPROVING);
+            REWARD_BATCH_1.setAssigneeLevel(RewardBatchAssignee.L3);
+            REWARD_BATCH_1.setNumberOfTransactionsSuspended(1L);
+            // Setup: Batch valido con 5 transazioni sospese
+            when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(REWARD_BATCH_1));
+
+            // Simula il successo dell'aggiornamento transazioni approvate
+            doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsToApprove(anyString(), anyString());
+            REWARD_BATCH_2.setStatus(RewardBatchStatus.CREATED);
+            // Simula la creazione e salvataggio del nuovo batch per i sospesi
+            doReturn(Mono.just(REWARD_BATCH_2)).when(rewardBatchServiceSpy).createRewardBatchAndSave(any(RewardBatch.class));
+            // Simula l'aggiornamento transazioni sospese
+            doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsSuspended(anyString(), anyString(), anyString());
+            // Simula il salvataggio finale del repository per restituire l'oggetto salvato (necessario per flatMap(save))
+            when(rewardBatchRepository.save(any(RewardBatch.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+            // Esecuzione e Verifica
+            StepVerifier.create(rewardBatchServiceSpy.processSingleBatch(REWARD_BATCH_ID_1, INITIATIVE_ID))
+                    .expectNextMatches(batch ->
+                            batch.getId().equals(REWARD_BATCH_ID_1) &&
+                                    batch.getStatus().equals(RewardBatchStatus.APPROVED) &&
+                                    batch.getNumberOfTransactionsSuspended().equals(1L) && // Il conteggio rimane
+                                    batch.getUpdateDate() != null)
+                    .verifyComplete();
+
+            // Verifica:
+            // 1. Chiamato l'aggiornamento delle transazioni approvate
+            verify(rewardBatchServiceSpy, times(1)).updateAndSaveRewardTransactionsToApprove(REWARD_BATCH_ID_1, INITIATIVE_ID);
+
+            // 2. Chiamato il flusso delle sospensioni (creazione e aggiornamento transazioni)
+            verify(rewardBatchServiceSpy, times(1)).createRewardBatchAndSave(REWARD_BATCH_1);
+            verify(rewardBatchServiceSpy, times(1)).updateAndSaveRewardTransactionsSuspended(
+                    eq(REWARD_BATCH_ID_1),
+                    eq(INITIATIVE_ID),
+                    eq(REWARD_BATCH_ID_2) // Verifichiamo che sia stato usato l'ID del nuovo batch mockato
+            );
+
+            // 3. Chiamato il salvataggio finale del batch ORIGINALE (che ha lo stato APPROVED)
+            verify(rewardBatchRepository, times(1)).save(argThat(batch ->
+                    batch.getId().equals(REWARD_BATCH_ID_1) && batch.getStatus().equals(RewardBatchStatus.APPROVED)));
+        }
+
+
         @Test
         void processSingleBatchSafe_Success() {
             // Setup: processSingleBatch returns success
