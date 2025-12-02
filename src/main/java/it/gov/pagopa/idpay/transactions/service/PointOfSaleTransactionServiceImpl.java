@@ -5,18 +5,32 @@ import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
+import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
+import java.time.LocalDateTime;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+import it.gov.pagopa.idpay.transactions.utils.Utilities;
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.YearMonth;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.TRANSACTION_MISSING_INVOICE;
 
@@ -27,27 +41,48 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
   private final UserRestClient userRestClient;
   private final RewardTransactionRepository rewardTransactionRepository;
   private final InvoiceStorageClient invoiceStorageClient;
+  private final RewardBatchService rewardBatchService;
 
   protected PointOfSaleTransactionServiceImpl(
-      UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository, InvoiceStorageClient invoiceStorageClient) {
+          UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository, InvoiceStorageClient invoiceStorageClient, RewardBatchService rewardBatchService) {
     this.userRestClient = userRestClient;
     this.rewardTransactionRepository = rewardTransactionRepository;
     this.invoiceStorageClient = invoiceStorageClient;
+    this.rewardBatchService = rewardBatchService;
   }
 
-  @Override
-  public Mono<Page<RewardTransaction>> getPointOfSaleTransactions(String merchantId, String initiativeId, String pointOfSaleId, String productGtin, String fiscalCode, String status, Pageable pageable) {
-    if (StringUtils.isNotBlank(fiscalCode)) {
-      return userRestClient.retrieveFiscalCodeInfo(fiscalCode)
-          .map(FiscalCodeInfoPDV::getToken)
-          .flatMap(userId ->
-              getTransactions(merchantId, initiativeId, pointOfSaleId, userId, productGtin, status, pageable));
-    } else {
-      return getTransactions(merchantId, initiativeId, pointOfSaleId, null, productGtin, status, pageable);
+    @Override
+    public Mono<Page<RewardTransaction>> getPointOfSaleTransactions(String merchantId,
+                                                                    String initiativeId,
+                                                                    String pointOfSaleId,
+                                                                    String productGtin,
+                                                                    String fiscalCode,
+                                                                    String status,
+                                                                    Pageable pageable) {
+
+        TrxFiltersDTO filters = new TrxFiltersDTO(
+                merchantId,
+                initiativeId,
+                null,
+                status,
+                null,
+                null,
+                null
+        );
+
+        if (StringUtils.isNotBlank(fiscalCode)) {
+            return userRestClient.retrieveFiscalCodeInfo(fiscalCode)
+                    .map(FiscalCodeInfoPDV::getToken)
+                    .flatMap(userId ->
+                            getTransactions(filters, pointOfSaleId, userId, productGtin, pageable));
+        } else {
+            return getTransactions(filters, pointOfSaleId, null, productGtin, pageable);
+        }
     }
-  }
 
-  /**
+
+
+    /**
    * Method to generate a download url of an invoice for a rewardTransaction in status REWARDED, REFUNDED or INVOICED,
    * the url will be provided with a Shared Access Signature token for the resource
    * @param merchantId
@@ -91,10 +126,128 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
               });
   }
 
-  private Mono<Page<RewardTransaction>> getTransactions(String merchantId, String initiativeId, String pointOfSaleId, String userId, String productGtin, String status, Pageable pageable) {
-    return rewardTransactionRepository.findByFilterTrx(merchantId, initiativeId, pointOfSaleId, userId, productGtin, status, pageable)
-        .collectList()
-        .zipWith(rewardTransactionRepository.getCount(merchantId, initiativeId, pointOfSaleId, userId, productGtin, status))
-        .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
+    private Mono<Page<RewardTransaction>> getTransactions(TrxFiltersDTO filters,
+                                                          String pointOfSaleId,
+                                                          String userId,
+                                                          String productGtin,
+                                                          Pageable pageable) {
+
+        return rewardTransactionRepository
+                .findByFilterTrx(filters, pointOfSaleId, userId, productGtin, pageable)
+                .collectList()
+                .zipWith(rewardTransactionRepository.getCount(
+                        filters,
+                        pointOfSaleId,
+                        productGtin,
+                        userId
+                ))
+                .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
+    }
+
+  public Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId, String pointOfSaleId, FilePart file, String docNumber) {
+    try {
+      Utilities.checkFileExtensionOrThrow(file);
+
+      return rewardTransactionRepository.findTransaction(merchantId, pointOfSaleId, transactionId)
+          .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
+          .flatMap(rewardTransaction -> {
+            String status = rewardTransaction.getStatus();
+            InvoiceData oldDocumentData = null;
+
+            if (SyncTrxStatus.INVOICED.name().equalsIgnoreCase(status)) {
+              oldDocumentData = rewardTransaction.getInvoiceData();
+            } else {
+              throw new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE);
+            }
+            if (!rewardTransaction.getMerchantId().equals(merchantId)) {
+              throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, ExceptionConstants.ExceptionCode.GENERIC_ERROR,
+                  "The merchant with id [%s] associated to the transaction is not equal to the merchant with id [%s]".formatted(
+                      rewardTransaction.getMerchantId(), merchantId));
+            }
+            if (!rewardTransaction.getPointOfSaleId().equals(pointOfSaleId)) {
+              throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, ExceptionConstants.ExceptionCode.GENERIC_ERROR,
+                  "The pointOfSaleId with id [%s] associated to the transaction is not equal to the pointOfSaleId with id [%s]".formatted(
+                      rewardTransaction.getPointOfSaleId(), pointOfSaleId));
+            }
+
+            String oldFilename = oldDocumentData.getFilename();
+
+            String blobPath = String.format(
+                "invoices/merchant/%s/pos/%s/transaction/%s/invoice/%s",
+                merchantId, pointOfSaleId, transactionId, file.filename());
+            String oldBlobPath = String.format(
+                "invoices/merchant/%s/pos/%s/transaction/%s/invoice/%s",
+                merchantId, pointOfSaleId, transactionId, oldFilename);
+            Path tempPath = Paths.get(System.getProperty("java.io.tmpdir"), file.filename());
+
+            return file.transferTo(tempPath)
+                .then(Mono.fromCallable(() -> {
+                  // Delete old file from storage
+                  invoiceStorageClient.deleteFile(oldBlobPath);
+
+                  // Upload new file on storage
+                  try (InputStream is = Files.newInputStream(tempPath)) {
+                    String contentType = file.headers().getContentType() != null
+                        ? file.headers().getContentType().toString()
+                        : null;
+                    invoiceStorageClient.upload(is, blobPath, contentType);
+                  }
+                  return Boolean.TRUE;
+                }))
+                .onErrorMap(IOException.class, e -> {
+                  log.error("Error uploading file to storage for transaction [{}]", Utilities.sanitizeString(transactionId), e);
+                  throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
+                      ExceptionConstants.ExceptionCode.GENERIC_ERROR, "Error uploading invoice file", e);
+                })
+                .then(Mono.defer(() -> {
+                  // Update Transaction document
+                  rewardTransaction.setInvoiceData(InvoiceData.builder()
+                      .filename(file.filename())
+                      .docNumber(docNumber)
+                      .build());
+                  rewardTransaction.setInvoiceUploadDate(LocalDateTime.now());
+                  rewardTransaction.setUpdateDate(LocalDateTime.now());
+
+                  String oldBatchId = rewardTransaction.getRewardBatchId();
+                  YearMonth currentMonth = YearMonth.now();
+                  PosType posType = rewardTransaction.getPointOfSaleType();
+                  String businessName = rewardTransaction.getBusinessName();
+
+                  String initiativeId = rewardTransaction.getInitiatives().get(0);
+
+                  long accruedRewardCents = rewardTransaction.getRewards()
+                      .get(initiativeId)
+                      .getAccruedRewardCents();
+
+                  // Recupero/creo il lotto per il mese corrente
+                  return rewardBatchService.findOrCreateBatch(
+                          merchantId,
+                          posType,
+                          currentMonth.toString(),
+                          businessName
+                      )
+                      .flatMap(newRewardBatch -> {
+                        // Se il lotto non è cambiato, aggiorno solo la transaction
+                        if (newRewardBatch.getId().equals(oldBatchId)) {
+                          return rewardTransactionRepository.save(rewardTransaction).then();
+                        }
+                        // Altrimenti: sposto gli importi dal lotto dal vecchio al nuovo
+                        return rewardBatchService.decrementTotals(oldBatchId, accruedRewardCents)
+                                .then(rewardBatchService.incrementTotals(newRewardBatch.getId(), accruedRewardCents))
+                                .then(Mono.fromRunnable(() -> {
+                                    // Associo la transaction al nuovo lotto
+                                    rewardTransaction.setRewardBatchId(newRewardBatch.getId());
+                                    rewardTransaction.setUpdateDate(LocalDateTime.now());
+                                }))
+                                .then(rewardTransactionRepository.save(rewardTransaction))
+                                .then();
+                      });
+                }));
+          });
+    } catch (Exception e) {
+      throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
+          ExceptionConstants.ExceptionCode.GENERIC_ERROR, "Error uploading invoice file", e);
+    }
   }
+
 }

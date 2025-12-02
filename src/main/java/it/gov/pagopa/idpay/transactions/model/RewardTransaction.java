@@ -75,4 +75,9 @@ public class RewardTransaction {
     private String franchiseName;
     private PosType pointOfSaleType;
     private String businessName;
+    private LocalDateTime invoiceUploadDate;
+
+    //key used for randomly select a transaction for evaluation
+    private int samplingKey;
+    private LocalDateTime updateDate;
 }
