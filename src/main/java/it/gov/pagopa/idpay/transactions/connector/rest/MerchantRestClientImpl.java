@@ -79,6 +79,6 @@ public class MerchantRestClientImpl implements MerchantRestClient {
         .onErrorResume(WebClientResponseException.BadRequest.class, ex -> {
           log.warn("Invalid POS request for merchant {}", merchantId);
           return Mono.empty();
-        });
+        }).cache();
   }
 }
