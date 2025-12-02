@@ -451,14 +451,11 @@ class RewardBatchServiceImplTest {
     Mockito.when(rewardBatchRepository.save(any()))
         .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-    Mockito.when(rewardTransactionRepository.rewardTransactionsByBatchId("B1"))
-        .thenReturn(Mono.empty());
-
     StepVerifier.create(rewardBatchService.sendRewardBatch("M1", "B1"))
         .verifyComplete();
 
     Mockito.verify(rewardBatchRepository).save(any());
-    Mockito.verify(rewardTransactionRepository).rewardTransactionsByBatchId("B1");
+    Mockito.verify(rewardTransactionRepository, never()).rewardTransactionsByBatchId(any());
   }
 
   @Test
