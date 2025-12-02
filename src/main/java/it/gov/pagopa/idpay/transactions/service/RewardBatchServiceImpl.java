@@ -413,7 +413,7 @@ private String buildBatchName(YearMonth month) {
                 });
     }
 
-    private Mono<RewardBatch> processSingleBatch(String rewardBatchId, String initiativeId) {
+    public Mono<RewardBatch> processSingleBatch(String rewardBatchId, String initiativeId) {
         return rewardBatchRepository.findRewardBatchById(rewardBatchId)
                 // 🛑 GESTIONE NOT_FOUND e INVALID STATE... (lasciati invariati)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(

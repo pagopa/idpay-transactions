@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -75,7 +76,37 @@ class RewardBatchServiceImplTest {
     rewardBatchServiceSpy = spy((RewardBatchServiceImpl) rewardBatchService);
   }
 
+        @Test
+        void processSingleBatchSafe_Success() {
+            // Setup: processSingleBatch returns success
+            doReturn(Mono.just(REWARD_BATCH_1)).when(rewardBatchServiceSpy).processSingleBatch(eq(REWARD_BATCH_ID_1), anyString());
 
+            // Execution
+            Mono<RewardBatch> result = rewardBatchServiceSpy.processSingleBatchSafe(REWARD_BATCH_ID_1, INITIATIVE_ID);
+
+            // Check: The flow must issue the RewardBatch and complete.
+            StepVerifier.create(result).expectNext(REWARD_BATCH_1).verifyComplete();
+
+        }
+
+        @Test
+        void processSingleBatchSafe_HandlesClientExceptionAndCompletesEmpty() {
+            ClientExceptionWithBody error = new ClientExceptionWithBody(
+                    HttpStatus.NOT_FOUND,
+                    ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND,
+                    ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(REWARD_BATCH_ID_2)
+            );
+
+            // processSingleBatch returns failure
+            doReturn(Mono.error(error)).when(rewardBatchServiceSpy).processSingleBatch(eq(REWARD_BATCH_ID_2), anyString());
+
+            // Execution
+            Mono<RewardBatch> result = rewardBatchServiceSpy.processSingleBatchSafe(REWARD_BATCH_ID_2, INITIATIVE_ID);
+
+            // Check: The flow must complete without emitting any elements (Mono.empty())
+            StepVerifier.create(result).verifyComplete();
+
+        }
 
     @Test
     void rewardBatchConfirmationBatch_WithList_AllSuccess() {
