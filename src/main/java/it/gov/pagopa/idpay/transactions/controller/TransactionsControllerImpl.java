@@ -42,9 +42,9 @@ public class TransactionsControllerImpl implements TransactionsController{
     }
 
     @Override
-    public Mono<Void> cleanupInvoicedTransactions(Integer chunkSize, boolean processAll, String trxId) {
+    public Mono<Void> cleanupInvoicedTransactions(Integer chunkSize, Integer repetitionsNumber, boolean processAll, String trxId) {
         log.info("[BATCH_ASSIGNMENT] Start processing INVOICED transactions without batch");
-        return rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, processAll, trxId);
+        return rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize,repetitionsNumber, processAll, trxId);
     }
 
 }
