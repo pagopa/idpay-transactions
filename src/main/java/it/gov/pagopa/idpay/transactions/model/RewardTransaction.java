@@ -66,4 +66,6 @@ public class RewardTransaction {
     private InvoiceData creditNoteData;
     private String trxCode;
     private LocalDateTime invoiceUploadDate;
+    private Boolean extendedAuthorization;
+    private Long voucherAmountCents;
 }

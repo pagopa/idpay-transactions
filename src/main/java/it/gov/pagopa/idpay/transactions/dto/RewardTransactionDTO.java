@@ -70,4 +70,7 @@ public class RewardTransactionDTO {
     private InvoiceData creditNoteData;
     private String trxCode;
     private LocalDateTime updateDate;
+
+    private Boolean extendedAuthorization;
+    private Long voucherAmountCents;
 }
