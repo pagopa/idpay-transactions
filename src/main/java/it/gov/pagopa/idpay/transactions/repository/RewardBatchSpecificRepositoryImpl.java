@@ -211,6 +211,15 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
 
   }
 
+  public Flux<RewardBatch> findRewardBatchByStatus(RewardBatchStatus rewardBatchStatus) {
+    Criteria criteria = getCriteriaFindRewardBatchByStatus(rewardBatchStatus);
+
+    return mongoTemplate.find(
+            Query.query(criteria),
+            RewardBatch.class);
+
+  }
+
 
   private static Criteria getCriteriaFindRewardBatchById(String rewardBatchId) {
     return Criteria.where("_id").is(rewardBatchId.trim());
@@ -234,5 +243,9 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     }
     return criteria;
   }
+
+private static Criteria getCriteriaFindRewardBatchByStatus(RewardBatchStatus rewardBatchStatus) {
+  return Criteria.where(RewardBatch.Fields.status).is(rewardBatchStatus);
+}
 
 }

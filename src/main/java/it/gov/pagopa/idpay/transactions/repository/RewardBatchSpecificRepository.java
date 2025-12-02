@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import org.springframework.data.domain.Pageable;
@@ -18,5 +19,6 @@ public interface RewardBatchSpecificRepository {
 
   Mono<RewardBatch> findRewardBatchById(String rewardBatchId);
   Mono<RewardBatch> findRewardBatchByFilter(String rewardBatchId, String merchantId, String posType, String month);
+  Flux<RewardBatch> findRewardBatchByStatus(RewardBatchStatus rewardBatchStatus);
 
 }
