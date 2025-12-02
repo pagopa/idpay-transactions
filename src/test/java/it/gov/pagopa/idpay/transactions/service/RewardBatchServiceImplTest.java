@@ -8,6 +8,7 @@ import static org.mockito.Mockito.*;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
+import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
@@ -20,6 +21,7 @@ import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -48,8 +50,8 @@ class RewardBatchServiceImplTest {
   @Mock
   private RewardTransactionRepository rewardTransactionRepository;
 
-  private RewardBatchService rewardBatchService;
-    private RewardBatchServiceImpl rewardBatchServiceSpy;
+  private RewardBatchServiceImpl rewardBatchService;
+  private RewardBatchServiceImpl rewardBatchServiceSpy;
 
   private static final String BUSINESS_NAME = "Test Business name";
   private static final String REWARD_BATCH_ID = "REWARD_BATCH_ID";
@@ -1394,5 +1396,90 @@ class RewardBatchServiceImplTest {
         Mockito.verify(rewardBatchRepository, Mockito.times(2)).save(Mockito.any(RewardBatch.class));
     }
 
+    @Test
+    void evaluatingRewardBatches(){
+        String batchId = "BATCH_ID";
+        RewardBatch rewardBatch = RewardBatch.builder()
+                .id(batchId)
+                .build();
 
+        when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.SENT))
+                .thenReturn(Mono.just(rewardBatch));
+
+        Void voidMock = mock(Void.class);
+        when(rewardTransactionRepository.rewardTransactionsByBatchId(batchId))
+                .thenReturn(Mono.just(voidMock));
+
+        when(rewardBatchRepository.updateStatus(eq(List.of(batchId)),  eq(RewardBatchStatus.EVALUATING), any(LocalDateTime.class)))
+                .thenReturn(Mono.just(1L));
+
+        Long result = rewardBatchService.evaluatingRewardBatches(List.of(batchId)).block();
+
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(1L, result);
+    }
+
+    @Test
+    void evaluatingRewardBatches_notSent(){
+        String batchId = "BATCH_ID";
+
+        when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.SENT))
+                .thenReturn(Mono.empty());
+
+        Mono<Long> monoResult = rewardBatchService.evaluatingRewardBatches(List.of(batchId));
+        Assertions.assertThrows(RewardBatchNotFound.class, monoResult::block);
+
+        verify(rewardBatchRepository).findByIdAndStatus(any(), any());
+        verify(rewardTransactionRepository, never()).rewardTransactionsByBatchId(any());
+        verify(rewardBatchRepository, never()).updateStatus(any(), any(), any());
+    }
+
+    @Test
+    void evaluatingRewardBatches_emptyList(){
+        Mono<Long> monoResult = rewardBatchService.evaluatingRewardBatches(new ArrayList<>());
+        Assertions.assertThrows(RewardBatchNotFound.class, monoResult::block);
+
+        verify(rewardBatchRepository, never()).findByStatus(any());
+        verify(rewardBatchRepository, never()).findByIdAndStatus(any(), any());
+        verify(rewardTransactionRepository, never()).rewardTransactionsByBatchId(any());
+        verify(rewardBatchRepository, never()).updateStatus(any(), any(), any());
+    }
+
+    @Test
+    void evaluatingRewardBatches_nullList(){
+        String batchId = "BATCH_ID_1";
+        RewardBatch rewardBatch = RewardBatch.builder()
+                .id(batchId)
+                .build();
+
+        when(rewardBatchRepository.findByStatus(RewardBatchStatus.SENT))
+                .thenReturn(Flux.just(rewardBatch));
+
+        Void voidMock = mock(Void.class);
+        when(rewardTransactionRepository.rewardTransactionsByBatchId(batchId))
+                .thenReturn(Mono.just(voidMock));
+
+        when(rewardBatchRepository.updateStatus(eq(List.of(batchId)),  eq(RewardBatchStatus.EVALUATING), any(LocalDateTime.class)))
+                .thenReturn(Mono.just(1L));
+
+        Long result = rewardBatchService.evaluatingRewardBatches(null).block();
+
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(1L, result);
+    }
+
+
+    @Test
+    void evaluatingRewardBatchStatusScheduler() {
+        when(rewardBatchRepository.findByStatus(RewardBatchStatus.SENT))
+                .thenReturn(Flux.empty());
+
+        rewardBatchServiceSpy.evaluatingRewardBatchStatusScheduler();
+
+        verify(rewardBatchRepository).findByStatus(any());
+        verify(rewardBatchRepository, never()).findByIdAndStatus(any(), any());
+        verify(rewardTransactionRepository, never()).rewardTransactionsByBatchId(any());
+        verify(rewardBatchRepository, never()).updateStatus(any(), any(), any());
+
+    }
 }

@@ -212,7 +212,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
 
   @Override
   public Mono<Long> updateStatus(List<String> batchIdsList, RewardBatchStatus rewardBatchStatus, LocalDateTime updateDate) {
-    return mongoTemplate.updateFirst(
+    return mongoTemplate.updateMulti(
             Query.query(Criteria.where("_id").in(batchIdsList)),
             new Update()
                     .set(RewardBatch.Fields.status, rewardBatchStatus)

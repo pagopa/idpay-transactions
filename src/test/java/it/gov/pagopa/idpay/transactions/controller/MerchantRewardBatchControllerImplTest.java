@@ -11,7 +11,7 @@ import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
 import it.gov.pagopa.idpay.transactions.config.ServiceExceptionConfig;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
-import it.gov.pagopa.idpay.transactions.dto.RewardBatchStatusRequest;
+import it.gov.pagopa.idpay.transactions.dto.RewardBatchesRequest;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -394,9 +394,9 @@ class MerchantRewardBatchControllerImplTest {
 
     @Test
     void evaluatingRewardBatches() {
-        RewardBatchStatusRequest batchRequest = RewardBatchStatusRequest.builder().rewardBatchIds(List.of("BATCH_ID")).build();
+        RewardBatchesRequest batchRequest = RewardBatchesRequest.builder().rewardBatchIds(List.of("BATCH_ID")).build();
 
-        when(rewardBatchService.evaluatingRewardBatches(batchRequest)).thenReturn(Mono.just(1L));
+        when(rewardBatchService.evaluatingRewardBatches(List.of("BATCH_ID"))).thenReturn(Mono.just(1L));
 
         webClient.post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/evaluate",
@@ -408,9 +408,9 @@ class MerchantRewardBatchControllerImplTest {
 
     @Test
     void evaluatingRewardBatches_badRequest() {
-        RewardBatchStatusRequest batchRequest = RewardBatchStatusRequest.builder().rewardBatchIds(List.of("BATCH_ID")).build();
+        RewardBatchesRequest batchRequest = RewardBatchesRequest.builder().rewardBatchIds(List.of("BATCH_ID")).build();
 
-        when(rewardBatchService.evaluatingRewardBatches(batchRequest))
+        when(rewardBatchService.evaluatingRewardBatches(List.of("BATCH_ID")))
                 .thenReturn(Mono.error(new RewardBatchNotFound("DUMMY_EXCEPTION", "MESSAGE_DUMMY")));
 
         webClient.post()

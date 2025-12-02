@@ -9,6 +9,6 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 @Builder
-public class RewardBatchStatusRequest {
+public class RewardBatchesRequest {
     List<String> rewardBatchIds;
 }

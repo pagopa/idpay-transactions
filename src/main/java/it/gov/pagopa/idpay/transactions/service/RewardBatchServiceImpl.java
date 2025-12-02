@@ -3,7 +3,6 @@ package it.gov.pagopa.idpay.transactions.service;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
-import it.gov.pagopa.idpay.transactions.dto.RewardBatchStatusRequest;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
@@ -306,22 +305,26 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     }
 
     @Scheduled (cron = "${app.transactions.reward-batch.to-evaluating.schedule}")
-    void evaluateRewardBatchStatusScheduler(){
-        evaluatingRewardBatches(RewardBatchStatusRequest.builder().build())
+    void evaluatingRewardBatchStatusScheduler(){
+        evaluatingRewardBatches(null)
+                .onErrorResume(RewardBatchNotFound.class, x -> {
+                    log.error(x.getMessage(), x);
+                    return Mono.just(0L);
+                })
                 .subscribe(numberUpdateBatch -> log.info("Finish change status Evaluating to {} rewards batch", numberUpdateBatch));
     }
 
     @Override
-    public Mono<Long> evaluatingRewardBatches(RewardBatchStatusRequest rewardBatchStatusRequest) {
-        Flux<RewardBatch> batchIdToElaborate;
-        if (rewardBatchStatusRequest.getRewardBatchIds() == null || rewardBatchStatusRequest.getRewardBatchIds().isEmpty()) {
-            batchIdToElaborate = rewardBatchRepository.findByStatus(RewardBatchStatus.SENT);
+    public Mono<Long> evaluatingRewardBatches(List<String> rewardBatchesRequest) {
+        Flux<RewardBatch> rewardBatchToElaborate;
+        if (rewardBatchesRequest == null) {
+            rewardBatchToElaborate = rewardBatchRepository.findByStatus(RewardBatchStatus.SENT);
         } else {
-            batchIdToElaborate = Flux.fromIterable(rewardBatchStatusRequest.getRewardBatchIds())
+            rewardBatchToElaborate = Flux.fromIterable(rewardBatchesRequest)
                     .flatMap(batchId -> rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.SENT));
         }
 
-        return batchIdToElaborate
+        return rewardBatchToElaborate
                 .switchIfEmpty(Mono.error(new RewardBatchNotFound(REWARD_BATCH_NOT_FOUND, "No reward batches found with status SENT")))
                 .flatMap(rewardBatch -> rewardTransactionRepository.rewardTransactionsByBatchId(rewardBatch.getId())
                         .thenReturn(rewardBatch.getId()))

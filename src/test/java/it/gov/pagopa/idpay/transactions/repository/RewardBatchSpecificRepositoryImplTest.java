@@ -12,6 +12,7 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
@@ -691,6 +692,50 @@ class RewardBatchSpecificRepositoryImplTest {
 
     StepVerifier.create(result)
             .verifyComplete();
+  }
+
+  @Test
+  void updateStatus() {
+    LocalDateTime now = LocalDateTime.now();
+
+    RewardBatch rewardBatch1 = RewardBatch.builder()
+            .id("UPDATE_ID_1")
+            .status(RewardBatchStatus.SENT)
+            .build();
+
+    RewardBatch rewardBatch2 = RewardBatch.builder()
+            .id("UPDATE_ID_2")
+            .status(RewardBatchStatus.SENT)
+            .build();
+
+    RewardBatch rewardBatch3 = RewardBatch.builder()
+            .id("UPDATE_ID_3")
+            .status(RewardBatchStatus.SENT)
+            .build();
+
+    rewardBatchRepository.saveAll(List.of(rewardBatch1, rewardBatch2, rewardBatch3)).blockLast();
+
+    Long resultUpdated = rewardBatchRepository.updateStatus(List.of(rewardBatch1.getId(), rewardBatch2.getId()), RewardBatchStatus.EVALUATING, now).block();
+
+    assertNotNull(resultUpdated);
+    assertEquals(2L, resultUpdated);
+
+    RewardBatch rewardBatchUpdated1 = rewardBatchRepository.findById(rewardBatch1.getId()).block();
+    assertNotNull(rewardBatchUpdated1);
+    assertEquals(RewardBatchStatus.EVALUATING, rewardBatchUpdated1.getStatus());
+    assertEquals(now.truncatedTo(ChronoUnit.MINUTES), rewardBatchUpdated1.getUpdateDate().truncatedTo(ChronoUnit.MINUTES));
+
+    RewardBatch rewardBatchUpdated2 = rewardBatchRepository.findById(rewardBatch2.getId()).block();
+    assertNotNull(rewardBatchUpdated2);
+    assertEquals(RewardBatchStatus.EVALUATING, rewardBatchUpdated2.getStatus());
+    assertEquals(now.truncatedTo(ChronoUnit.MINUTES), rewardBatchUpdated2.getUpdateDate().truncatedTo(ChronoUnit.MINUTES));
+
+    RewardBatch rewardBatchUpdated3 = rewardBatchRepository.findById(rewardBatch3.getId()).block();
+    assertNotNull(rewardBatchUpdated3);
+    assertEquals(rewardBatch3, rewardBatchUpdated3);
+
+    rewardBatchRepository.deleteAllById(List.of(rewardBatch1.getId(), rewardBatch2.getId(), rewardBatch3.getId())).block();
+
   }
 
 }
