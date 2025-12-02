@@ -334,88 +334,52 @@ private String buildBatchName(YearMonth month) {
 
     @Override
     public Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds) {
-
-        // 1. Definisci il flusso di elaborazione per una lista di ID
         if (rewardBatchIds != null && !rewardBatchIds.isEmpty()) {
-
-            // Converti la lista in Flux, elabora ogni ID e ignora il risultato finale con .then()
             return Flux.fromIterable(rewardBatchIds)
-
-                    // 1. Usa doOnNext per la logica collaterale (logging)
                     .doOnNext(rewardBatchId ->
                             log.info("Processing batch {}", rewardBatchId)
                     )
-
-                    // 2. flatMap per l'elaborazione asincrona
                     .flatMap(rewardBatchId ->
                             this.processSingleBatchSafe(rewardBatchId, initiativeId)
                     )
 
-                    .then(); // Converte Flux<RewardBatch> in Mono<Void>
+                    .then();
 
         } else {
-
-// Trova tutti i batch
             return rewardBatchRepository.findRewardBatchByStatus(RewardBatchStatus.APPROVING)
-
-                    // 1. Converti il Flux<RewardBatch> in un Mono<List<RewardBatch>>
                     .collectList()
-
-                    // 2. Verifica la lista (Gestione NOT_FOUND, che ora include il log condizionale) e riconverti in Flux
                     .flatMapMany(batchList -> {
                         if (batchList.isEmpty()) {
-
-                            // ✅ LOG 1: Logga solo l'assenza di batch e poi lancia l'errore
                             log.warn("No batches found with status APPROVING to process.");
-
-                            // Restituisci Flux.empty() per completare il flusso
                             return Flux.empty();
                         } else {
-
-                            // ✅ LOG 2: Logga il numero totale solo se la lista NON è vuota
                             log.info("Found {} batches with status APPROVING to process.", batchList.size());
-
-                            // Se la lista ha elementi, restituisci un Flux<RewardBatch> per continuare
                             return Flux.fromIterable(batchList);
                         }
                     })
-
-                    // ✅ LOG 3: Logga il singolo batch che sta per essere processato
                     .doOnNext(rewardBatch ->
                             log.info("Processing batch {}",
                                     rewardBatch.getId())
                     )
-
-                    // 3. CONTINUA QUI con i tuoi operatori originali che lavorano su singoli RewardBatch
                     .flatMap(rewardBatch -> {
                         String rewardBatchId = rewardBatch.getId();
                         return processSingleBatchSafe(rewardBatchId, initiativeId);
                     })
-                    .then(); // Per restituire Mono<Void>
+                    .then();
         }
     }
 
 
     public Mono<RewardBatch> processSingleBatchSafe(String rewardBatchId, String initiativeId) {
-
-        // Chiama la logica originale
         return this.processSingleBatch(rewardBatchId, initiativeId)
-
-                // 2. Intercetta TUTTI gli errori lanciati (sia NOT_FOUND che INVALID_STATE)
                 .onErrorResume(ClientExceptionWithBody.class, error -> {
-
-                    // 3. (OPZIONALE) Qui puoi loggare l'errore prima di saltarlo
                      log.warn(error.getMessage());
-
-                    // 4. Trasforma l'errore in un segnale di completamento (Mono.empty())
-                    // Questo permette al Flux di continuare con il prossimo ID.
                     return Mono.empty();
                 });
     }
 
     public Mono<RewardBatch> processSingleBatch(String rewardBatchId, String initiativeId) {
         return rewardBatchRepository.findRewardBatchById(rewardBatchId)
-                // 🛑 GESTIONE NOT_FOUND e INVALID STATE... (lasciati invariati)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
                         HttpStatus.NOT_FOUND,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND,
@@ -429,46 +393,28 @@ private String buildBatchName(YearMonth month) {
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST,
                         ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
                 )))
-
-                // 1. Esegui l'aggiornamento delle transazioni approvate
                 .flatMap(originalBatch -> {
                     Mono<Void> transactionsUpdate = updateAndSaveRewardTransactionsToApprove(rewardBatchId, initiativeId);
-                    // Propaga l'oggetto originalBatch, non ancora salvato come APPROVED
                     return transactionsUpdate.thenReturn(originalBatch);
                 })
-
-                // 2. Logica Sospensioni
                 .flatMap(originalBatch -> {
                     if (originalBatch.getNumberOfTransactionsSuspended() != null && originalBatch.getNumberOfTransactionsSuspended() > 0) {
-
-                        // A. Crea e salva il nuovo batch (newBatchMono)
                         Mono<RewardBatch> newBatchMono = createRewardBatchAndSave(originalBatch);
-
-                        // B. Esegui l'aggiornamento delle transazioni sospese (Mono<Void>)
                         Mono<Void> updateTrxMono = newBatchMono
                                 .flatMap(newBatch ->
                                         updateAndSaveRewardTransactionsSuspended(rewardBatchId, initiativeId, newBatch.getId())
-                                ).then(); // Trasforma il risultato in Mono<Void>
-
-                        // C. Attendi che l'aggiornamento sia finito, ma restituisci il batch ORIGINALE
-                        // Questo è cruciale: il flusso continua con originalBatch.
+                                ).then();
                         return updateTrxMono.thenReturn(originalBatch);
 
                     } else {
-                        // Se non ci sono sospesi, restituisci semplicemente il batch ORIGINALE
                         return Mono.just(originalBatch);
                     }
                 })
-
-                // 3. AGGIORNAMENTO DI STATO FINALE (su originalBatch)
                 .map(originalBatch -> {
-                    // Modifica lo stato sull'oggetto originale che è passato attraverso tutta la catena
                     originalBatch.setStatus(RewardBatchStatus.APPROVED);
                     originalBatch.setUpdateDate(LocalDateTime.now());
                     return originalBatch;
                 })
-
-                // 4. SALVATAGGIO FINALE (su originalBatch)
                 .flatMap(rewardBatchRepository::save);
     }
   Mono<RewardBatch> createRewardBatchAndSave(RewardBatch savedBatch) {
@@ -543,25 +489,18 @@ private String buildBatchName(YearMonth month) {
 
 
         return rewardTransactionRepository.findByFilter(oldBatchId, initiativeId, statusList)
-                // 1. Contiamo gli elementi del Flux
-                .collectList() // Trasforma Flux<RewardTransaction> in Mono<List<RewardTransaction>>
-
-                // 2. Esegui la logica di logging
-                .doOnNext(list -> {
+                .collectList()
+                .doOnNext(list ->
                     log.info("Found {} transactions to approve for batch {}",
                             list.size(),
-                            oldBatchId);
-                })
-
-                // 3. Riconvertiamo la List in Flux per l'elaborazione (flatMap)
+                            oldBatchId)
+                )
                 .flatMapMany(Flux::fromIterable)
-
-                // 4. Continua l'elaborazione elemento per elemento (flatMap originale)
                 .flatMap(rewardTransaction -> {
                     rewardTransaction.setRewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED);
                     return rewardTransactionRepository.save(rewardTransaction);
                 })
-                .then(); // Segnale di completamento
+                .then();
 
     }
 
@@ -574,20 +513,14 @@ private String buildBatchName(YearMonth month) {
                     log.info("No suspended transactions found for the batch {}",  Utilities.sanitizeString(oldBatchId));
                     return Flux.empty();
                 }))
-                .collectList() // Trasforma Flux<RewardTransaction> in Mono<List<RewardTransaction>>
-
-// ...
-// 2. Esegui la logica di logging
+                .collectList()
                 .doOnNext(list -> {
-                    if (list.size() > 0) { // Logga solo se ci sono transazioni
+                    if (!list.isEmpty()) {
                         log.info("Found {} transactions SUSPENDED for batch {}",
                                 list.size(),
                                 oldBatchId);
                     }
                 })
-// ...
-
-                // 3. Riconvertiamo la List in Flux per l'elaborazione (flatMap)
                 .flatMapMany(Flux::fromIterable)
                 .flatMap(rewardTransaction -> {
                     rewardTransaction.setRewardBatchId(newBatchId);

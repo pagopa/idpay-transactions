@@ -18,7 +18,6 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 
-import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.Arrays;
 import java.util.Collections;
@@ -29,7 +28,6 @@ import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -39,7 +37,6 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -80,15 +77,12 @@ class RewardBatchServiceImplTest {
 
         @Test
         void processSingleBatch_NotFound() {
-            // Setup: Repository restituisce Mono.empty() (non trovato)
             when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID_1)).thenReturn(Mono.empty());
 
-            // Esecuzione e Verifica: Deve lanciare NOT_FOUND
             StepVerifier.create(rewardBatchServiceSpy.processSingleBatch(REWARD_BATCH_ID_1, INITIATIVE_ID))
                     .verifyErrorMatches(e -> e instanceof ClientExceptionWithBody
                             && e.getMessage().equalsIgnoreCase(ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(REWARD_BATCH_ID_1)));
 
-            // Verifica: nessun salvataggio
             verify(rewardBatchRepository, never()).save(any());
         }
 
@@ -109,15 +103,11 @@ class RewardBatchServiceImplTest {
             REWARD_BATCH_1.setStatus(RewardBatchStatus.APPROVING);
             REWARD_BATCH_1.setAssigneeLevel(RewardBatchAssignee.L3);
             REWARD_BATCH_1.setNumberOfTransactionsSuspended(0L);
-            // Setup: Batch valido senza transazioni sospese
+
             when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(REWARD_BATCH_1));
-            // Simula il successo dell'aggiornamento transazioni approvate
             doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsToApprove(anyString(), anyString());
-            // Simula il salvataggio finale del repository per restituire l'oggetto salvato (necessario per flatMap(save))
             when(rewardBatchRepository.save(any(RewardBatch.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-
-            // Esecuzione e Verifica
             StepVerifier.create(rewardBatchServiceSpy.processSingleBatch(REWARD_BATCH_ID_1, INITIATIVE_ID))
                     .expectNextMatches(batch ->
                             batch.getId().equals(REWARD_BATCH_ID_1) &&
@@ -126,12 +116,8 @@ class RewardBatchServiceImplTest {
                                     batch.getUpdateDate() != null)
                     .verifyComplete();
 
-            // Verifica:
-            // 1. Chiamato l'aggiornamento delle transazioni approvate
             verify(rewardBatchServiceSpy, times(1)).updateAndSaveRewardTransactionsToApprove(REWARD_BATCH_ID_1, INITIATIVE_ID);
-            // 2. NON chiamato il flusso delle sospensioni
             verify(rewardBatchServiceSpy, never()).createRewardBatchAndSave(any());
-            // 3. Chiamato il salvataggio finale del batch ORIGINALE
             verify(rewardBatchRepository, times(1)).save(any(RewardBatch.class));
         }
 
@@ -140,20 +126,14 @@ class RewardBatchServiceImplTest {
             REWARD_BATCH_1.setStatus(RewardBatchStatus.APPROVING);
             REWARD_BATCH_1.setAssigneeLevel(RewardBatchAssignee.L3);
             REWARD_BATCH_1.setNumberOfTransactionsSuspended(1L);
-            // Setup: Batch valido con 5 transazioni sospese
-            when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(REWARD_BATCH_1));
-
-            // Simula il successo dell'aggiornamento transazioni approvate
-            doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsToApprove(anyString(), anyString());
             REWARD_BATCH_2.setStatus(RewardBatchStatus.CREATED);
-            // Simula la creazione e salvataggio del nuovo batch per i sospesi
+
+            when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(REWARD_BATCH_1));
+            doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsToApprove(anyString(), anyString());
             doReturn(Mono.just(REWARD_BATCH_2)).when(rewardBatchServiceSpy).createRewardBatchAndSave(any(RewardBatch.class));
-            // Simula l'aggiornamento transazioni sospese
             doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsSuspended(anyString(), anyString(), anyString());
-            // Simula il salvataggio finale del repository per restituire l'oggetto salvato (necessario per flatMap(save))
             when(rewardBatchRepository.save(any(RewardBatch.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-            // Esecuzione e Verifica
             StepVerifier.create(rewardBatchServiceSpy.processSingleBatch(REWARD_BATCH_ID_1, INITIATIVE_ID))
                     .expectNextMatches(batch ->
                             batch.getId().equals(REWARD_BATCH_ID_1) &&
@@ -162,19 +142,13 @@ class RewardBatchServiceImplTest {
                                     batch.getUpdateDate() != null)
                     .verifyComplete();
 
-            // Verifica:
-            // 1. Chiamato l'aggiornamento delle transazioni approvate
             verify(rewardBatchServiceSpy, times(1)).updateAndSaveRewardTransactionsToApprove(REWARD_BATCH_ID_1, INITIATIVE_ID);
-
-            // 2. Chiamato il flusso delle sospensioni (creazione e aggiornamento transazioni)
             verify(rewardBatchServiceSpy, times(1)).createRewardBatchAndSave(REWARD_BATCH_1);
             verify(rewardBatchServiceSpy, times(1)).updateAndSaveRewardTransactionsSuspended(
-                    eq(REWARD_BATCH_ID_1),
-                    eq(INITIATIVE_ID),
-                    eq(REWARD_BATCH_ID_2) // Verifichiamo che sia stato usato l'ID del nuovo batch mockato
+                    REWARD_BATCH_ID_1,
+                    INITIATIVE_ID,
+                    REWARD_BATCH_ID_2
             );
-
-            // 3. Chiamato il salvataggio finale del batch ORIGINALE (che ha lo stato APPROVED)
             verify(rewardBatchRepository, times(1)).save(argThat(batch ->
                     batch.getId().equals(REWARD_BATCH_ID_1) && batch.getStatus().equals(RewardBatchStatus.APPROVED)));
         }
@@ -182,13 +156,10 @@ class RewardBatchServiceImplTest {
 
         @Test
         void processSingleBatchSafe_Success() {
-            // Setup: processSingleBatch returns success
             doReturn(Mono.just(REWARD_BATCH_1)).when(rewardBatchServiceSpy).processSingleBatch(eq(REWARD_BATCH_ID_1), anyString());
 
-            // Execution
             Mono<RewardBatch> result = rewardBatchServiceSpy.processSingleBatchSafe(REWARD_BATCH_ID_1, INITIATIVE_ID);
 
-            // Check: The flow must issue the RewardBatch and complete.
             StepVerifier.create(result).expectNext(REWARD_BATCH_1).verifyComplete();
 
         }
@@ -201,46 +172,37 @@ class RewardBatchServiceImplTest {
                     ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(REWARD_BATCH_ID_2)
             );
 
-            // processSingleBatch returns failure
             doReturn(Mono.error(error)).when(rewardBatchServiceSpy).processSingleBatch(eq(REWARD_BATCH_ID_2), anyString());
 
-            // Execution
             Mono<RewardBatch> result = rewardBatchServiceSpy.processSingleBatchSafe(REWARD_BATCH_ID_2, INITIATIVE_ID);
 
-            // Check: The flow must complete without emitting any elements (Mono.empty())
             StepVerifier.create(result).verifyComplete();
 
         }
 
     @Test
     void rewardBatchConfirmationBatch_WithList_AllSuccess() {
-        // Setup: All batches complete successfully (return a valid Mono<RewardBatch>)
         doReturn(Mono.just(REWARD_BATCH_1)).when(rewardBatchServiceSpy).processSingleBatchSafe(eq(REWARD_BATCH_ID_1), anyString());
         doReturn(Mono.just(REWARD_BATCH_2)).when(rewardBatchServiceSpy).processSingleBatchSafe(eq(REWARD_BATCH_ID_2), anyString());
 
         Mono<Void> result = rewardBatchServiceSpy.rewardBatchConfirmationBatch(INITIATIVE_ID, BATCH_IDS);
 
-        StepVerifier.create(result).verifyComplete(); // Verify that the flow completes without errors
+        StepVerifier.create(result).verifyComplete();
 
-        // Verify that processSingleBatchSafe has been called for all IDs
         verify(rewardBatchServiceSpy, times(1)).processSingleBatchSafe(REWARD_BATCH_ID_1, INITIATIVE_ID);
         verify(rewardBatchServiceSpy, times(1)).processSingleBatchSafe(REWARD_BATCH_ID_2, INITIATIVE_ID);
-        // Verify that the repository has NOT been called (the rewardBatchids list is not empty)
         verify(rewardBatchRepository, never()).findRewardBatchByStatus(any());
     }
 
     @Test
     void rewardBatchConfirmationBatch_WithList_PartialSuccess_FailureIgnored() {
-        // Setup: REWARD_BATCH_ID_1 fails (returns Mono.empty() simulating processSingleBatchSafe's onErrorResume)
         doReturn(Mono.empty()).when(rewardBatchServiceSpy).processSingleBatchSafe(eq(REWARD_BATCH_ID_1), anyString());
         doReturn(Mono.just(REWARD_BATCH_2)).when(rewardBatchServiceSpy).processSingleBatchSafe(eq(REWARD_BATCH_ID_2), anyString());
 
-
         Mono<Void> result = rewardBatchServiceSpy.rewardBatchConfirmationBatch(INITIATIVE_ID, BATCH_IDS);
 
-        StepVerifier.create(result).verifyComplete(); // The flow must still complete
+        StepVerifier.create(result).verifyComplete();
 
-        // Verify that both methods were called (even if one failed internally)
         verify(rewardBatchServiceSpy, times(1)).processSingleBatchSafe(REWARD_BATCH_ID_1, INITIATIVE_ID);
         verify(rewardBatchServiceSpy, times(1)).processSingleBatchSafe(REWARD_BATCH_ID_2, INITIATIVE_ID);
     }
@@ -250,11 +212,9 @@ class RewardBatchServiceImplTest {
     void rewardBatchConfirmationBatch_NoList_MultipleBatchesFound() {
         List<RewardBatch> foundBatches = Arrays.asList(REWARD_BATCH_1, REWARD_BATCH_2);
 
-        // Setup 1: The repository finds 2 batches
         when(rewardBatchRepository.findRewardBatchByStatus(RewardBatchStatus.APPROVING))
                 .thenReturn(Flux.fromIterable(foundBatches));
 
-        // Setup 2: Both batches are processed successfully
         doReturn(Mono.just(REWARD_BATCH_1)).when(rewardBatchServiceSpy).processSingleBatchSafe(eq(REWARD_BATCH_ID_1), anyString());
         doReturn(Mono.just(REWARD_BATCH_2)).when(rewardBatchServiceSpy).processSingleBatchSafe(eq(REWARD_BATCH_ID_2), anyString());
 
@@ -262,21 +222,18 @@ class RewardBatchServiceImplTest {
 
         StepVerifier.create(result).verifyComplete();
 
-        //  Verify that C has been called for all IDs
         verify(rewardBatchServiceSpy, times(1)).processSingleBatchSafe(REWARD_BATCH_ID_1, INITIATIVE_ID);
         verify(rewardBatchServiceSpy, times(1)).processSingleBatchSafe(REWARD_BATCH_ID_2, INITIATIVE_ID);
     }
 
     @Test
     void rewardBatchConfirmationBatch_NoList_ZeroBatchesFound_LogAndComplete() {
-        // Setup 1: The repository does not find batches
         when(rewardBatchRepository.findRewardBatchByStatus(RewardBatchStatus.APPROVING))
                 .thenReturn(Flux.empty());
 
         Mono<Void> result = rewardBatchServiceSpy.rewardBatchConfirmationBatch(INITIATIVE_ID, null);
 
-        StepVerifier.create(result).verifyComplete(); // Must complete without errors
-        //Verify that processSingleBatchSafe has NOT been called
+        StepVerifier.create(result).verifyComplete();
         verify(rewardBatchServiceSpy, never()).processSingleBatchSafe(anyString(), anyString());
     }
 

@@ -105,10 +105,8 @@ class RewardBatchSpecificRepositoryImplTest {
     RewardBatchStatus targetStatus = RewardBatchStatus.APPROVING;
     rewardBatchRepository.saveAll(Arrays.asList(batch1, batch2)).blockLast();
 
-    // Esecuzione del metodo (chiama la logica della Criteria e Query reali)
     Flux<RewardBatch> resultFlux = rewardBatchSpecificRepository.findRewardBatchByStatus(targetStatus);
 
-    // Verifica: Il flusso deve contenere esattamente 2 batch con lo stato APPROVING
     StepVerifier.create(resultFlux)
             .expectNextCount(1)
             .verifyComplete();
