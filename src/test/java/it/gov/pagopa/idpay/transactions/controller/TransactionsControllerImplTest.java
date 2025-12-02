@@ -14,9 +14,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
-import reactor.core.publisher.Mono;
 
 @WebFluxTest(controllers = {TransactionsController.class})
 class TransactionsControllerImplTest {
@@ -201,6 +201,29 @@ class TransactionsControllerImplTest {
         Mockito.verify(rewardTransactionService, Mockito.times(1)).findByIdTrxIssuer(Mockito.eq("idTrxIssuer2"), Mockito.any(), Mockito.any(),Mockito.any(),Mockito.any(),Mockito.eq(expectedPageable2));
 
     }
+
+  @Test
+  void findByTrxIdAndUserId_Ok() {
+    LocalDateTime now = LocalDateTime.of(2022, 9, 20, 13, 15,45);
+
+    RewardTransaction rt = RewardTransaction.builder()
+        .idTrxIssuer("IDTRXISSUER")
+        .userId("USERID")
+        .trxDate(now)
+        .amountCents(3000L).build();
+
+
+    Mockito.when(rewardTransactionService.findByTrxIdAndUserId("TRXID","USERID"))
+        .thenReturn(Mono.just(rt));
+
+    webClient.get()
+        .uri(uriBuilder -> uriBuilder.path("/idpay/transactions/TRXID/USERID")
+            .build())
+        .exchange()
+        .expectStatus().isOk()
+        .expectBodyList(RewardTransaction.class).contains(rt);
+
+  }
 
     @Test
     void cleanupInvoicedTransactions_defaultChunkSize() {
