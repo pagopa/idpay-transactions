@@ -145,7 +145,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   public Mono<Void> evaluatingRewardBatches(RewardBatchesRequest rewardBatchesRequest) {
     log.info(
             "[EVALUATING_REWARD_BATCH] Requested to evaluate {}", rewardBatchesRequest.getRewardBatchIds() != null
-                    ? "reward batches " + rewardBatchesRequest.getRewardBatchIds().stream().map(Utilities::sanitizeString).toList()
+                    ? rewardBatchesRequest
                     : "all reward batches with status SENT"
     );
     return rewardBatchService.evaluatingRewardBatches(rewardBatchesRequest.getRewardBatchIds())
