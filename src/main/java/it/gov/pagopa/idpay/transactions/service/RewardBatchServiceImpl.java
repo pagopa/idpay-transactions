@@ -473,6 +473,38 @@ private String buildBatchName(YearMonth month) {
                 })
                 .flatMap(rewardBatchRepository::save);
     }
+    public Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId)      {
+    return rewardBatchRepository.findRewardBatchById(rewardBatchId)
+    .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+            HttpStatus.NOT_FOUND,
+            REWARD_BATCH_NOT_FOUND,
+            ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
+    .filter(rewardBatch -> rewardBatch.getStatus().equals(RewardBatchStatus.EVALUATING)
+                            &&  !rewardBatch.getAssigneeLevel().equals(RewardBatchAssignee.L3 ))
+            .map(rewardBatch -> {
+              rewardBatch.setStatus(RewardBatchStatus.APPROVED);
+              rewardBatch.setUpdateDate(LocalDateTime.now());
+              return rewardBatch;
+            })
+            .flatMap(rewardBatchRepository::save)
+            .flatMap(savedBatch -> {
+                Mono<Void> transactionsUpdate = updateAndSaveRewardTransactionsToApprove(rewardBatchId, initiativeId);
+                return transactionsUpdate.thenReturn(savedBatch);
+
+            })
+            .flatMap(savedBatch -> {
+                if (savedBatch.getNumberOfTransactionsSuspended() != null && savedBatch.getNumberOfTransactionsSuspended() > 0) {
+                    return createRewardBatchAndSave(savedBatch)
+                            .flatMap(newBatch -> updateAndSaveRewardTransactionsSuspended(rewardBatchId, initiativeId, newBatch.getId()).thenReturn(newBatch));
+                } else {
+                    return Mono.just(savedBatch);
+                }
+            }).switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST,
+                    ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
+            )));
+  }
   Mono<RewardBatch> createRewardBatchAndSave(RewardBatch savedBatch) {
 
 

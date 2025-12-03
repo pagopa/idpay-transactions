@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -1077,6 +1078,8 @@ class RewardBatchServiceImplTest {
                 .verifyComplete();
     }
 
+
+
     @Test
     void rewardBatchConfirmation_Ok() {
         REWARD_BATCH_1.setStatus(RewardBatchStatus.EVALUATING);
@@ -1612,4 +1615,6 @@ class RewardBatchServiceImplTest {
         verify(rewardBatchRepository, never()).updateStatusAndApprovedAmountCents(any(), any(), any());
 
     }
+=========
+>>>>>>>>> Temporary merge branch 2
 }

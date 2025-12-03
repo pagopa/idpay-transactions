@@ -238,6 +238,18 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
             RewardBatch.class);
 
   }
+  @Override
+  public Mono<RewardBatch> updateStatusAndApprovedAmountCents(String rewardBatchId, RewardBatchStatus rewardBatchStatus, Long approvedAmountCents) {
+    return mongoTemplate.findAndModify(
+            Query.query(getCriteriaFindRewardBatchById(rewardBatchId)),
+            new Update()
+                    .set(RewardBatch.Fields.status, rewardBatchStatus)
+                    .set(RewardBatch.Fields.approvedAmountCents, approvedAmountCents)
+                    .set(RewardBatch.Fields.updateDate, LocalDateTime.now()),
+            FindAndModifyOptions.options().returnNew(true),
+            RewardBatch.class);
+  }
+
 
   private static Criteria getCriteriaFindRewardBatchById(String rewardBatchId) {
     return Criteria.where("_id").is(rewardBatchId.trim());
