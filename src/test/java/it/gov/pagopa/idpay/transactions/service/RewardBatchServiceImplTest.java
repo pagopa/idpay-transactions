@@ -1080,8 +1080,11 @@ class RewardBatchServiceImplTest {
     void rewardBatchConfirmation_Ok() {
         REWARD_BATCH_1.setStatus(RewardBatchStatus.EVALUATING);
         REWARD_BATCH_1.setAssigneeLevel(RewardBatchAssignee.L3);
+        REWARD_BATCH_2.setStatus(RewardBatchStatus.APPROVED);
+
 
         when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(REWARD_BATCH_1));
+        when(rewardBatchRepository.findRewardBatchByMonthBefore(any(), any(), any())).thenReturn(Flux.just(REWARD_BATCH_2));
         when(rewardBatchRepository.save(any(RewardBatch.class))).thenReturn(Mono.just(REWARD_BATCH_1));
 
         Mono<RewardBatch> result = rewardBatchServiceSpy.rewardBatchConfirmation(INITIATIVE_ID, REWARD_BATCH_ID_1);
