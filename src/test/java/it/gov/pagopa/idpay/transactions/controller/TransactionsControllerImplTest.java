@@ -234,8 +234,8 @@ class TransactionsControllerImplTest {
         webClient.post()
             .uri("/idpay/transactions/cleanup")
             .exchange()
-            .expectStatus().isOk()
-            .expectBody().isEmpty();
+            .expectStatus().isAccepted()
+            .expectBody(String.class);
 
         Mockito.verify(rewardTransactionService, Mockito.times(1))
             .assignInvoicedTransactionsToBatches(
@@ -260,8 +260,8 @@ class TransactionsControllerImplTest {
                 .queryParam("repetitionsNumber", customIteration)
                 .build())
             .exchange()
-            .expectStatus().isOk()
-            .expectBody().isEmpty();
+            .expectStatus().isAccepted()
+            .expectBody(String.class);
 
         Mockito.verify(rewardTransactionService, Mockito.times(1))
             .assignInvoicedTransactionsToBatches(
