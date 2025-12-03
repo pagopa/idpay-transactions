@@ -308,6 +308,7 @@ class RewardTransactionServiceImplTest {
     @Test
     void assignInvoicedTransactionsToBatches_processAllProcessesAllTransactions() {
         int chunkSize = 200;
+        int repetitionsNumber = 1;
 
         RewardTransaction trx1 = RewardTransaction.builder()
             .id("TRX1")
@@ -358,7 +359,8 @@ class RewardTransactionServiceImplTest {
         Mockito.when(rewardTransactionRepository.save(Mockito.any()))
             .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        Mono<Void> result = rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, true, null);
+      Mono<Void> result = rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize,
+          repetitionsNumber, true, null);
         result.block();
 
         Mockito.verify(rewardTransactionRepository, Mockito.times(2))
@@ -379,6 +381,7 @@ class RewardTransactionServiceImplTest {
     @Test
     void assignInvoicedTransactionsToBatches_singleOperation_processesTransactions() {
         int chunkSize = 20;
+        int repetitionsNumber = 1;
         boolean processAll = false;
 
         RewardTransaction trx1 = RewardTransaction.builder()
@@ -429,7 +432,8 @@ class RewardTransactionServiceImplTest {
         Mockito.when(rewardTransactionRepository.save(Mockito.any()))
             .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        Mono<Void> result = rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, processAll, null);
+      Mono<Void> result = rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize,
+          repetitionsNumber, processAll, null);
 
         result.block();
 
@@ -451,12 +455,14 @@ class RewardTransactionServiceImplTest {
     @Test
     void assignInvoicedTransactionsToBatches_singleOperation_noTransactions() {
         int chunkSize = 200;
+        int repetitionsNumber = 1;
         boolean processAll = false;
 
         Mockito.when(rewardTransactionRepository.findInvoicedTransactionsWithoutBatch(chunkSize))
             .thenReturn(Flux.empty());
 
-        Mono<Void> result = rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, processAll, null);
+      Mono<Void> result = rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize,
+          repetitionsNumber, processAll, null);
 
         result.block();
 
@@ -469,6 +475,7 @@ class RewardTransactionServiceImplTest {
     @Test
     void assignInvoicedTransactionsToBatches_enrichesMissingFields() {
         int chunkSize = 100;
+        int repetitionsNumber = 1;
 
         RewardTransaction trx = RewardTransaction.builder()
             .id("TRX1")
@@ -504,7 +511,8 @@ class RewardTransactionServiceImplTest {
         Mockito.when(rewardTransactionRepository.save(Mockito.any()))
             .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, false, null).block();
+      rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, repetitionsNumber,
+          false, null).block();
 
         Mockito.verify(rewardTransactionRepository).save(Mockito.argThat(saved ->
             saved.getInvoiceUploadDate().equals(trx.getTrxChargeDate()) &&
@@ -517,6 +525,7 @@ class RewardTransactionServiceImplTest {
     @Test
     void assignInvoicedTransactionsToBatches_noEnrichmentNeeded() {
         int chunkSize = 100;
+        int repetitionsNumber = 1;
 
         RewardTransaction trx = RewardTransaction.builder()
             .id("TRX2")
@@ -552,7 +561,8 @@ class RewardTransactionServiceImplTest {
         Mockito.when(rewardTransactionRepository.save(Mockito.any()))
             .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, false, null).block();
+      rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, repetitionsNumber,
+          false, null).block();
 
         Mockito.verify(rewardTransactionRepository).save(Mockito.argThat(saved ->
             saved.getInvoiceUploadDate().equals(trx.getInvoiceUploadDate()) &&
@@ -565,6 +575,7 @@ class RewardTransactionServiceImplTest {
     @Test
     void assignInvoicedTransactionsToBatches_partialEnrichment() {
         int chunkSize = 100;
+        int repetitionsNumber = 1;
 
         RewardTransaction trx = RewardTransaction.builder()
             .id("TRX3")
@@ -600,7 +611,8 @@ class RewardTransactionServiceImplTest {
         Mockito.when(rewardTransactionRepository.save(Mockito.any()))
             .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, false, null).block();
+      rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, repetitionsNumber,
+          false, null).block();
 
         Mockito.verify(rewardTransactionRepository).save(Mockito.argThat(saved ->
             saved.getInvoiceUploadDate().equals(trx.getInvoiceUploadDate()) &&
@@ -683,7 +695,8 @@ class RewardTransactionServiceImplTest {
     Mockito.when(rewardTransactionRepository.save(Mockito.any()))
         .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-    StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(200, false, trxId))
+    StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(200,
+            1, false, trxId))
         .verifyComplete();
 
     Mockito.verify(rewardTransactionRepository, Mockito.times(1)).findInvoicedTrxByIdWithoutBatch(trxId);
@@ -697,7 +710,8 @@ class RewardTransactionServiceImplTest {
     Mockito.when(rewardTransactionRepository.findInvoicedTrxByIdWithoutBatch(trxId))
         .thenReturn(Mono.empty());
 
-    StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(200, false, trxId))
+    StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(200,
+            1, false, trxId))
         .expectErrorSatisfies(ex -> {
           Assertions.assertInstanceOf(ClientExceptionNoBody.class, ex);
           ClientExceptionNoBody cex = (ClientExceptionNoBody) ex;
@@ -713,12 +727,14 @@ class RewardTransactionServiceImplTest {
   @Test
   void assignInvoicedTransactionsToBatches_trxIdNull_shouldProcessSingleOperation() {
     int chunkSize = 200;
+    int repetitionsNumber = 1;
     boolean processAll = false;
 
     Mockito.when(rewardTransactionRepository.findInvoicedTransactionsWithoutBatch(chunkSize))
         .thenReturn(Flux.empty());
 
-    StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, processAll, null))
+    StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize,
+            repetitionsNumber, processAll, null))
         .verifyComplete();
 
     Mockito.verify(rewardTransactionRepository, Mockito.never()).findInvoicedTrxByIdWithoutBatch(Mockito.anyString());
@@ -727,12 +743,14 @@ class RewardTransactionServiceImplTest {
   @Test
   void assignInvoicedTransactionsToBatches_trxIdEmpty_shouldProcessSingleOperation() {
     int chunkSize = 200;
+    int repetitionsNumber = 1;
     boolean processAll = false;
 
     Mockito.when(rewardTransactionRepository.findInvoicedTransactionsWithoutBatch(chunkSize))
         .thenReturn(Flux.empty());
 
-    StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, processAll, ""))
+    StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize,
+            repetitionsNumber, processAll, ""))
         .verifyComplete();
 
     Mockito.verify(rewardTransactionRepository, Mockito.never()).findInvoicedTrxByIdWithoutBatch(Mockito.anyString());

@@ -6,6 +6,8 @@ import java.time.Duration;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheConfig;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,7 @@ import reactor.util.retry.Retry;
 
 @Service
 @Slf4j
+@CacheConfig
 public class MerchantRestClientImpl implements MerchantRestClient {
 
   private static final String URI_POS_DETAIL = "/idpay/merchant/portal/{merchantId}/point-of-sales/{pointOfSaleId}";
@@ -38,7 +41,9 @@ public class MerchantRestClientImpl implements MerchantRestClient {
 
 
   @Override
+  @Cacheable(key = "#pointOfSaleId", value = "getPointOfSale")
   public Mono<PointOfSaleDTO> getPointOfSale(String merchantId, String pointOfSaleId) {
+    log.info("Sending request to merchant {} to get pos {}", merchantId, pointOfSaleId);
     return PerformanceLogger.logTimingOnNext(
             "MERCHANT_INTEGRATION",
             webClient

@@ -4,9 +4,11 @@ import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
+import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -42,9 +44,15 @@ public class TransactionsControllerImpl implements TransactionsController{
     }
 
     @Override
-    public Mono<Void> cleanupInvoicedTransactions(Integer chunkSize, boolean processAll, String trxId) {
+    public ResponseEntity<String> cleanupInvoicedTransactions(Integer chunkSize, Integer repetitionsNumber, boolean processAll, String trxId) {
         log.info("[BATCH_ASSIGNMENT] Start processing INVOICED transactions without batch");
-        return rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, processAll, trxId);
+        String  jobId  = UUID.randomUUID().toString();
+        rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize,  repetitionsNumber, processAll,  trxId)
+            .doOnSubscribe(sub  -> log.info("[BATCH_ASSIGNMENT]  Job  {}  started", jobId))
+            .doOnError(err  ->  log.error("[BATCH_ASSIGNMENT] Job  {}  failed:  {}", jobId,  err.getMessage()))
+            .doOnSuccess(v  -> log.info("[BATCH_ASSIGNMENT]  Job  {}  completed", jobId))
+            .subscribe();
+        return  ResponseEntity.accepted().body(jobId);
     }
 
 }
