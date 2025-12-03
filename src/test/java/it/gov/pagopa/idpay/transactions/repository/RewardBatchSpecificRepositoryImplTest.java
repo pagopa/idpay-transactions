@@ -34,6 +34,7 @@ import reactor.test.StepVerifier;
 class RewardBatchSpecificRepositoryImplTest {
 
     public static final String MERCHANT = "merchantA";
+  public static final PosType POS_TYPE = PosType.PHYSICAL;
     @Autowired
     protected RewardBatchRepository rewardBatchRepository;
 
@@ -106,6 +107,24 @@ class RewardBatchSpecificRepositoryImplTest {
     rewardBatchRepository.saveAll(Arrays.asList(batch1, batch2)).blockLast();
 
     Flux<RewardBatch> resultFlux = rewardBatchSpecificRepository.findRewardBatchByStatus(targetStatus);
+
+    StepVerifier.create(resultFlux)
+            .expectNextCount(1)
+            .verifyComplete();
+  }
+
+  @Test
+  void findRewardBatchByMonthBefore_ShouldReturnOnlyMonthBeforeBatches() {
+    batch1.setMonth("2025-11");
+    batch2.setMonth("2025-12");
+    batch1.setMerchantId(MERCHANT);
+    batch2.setMerchantId(MERCHANT);
+    batch1.setPosType(POS_TYPE);
+    batch2.setPosType(POS_TYPE);
+    String targetMonth = "2025-12";
+    rewardBatchRepository.saveAll(Arrays.asList(batch1, batch2)).blockLast();
+
+    Flux<RewardBatch> resultFlux = rewardBatchSpecificRepository.findRewardBatchByMonthBefore(MERCHANT, POS_TYPE, targetMonth);
 
     StepVerifier.create(resultFlux)
             .expectNextCount(1)
