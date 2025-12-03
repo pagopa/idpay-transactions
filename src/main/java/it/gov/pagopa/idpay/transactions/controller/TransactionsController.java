@@ -38,7 +38,7 @@ public interface TransactionsController {
     );
 
     @GetMapping("/{initiativeId}/{userId}")
-    Mono<RewardTransaction> findByInitiativeIdAndUserId(
+    Flux<RewardTransaction> findByInitiativeIdAndUserId(
             @PathVariable(value = "initiativeId") String initiativeId,
             @PathVariable(value = "userId") String userId
     );

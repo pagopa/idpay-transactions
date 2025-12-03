@@ -708,7 +708,7 @@ class RewardTransactionSpecificRepositoryTest {
 
         RewardTransaction found = rewardTransactionSpecificRepository
             .findByInitiativeIdAndUserId("TESTUSER","id1")
-            .block();
+                .blockFirst();
 
         assertNotNull(found);
         assertEquals("id1", found.getId());
@@ -716,12 +716,12 @@ class RewardTransactionSpecificRepositoryTest {
 
         RewardTransaction wrongUser = rewardTransactionSpecificRepository
             .findByInitiativeIdAndUserId( "OTHERUSER","id1")
-            .block();
+            .blockFirst();
         assertNull(wrongUser);
 
         RewardTransaction wrongTrx = rewardTransactionSpecificRepository
             .findByInitiativeIdAndUserId("TESTUSER","WRONGID")
-            .block();
+            .blockFirst();
         assertNull(wrongTrx);
 
         rewardTransactionRepository.deleteById("id1").block();

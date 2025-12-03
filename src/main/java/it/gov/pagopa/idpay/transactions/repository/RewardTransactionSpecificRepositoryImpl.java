@@ -286,11 +286,11 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
     @Override
 
-    public Mono<RewardTransaction> findByInitiativeIdAndUserId(String userId, String initiativeId) {
+    public Flux<RewardTransaction> findByInitiativeIdAndUserId(String userId, String initiativeId) {
         Criteria criteria = Criteria.where(RewardTransaction.Fields.userId).is(userId)
                 .and(RewardTransaction.Fields.initiatives).in(initiativeId);
 
-        return mongoTemplate.findOne(Query.query(criteria), RewardTransaction.class);
+        return mongoTemplate.find(Query.query(criteria), RewardTransaction.class);
     }
 
 

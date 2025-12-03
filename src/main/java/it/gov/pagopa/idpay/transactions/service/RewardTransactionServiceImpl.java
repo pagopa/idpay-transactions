@@ -66,7 +66,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
     }
 
     @Override
-    public Mono<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId){
+    public Flux<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId){
         return rewardTrxRepository.findByInitiativeIdAndUserId(initiativeId, userId);
     }
 

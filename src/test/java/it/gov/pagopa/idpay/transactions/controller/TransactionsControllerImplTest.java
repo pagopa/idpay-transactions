@@ -216,7 +216,7 @@ class TransactionsControllerImplTest {
 
 
     Mockito.when(rewardTransactionService.findByInitiativeIdAndUserId("ID","USERID"))
-        .thenReturn(Mono.just(rt));
+        .thenReturn(Flux.just(rt));
 
     webClient.get()
         .uri(uriBuilder -> uriBuilder.path("/idpay/transactions/ID/USERID")

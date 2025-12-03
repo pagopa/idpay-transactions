@@ -181,12 +181,12 @@ class RewardTransactionServiceImplTest {
         .build();
 
     Mockito.when(rewardTransactionRepository.findByInitiativeIdAndUserId("ID", "USERID"))
-        .thenReturn(Mono.just(rt));
+        .thenReturn(Flux.just(rt));
 
     // When
-    Mono<RewardTransaction> result = rewardTransactionService.findByInitiativeIdAndUserId("ID", "USERID");
+    Flux<RewardTransaction> result = rewardTransactionService.findByInitiativeIdAndUserId("ID", "USERID");
     Assertions.assertNotNull(result);
-    RewardTransaction resultRT = result.block();
+    RewardTransaction resultRT = result.blockFirst();
     Assertions.assertNotNull(resultRT);
     Assertions.assertEquals(rt, resultRT);
   }

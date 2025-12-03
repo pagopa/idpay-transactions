@@ -34,7 +34,7 @@ public class TransactionsControllerImpl implements TransactionsController{
     }
 
     @Override
-    public Mono<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId) {
+    public Flux<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId) {
         if(initiativeId != null && userId != null) {
             return rewardTransactionService.findByInitiativeIdAndUserId(initiativeId, userId);
         }
