@@ -427,6 +427,7 @@ private String buildBatchName(YearMonth month) {
                         return updateTrxMono.thenReturn(originalBatch);
 
                     } else {
+                        log.info("numberOfTransactionSuspended = 0 for batch {}", originalBatch.getId());
                         return Mono.just(originalBatch);
                     }
                 })
@@ -446,8 +447,9 @@ private String buildBatchName(YearMonth month) {
               savedBatch.getPosType(),
               addOneMonth(savedBatch.getMonth()))
               .doOnNext(existingBatch ->
-                              log.info("Batch for {} already exists, with rewardBatchId = {}",
+                              log.info("Batch for {} and merchantId {} already exists, with rewardBatchId = {}",
                                       addOneMonthToItalian(savedBatch.getName()),
+                                      existingBatch.getMerchantId(),
                                       existingBatch.getId()));
 
       Mono<RewardBatch> newBatchCreationMono = Mono.just(savedBatch)
