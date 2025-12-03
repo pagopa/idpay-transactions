@@ -319,6 +319,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
 
     @Override
     public Mono<Long> evaluatingRewardBatches(List<String> rewardBatchesRequest) {
+        log.info("[EVALUATING_REWARD_BATCH] Starting evaluation of reward batches with status SENT");
         Flux<RewardBatch> rewardBatchToElaborate;
         if (rewardBatchesRequest == null) {
             rewardBatchToElaborate = rewardBatchRepository.findByStatus(RewardBatchStatus.SENT);
@@ -328,13 +329,17 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
         }
 
         return rewardBatchToElaborate
-                .switchIfEmpty(Mono.error(new RewardBatchNotFound(REWARD_BATCH_NOT_FOUND, ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT)))
                 .flatMap(rewardBatch -> {
-                    log.info("[EVALUATING_REWARD_BATCH] Start to evaluating reward batch {}", Utilities.sanitizeString(rewardBatch.getId()));
+                    log.info("[EVALUATING_REWARD_BATCH] Evaluating reward batch {}", Utilities.sanitizeString(rewardBatch.getId()));
                     return rewardTransactionRepository.rewardTransactionsByBatchId(rewardBatch.getId())
-                        .thenReturn(rewardBatch);})
-                .flatMap(batch -> rewardBatchRepository.updateStatusAndApprovedAmountCents(batch.getId(), RewardBatchStatus.EVALUATING, batch.getInitialAmountCents()))
-                .count();
+                            .thenReturn(rewardBatch)
+                            .log("[EVALUATING_REWARD_BATCH]Completed evaluation of transactions for reward batch %s".formatted(Utilities.sanitizeString(rewardBatch.getId())));
+                })
+                .flatMap(batch -> rewardBatchRepository.updateStatusAndApprovedAmountCents(batch.getId(), RewardBatchStatus.EVALUATING, batch.getInitialAmountCents())
+                        .log("[EVALUATING_REWARD_BATCH] Reward batch %s moved to status EVALUATING".formatted(Utilities.sanitizeString(batch.getId()))))
+                .count()
+                .doOnSuccess(count ->
+                        log.info("[EVALUATING_REWARD_BATCH] Completed evaluation. Total batches processed: {}", count));
     }
 
     private String buildBatchName(YearMonth month) {

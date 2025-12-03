@@ -17,6 +17,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @WebFluxTest(controllers = {TransactionsController.class})
 class TransactionsControllerImplTest {
@@ -203,21 +204,22 @@ class TransactionsControllerImplTest {
     }
 
   @Test
-  void findByTrxIdAndUserId_Ok() {
+  void findByInitiativeIdAndUserId_Ok() {
     LocalDateTime now = LocalDateTime.of(2022, 9, 20, 13, 15,45);
 
     RewardTransaction rt = RewardTransaction.builder()
         .idTrxIssuer("IDTRXISSUER")
+            .initiatives(List.of("ID"))
         .userId("USERID")
         .trxDate(now)
         .amountCents(3000L).build();
 
 
-    Mockito.when(rewardTransactionService.findByTrxIdAndUserId("TRXID","USERID"))
-        .thenReturn(Mono.just(rt));
+    Mockito.when(rewardTransactionService.findByInitiativeIdAndUserId("ID","USERID"))
+        .thenReturn(Flux.just(rt));
 
     webClient.get()
-        .uri(uriBuilder -> uriBuilder.path("/idpay/transactions/TRXID/USERID")
+        .uri(uriBuilder -> uriBuilder.path("/idpay/transactions/ID/USERID")
             .build())
         .exchange()
         .expectStatus().isOk()
