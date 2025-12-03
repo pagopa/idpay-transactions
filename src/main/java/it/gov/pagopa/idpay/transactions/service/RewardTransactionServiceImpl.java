@@ -71,7 +71,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
     }
 
     @Override
-    public Mono<Void> assignInvoicedTransactionsToBatches(Integer chunkSize, boolean processAll, String trxId) {
+    public Mono<Void> assignInvoicedTransactionsToBatches(Integer chunkSize, Integer repetitionsNumber, boolean processAll, String trxId) {
 
       if (trxId != null && !trxId.isEmpty()) {
         log.info("[BATCH_ASSIGNMENT] Processing transaction with ID={}", Utilities.sanitizeString(trxId));
@@ -80,13 +80,10 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
             .flatMap(this::processTransaction)
             .then();
       }
-
-      log.info("[BATCH_ASSIGNMENT] Using chunkSize={}, processAll={}", chunkSize, processAll);
-
       if (processAll) {
         return processAllOperation(chunkSize);
       } else {
-        return processSingleOperation(chunkSize);
+        return processSingleOperation(chunkSize, repetitionsNumber);
       }
     }
 
@@ -107,25 +104,28 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
           });
     }
 
-    private Mono<Void> processSingleOperation(int chunkSize) {
-      return rewardTrxRepository.findInvoicedTransactionsWithoutBatch(chunkSize)
-          .collectList()
-          .flatMap(list -> {
+  private Mono<Void> processSingleOperation(int chunkSize, int repetitionsNumber) {
 
-            if (list.isEmpty()) {
-              log.info("[BATCH_ASSIGNMENT] Completed. No transactions to process.");
-              return Mono.empty();
-            }
+    return Flux.range(1, repetitionsNumber)
+        .concatMap(i ->
+            rewardTrxRepository.findInvoicedTransactionsWithoutBatch(chunkSize)
+                .collectList()
+                .flatMap(list -> {
+                  if (list.isEmpty()) {
+                    log.info("[BATCH_ASSIGNMENT] Completed at iteration {}. No transactions to process.", i);
+                    return Mono.empty();
+                  }
+                  log.info("[BATCH_ASSIGNMENT] Iteration {}: Processing {} transactions.",
+                      i, list.size());
+                  return Flux.fromIterable(list)
+                      .concatMap(this::processTransaction)
+                      .then();
+                })
+        )
+        .then();
+  }
 
-            log.info("[BATCH_ASSIGNMENT] Processing {} transactions (single-run mode).", list.size());
-
-            return Flux.fromIterable(list)
-                .concatMap(this::processTransaction)
-                .then();
-          });
-    }
-
-    private Mono<RewardTransaction> processTransaction(RewardTransaction trx) {
+  private Mono<RewardTransaction> processTransaction(RewardTransaction trx) {
       log.info("[BATCH_ASSIGNMENT][{}] Start processing transaction with status='{}', rewardBatchId='{}'",
           trx.getId(), trx.getStatus(), trx.getRewardBatchId());
 
