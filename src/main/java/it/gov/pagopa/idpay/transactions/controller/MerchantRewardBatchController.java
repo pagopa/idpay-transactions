@@ -58,6 +58,13 @@ Mono<RewardBatch>  rewardBatchConfirmation(
           @PathVariable("rewardBatchId") String rewardBatchId,
           @RequestBody @Valid TransactionsRequest request);
 
+  @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/validated")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  Mono<Void> validateRewardBatch(
+          @RequestHeader("x-organization-role") String organizationRole,
+          @PathVariable String initiativeId,
+          @PathVariable String rewardBatchId);
+
   @PostMapping("/initiatives/{initiativeId}/reward-batches/evaluate")
   Mono<Void> evaluatingRewardBatches(
           @RequestBody RewardBatchesRequest rewardBatchIds

@@ -20,6 +20,10 @@ public final class ExceptionConstants {
         public static final String POINT_OF_SALE_NOT_ALLOWED = "POINT_OF_SALE_NOT_ALLOWED";
         public static final String REASON_FIELD_IS_MANDATORY = "REASON_FIELD_IS_MANDATORY";
 
+        public static final String ROLE_NOT_ALLOWED_FOR_L1_PROMOTION = "ROLE_NOT_ALLOWED_FOR_L1_PROMOTION";
+        public static final String ROLE_NOT_ALLOWED_FOR_L2_PROMOTION = "ROLE_NOT_ALLOWED_FOR_L2_PROMOTION";
+        public static final String BATCH_NOT_ELABORATED_15_PERCENT = "BATCH_NOT_ELABORATED_15_PERCENT";
+        public static final String INVALID_BATCH_STATE_FOR_PROMOTION = "INVALID_BATCH_STATE_FOR_PROMOTION";
     }
 
     public static final class ExceptionMessage {
