@@ -33,8 +33,7 @@ public class MerchantTransactionDTO {
     Map<String, String> additionalProperties;
     String trxCode;
     Long authorizedAmountCents;
-    String invoiceDocNumber;
-    String invoiceFileName;
+    InvoiceData invoiceData;
     RewardBatchTrxStatus rewardBatchTrxStatus;
     String rewardBatchRejectionReason;
     String franchiseName;
