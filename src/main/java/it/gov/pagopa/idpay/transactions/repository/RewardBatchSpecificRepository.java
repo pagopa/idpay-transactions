@@ -17,10 +17,11 @@ public interface RewardBatchSpecificRepository {
   Mono<Long> getCountCombined(String merchantId, String status, String assigneeLevel, boolean isOperator);
   Mono<Long> updateTransactionsStatus(String rewardBatchId, List<String> transactionIds, RewardBatchTrxStatus newStatus, String reason);
   Mono<RewardBatch> updateTotals(String rewardBatchId, long elaboratedTrxNumber, long updateAmountCents, long rejectedTrxNumber, long suspendedTrxNumber);
-
   Mono<RewardBatch> findRewardBatchById(String rewardBatchId);
   Mono<RewardBatch> findRewardBatchByFilter(String rewardBatchId, String merchantId, PosType posType, String month);
   Flux<RewardBatch> findRewardBatchByStatus(RewardBatchStatus rewardBatchStatus);
   Flux<RewardBatch> findRewardBatchByMonthBefore(String merchantId, PosType posType, String month);
 
+  Mono<RewardBatch> findRewardBatchByFilter(String rewardBatchId, String merchantId, String posType, String month);
+  Mono<RewardBatch> updateStatusAndApprovedAmountCents(String rewardBatchId, RewardBatchStatus rewardBatchStatus, Long approvedAmountCents);
 }

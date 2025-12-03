@@ -4,6 +4,7 @@ import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchRequest;
+import it.gov.pagopa.idpay.transactions.dto.RewardBatchesRequest;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
@@ -147,5 +148,17 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
 
     return rewardBatchService.approvedTransactions(rewardBatchId, request, initiativeId)
             .flatMap(rewardBatchMapper::toDTO);
+  }
+
+  @Override
+  public Mono<Void> evaluatingRewardBatches(RewardBatchesRequest rewardBatchesRequest) {
+    log.info(
+            "[EVALUATING_REWARD_BATCH] Requested to evaluate {}", rewardBatchesRequest.getRewardBatchIds() != null
+                    ? rewardBatchesRequest.getRewardBatchIds().stream()
+                    .map(Utilities::sanitizeString).toList()
+                    : "all reward batches with status SENT"
+    );
+    return rewardBatchService.evaluatingRewardBatches(rewardBatchesRequest.getRewardBatchIds())
+            .then();
   }
 }

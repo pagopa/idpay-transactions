@@ -1,10 +1,5 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
@@ -28,6 +23,11 @@ import org.springframework.test.annotation.DirtiesContext;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 @DirtiesContext
 @MongoTest
@@ -724,6 +724,30 @@ class RewardBatchSpecificRepositoryImplTest {
 
     StepVerifier.create(result)
             .verifyComplete();
+  }
+
+  @Test
+  void updateStatusAndApprovedAmountCents() {
+    RewardBatch rewardBatch = RewardBatch.builder()
+            .id("UPDATE_ID_1".trim())
+            .status(RewardBatchStatus.SENT)
+            .initialAmountCents(100L)
+            .approvedAmountCents(0L)
+            .build();
+
+
+    rewardBatchRepository.save(rewardBatch).block();
+
+    RewardBatch resultUpdated = rewardBatchRepository
+            .updateStatusAndApprovedAmountCents(rewardBatch.getId(), RewardBatchStatus.EVALUATING, 200L)
+            .block();
+
+    assertNotNull(resultUpdated);
+    assertEquals(RewardBatchStatus.EVALUATING, resultUpdated.getStatus());
+    assertEquals(200L, resultUpdated.getApprovedAmountCents());
+
+    rewardBatchRepository.deleteById(rewardBatch.getId()).block();
+
   }
 
 }
