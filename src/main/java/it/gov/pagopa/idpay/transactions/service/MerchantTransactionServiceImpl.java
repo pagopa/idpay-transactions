@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.service;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
+import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
@@ -169,8 +170,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .trxCode(transaction.getTrxCode())
                 .authorizedAmountCents(transaction.getAmountCents()
                             - transaction.getRewards().get(initiativeId).getAccruedRewardCents())
-                .invoiceDocNumber(transaction.getInvoiceData() != null ? transaction.getInvoiceData().getDocNumber() : null)
-                .invoiceFileName(transaction.getInvoiceData() != null ? transaction.getInvoiceData().getFilename() : null)
+                .invoiceData(transaction.getInvoiceData() != null ? transaction.getInvoiceData() : new InvoiceData())
                 .rewardBatchTrxStatus(exposed)
                 .pointOfSaleId(transaction.getPointOfSaleId() == null ? "-" : transaction.getPointOfSaleId())
                 .rewardBatchRejectionReason(transaction.getRewardBatchRejectionReason() == null ? "-" : transaction.getRewardBatchRejectionReason())
