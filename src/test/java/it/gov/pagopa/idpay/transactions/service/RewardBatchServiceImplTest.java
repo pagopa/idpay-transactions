@@ -67,6 +67,11 @@ class RewardBatchServiceImplTest {
             .build();
 
     private static final List<String> BATCH_IDS = Arrays.asList(REWARD_BATCH_ID_1, REWARD_BATCH_ID_2);
+    private static final String CURRENT_MONTH = "2025-12";
+    private static final String NEXT_MONTH = "2026-01";
+    private static final String CURRENT_MONTH_NAME = "dicembre 2025";
+    private static final String NEXT_MONTH_NAME = "gennaio 2026";
+
 
 
   @BeforeEach
@@ -77,7 +82,97 @@ class RewardBatchServiceImplTest {
   }
 
 
+// AGGIUNGI QUESTO METODO NELLA TUA CLASSE RewardBatchServiceImplTest
 
+    /**
+     * Test lo scenario in cui il batch per il mese successivo NON esiste.
+     * Un nuovo batch deve essere creato e salvato con i dati incrementati.
+     */
+    @Test
+    void createRewardBatchAndSave_Success_NewBatchCreated() {
+
+        REWARD_BATCH_1.setMonth(CURRENT_MONTH);
+        REWARD_BATCH_1.setName(CURRENT_MONTH_NAME);
+        REWARD_BATCH_1.setMerchantId("MERCHANT_ID");
+        REWARD_BATCH_1.setPosType(PosType.PHYSICAL);
+        REWARD_BATCH_1.setNumberOfTransactionsSuspended(1L);
+
+        doReturn(NEXT_MONTH).when((RewardBatchServiceImpl) rewardBatchServiceSpy).addOneMonth(CURRENT_MONTH);
+        doReturn(NEXT_MONTH_NAME).when((RewardBatchServiceImpl) rewardBatchServiceSpy).addOneMonthToItalian(CURRENT_MONTH_NAME);
+
+        when(rewardBatchRepository.findRewardBatchByFilter(
+                null,
+                "MERCHANT_ID",
+                PosType.PHYSICAL,
+                NEXT_MONTH))
+                .thenReturn(Mono.empty());
+
+        when(rewardBatchRepository.save(any(RewardBatch.class)))
+                .thenAnswer(invocation -> {
+                    RewardBatch newBatch = invocation.getArgument(0);
+                    newBatch.setId(REWARD_BATCH_ID_2);
+                    return Mono.just(newBatch);
+                });
+
+        Mono<RewardBatch> resultMono = rewardBatchServiceSpy.createRewardBatchAndSave(REWARD_BATCH_1);
+
+
+        // Verifica
+        StepVerifier.create(resultMono)
+                .assertNext(result -> {
+                    assertEquals(REWARD_BATCH_ID_2, result.getId());
+                    assertEquals(NEXT_MONTH, result.getMonth());
+                    assertEquals(RewardBatchStatus.CREATED, result.getStatus());
+                    assertEquals(0L, result.getInitialAmountCents());
+                    assertEquals(0L, result.getApprovedAmountCents());
+                    assertEquals(REWARD_BATCH_1.getNumberOfTransactionsSuspended(), result.getNumberOfTransactionsSuspended());
+                    assertEquals(RewardBatchAssignee.L1, result.getAssigneeLevel());
+
+                })
+                .verifyComplete();
+
+        verify(rewardBatchRepository, times(1)).save(any(RewardBatch.class));
+        verify(rewardBatchRepository, times(1)).findRewardBatchByFilter(any(), any(), any(), any());
+    }
+
+
+    @Test
+    void createRewardBatchAndSave_Success_ExistingBatchFound() {
+        REWARD_BATCH_1.setMonth(CURRENT_MONTH);
+        REWARD_BATCH_1.setName(CURRENT_MONTH_NAME);
+        REWARD_BATCH_1.setMerchantId("MERCHANT_ID");
+        REWARD_BATCH_1.setPosType(PosType.PHYSICAL);
+        REWARD_BATCH_1.setNumberOfTransactionsSuspended(1L);
+
+        REWARD_BATCH_2.setMonth(NEXT_MONTH);
+        REWARD_BATCH_2.setName(NEXT_MONTH_NAME);
+        REWARD_BATCH_2.setMerchantId("MERCHANT_ID");
+        REWARD_BATCH_2.setPosType(PosType.PHYSICAL);
+
+
+        doReturn(NEXT_MONTH).when( rewardBatchServiceSpy).addOneMonth(CURRENT_MONTH);
+        doReturn(NEXT_MONTH_NAME).when( rewardBatchServiceSpy).addOneMonthToItalian(CURRENT_MONTH_NAME);
+
+        when(rewardBatchRepository.findRewardBatchByFilter(
+                null,
+                "MERCHANT_ID",
+                PosType.PHYSICAL,
+                NEXT_MONTH))
+                .thenReturn(Mono.just(REWARD_BATCH_2));
+
+        Mono<RewardBatch> resultMono = rewardBatchServiceSpy.createRewardBatchAndSave(REWARD_BATCH_1);
+
+        StepVerifier.create(resultMono)
+                .assertNext(result -> {
+                    assertEquals(REWARD_BATCH_2.getId(), result.getId());
+                    assertEquals(NEXT_MONTH, result.getMonth());
+
+                })
+                .verifyComplete();
+
+        verify(rewardBatchRepository, never()).save(any(RewardBatch.class));
+        verify(rewardBatchRepository, times(1)).findRewardBatchByFilter(any(), any(), any(), any());
+    }
         @Test
         void processSingleBatch_NotFound() {
             when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID_1)).thenReturn(Mono.empty());
