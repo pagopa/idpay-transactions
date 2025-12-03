@@ -484,8 +484,8 @@ private String buildBatchName(YearMonth month) {
               .doOnNext(existingBatch ->
                               log.info("Batch for {} and merchantId {} already exists, with rewardBatchId = {}",
                                       addOneMonthToItalian(savedBatch.getName()),
-                                      existingBatch.getMerchantId(),
-                                      existingBatch.getId()));
+                                      Utilities.sanitizeString(existingBatch.getMerchantId()),
+                                      Utilities.sanitizeString(existingBatch.getId())));
 
       Mono<RewardBatch> newBatchCreationMono = Mono.just(savedBatch)
               .map(batch -> RewardBatch.builder()
@@ -515,7 +515,7 @@ private String buildBatchName(YearMonth month) {
               .doOnNext(newBatch ->
                       log.info("Created new batch for {} with rewardBatchId = {}",
                               addOneMonthToItalian(savedBatch.getName()),
-                              newBatch.getId())
+                              Utilities.sanitizeString(newBatch.getId()))
               );
 
       return existingBatchMono
@@ -550,7 +550,7 @@ private String buildBatchName(YearMonth month) {
                 .doOnNext(list ->
                     log.info("Found {} transactions to approve for batch {}",
                             list.size(),
-                            oldBatchId)
+                            Utilities.sanitizeString(oldBatchId))
                 )
                 .flatMapMany(Flux::fromIterable)
                 .flatMap(rewardTransaction -> {
@@ -575,7 +575,7 @@ private String buildBatchName(YearMonth month) {
                     if (!list.isEmpty()) {
                         log.info("Found {} transactions SUSPENDED for batch {}",
                                 list.size(),
-                                oldBatchId);
+                                Utilities.sanitizeString(oldBatchId));
                     }
                 })
                 .flatMapMany(Flux::fromIterable)
