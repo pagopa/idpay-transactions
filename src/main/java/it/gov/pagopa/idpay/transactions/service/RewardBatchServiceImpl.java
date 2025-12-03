@@ -36,6 +36,7 @@ import java.util.Locale;
 import java.util.Set;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT;
 
 @Service
 @Slf4j
@@ -306,12 +307,13 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
 
     @Scheduled (cron = "${app.transactions.reward-batch.to-evaluating.schedule}")
     void evaluatingRewardBatchStatusScheduler(){
+      log.info("[EVALUATING_REWARD_BATCH][SCHEDULER] Start to evaluating all reward batches with status SENT");
         evaluatingRewardBatches(null)
                 .onErrorResume(RewardBatchNotFound.class, x -> {
-                    log.error(x.getMessage(), x);
+                    log.error("[EVALUATING_REWARD_BATCH][SCHEDULER] " + ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT, x);
                     return Mono.just(0L);
                 })
-                .subscribe(numberUpdateBatch -> log.info("Finish change status Evaluating to {} rewards batch", numberUpdateBatch));
+                .subscribe(numberUpdateBatch -> log.info("[EVALUATING_REWARD_BATCH][SCHEDULER] Completed evaluation. Updated {} reward batches to status EVALUATING", numberUpdateBatch));
     }
 
     @Override
@@ -325,9 +327,11 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
         }
 
         return rewardBatchToElaborate
-                .switchIfEmpty(Mono.error(new RewardBatchNotFound(REWARD_BATCH_NOT_FOUND, "No reward batches found with status SENT")))
-                .flatMap(rewardBatch -> rewardTransactionRepository.rewardTransactionsByBatchId(rewardBatch.getId())
-                        .thenReturn(rewardBatch.getId()))
+                .switchIfEmpty(Mono.error(new RewardBatchNotFound(REWARD_BATCH_NOT_FOUND, ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT)))
+                .flatMap(rewardBatch -> {
+                    log.info("[EVALUATING_REWARD_BATCH] Start to evaluating reward batch {}", Utilities.sanitizeString(rewardBatch.getId()));
+                    return rewardTransactionRepository.rewardTransactionsByBatchId(rewardBatch.getId())
+                        .thenReturn(rewardBatch.getId());})
                 .collectList()
                 .flatMap(batchIdsList -> rewardBatchRepository.updateStatus(batchIdsList, RewardBatchStatus.EVALUATING, LocalDateTime.now()));
     }

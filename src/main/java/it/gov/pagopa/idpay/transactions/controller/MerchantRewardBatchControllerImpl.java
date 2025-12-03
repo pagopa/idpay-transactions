@@ -143,7 +143,11 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
 
   @Override
   public Mono<Void> evaluatingRewardBatches(RewardBatchesRequest rewardBatchesRequest) {
-    log.info("[CREATING_REWARD_BATCH] Requested to evaluate");
+    log.info(
+            "[EVALUATING_REWARD_BATCH] Requested to evaluate {}", rewardBatchesRequest.getRewardBatchIds() != null
+                    ? "reward batches " + rewardBatchesRequest.getRewardBatchIds()
+                    : "all reward batches with status SENT"
+    );
     return rewardBatchService.evaluatingRewardBatches(rewardBatchesRequest.getRewardBatchIds())
             .then();
   }
