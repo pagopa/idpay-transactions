@@ -25,4 +25,6 @@ public interface RewardBatchService {
 
   Mono<RewardBatch> rejectTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request);
   Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String initiativeId);
+
+  Mono<Long> evaluatingRewardBatches(List<String> rewardBatchesRequest);
 }

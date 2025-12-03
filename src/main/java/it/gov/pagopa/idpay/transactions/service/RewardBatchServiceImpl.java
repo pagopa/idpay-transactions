@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
+import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
@@ -20,6 +21,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -32,6 +34,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT;
 
 @Service
 @Slf4j
@@ -298,6 +303,36 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                 })
 
                 .flatMap(acc -> rewardBatchRepository.updateTotals(rewardBatchId, acc.getTrxElaborated(), acc.getTotalApprovedAmountCents(), acc.getTrxRejected(), acc.getTrxSuspended()));
+    }
+    @Scheduled (cron = "${app.transactions.reward-batch.to-evaluating.schedule}")
+    void evaluatingRewardBatchStatusScheduler(){
+        log.info("[EVALUATING_REWARD_BATCH][SCHEDULER] Start to evaluating all reward batches with status SENT");
+        evaluatingRewardBatches(null)
+                .onErrorResume(RewardBatchNotFound.class, x -> {
+                    log.error("[EVALUATING_REWARD_BATCH][SCHEDULER] " + ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT, x);
+                    return Mono.just(0L);
+                })
+                .subscribe(numberUpdateBatch -> log.info("[EVALUATING_REWARD_BATCH][SCHEDULER] Completed evaluation. Updated {} reward batches to status EVALUATING", numberUpdateBatch));
+    }
+
+    @Override
+    public Mono<Long> evaluatingRewardBatches(List<String> rewardBatchesRequest) {
+        Flux<RewardBatch> rewardBatchToElaborate;
+        if (rewardBatchesRequest == null) {
+            rewardBatchToElaborate = rewardBatchRepository.findByStatus(RewardBatchStatus.SENT);
+        } else {
+            rewardBatchToElaborate = Flux.fromIterable(rewardBatchesRequest)
+                    .flatMap(batchId -> rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.SENT));
+        }
+
+        return rewardBatchToElaborate
+                .switchIfEmpty(Mono.error(new RewardBatchNotFound(REWARD_BATCH_NOT_FOUND, ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT)))
+                .flatMap(rewardBatch -> {
+                    log.info("[EVALUATING_REWARD_BATCH] Start to evaluating reward batch {}", Utilities.sanitizeString(rewardBatch.getId()));
+                    return rewardTransactionRepository.rewardTransactionsByBatchId(rewardBatch.getId())
+                            .thenReturn(rewardBatch);})
+                .flatMap(batch -> rewardBatchRepository.updateStatusAndApprovedAmountCents(batch.getId(), RewardBatchStatus.EVALUATING, batch.getInitialAmountCents()))
+                .count();
     }
 
 private String buildBatchName(YearMonth month) {

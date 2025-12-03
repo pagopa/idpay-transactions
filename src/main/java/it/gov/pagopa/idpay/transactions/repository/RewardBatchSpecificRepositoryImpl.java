@@ -1,19 +1,11 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import com.nimbusds.oauth2.sdk.util.StringUtils;
-import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
-
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.List;
-
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -24,6 +16,12 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.List;
 
 public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRepository {
 
@@ -201,13 +199,25 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Mono<RewardBatch> findRewardBatchByFilter(String rewardBatchId, String merchantId, PosType posType, String month) {
+  public Mono<RewardBatch> findRewardBatchByFilter(String rewardBatchId, String merchantId, String posType, String month) {
     Criteria criteria = getCriteriaFindRewardBatchByFilter(rewardBatchId, merchantId, posType, month);
 
     return mongoTemplate.findOne(
             Query.query(criteria),
             RewardBatch.class);
 
+  }
+
+  @Override
+  public Mono<RewardBatch> updateStatusAndApprovedAmountCents(String rewardBatchId, RewardBatchStatus rewardBatchStatus, Long approvedAmountCents) {
+    return mongoTemplate.findAndModify(
+            Query.query(getCriteriaFindRewardBatchById(rewardBatchId)),
+            new Update()
+                    .set(RewardBatch.Fields.status, rewardBatchStatus)
+                    .set(RewardBatch.Fields.approvedAmountCents, approvedAmountCents)
+                    .set(RewardBatch.Fields.updateDate, LocalDateTime.now()),
+            FindAndModifyOptions.options().returnNew(true),
+            RewardBatch.class);
   }
 
   public Flux<RewardBatch> findRewardBatchByStatus(RewardBatchStatus rewardBatchStatus) {
