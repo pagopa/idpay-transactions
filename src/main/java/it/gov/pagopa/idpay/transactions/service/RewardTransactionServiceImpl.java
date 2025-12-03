@@ -99,7 +99,13 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
             log.info("[BATCH_ASSIGNMENT] Processing {} transactions...", list.size());
 
             return Flux.fromIterable(list)
-                .concatMap(this::processTransaction)
+                .concatMap(trx ->
+                    processTransaction(trx)
+                        .onErrorResume(e ->{
+                          log.error("[BATCH_ERROR_TRANSACTION[{}] Error while processing transaction: {}",
+                              trx.getId(), e.getMessage(), e);
+                          return Mono.empty();
+                        }))
                 .then(Mono.defer(() -> processAllOperation(chunkSize)));
           });
     }
@@ -118,7 +124,12 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
                   log.info("[BATCH_ASSIGNMENT] Iteration {}: Processing {} transactions.",
                       i, list.size());
                   return Flux.fromIterable(list)
-                      .concatMap(this::processTransaction)
+                      .concatMap(trx ->
+                          processTransaction(trx)
+                              .onErrorResume(e-> {
+                                log.error("[BATCH_ERROR_TRANSACTION[{}] Error while processing transaction: {}", trx.getId(), e.getMessage(), e);
+                                return Mono.empty();
+                              }))
                       .then();
                 })
         )
