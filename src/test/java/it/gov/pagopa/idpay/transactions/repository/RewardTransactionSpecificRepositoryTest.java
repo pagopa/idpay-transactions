@@ -696,17 +696,18 @@ class RewardTransactionSpecificRepositoryTest {
     }
 
     @Test
-    void findByTrxIdAndUserId_shouldReturnMatchingTransaction() {
+    void findByInitiativeIdAndUserId_shouldReturnMatchingTransaction() {
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
             .id("id1")
             .userId("TESTUSER")
             .merchantId(MERCHANT_ID)
             .status("REWARDED")
+            .initiatives(List.of("id1"))
             .build();
         rewardTransactionRepository.save(rt1).block();
 
         RewardTransaction found = rewardTransactionSpecificRepository
-            .findByTrxIdAndUserId("id1", "TESTUSER")
+            .findByInitiativeIdAndUserId("TESTUSER","id1")
             .block();
 
         assertNotNull(found);
@@ -714,12 +715,12 @@ class RewardTransactionSpecificRepositoryTest {
         assertEquals("TESTUSER", found.getUserId());
 
         RewardTransaction wrongUser = rewardTransactionSpecificRepository
-            .findByTrxIdAndUserId("id1", "OTHERUSER")
+            .findByInitiativeIdAndUserId( "OTHERUSER","id1")
             .block();
         assertNull(wrongUser);
 
         RewardTransaction wrongTrx = rewardTransactionSpecificRepository
-            .findByTrxIdAndUserId("WRONGID", "TESTUSER")
+            .findByInitiativeIdAndUserId("TESTUSER","WRONGID")
             .block();
         assertNull(wrongTrx);
 

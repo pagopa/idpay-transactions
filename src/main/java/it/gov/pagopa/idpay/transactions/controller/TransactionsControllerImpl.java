@@ -34,9 +34,9 @@ public class TransactionsControllerImpl implements TransactionsController{
     }
 
     @Override
-    public Mono<RewardTransaction> findByTrxIdAndUserId(String trxId, String userId) {
-        if(trxId != null && userId != null) {
-            return rewardTransactionService.findByTrxIdAndUserId(trxId, userId);
+    public Mono<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId) {
+        if(initiativeId != null && userId != null) {
+            return rewardTransactionService.findByInitiativeIdAndUserId(initiativeId, userId);
         }
         throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, ExceptionConstants.ExceptionCode.TRANSACTIONS_MISSING_MANDATORY_FILTERS,ExceptionConstants.ExceptionMessage.TRANSACTIONS_MISSING_MANDATORY_FILTERS);
     }

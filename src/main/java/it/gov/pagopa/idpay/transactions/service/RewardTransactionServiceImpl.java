@@ -66,8 +66,8 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
     }
 
     @Override
-    public Mono<RewardTransaction> findByTrxIdAndUserId(String trxId, String userId){
-        return rewardTrxRepository.findByTrxIdAndUserId(trxId, userId);
+    public Mono<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId){
+        return rewardTrxRepository.findByInitiativeIdAndUserId(initiativeId, userId);
     }
 
     @Override
