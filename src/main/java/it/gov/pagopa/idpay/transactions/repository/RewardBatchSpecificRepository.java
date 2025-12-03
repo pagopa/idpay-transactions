@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
+import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
@@ -18,7 +19,8 @@ public interface RewardBatchSpecificRepository {
   Mono<RewardBatch> updateTotals(String rewardBatchId, long elaboratedTrxNumber, long updateAmountCents, long rejectedTrxNumber, long suspendedTrxNumber);
 
   Mono<RewardBatch> findRewardBatchById(String rewardBatchId);
-  Mono<RewardBatch> findRewardBatchByFilter(String rewardBatchId, String merchantId, String posType, String month);
+  Mono<RewardBatch> findRewardBatchByFilter(String rewardBatchId, String merchantId, PosType posType, String month);
   Flux<RewardBatch> findRewardBatchByStatus(RewardBatchStatus rewardBatchStatus);
+  Flux<RewardBatch> findRewardBatchByMonthBefore(String merchantId, PosType posType, String month);
 
 }

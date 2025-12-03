@@ -689,7 +689,7 @@ class RewardBatchSpecificRepositoryImplTest {
   @Test
   void findRewardBatchByFilter_ShouldReturnDocument_WhenAllFiltersMatch() {
     Mono<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByFilter(
-            batch1.getId(), batch1.getMerchantId(), batch1.getPosType().name(), batch1.getMonth());
+            batch1.getId(), batch1.getMerchantId(), batch1.getPosType(), batch1.getMonth());
 
     StepVerifier.create(result)
             .expectNextMatches(batch ->

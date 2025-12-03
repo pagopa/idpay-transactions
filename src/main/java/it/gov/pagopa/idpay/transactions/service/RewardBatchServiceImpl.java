@@ -309,26 +309,46 @@ private String buildBatchName(YearMonth month) {
 
 
     @Override
-    public Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId)      {
-    return rewardBatchRepository.findRewardBatchById(rewardBatchId)
-    .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
-            HttpStatus.NOT_FOUND,
-            ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND,
-            ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
-    .filter(rewardBatch -> rewardBatch.getStatus().equals(RewardBatchStatus.EVALUATING)
-                            &&  rewardBatch.getAssigneeLevel().equals(RewardBatchAssignee.L3 ))
-            .map(rewardBatch -> {
-              rewardBatch.setStatus(RewardBatchStatus.APPROVING);
-              rewardBatch.setUpdateDate(LocalDateTime.now());
-              return rewardBatch;
-            })
-            .flatMap(rewardBatchRepository::save)
-            .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
-                    HttpStatus.BAD_REQUEST,
-                    ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST,
-                    ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
-            )));
-  }
+    public Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId) {
+        return rewardBatchRepository.findRewardBatchById(rewardBatchId)
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.NOT_FOUND,
+                        ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND,
+                        ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
+                .filter(rewardBatch -> rewardBatch.getStatus().equals(RewardBatchStatus.EVALUATING)
+                        && rewardBatch.getAssigneeLevel().equals(RewardBatchAssignee.L3))
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.BAD_REQUEST,
+                        ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST,
+                        ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
+                )))
+                .flatMap(rewardBatch -> {
+                    Flux<RewardBatch> previousBatchesFlux = rewardBatchRepository.findRewardBatchByMonthBefore(
+                            rewardBatch.getMerchantId(),
+                            rewardBatch.getPosType(),
+                            rewardBatch.getMonth()
+                    );
+                    Mono<Boolean> hasUnapprovedBatch = previousBatchesFlux
+                            .filter(batch -> !batch.getStatus().equals(RewardBatchStatus.APPROVED))
+                            .hasElements();
+                    return hasUnapprovedBatch
+                            .flatMap(isUnapprovedPresent ->
+                                    Boolean.TRUE.equals(isUnapprovedPresent)
+                                            ? Mono.error(new ClientExceptionWithBody(
+                                            HttpStatus.BAD_REQUEST,
+                                            ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST,
+                                            ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_PREVIOUS_BATCH_TO_APPROVE.formatted(rewardBatchId)
+                                    ))
+                                            : Mono.just(rewardBatch)
+                            );
+                })
+                .map(rewardBatch -> {
+                    rewardBatch.setStatus(RewardBatchStatus.APPROVING);
+                    rewardBatch.setUpdateDate(LocalDateTime.now());
+                    return rewardBatch;
+                })
+                .flatMap(rewardBatchRepository::save);
+    }
 
 
 
@@ -423,7 +443,7 @@ private String buildBatchName(YearMonth month) {
       Mono<RewardBatch> existingBatchMono = rewardBatchRepository.findRewardBatchByFilter(
               null,
               savedBatch.getMerchantId(),
-              savedBatch.getPosType() != null ? savedBatch.getPosType().toString() : null,
+              savedBatch.getPosType(),
               addOneMonth(savedBatch.getMonth()))
               .doOnNext(existingBatch ->
                               log.info("Batch for {} already exists, with rewardBatchId = {}",

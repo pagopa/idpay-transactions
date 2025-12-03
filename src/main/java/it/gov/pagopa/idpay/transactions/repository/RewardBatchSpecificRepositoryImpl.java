@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import com.nimbusds.oauth2.sdk.util.StringUtils;
+import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
@@ -200,7 +201,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Mono<RewardBatch> findRewardBatchByFilter(String rewardBatchId, String merchantId, String posType, String month) {
+  public Mono<RewardBatch> findRewardBatchByFilter(String rewardBatchId, String merchantId, PosType posType, String month) {
     Criteria criteria = getCriteriaFindRewardBatchByFilter(rewardBatchId, merchantId, posType, month);
 
     return mongoTemplate.findOne(
@@ -218,12 +219,20 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
 
   }
 
+  public Flux<RewardBatch> findRewardBatchByMonthBefore(String merchantId, PosType posType, String month) {
+    Criteria criteria = getCriteriaFindRewardBatchByMonthBefore(merchantId, posType, month);
+
+    return mongoTemplate.find(
+            Query.query(criteria),
+            RewardBatch.class);
+
+  }
 
   private static Criteria getCriteriaFindRewardBatchById(String rewardBatchId) {
     return Criteria.where("_id").is(rewardBatchId.trim());
   }
 
-  private static Criteria getCriteriaFindRewardBatchByFilter(String rewardBatchId, String merchantId, String posType, String month) {
+  private static Criteria getCriteriaFindRewardBatchByFilter(String rewardBatchId, String merchantId, PosType posType, String month) {
     Criteria criteria;
     if(rewardBatchId != null){
       criteria = Criteria.where("_id").is(rewardBatchId.trim());
@@ -245,5 +254,11 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
 private static Criteria getCriteriaFindRewardBatchByStatus(RewardBatchStatus rewardBatchStatus) {
   return Criteria.where(RewardBatch.Fields.status).is(rewardBatchStatus);
 }
+
+  private static Criteria getCriteriaFindRewardBatchByMonthBefore(String merchantId, PosType posType, String month) {
+    return Criteria.where(RewardBatch.Fields.merchantId).is(merchantId)
+            .and(RewardBatch.Fields.posType).is(posType)
+            .and(RewardBatch.Fields.month).lt(month);
+  }
 
 }
