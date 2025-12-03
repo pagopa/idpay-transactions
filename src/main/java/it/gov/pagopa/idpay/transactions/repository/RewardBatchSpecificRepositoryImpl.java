@@ -216,6 +216,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
                     .set(RewardBatch.Fields.status, rewardBatchStatus)
                     .set(RewardBatch.Fields.approvedAmountCents, approvedAmountCents)
                     .set(RewardBatch.Fields.updateDate, LocalDateTime.now()),
+            FindAndModifyOptions.options().returnNew(true),
             RewardBatch.class);
   }
 

@@ -692,22 +692,25 @@ class RewardBatchSpecificRepositoryImplTest {
 
   @Test
   void updateStatusAndApprovedAmountCents() {
-    RewardBatch rewardBatch1 = RewardBatch.builder()
-            .id("UPDATE_ID_1")
+    RewardBatch rewardBatch = RewardBatch.builder()
+            .id("UPDATE_ID_1".trim())
             .status(RewardBatchStatus.SENT)
             .initialAmountCents(100L)
             .approvedAmountCents(0L)
             .build();
 
 
-    rewardBatchRepository.save(rewardBatch1).block();
+    rewardBatchRepository.save(rewardBatch).block();
 
-    RewardBatch resultUpdated = rewardBatchRepository.updateStatusAndApprovedAmountCents(rewardBatch1.getId(), RewardBatchStatus.EVALUATING, 200L).block();
+    RewardBatch resultUpdated = rewardBatchRepository
+            .updateStatusAndApprovedAmountCents(rewardBatch.getId(), RewardBatchStatus.EVALUATING, 200L)
+            .block();
 
     assertNotNull(resultUpdated);
+    assertEquals(RewardBatchStatus.EVALUATING, resultUpdated.getStatus());
     assertEquals(200L, resultUpdated.getApprovedAmountCents());
 
-    rewardBatchRepository.deleteById(rewardBatch1.getId()).block();
+    rewardBatchRepository.deleteById(rewardBatch.getId()).block();
 
   }
 
