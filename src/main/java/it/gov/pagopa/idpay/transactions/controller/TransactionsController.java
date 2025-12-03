@@ -46,6 +46,7 @@ public interface TransactionsController {
     @PostMapping("/cleanup")
     Mono<Void> cleanupInvoicedTransactions(
         @RequestParam(defaultValue = "200") Integer chunkSize,
+        @RequestParam(defaultValue = "1") Integer repetitionsNumber,
         @RequestParam(defaultValue = "false") boolean processAll,
         @RequestParam(required = false) String trxId
     );

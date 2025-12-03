@@ -227,7 +227,8 @@ class TransactionsControllerImplTest {
 
     @Test
     void cleanupInvoicedTransactions_defaultChunkSize() {
-        Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
+        Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(Mockito.anyInt(),
+            Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
             .thenReturn(Mono.empty());
 
         webClient.post()
@@ -239,20 +240,24 @@ class TransactionsControllerImplTest {
         Mockito.verify(rewardTransactionService, Mockito.times(1))
             .assignInvoicedTransactionsToBatches(
                 Mockito.eq(200),
+                Mockito.eq(1),
                 Mockito.eq(false),
                 Mockito.isNull());
     }
 
     @Test
     void cleanupInvoicedTransactions_customChunkSize() {
-        Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
+        Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(Mockito.anyInt(),
+                Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
             .thenReturn(Mono.empty());
 
         int customChunkSize = 500;
+        int customIteration = 10;
 
         webClient.post()
             .uri(uriBuilder -> uriBuilder.path("/idpay/transactions/cleanup")
                 .queryParam("chunkSize", customChunkSize)
+                .queryParam("repetitionsNumber", customIteration)
                 .build())
             .exchange()
             .expectStatus().isOk()
@@ -261,7 +266,7 @@ class TransactionsControllerImplTest {
         Mockito.verify(rewardTransactionService, Mockito.times(1))
             .assignInvoicedTransactionsToBatches(
                 Mockito.eq(customChunkSize),
-                Mockito.eq(false),
+                Mockito.eq(customIteration), Mockito.eq(false),
                 Mockito.isNull()
             );
     }
