@@ -1,14 +1,7 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
-import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
@@ -42,6 +35,17 @@ import org.springframework.http.HttpStatus;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+
+import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class RewardBatchServiceImplTest {
@@ -1313,7 +1317,7 @@ class RewardBatchServiceImplTest {
 
         RewardBatch result = rewardBatchService.approvedTransactions(batchId, transactionsRequest, initiativeId).block();
 
-        Assertions.assertNotNull(result);
+        assertNotNull(result);
         Assertions.assertEquals(expectedResult, result);
         verify(rewardTransactionRepository, times(5)).updateStatusAndReturnOld(any(), any(),any(), any());
         verify(rewardBatchRepository).findByIdAndStatus(any(),any());
@@ -1474,7 +1478,7 @@ class RewardBatchServiceImplTest {
 
         RewardBatch result = rewardBatchService.rejectTransactions(batchId, initiativeId, transactionsRequest).block();
 
-        Assertions.assertNotNull(result);
+        assertNotNull(result);
         Assertions.assertEquals(expectedResult, result);
         verify(rewardTransactionRepository, times(5)).updateStatusAndReturnOld(any(), any(),any(), any());
         verify(rewardBatchRepository).findByIdAndStatus(any(),any());
@@ -1581,7 +1585,7 @@ class RewardBatchServiceImplTest {
 
         Long result = rewardBatchService.evaluatingRewardBatches(List.of(batchId)).block();
 
-        Assertions.assertNotNull(result);
+        assertNotNull(result);
         Assertions.assertEquals(1L, result);
     }
 
@@ -1592,8 +1596,10 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.SENT))
                 .thenReturn(Mono.empty());
 
-        Mono<Long> monoResult = rewardBatchService.evaluatingRewardBatches(List.of(batchId));
-        Assertions.assertThrows(RewardBatchNotFound.class, monoResult::block);
+        Long result = rewardBatchService.evaluatingRewardBatches(List.of(batchId)).block();
+
+        assertNotNull(result);
+        assertEquals(0L, result);
 
         verify(rewardBatchRepository).findByIdAndStatus(any(), any());
         verify(rewardTransactionRepository, never()).rewardTransactionsByBatchId(any());
@@ -1602,8 +1608,10 @@ class RewardBatchServiceImplTest {
 
     @Test
     void evaluatingRewardBatches_emptyList(){
-        Mono<Long> monoResult = rewardBatchService.evaluatingRewardBatches(new ArrayList<>());
-        Assertions.assertThrows(RewardBatchNotFound.class, monoResult::block);
+        Long result = rewardBatchService.evaluatingRewardBatches(new ArrayList<>()).block();
+
+        assertNotNull(result);
+        assertEquals(0L, result);
 
         verify(rewardBatchRepository, never()).findByStatus(any());
         verify(rewardBatchRepository, never()).findByIdAndStatus(any(), any());
@@ -1631,7 +1639,7 @@ class RewardBatchServiceImplTest {
 
         Long result = rewardBatchService.evaluatingRewardBatches(null).block();
 
-        Assertions.assertNotNull(result);
+        assertNotNull(result);
         Assertions.assertEquals(1L, result);
     }
 

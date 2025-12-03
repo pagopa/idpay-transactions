@@ -171,22 +171,22 @@ class RewardTransactionServiceImplTest {
     }
 
   @Test
-  void findByTrxIdAndUserId() {
+  void findByInitiativeIddndUserId() {
     // Given
     RewardTransaction rt = RewardTransaction.builder()
         .userId("USERID")
         .amountCents(3000L)
         .trxDate(LocalDateTime.of(2022, 9, 19, 15,43,39))
-        .idTrxIssuer("IDTRXISSUER")
+        .initiatives(List.of("ID"))
         .build();
 
-    Mockito.when(rewardTransactionRepository.findByTrxIdAndUserId("TRXID", "USERID"))
-        .thenReturn(Mono.just(rt));
+    Mockito.when(rewardTransactionRepository.findByInitiativeIdAndUserId("ID", "USERID"))
+        .thenReturn(Flux.just(rt));
 
     // When
-    Mono<RewardTransaction> result = rewardTransactionService.findByTrxIdAndUserId("TRXID", "USERID");
+    Flux<RewardTransaction> result = rewardTransactionService.findByInitiativeIdAndUserId("ID", "USERID");
     Assertions.assertNotNull(result);
-    RewardTransaction resultRT = result.block();
+    RewardTransaction resultRT = result.blockFirst();
     Assertions.assertNotNull(resultRT);
     Assertions.assertEquals(rt, resultRT);
   }

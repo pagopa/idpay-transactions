@@ -41,7 +41,7 @@ public class MerchantRestClientImpl implements MerchantRestClient {
 
 
   @Override
-  @Cacheable(key = "#pointOfSaleId", value = "getPointOfSale")
+  @Cacheable(key = "#pointOfSaleId", value = "getPointOfSale", unless = "#result == null")
   public Mono<PointOfSaleDTO> getPointOfSale(String merchantId, String pointOfSaleId) {
     log.info("Sending request to merchant {} to get pos {}", merchantId, pointOfSaleId);
     return PerformanceLogger.logTimingOnNext(
