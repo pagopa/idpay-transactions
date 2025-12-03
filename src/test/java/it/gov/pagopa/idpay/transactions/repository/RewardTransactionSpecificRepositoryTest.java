@@ -702,6 +702,7 @@ class RewardTransactionSpecificRepositoryTest {
             .userId("TESTUSER")
             .merchantId(MERCHANT_ID)
             .status("REWARDED")
+            .initiativeId("id1")
             .initiatives(List.of("id1"))
             .build();
         rewardTransactionRepository.save(rt1).block();

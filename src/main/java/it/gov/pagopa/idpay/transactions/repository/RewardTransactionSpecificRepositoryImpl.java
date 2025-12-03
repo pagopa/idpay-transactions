@@ -288,7 +288,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
     public Flux<RewardTransaction> findByInitiativeIdAndUserId(String userId, String initiativeId) {
         Criteria criteria = Criteria.where(RewardTransaction.Fields.userId).is(userId)
-                .and(RewardTransaction.Fields.initiatives).in(initiativeId);
+                .and(RewardTransaction.Fields.initiativeId).in(initiativeId);
 
         return mongoTemplate.find(Query.query(criteria), RewardTransaction.class);
     }
