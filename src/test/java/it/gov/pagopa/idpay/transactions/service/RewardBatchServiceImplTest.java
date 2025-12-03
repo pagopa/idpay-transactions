@@ -23,7 +23,6 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +53,7 @@ class RewardBatchServiceImplTest {
   private RewardTransactionRepository rewardTransactionRepository;
 
   private RewardBatchService rewardBatchService;
-    private RewardBatchServiceImpl rewardBatchServiceSpy;
+  private RewardBatchServiceImpl rewardBatchServiceSpy;
 
   private static final String BUSINESS_NAME = "Test Business name";
   private static final String REWARD_BATCH_ID_1 = "REWARD_BATCH_ID_1";
@@ -1615,6 +1614,4 @@ class RewardBatchServiceImplTest {
         verify(rewardBatchRepository, never()).updateStatusAndApprovedAmountCents(any(), any(), any());
 
     }
-=========
->>>>>>>>> Temporary merge branch 2
 }
