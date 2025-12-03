@@ -38,9 +38,9 @@ public interface TransactionsController {
             @PageableDefault(size = 2000) Pageable pageable
     );
 
-    @GetMapping("/{trxId}/{userId}")
-    Mono<RewardTransaction> findByTrxIdAndUserId(
-            @PathVariable(value = "trxId") String trxId,
+    @GetMapping("/{initiativeId}/{userId}")
+    Flux<RewardTransaction> findByInitiativeIdAndUserId(
+            @PathVariable(value = "initiativeId") String initiativeId,
             @PathVariable(value = "userId") String userId
     );
 
