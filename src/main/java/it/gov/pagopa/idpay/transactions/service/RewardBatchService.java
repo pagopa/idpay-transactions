@@ -7,6 +7,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 public interface RewardBatchService {
 
   Mono<RewardBatch> findOrCreateBatch(String merchantId, PosType posType, String month, String businessName);
@@ -21,4 +23,6 @@ public interface RewardBatchService {
 
   Mono<RewardBatch> rejectTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request);
   Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String initiativeId);
+
+  Mono<Long> evaluatingRewardBatches(List<String> rewardBatchesRequest);
 }
