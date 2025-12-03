@@ -1,19 +1,11 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
-import com.mongodb.client.result.UpdateResult;
 import com.nimbusds.oauth2.sdk.util.StringUtils;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
-
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.List;
-
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -24,6 +16,12 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.List;
 
 public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRepository {
 
@@ -211,14 +209,14 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Mono<Long> updateStatus(List<String> batchIdsList, RewardBatchStatus rewardBatchStatus, LocalDateTime updateDate) {
-    return mongoTemplate.updateMulti(
-            Query.query(Criteria.where("_id").in(batchIdsList)),
+  public Mono<RewardBatch> updateStatusAndApprovedAmountCents(String rewardBatchId, RewardBatchStatus rewardBatchStatus, Long approvedAmountCents) {
+    return mongoTemplate.findAndModify(
+            Query.query(getCriteriaFindRewardBatchById(rewardBatchId)),
             new Update()
                     .set(RewardBatch.Fields.status, rewardBatchStatus)
-                    .set(RewardBatch.Fields.updateDate, updateDate),
-            RewardBatch.class)
-            .map(UpdateResult::getModifiedCount);
+                    .set(RewardBatch.Fields.approvedAmountCents, approvedAmountCents)
+                    .set(RewardBatch.Fields.updateDate, LocalDateTime.now()),
+            RewardBatch.class);
   }
 
 

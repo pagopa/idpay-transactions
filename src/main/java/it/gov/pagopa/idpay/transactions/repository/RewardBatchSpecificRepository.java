@@ -7,7 +7,6 @@ import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 public interface RewardBatchSpecificRepository {
@@ -17,9 +16,7 @@ public interface RewardBatchSpecificRepository {
   Mono<Long> getCountCombined(String merchantId, String status, String assigneeLevel, boolean isOperator);
   Mono<Long> updateTransactionsStatus(String rewardBatchId, List<String> transactionIds, RewardBatchTrxStatus newStatus, String reason);
   Mono<RewardBatch> updateTotals(String rewardBatchId, long elaboratedTrxNumber, long updateAmountCents, long rejectedTrxNumber, long suspendedTrxNumber);
-
   Mono<RewardBatch> findRewardBatchById(String rewardBatchId);
   Mono<RewardBatch> findRewardBatchByFilter(String rewardBatchId, String merchantId, String posType, String month);
-
-  Mono<Long> updateStatus(List<String> batchIdsList, RewardBatchStatus rewardBatchStatus, LocalDateTime updateDate);
+  Mono<RewardBatch> updateStatusAndApprovedAmountCents(String rewardBatchId, RewardBatchStatus rewardBatchStatus, Long approvedAmountCents);
 }

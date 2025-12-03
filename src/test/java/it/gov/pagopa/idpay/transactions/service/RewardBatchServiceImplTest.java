@@ -1401,6 +1401,7 @@ class RewardBatchServiceImplTest {
         String batchId = "BATCH_ID";
         RewardBatch rewardBatch = RewardBatch.builder()
                 .id(batchId)
+                .initialAmountCents(100L)
                 .build();
 
         when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.SENT))
@@ -1410,8 +1411,8 @@ class RewardBatchServiceImplTest {
         when(rewardTransactionRepository.rewardTransactionsByBatchId(batchId))
                 .thenReturn(Mono.just(voidMock));
 
-        when(rewardBatchRepository.updateStatus(eq(List.of(batchId)),  eq(RewardBatchStatus.EVALUATING), any(LocalDateTime.class)))
-                .thenReturn(Mono.just(1L));
+        when(rewardBatchRepository.updateStatusAndApprovedAmountCents(batchId,  RewardBatchStatus.EVALUATING, 100L))
+                .thenReturn(Mono.just(rewardBatch));
 
         Long result = rewardBatchService.evaluatingRewardBatches(List.of(batchId)).block();
 
@@ -1431,7 +1432,7 @@ class RewardBatchServiceImplTest {
 
         verify(rewardBatchRepository).findByIdAndStatus(any(), any());
         verify(rewardTransactionRepository, never()).rewardTransactionsByBatchId(any());
-        verify(rewardBatchRepository, never()).updateStatus(any(), any(), any());
+        verify(rewardBatchRepository, never()).updateStatusAndApprovedAmountCents(any(), any(), any());
     }
 
     @Test
@@ -1442,7 +1443,7 @@ class RewardBatchServiceImplTest {
         verify(rewardBatchRepository, never()).findByStatus(any());
         verify(rewardBatchRepository, never()).findByIdAndStatus(any(), any());
         verify(rewardTransactionRepository, never()).rewardTransactionsByBatchId(any());
-        verify(rewardBatchRepository, never()).updateStatus(any(), any(), any());
+        verify(rewardBatchRepository, never()).updateStatusAndApprovedAmountCents(any(), any(), any());
     }
 
     @Test
@@ -1450,6 +1451,7 @@ class RewardBatchServiceImplTest {
         String batchId = "BATCH_ID_1";
         RewardBatch rewardBatch = RewardBatch.builder()
                 .id(batchId)
+                .initialAmountCents(100L)
                 .build();
 
         when(rewardBatchRepository.findByStatus(RewardBatchStatus.SENT))
@@ -1459,8 +1461,8 @@ class RewardBatchServiceImplTest {
         when(rewardTransactionRepository.rewardTransactionsByBatchId(batchId))
                 .thenReturn(Mono.just(voidMock));
 
-        when(rewardBatchRepository.updateStatus(eq(List.of(batchId)),  eq(RewardBatchStatus.EVALUATING), any(LocalDateTime.class)))
-                .thenReturn(Mono.just(1L));
+        when(rewardBatchRepository.updateStatusAndApprovedAmountCents(batchId,  RewardBatchStatus.EVALUATING, 100L))
+                .thenReturn(Mono.just(rewardBatch));
 
         Long result = rewardBatchService.evaluatingRewardBatches(null).block();
 
@@ -1479,7 +1481,7 @@ class RewardBatchServiceImplTest {
         verify(rewardBatchRepository).findByStatus(any());
         verify(rewardBatchRepository, never()).findByIdAndStatus(any(), any());
         verify(rewardTransactionRepository, never()).rewardTransactionsByBatchId(any());
-        verify(rewardBatchRepository, never()).updateStatus(any(), any(), any());
+        verify(rewardBatchRepository, never()).updateStatusAndApprovedAmountCents(any(), any(), any());
 
     }
 }

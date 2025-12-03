@@ -331,9 +331,9 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                 .flatMap(rewardBatch -> {
                     log.info("[EVALUATING_REWARD_BATCH] Start to evaluating reward batch {}", Utilities.sanitizeString(rewardBatch.getId()));
                     return rewardTransactionRepository.rewardTransactionsByBatchId(rewardBatch.getId())
-                        .thenReturn(rewardBatch.getId());})
-                .collectList()
-                .flatMap(batchIdsList -> rewardBatchRepository.updateStatus(batchIdsList, RewardBatchStatus.EVALUATING, LocalDateTime.now()));
+                        .thenReturn(rewardBatch);})
+                .flatMap(batch -> rewardBatchRepository.updateStatusAndApprovedAmountCents(batch.getId(), RewardBatchStatus.EVALUATING, batch.getInitialAmountCents()))
+                .count();
     }
 
     private String buildBatchName(YearMonth month) {
