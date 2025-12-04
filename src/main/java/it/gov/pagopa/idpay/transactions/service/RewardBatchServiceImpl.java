@@ -305,10 +305,9 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
 
                 .flatMap(acc -> rewardBatchRepository.updateTotals(rewardBatchId, acc.getTrxElaborated(), acc.getTotalApprovedAmountCents(), acc.getTrxRejected(), acc.getTrxSuspended()));
     }
-
     @Scheduled (cron = "${app.transactions.reward-batch.to-evaluating.schedule}")
     void evaluatingRewardBatchStatusScheduler(){
-      log.info("[EVALUATING_REWARD_BATCH][SCHEDULER] Start to evaluating all reward batches with status SENT");
+        log.info("[EVALUATING_REWARD_BATCH][SCHEDULER] Start to evaluating all reward batches with status SENT");
         evaluatingRewardBatches(null)
                 .onErrorResume(RewardBatchNotFound.class, x -> {
                     log.error("[EVALUATING_REWARD_BATCH][SCHEDULER] " + ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT, x);
@@ -342,59 +341,157 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                         log.info("[EVALUATING_REWARD_BATCH] Completed evaluation. Total batches processed: {}", count));
     }
 
-    private String buildBatchName(YearMonth month) {
-        String monthName = month.getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN);
-        String year = String.valueOf(month.getYear());
+private String buildBatchName(YearMonth month) {
+  String monthName = month.getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN);
+  String year = String.valueOf(month.getYear());
 
-        return String.format("%s %s", monthName, year);
-    }
+  return String.format("%s %s", monthName, year);
+}
 
 
     @Override
-    public Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId)      {
-    return rewardBatchRepository.findRewardBatchById(rewardBatchId)
-    .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
-            HttpStatus.NOT_FOUND,
-            REWARD_BATCH_NOT_FOUND,
-            ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
-    .filter(rewardBatch -> rewardBatch.getStatus().equals(RewardBatchStatus.EVALUATING)
-                            &&  !rewardBatch.getAssigneeLevel().equals(RewardBatchAssignee.L3 ))
-            .map(rewardBatch -> {
-              rewardBatch.setStatus(RewardBatchStatus.APPROVED);
-              rewardBatch.setUpdateDate(LocalDateTime.now());
-              return rewardBatch;
-            })
-            .flatMap(rewardBatchRepository::save)
-            .flatMap(savedBatch -> {
-                Mono<Void> transactionsUpdate = updateAndSaveRewardTransactionsToApprove(rewardBatchId, initiativeId);
-                return transactionsUpdate.thenReturn(savedBatch);
+    public Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId) {
+        return rewardBatchRepository.findRewardBatchById(rewardBatchId)
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.NOT_FOUND,
+                        ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND,
+                        ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
+                .filter(rewardBatch -> rewardBatch.getStatus().equals(RewardBatchStatus.EVALUATING)
+                        && rewardBatch.getAssigneeLevel().equals(RewardBatchAssignee.L3))
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.BAD_REQUEST,
+                        ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST,
+                        ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
+                )))
+                .flatMap(rewardBatch -> {
+                    Flux<RewardBatch> previousBatchesFlux = rewardBatchRepository.findRewardBatchByMonthBefore(
+                            rewardBatch.getMerchantId(),
+                            rewardBatch.getPosType(),
+                            rewardBatch.getMonth()
+                    );
+                    Mono<Boolean> hasUnapprovedBatch = previousBatchesFlux
+                            .filter(batch -> !batch.getStatus().equals(RewardBatchStatus.APPROVED))
+                            .hasElements();
+                    return hasUnapprovedBatch
+                            .flatMap(isUnapprovedPresent ->
+                                    Boolean.TRUE.equals(isUnapprovedPresent)
+                                            ? Mono.error(new ClientExceptionWithBody(
+                                            HttpStatus.BAD_REQUEST,
+                                            ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST,
+                                            ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_PREVIOUS_BATCH_TO_APPROVE.formatted(rewardBatchId)
+                                    ))
+                                            : Mono.just(rewardBatch)
+                            );
+                })
+                .map(rewardBatch -> {
+                    rewardBatch.setStatus(RewardBatchStatus.APPROVING);
+                    rewardBatch.setUpdateDate(LocalDateTime.now());
+                    return rewardBatch;
+                })
+                .flatMap(rewardBatchRepository::save);
+    }
 
-            })
-            .flatMap(savedBatch -> {
-                if (savedBatch.getNumberOfTransactionsSuspended() != null && savedBatch.getNumberOfTransactionsSuspended() > 0) {
-                    return createRewardBatchAndSave(savedBatch)
-                            .flatMap(newBatch -> updateAndSaveRewardTransactionsSuspended(rewardBatchId, initiativeId, newBatch.getId()).thenReturn(newBatch));
-                } else {
-                    return Mono.just(savedBatch);
-                }
-            }).switchIfEmpty(Mono.error(new ClientExceptionWithBody(
-                    HttpStatus.BAD_REQUEST,
-                    ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST,
-                    ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
-            )));
-  }
+
+
+    @Override
+    public Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds) {
+        if (rewardBatchIds != null && !rewardBatchIds.isEmpty()) {
+            return Flux.fromIterable(rewardBatchIds)
+                    .doOnNext(rewardBatchId ->
+                            log.info("Processing batch {}", rewardBatchId)
+                    )
+                    .flatMap(rewardBatchId ->
+                            this.processSingleBatchSafe(rewardBatchId, initiativeId)
+                    )
+
+                    .then();
+
+        } else {
+            return rewardBatchRepository.findRewardBatchByStatus(RewardBatchStatus.APPROVING)
+                    .collectList()
+                    .flatMapMany(batchList -> {
+                        if (batchList.isEmpty()) {
+                            log.warn("No batches found with status APPROVING to process.");
+                            return Flux.empty();
+                        } else {
+                            log.info("Found {} batches with status APPROVING to process.", batchList.size());
+                            return Flux.fromIterable(batchList);
+                        }
+                    })
+                    .doOnNext(rewardBatch ->
+                            log.info("Processing batch {}",
+                                    rewardBatch.getId())
+                    )
+                    .flatMap(rewardBatch -> {
+                        String rewardBatchId = rewardBatch.getId();
+                        return processSingleBatchSafe(rewardBatchId, initiativeId);
+                    })
+                    .then();
+        }
+    }
+
+
+    public Mono<RewardBatch> processSingleBatchSafe(String rewardBatchId, String initiativeId) {
+        return this.processSingleBatch(rewardBatchId, initiativeId)
+                .onErrorResume(ClientExceptionWithBody.class, error -> {
+                     log.warn(error.getMessage());
+                    return Mono.empty();
+                });
+    }
+
+    public Mono<RewardBatch> processSingleBatch(String rewardBatchId, String initiativeId) {
+        return rewardBatchRepository.findRewardBatchById(rewardBatchId)
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.NOT_FOUND,
+                        ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND,
+                        ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
+
+                .filter(rewardBatch -> rewardBatch.getStatus().equals(RewardBatchStatus.APPROVING)
+                        &&  rewardBatch.getAssigneeLevel().equals(RewardBatchAssignee.L3 ))
+
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.BAD_REQUEST,
+                        ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST,
+                        ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
+                )))
+                .flatMap(originalBatch -> {
+                    Mono<Void> transactionsUpdate = updateAndSaveRewardTransactionsToApprove(rewardBatchId, initiativeId);
+                    return transactionsUpdate.thenReturn(originalBatch);
+                })
+                .flatMap(originalBatch -> {
+                    if (originalBatch.getNumberOfTransactionsSuspended() != null && originalBatch.getNumberOfTransactionsSuspended() > 0) {
+                        Mono<RewardBatch> newBatchMono = createRewardBatchAndSave(originalBatch);
+                        Mono<Void> updateTrxMono = newBatchMono
+                                .flatMap(newBatch ->
+                                        updateAndSaveRewardTransactionsSuspended(rewardBatchId, initiativeId, newBatch.getId())
+                                ).then();
+                        return updateTrxMono.thenReturn(originalBatch);
+
+                    } else {
+                        log.info("numberOfTransactionSuspended = 0 for batch {}", originalBatch.getId());
+                        return Mono.just(originalBatch);
+                    }
+                })
+                .map(originalBatch -> {
+                    originalBatch.setStatus(RewardBatchStatus.APPROVED);
+                    originalBatch.setUpdateDate(LocalDateTime.now());
+                    return originalBatch;
+                })
+                .flatMap(rewardBatchRepository::save);
+    }
+
   Mono<RewardBatch> createRewardBatchAndSave(RewardBatch savedBatch) {
-
 
       Mono<RewardBatch> existingBatchMono = rewardBatchRepository.findRewardBatchByFilter(
               null,
               savedBatch.getMerchantId(),
-              savedBatch.getPosType() != null ? savedBatch.getPosType().toString() : null,
+              savedBatch.getPosType(),
               addOneMonth(savedBatch.getMonth()))
               .doOnNext(existingBatch ->
-                              log.info("Batch for {} already exists, with rewardBatchId = {}",
+                              log.info("Batch for {} and merchantId {} already exists, with rewardBatchId = {}",
                                       addOneMonthToItalian(savedBatch.getName()),
-                                      existingBatch.getId()));
+                                      Utilities.sanitizeString(existingBatch.getMerchantId()),
+                                      Utilities.sanitizeString(existingBatch.getId())));
 
       Mono<RewardBatch> newBatchCreationMono = Mono.just(savedBatch)
               .map(batch -> RewardBatch.builder()
@@ -424,7 +521,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
               .doOnNext(newBatch ->
                       log.info("Created new batch for {} with rewardBatchId = {}",
                               addOneMonthToItalian(savedBatch.getName()),
-                              newBatch.getId())
+                              Utilities.sanitizeString(newBatch.getId()))
               );
 
       return existingBatchMono
@@ -453,12 +550,20 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
       statusList.add(RewardBatchTrxStatus.TO_CHECK);
       statusList.add(RewardBatchTrxStatus.CONSULTABLE);
 
-     return rewardTransactionRepository.findByFilter(oldBatchId, initiativeId, statusList)
-             .flatMap(rewardTransaction -> {
-               rewardTransaction.setStatus(RewardBatchTrxStatus.APPROVED.toString());
-               return rewardTransactionRepository.save(rewardTransaction);
-             })
-             .then();
+
+        return rewardTransactionRepository.findByFilter(oldBatchId, initiativeId, statusList)
+                .collectList()
+                .doOnNext(list ->
+                    log.info("Found {} transactions to approve for batch {}",
+                            list.size(),
+                            Utilities.sanitizeString(oldBatchId))
+                )
+                .flatMapMany(Flux::fromIterable)
+                .flatMap(rewardTransaction -> {
+                    rewardTransaction.setRewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED);
+                    return rewardTransactionRepository.save(rewardTransaction);
+                })
+                .then();
 
     }
 
@@ -471,6 +576,15 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                     log.info("No suspended transactions found for the batch {}",  Utilities.sanitizeString(oldBatchId));
                     return Flux.empty();
                 }))
+                .collectList()
+                .doOnNext(list -> {
+                    if (!list.isEmpty()) {
+                        log.info("Found {} transactions SUSPENDED for batch {}",
+                                list.size(),
+                                Utilities.sanitizeString(oldBatchId));
+                    }
+                })
+                .flatMapMany(Flux::fromIterable)
                 .flatMap(rewardTransaction -> {
                     rewardTransaction.setRewardBatchId(newBatchId);
                     return rewardTransactionRepository.save(rewardTransaction);

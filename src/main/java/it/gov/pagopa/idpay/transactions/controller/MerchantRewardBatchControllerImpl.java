@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.controller;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
+import it.gov.pagopa.idpay.transactions.dto.RewardBatchRequest;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchesRequest;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
@@ -72,9 +73,17 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
 
   @Override
   public  Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId) {
-    log.info("[REWARD_BATCH_CONFIRMATION] Batch confirmation fot batch batchId {}",
+    log.info("[REWARD_BATCH_CONFIRMATION] Batch confirmation for batch batchId {}",
             Utilities.sanitizeString(rewardBatchId));
     return rewardBatchService.rewardBatchConfirmation(initiativeId, rewardBatchId);
+  }
+
+  @Override
+  public  Mono<Void> rewardBatchConfirmationBatch(String initiativeId, RewardBatchRequest request) {
+    List<String> rewardBatchIds = request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
+    log.info("[REWARD_BATCH_CONFIRMATION_BATCH] Batch confirmation for initiative {} and batchs {}",
+            Utilities.sanitizeString(initiativeId), rewardBatchIds.toString() );
+    return rewardBatchService.rewardBatchConfirmationBatch(initiativeId, rewardBatchIds);
   }
 
   @Override

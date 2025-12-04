@@ -11,9 +11,7 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -48,6 +46,15 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                                                                      String pointOfSaleId,
                                                                      Pageable pageable) {
 
+        if (pageable.getSort().isUnsorted()) {
+            pageable = PageRequest.of(
+                    pageable.getPageNumber(),
+                    pageable.getPageSize(),
+                    Sort.by(Sort.Direction.DESC, "rewardBatchTrxStatus")
+            );
+        }
+
+
         RewardBatchTrxStatus parsedRewardBatchTrxStatus = parseRewardBatchTrxStatus(rewardBatchTrxStatus);
 
         TrxFiltersDTO filters = new TrxFiltersDTO(
@@ -60,10 +67,11 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 pointOfSaleId
         );
 
+        Pageable finalPageable = pageable;
         return getMerchantTransactionDTOs2Count(filters, organizationRole, pageable)
                 .map(tuple -> {
                     Page<MerchantTransactionDTO> page = new PageImpl<>(tuple.getT1(),
-                            pageable, tuple.getT2());
+                            finalPageable, tuple.getT2());
                     return new MerchantTransactionsListDTO(tuple.getT1(), page.getNumber(), page.getSize(),
                             (int) page.getTotalElements(), page.getTotalPages());
                 });
@@ -127,7 +135,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
 
         return rewardTransactionRepository
                 .findByFilter(filters, userId, pageable)
-                .flatMap(t -> createMerchantTransactionDTO(
+                .concatMap(t -> createMerchantTransactionDTO(
                         filters.getInitiativeId(),
                         t,
                         filters.getFiscalCode(),
@@ -159,6 +167,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
 
         MerchantTransactionDTO out = MerchantTransactionDTO.builder()
                 .trxId(transaction.getId())
+                .fiscalCode(transaction.getFiscalCode() != null ? transaction.getFiscalCode() : "-")
                 .effectiveAmountCents(transaction.getAmountCents())
                 .rewardAmountCents(transaction.getRewards().get(initiativeId).getAccruedRewardCents())
                 .trxDate(transaction.getTrxDate() == null ? LocalDateTime.MIN : transaction.getTrxDate())
