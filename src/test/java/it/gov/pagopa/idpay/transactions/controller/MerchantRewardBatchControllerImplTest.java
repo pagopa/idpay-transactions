@@ -11,6 +11,7 @@ import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
 import it.gov.pagopa.idpay.transactions.config.ServiceExceptionConfig;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
+import it.gov.pagopa.idpay.transactions.dto.RewardBatchRequest;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchesRequest;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
@@ -33,6 +34,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 @WebFluxTest(controllers = MerchantRewardBatchControllerImpl.class)
@@ -48,9 +51,70 @@ class MerchantRewardBatchControllerImplTest {
   @MockitoBean
   RewardBatchMapper rewardBatchMapper;
 
+
   private static final String MERCHANT_ID = "MERCHANT_ID";
   private static final String INITIATIVE_ID = "INIT1";
+    private static final String REWARD_BATCH_ID_1 = "REWARD_BATCH_ID_1";
+    private static final String REWARD_BATCH_ID_2 = "REWARD_BATCH_ID_2";
 
+    private static final List<String> BATCH_IDS = Arrays.asList(REWARD_BATCH_ID_1, REWARD_BATCH_ID_2);
+
+
+    @Test
+    void rewardBatchConfirmationBatch_WithValidList() {
+        RewardBatchRequest request = new RewardBatchRequest(BATCH_IDS);
+        when(rewardBatchService.rewardBatchConfirmationBatch(INITIATIVE_ID, BATCH_IDS))
+                .thenReturn(Mono.empty());
+        webClient.put()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/approved", INITIATIVE_ID) // <--- Aggiorna con l'URI corretto
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().isEmpty();
+        verify(rewardBatchService, times(1))
+                .rewardBatchConfirmationBatch(INITIATIVE_ID, BATCH_IDS);
+    }
+
+        @Test
+        void rewardBatchConfirmationBatch_WhenRequestListIsNull() {
+            RewardBatchRequest request = new RewardBatchRequest(null);
+            when(rewardBatchService.rewardBatchConfirmationBatch(INITIATIVE_ID, BATCH_IDS))
+                    .thenReturn(Mono.empty());
+            webClient.put()
+                    .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/approved", INITIATIVE_ID) // <--- Aggiorna con l'URI corretto
+                    .bodyValue(request)
+                    .exchange()
+                    .expectStatus().isOk()
+                    .expectBody().isEmpty();
+            verify(rewardBatchService, times(1))
+                    .rewardBatchConfirmationBatch(
+                            INITIATIVE_ID,
+                            List.of()
+                    );
+
+        }
+
+        @Test
+        void rewardBatchConfirmationBatch_WhenRequestListIsEmpty() {
+            RewardBatchRequest request = new RewardBatchRequest(Collections.emptyList());
+
+            when(rewardBatchService.rewardBatchConfirmationBatch(INITIATIVE_ID, BATCH_IDS))
+                    .thenReturn(Mono.empty()); // Assume successo
+
+            webClient.put()
+                    .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/approved", INITIATIVE_ID) // <--- Aggiorna con l'URI corretto
+                    .bodyValue(request)
+                    .exchange()
+                    .expectStatus().isOk()
+                    .expectBody().isEmpty();
+
+            verify(rewardBatchService, times(1))
+                    .rewardBatchConfirmationBatch(
+                            INITIATIVE_ID,
+                            Collections.emptyList()
+                    );
+
+    }
   @Test
   void getRewardBatchesForMerchantOk() {
     RewardBatch batch = RewardBatch.builder()
