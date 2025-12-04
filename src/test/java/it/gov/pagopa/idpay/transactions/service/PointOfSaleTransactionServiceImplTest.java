@@ -7,13 +7,6 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import it.gov.pagopa.common.web.exception.ClientException;
-import it.gov.pagopa.idpay.transactions.model.Reward;
-import it.gov.pagopa.idpay.transactions.model.RewardBatch;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.codec.multipart.FilePart;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
@@ -21,20 +14,29 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.model.Reward;
+import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
+import it.gov.pagopa.idpay.transactions.model.counters.RewardCounters;
+import it.gov.pagopa.idpay.transactions.enums.PosType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.codec.multipart.FilePart;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -96,6 +98,7 @@ class PointOfSaleTransactionServiceImplTest {
                 eq(POINT_OF_SALE_ID),
                 eq(USER_ID),
                 eq(""),
+                eq(false),
                 eq(pageable)))
                 .thenReturn(Flux.just(trx));
 
@@ -103,7 +106,8 @@ class PointOfSaleTransactionServiceImplTest {
                 any(TrxFiltersDTO.class),
                 eq(POINT_OF_SALE_ID),
                 eq(""),
-                eq(USER_ID)))
+                eq(USER_ID),
+                eq(false)))
                 .thenReturn(Mono.just(1L));
 
         Mono<Page<RewardTransaction>> result = pointOfSaleTransactionService
@@ -124,13 +128,15 @@ class PointOfSaleTransactionServiceImplTest {
                 eq(POINT_OF_SALE_ID),
                 eq(USER_ID),
                 eq(""),
+                eq(false),
                 eq(pageable)
         );
         verify(rewardTransactionRepository).getCount(
                 any(TrxFiltersDTO.class),
                 eq(POINT_OF_SALE_ID),
                 eq(""),
-                eq(USER_ID)
+                eq(USER_ID),
+                eq(false)
         );
     }
 
@@ -143,6 +149,7 @@ class PointOfSaleTransactionServiceImplTest {
                 eq(POINT_OF_SALE_ID),
                 isNull(),
                 isNull(),
+                eq(false),
                 eq(pageable)))
                 .thenReturn(Flux.just(trx));
 
@@ -150,7 +157,8 @@ class PointOfSaleTransactionServiceImplTest {
                 any(TrxFiltersDTO.class),
                 eq(POINT_OF_SALE_ID),
                 isNull(),
-                isNull()))
+                isNull(),
+                eq(false)))
                 .thenReturn(Mono.just(1L));
 
         Mono<Page<RewardTransaction>> result = pointOfSaleTransactionService
@@ -170,13 +178,15 @@ class PointOfSaleTransactionServiceImplTest {
                 eq(POINT_OF_SALE_ID),
                 isNull(),
                 isNull(),
+                eq(false),
                 eq(pageable)
         );
         verify(rewardTransactionRepository).getCount(
                 any(TrxFiltersDTO.class),
                 eq(POINT_OF_SALE_ID),
                 isNull(),
-                isNull()
+                isNull(),
+                eq(false)
         );
         verifyNoInteractions(userRestClient);
     }
@@ -386,21 +396,21 @@ class PointOfSaleTransactionServiceImplTest {
 
         FilePart filePart = createMockFilePart(tempPath.getFileName().toString(),
                 MediaType.APPLICATION_PDF_VALUE);
-    RewardTransaction trx =
-        RewardTransaction.builder()
-            .id(TRX_ID)
-            .merchantId(MERCHANT_ID)
-            .pointOfSaleId(POINT_OF_SALE_ID)
-            .initiatives(List.of("1234"))
-            .status("INVOICED")
-            .invoiceData(InvoiceData.builder().filename(OLD_FILENAME).docNumber("OLD_DOC").build())
-            .rewardBatchId("OLD_BATCH_ID")
-            .pointOfSaleType(it.gov.pagopa.idpay.transactions.enums.PosType.ONLINE)
-            .businessName("Test Business")
-            .rewards(Map.of("1234", Reward.builder()
-                    .accruedRewardCents(1000L)
-                    .build()))
-            .build();
+        RewardTransaction trx =
+                RewardTransaction.builder()
+                        .id(TRX_ID)
+                        .merchantId(MERCHANT_ID)
+                        .pointOfSaleId(POINT_OF_SALE_ID)
+                        .initiatives(List.of("1234"))
+                        .status("INVOICED")
+                        .invoiceData(InvoiceData.builder().filename(OLD_FILENAME).docNumber("OLD_DOC").build())
+                        .rewardBatchId("OLD_BATCH_ID")
+                        .pointOfSaleType(PosType.ONLINE)
+                        .businessName("Test Business")
+                        .rewards(Map.of("1234", Reward.builder()
+                                .accruedRewardCents(1000L)
+                                .build()))
+                        .build();
 
         RewardBatch newBatch = new RewardBatch();
         newBatch.setId("NEW_BATCH_ID");
@@ -436,8 +446,8 @@ class PointOfSaleTransactionServiceImplTest {
                                 + tempPath.getFileName().toString()),
                 eq(MediaType.APPLICATION_PDF_VALUE));
         verify(rewardBatchService).findOrCreateBatch(eq(MERCHANT_ID), any(), anyString(), eq("Test Business"));
-        verify(rewardBatchService).decrementTotals(eq("OLD_BATCH_ID"), eq(1000L));
-        verify(rewardBatchService).incrementTotals(eq("NEW_BATCH_ID"), eq(1000L));
+        verify(rewardBatchService).decrementTotals("OLD_BATCH_ID", 1000L);
+        verify(rewardBatchService).incrementTotals("NEW_BATCH_ID", 1000L);
         verify(rewardTransactionRepository).save(any(RewardTransaction.class));
 
         Files.deleteIfExists(tempPath);
