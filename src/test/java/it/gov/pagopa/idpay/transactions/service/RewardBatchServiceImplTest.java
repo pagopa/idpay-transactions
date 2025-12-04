@@ -36,13 +36,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.time.LocalDateTime;
-import java.time.YearMonth;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -85,12 +78,6 @@ class RewardBatchServiceImplTest {
   }
 
 
-// AGGIUNGI QUESTO METODO NELLA TUA CLASSE RewardBatchServiceImplTest
-
-    /**
-     * Test lo scenario in cui il batch per il mese successivo NON esiste.
-     * Un nuovo batch deve essere creato e salvato con i dati incrementati.
-     */
     @Test
     void createRewardBatchAndSave_Success_NewBatchCreated() {
 
@@ -119,8 +106,6 @@ class RewardBatchServiceImplTest {
 
         Mono<RewardBatch> resultMono = rewardBatchServiceSpy.createRewardBatchAndSave(REWARD_BATCH_1);
 
-
-        // Verifica
         StepVerifier.create(resultMono)
                 .assertNext(result -> {
                     assertEquals(REWARD_BATCH_ID_2, result.getId());
