@@ -41,10 +41,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class RewardBatchServiceImplTest {
 
@@ -1636,16 +1632,16 @@ class RewardBatchServiceImplTest {
     @Test
     void validateRewardBatch_L1ToL2_Success() {
         RewardBatch batch = RewardBatch.builder()
-                .id(REWARD_BATCH_ID)
+                .id(REWARD_BATCH_ID_1)
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .numberOfTransactions(100L)
                 .numberOfTransactionsElaborated(20L)
                 .build();
 
-        when(rewardBatchRepository.findById(REWARD_BATCH_ID)).thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
         when(rewardBatchRepository.save(any())).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID))
+        StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .verifyComplete();
 
         verify(rewardBatchRepository, times(1)).save(batch);
@@ -1655,14 +1651,14 @@ class RewardBatchServiceImplTest {
     @Test
     void validateRewardBatch_L2ToL3_Success() {
         RewardBatch batch = RewardBatch.builder()
-                .id(REWARD_BATCH_ID)
+                .id(REWARD_BATCH_ID_1)
                 .assigneeLevel(RewardBatchAssignee.L2)
                 .build();
 
-        when(rewardBatchRepository.findById(REWARD_BATCH_ID)).thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
         when(rewardBatchRepository.save(any())).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        StepVerifier.create(rewardBatchService.validateRewardBatch("operator2", INITIATIVE_ID, REWARD_BATCH_ID))
+        StepVerifier.create(rewardBatchService.validateRewardBatch("operator2", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .verifyComplete();
 
         verify(rewardBatchRepository, times(1)).save(batch);
@@ -1672,15 +1668,15 @@ class RewardBatchServiceImplTest {
     @Test
     void validateRewardBatch_RoleNotAllowed_L1() {
         RewardBatch batch = RewardBatch.builder()
-                .id(REWARD_BATCH_ID)
+                .id(REWARD_BATCH_ID_1)
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .numberOfTransactions(100L)
                 .numberOfTransactionsElaborated(20L)
                 .build();
 
-        when(rewardBatchRepository.findById(REWARD_BATCH_ID)).thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
 
-        StepVerifier.create(rewardBatchService.validateRewardBatch("wrongRole", INITIATIVE_ID, REWARD_BATCH_ID))
+        StepVerifier.create(rewardBatchService.validateRewardBatch("wrongRole", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .expectErrorSatisfies(ex -> {
                     assertInstanceOf(ResponseStatusException.class, ex);
                     assertEquals(HttpStatus.FORBIDDEN, ((ResponseStatusException) ex).getStatusCode());
@@ -1693,15 +1689,15 @@ class RewardBatchServiceImplTest {
     @Test
     void validateRewardBatch_LessThan15Percent() {
         RewardBatch batch = RewardBatch.builder()
-                .id(REWARD_BATCH_ID)
+                .id(REWARD_BATCH_ID_1)
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .numberOfTransactions(100L)
                 .numberOfTransactionsElaborated(10L)
                 .build();
 
-        when(rewardBatchRepository.findById(REWARD_BATCH_ID)).thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
 
-        StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID))
+        StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .expectErrorSatisfies(ex -> {
                     assertInstanceOf(ResponseStatusException.class, ex);
                     assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) ex).getStatusCode());
@@ -1714,13 +1710,13 @@ class RewardBatchServiceImplTest {
     @Test
     void validateRewardBatch_RoleNotAllowed_L2() {
         RewardBatch batch = RewardBatch.builder()
-                .id(REWARD_BATCH_ID)
+                .id(REWARD_BATCH_ID_1)
                 .assigneeLevel(RewardBatchAssignee.L2)
                 .build();
 
-        when(rewardBatchRepository.findById(REWARD_BATCH_ID)).thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
 
-        StepVerifier.create(rewardBatchService.validateRewardBatch("wrongRole", INITIATIVE_ID, REWARD_BATCH_ID))
+        StepVerifier.create(rewardBatchService.validateRewardBatch("wrongRole", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .expectErrorSatisfies(ex -> {
                     assertInstanceOf(ResponseStatusException.class, ex);
                     assertEquals(HttpStatus.FORBIDDEN, ((ResponseStatusException) ex).getStatusCode());
@@ -1733,13 +1729,13 @@ class RewardBatchServiceImplTest {
     @Test
     void validateRewardBatch_InvalidState() {
         RewardBatch batch = RewardBatch.builder()
-                .id(REWARD_BATCH_ID)
+                .id(REWARD_BATCH_ID_1)
                 .assigneeLevel(RewardBatchAssignee.L3)
                 .build();
 
-        when(rewardBatchRepository.findById(REWARD_BATCH_ID)).thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
 
-        StepVerifier.create(rewardBatchService.validateRewardBatch("operator3", INITIATIVE_ID, REWARD_BATCH_ID))
+        StepVerifier.create(rewardBatchService.validateRewardBatch("operator3", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .expectErrorSatisfies(ex -> {
                     assertInstanceOf(ResponseStatusException.class, ex);
                     assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) ex).getStatusCode());
@@ -1751,9 +1747,9 @@ class RewardBatchServiceImplTest {
 
     @Test
     void validateRewardBatch_NotFound() {
-        when(rewardBatchRepository.findById(REWARD_BATCH_ID)).thenReturn(Mono.empty());
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.empty());
 
-        StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID))
+        StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .expectErrorSatisfies(ex -> {
                     assertInstanceOf(ResponseStatusException.class, ex);
                     assertEquals(HttpStatus.NOT_FOUND, ((ResponseStatusException) ex).getStatusCode());
@@ -1766,15 +1762,15 @@ class RewardBatchServiceImplTest {
     @Test
     void validateRewardBatch_TotalZero() {
         RewardBatch batch = RewardBatch.builder()
-                .id(REWARD_BATCH_ID)
+                .id(REWARD_BATCH_ID_1)
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .numberOfTransactions(0L)
                 .numberOfTransactionsElaborated(0L)
                 .build();
 
-        when(rewardBatchRepository.findById(REWARD_BATCH_ID)).thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
 
-        StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID))
+        StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .expectErrorSatisfies(ex -> {
                     assertInstanceOf(ResponseStatusException.class, ex);
                     assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) ex).getStatusCode());
