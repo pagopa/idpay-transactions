@@ -6,6 +6,10 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
+
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,9 +24,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 @DirtiesContext
@@ -30,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class RewardBatchSpecificRepositoryImplTest {
 
     public static final String MERCHANT = "merchantA";
+  public static final PosType POS_TYPE = PosType.PHYSICAL;
     @Autowired
     protected RewardBatchRepository rewardBatchRepository;
 
@@ -94,6 +96,37 @@ class RewardBatchSpecificRepositoryImplTest {
     rewardBatchRepository.deleteAll().block();
   }
 
+  @Test
+  void findRewardBatchByStatus_ShouldReturnOnlyApprovingBatches() {
+    batch1.setStatus(RewardBatchStatus.CREATED);
+    batch2.setStatus(RewardBatchStatus.APPROVING);
+    RewardBatchStatus targetStatus = RewardBatchStatus.APPROVING;
+    rewardBatchRepository.saveAll(Arrays.asList(batch1, batch2)).blockLast();
+
+    Flux<RewardBatch> resultFlux = rewardBatchSpecificRepository.findRewardBatchByStatus(targetStatus);
+
+    StepVerifier.create(resultFlux)
+            .expectNextCount(1)
+            .verifyComplete();
+  }
+
+  @Test
+  void findRewardBatchByMonthBefore_ShouldReturnOnlyMonthBeforeBatches() {
+    batch1.setMonth("2025-11");
+    batch2.setMonth("2025-12");
+    batch1.setMerchantId(MERCHANT);
+    batch2.setMerchantId(MERCHANT);
+    batch1.setPosType(POS_TYPE);
+    batch2.setPosType(POS_TYPE);
+    String targetMonth = "2025-12";
+    rewardBatchRepository.saveAll(Arrays.asList(batch1, batch2)).blockLast();
+
+    Flux<RewardBatch> resultFlux = rewardBatchSpecificRepository.findRewardBatchByMonthBefore(MERCHANT, POS_TYPE, targetMonth);
+
+    StepVerifier.create(resultFlux)
+            .expectNextCount(1)
+            .verifyComplete();
+  }
   @Test
   void findRewardBatchByMerchantId_shouldReturnAllBatches() {
     RewardBatch batch3 = RewardBatch.builder()
@@ -672,7 +705,7 @@ class RewardBatchSpecificRepositoryImplTest {
   @Test
   void findRewardBatchByFilter_ShouldReturnDocument_WhenAllFiltersMatch() {
     Mono<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByFilter(
-            batch1.getId(), batch1.getMerchantId(), batch1.getPosType().name(), batch1.getMonth());
+            batch1.getId(), batch1.getMerchantId(), batch1.getPosType(), batch1.getMonth());
 
     StepVerifier.create(result)
             .expectNextMatches(batch ->
