@@ -135,7 +135,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
 
         return rewardTransactionRepository
                 .findByFilter(filters, userId, pageable)
-                .flatMap(t -> createMerchantTransactionDTO(
+                .concatMap(t -> createMerchantTransactionDTO(
                         filters.getInitiativeId(),
                         t,
                         filters.getFiscalCode(),
