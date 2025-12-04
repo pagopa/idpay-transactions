@@ -2,7 +2,6 @@ package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
@@ -20,7 +19,7 @@ public interface MerchantTransactionController {
                                                               @RequestParam(required = false) String rewardBatchId,
                                                               @RequestParam(required = false) String rewardBatchTrxStatus,
                                                               @RequestParam(required = false) String pointOfSaleId,
-                                                              @PageableDefault(sort="rewardBatchTrxStatus", direction = Sort.Direction.DESC) Pageable pageable);
+                                                              @PageableDefault Pageable pageable);
 
     @GetMapping("/initiatives/{initiativeId}/transactions/processed/statuses")
     Mono<List<String>> getProcessedTransactionStatuses(
