@@ -79,10 +79,10 @@ class MerchantTransactionServiceImplTest {
         when(userRestClient.retrieveFiscalCodeInfo(anyString()))
                 .thenReturn(Mono.just(fiscalCodeInfo));
 
-        when(rewardTransactionRepository.findByFilter(any(), eq(USER_ID), eq(paging)))
+        when(rewardTransactionRepository.findByFilter(any(), eq(USER_ID), eq(false), eq(paging)))
                 .thenReturn(Flux.just(rt1));
 
-        when(rewardTransactionRepository.getCount(any(), isNull(), isNull(), eq(USER_ID)))
+        when(rewardTransactionRepository.getCount(any(), isNull(), isNull(), eq(USER_ID), eq(false)))
                 .thenReturn(Mono.just(1L));
 
         MerchantTransactionsListDTO result =
@@ -104,13 +104,13 @@ class MerchantTransactionServiceImplTest {
         assertNotNull(content);
         assertFalse(content.isEmpty());
 
-        MerchantTransactionDTO dto = content.get(0);
+        MerchantTransactionDTO dto = content.getFirst();
         assertMerchantTransactionMatches(rt1, dto, FISCAL_CODE);
 
         verify(userRestClient).retrieveFiscalCodeInfo(FISCAL_CODE);
         verify(userRestClient, never()).retrieveUserInfo(anyString());
-        verify(rewardTransactionRepository).findByFilter(any(), eq(USER_ID), eq(paging));
-        verify(rewardTransactionRepository).getCount(any(), isNull(), isNull(), eq(USER_ID));
+        verify(rewardTransactionRepository).findByFilter(any(), eq(USER_ID), eq(false), eq(paging));
+        verify(rewardTransactionRepository).getCount(any(), isNull(), isNull(), eq(USER_ID), eq(false));
         verifyNoMoreInteractions(rewardTransactionRepository);
     }
 
@@ -136,10 +136,10 @@ class MerchantTransactionServiceImplTest {
 
         UserInfoPDV userInfoPDV = new UserInfoPDV(FISCAL_CODE);
 
-        when(rewardTransactionRepository.findByFilter(any(), isNull(), eq(paging)))
+        when(rewardTransactionRepository.findByFilter(any(), isNull(), eq(false), eq(paging)))
                 .thenReturn(Flux.just(rt1));
 
-        when(rewardTransactionRepository.getCount(any(), isNull(), isNull(), isNull()))
+        when(rewardTransactionRepository.getCount(any(), isNull(), isNull(), isNull(), eq(false)))
                 .thenReturn(Mono.just(1L));
 
         when(userRestClient.retrieveUserInfo(USER_ID))
@@ -164,11 +164,11 @@ class MerchantTransactionServiceImplTest {
         assertNotNull(content);
         assertFalse(content.isEmpty());
 
-        MerchantTransactionDTO dto = content.get(0);
+        MerchantTransactionDTO dto = content.getFirst();
         assertMerchantTransactionMatches(rt1, dto, FISCAL_CODE);
 
-        verify(rewardTransactionRepository).findByFilter(any(), isNull(), eq(paging));
-        verify(rewardTransactionRepository).getCount(any(), isNull(), isNull(), isNull());
+        verify(rewardTransactionRepository).findByFilter(any(), isNull(), eq(false), eq(paging));
+        verify(rewardTransactionRepository).getCount(any(), isNull(), isNull(), isNull(), eq(false));
         verify(userRestClient).retrieveUserInfo(USER_ID);
         verify(userRestClient, never()).retrieveFiscalCodeInfo(anyString());
     }
@@ -230,16 +230,16 @@ class MerchantTransactionServiceImplTest {
         when(userRestClient.retrieveFiscalCodeInfo(FISCAL_CODE))
                 .thenReturn(Mono.just(fiscalCodeInfo));
 
-        when(rewardTransactionRepository.findByFilter(any(), eq(USER_ID), eq(paging)))
+        when(rewardTransactionRepository.findByFilter(any(), eq(USER_ID), eq(false), eq(paging)))
                 .thenReturn(Flux.just(rt1));
 
-        when(rewardTransactionRepository.getCount(any(), isNull(), isNull(), eq(USER_ID)))
+        when(rewardTransactionRepository.getCount(any(), isNull(), isNull(), eq(USER_ID), eq(false)))
                 .thenReturn(Mono.just(1L));
 
         MerchantTransactionsListDTO result =
                 merchantTransactionService.getMerchantTransactions(
                         MERCHANT_ID,
-                        "merchant", // non-operator
+                        "merchant",
                         INITIATIVE_ID,
                         FISCAL_CODE,
                         null,
@@ -255,17 +255,20 @@ class MerchantTransactionServiceImplTest {
         assertNotNull(content);
         assertFalse(content.isEmpty());
 
-        MerchantTransactionDTO dto = content.get(0);
+        MerchantTransactionDTO dto = content.getFirst();
 
         assertEquals(RewardBatchTrxStatus.CONSULTABLE, dto.getRewardBatchTrxStatus());
         assertEquals(FISCAL_CODE, dto.getFiscalCode());
     }
 
     /**
-     * Non-operator + filtro rewardBatchTrxStatus=CONSULTABLE -> il filtro sullo stato viene rimosso.
+     * Non-operator + filtro rewardBatchTrxStatus=CONSULTABLE:
+     * - il filtro rimane CONSULTABLE
+     * - includeToCheckWithConsultable viene passato a true verso il repository
+     *   (CONSULTABLE + TO_CHECK).
      */
     @Test
-    void getMerchantTransactions_nonOperatorConsultableFilterRewritten() {
+    void getMerchantTransactions_nonOperatorConsultableFilterIncludesToCheck() {
         LocalDateTime now = LocalDateTime.now();
 
         RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
@@ -287,10 +290,10 @@ class MerchantTransactionServiceImplTest {
 
         UserInfoPDV userInfoPDV = new UserInfoPDV(FISCAL_CODE);
 
-        when(rewardTransactionRepository.findByFilter(any(), isNull(), eq(paging)))
+        when(rewardTransactionRepository.findByFilter(any(), isNull(), eq(true), eq(paging)))
                 .thenReturn(Flux.just(rt1));
 
-        when(rewardTransactionRepository.getCount(any(), isNull(), isNull(), isNull()))
+        when(rewardTransactionRepository.getCount(any(), isNull(), isNull(), isNull(), eq(true)))
                 .thenReturn(Mono.just(1L));
 
         when(userRestClient.retrieveUserInfo(USER_ID))
@@ -299,7 +302,7 @@ class MerchantTransactionServiceImplTest {
         MerchantTransactionsListDTO result =
                 merchantTransactionService.getMerchantTransactions(
                         MERCHANT_ID,
-                        "merchant", // non-operator
+                        "merchant",
                         INITIATIVE_ID,
                         null,
                         null,
@@ -312,14 +315,23 @@ class MerchantTransactionServiceImplTest {
         assertFirstPage(result);
 
         ArgumentCaptor<TrxFiltersDTO> filtersCaptor = ArgumentCaptor.forClass(TrxFiltersDTO.class);
-        verify(rewardTransactionRepository).findByFilter(filtersCaptor.capture(), isNull(), eq(paging));
+        ArgumentCaptor<Boolean> includeCaptor = ArgumentCaptor.forClass(Boolean.class);
+
+        verify(rewardTransactionRepository).findByFilter(
+                filtersCaptor.capture(),
+                isNull(),
+                includeCaptor.capture(),
+                eq(paging)
+        );
 
         TrxFiltersDTO effectiveFilters = filtersCaptor.getValue();
         assertNotNull(effectiveFilters);
-        assertNull(effectiveFilters.getRewardBatchTrxStatus(),
-                "Per i non-operator il filtro CONSULTABLE deve essere rimosso");
-    }
+        assertEquals(RewardBatchTrxStatus.CONSULTABLE, effectiveFilters.getRewardBatchTrxStatus());
 
+        Boolean includeFlag = includeCaptor.getValue();
+        assertNotNull(includeFlag);
+        assertTrue(includeFlag, "Per i non-operator con filtro CONSULTABLE il flag includeToCheckWithConsultable deve essere true");
+    }
 
     @Test
     void getProcessedTransactionStatuses_operatorVsNonOperator() {
@@ -344,7 +356,7 @@ class MerchantTransactionServiceImplTest {
         assertFalse(merchantStatuses.contains(RewardBatchTrxStatus.TO_CHECK.name()));
         assertEquals(allEnumStatuses.size() - 1, merchantStatuses.size());
     }
-    
+
     private void assertFirstPage(MerchantTransactionsListDTO result) {
         assertNotNull(result);
         assertEquals(0, result.getPageNo());

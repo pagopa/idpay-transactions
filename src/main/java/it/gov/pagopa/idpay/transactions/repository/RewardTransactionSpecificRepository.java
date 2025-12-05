@@ -13,12 +13,12 @@ import java.util.List;
 public interface RewardTransactionSpecificRepository {
     Flux<RewardTransaction> findByIdTrxIssuer(String idTrxIssuer, String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, Long amountCents, Pageable pageable);
     Flux<RewardTransaction> findByRange(String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, Long amountCents, Pageable pageable);
-    Flux<RewardTransaction> findByFilter(TrxFiltersDTO filters, String userId, Pageable pageable);
-    Mono<Long> getCount(TrxFiltersDTO filters, String pointOfSaleId, String productGtin, String userId);
+    Flux<RewardTransaction> findByFilter(TrxFiltersDTO filters, String userId, boolean includeToCheckWithConsultable, Pageable pageable);
+    Mono<Long> getCount(TrxFiltersDTO filters, String pointOfSaleId, String productGtin, String userId, boolean includeToCheckWithConsultable);
     Mono<RewardTransaction> findOneByInitiativeId(String initiativeId);
     Mono<Void> removeInitiativeOnTransaction(String trxId, String initiativeId);
     Flux<RewardTransaction> findByInitiativesWithBatch(String initiativeId, int batchSize);
-    Flux<RewardTransaction> findByFilterTrx(TrxFiltersDTO filters, String pointOfSaleId, String userId, String productGtin, Pageable pageable);
+    Flux<RewardTransaction> findByFilterTrx(TrxFiltersDTO filters, String pointOfSaleId, String userId, String productGtin, boolean includeToCheckWithConsultable, Pageable pageable);
 
     Flux<RewardTransaction> findByFilter(String rewardBatchId, String initiativeId, List<RewardBatchTrxStatus> statusList);
     /**
