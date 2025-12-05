@@ -17,11 +17,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.test.annotation.DirtiesContext;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import reactor.test.StepVerifier;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -298,7 +298,7 @@ class RewardTransactionSpecificRepositoryTest {
         );
 
         Flux<RewardTransaction> transactionInProgressList =
-                rewardTransactionSpecificRepository.findByFilter(filters, USER_ID, paging);
+                rewardTransactionSpecificRepository.findByFilter(filters, USER_ID, false, paging);
 
         List<RewardTransaction> result = transactionInProgressList.toStream().toList();
         assertEquals(1, result.size());
@@ -336,6 +336,7 @@ class RewardTransactionSpecificRepositoryTest {
                 POINT_OF_SALE_ID,
                 USER_ID,
                 "",
+                false,
                 sorted
         );
 
@@ -375,6 +376,7 @@ class RewardTransactionSpecificRepositoryTest {
                 POINT_OF_SALE_ID,
                 USER_ID,
                 "",
+                false,
                 unsorted
         );
 
@@ -419,6 +421,7 @@ class RewardTransactionSpecificRepositoryTest {
                 POINT_OF_SALE_ID,
                 USER_ID,
                 PRODUCT_GTIN,
+                false,
                 pageable
         );
 
@@ -469,6 +472,7 @@ class RewardTransactionSpecificRepositoryTest {
                 POINT_OF_SALE_ID,
                 USER_ID,
                 "",
+                false,
                 ascSort
         ).toStream().toList();
 
@@ -483,6 +487,7 @@ class RewardTransactionSpecificRepositoryTest {
                 POINT_OF_SALE_ID,
                 USER_ID,
                 "",
+                false,
                 descSort
         ).toStream().toList();
 
@@ -524,6 +529,7 @@ class RewardTransactionSpecificRepositoryTest {
                 POINT_OF_SALE_ID,
                 USER_ID,
                 "",
+                false,
                 pageable
         );
 
@@ -564,6 +570,7 @@ class RewardTransactionSpecificRepositoryTest {
                 POINT_OF_SALE_ID,
                 USER_ID,
                 "",
+                false,
                 pageable
         );
 
@@ -600,12 +607,82 @@ class RewardTransactionSpecificRepositoryTest {
                 filters,
                 POINT_OF_SALE_ID,
                 null,
-                null
+                null,
+                false
         );
 
         assertEquals(1L, count.block());
 
         cleanDataPageable();
+    }
+
+    /**
+     * Test specifico sulla nuova logica includeToCheckWithConsultable:
+     * - quando includeToCheckWithConsultable = false, CONSULTABLE filtra solo CONSULTABLE
+     * - quando includeToCheckWithConsultable = true, CONSULTABLE filtra CONSULTABLE + TO_CHECK
+     */
+    @Test
+    void findByFilter_withIncludeToCheckWithConsultableFlag() {
+        String batchId = "BATCH_TEST";
+
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .merchantId(MERCHANT_ID)
+                .status("INVOICED")
+                .rewardBatchId(batchId)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE)
+                .initiatives(List.of(INITIATIVE_ID))
+                .userId(USER_ID)
+                .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        rt2 = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("id2")
+                .merchantId(MERCHANT_ID)
+                .status("INVOICED")
+                .rewardBatchId(batchId)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
+                .initiatives(List.of(INITIATIVE_ID))
+                .userId(USER_ID)
+                .build();
+        rewardTransactionRepository.save(rt2).block();
+
+        Pageable paging = PageRequest.of(0, 10);
+
+        TrxFiltersDTO filters = new TrxFiltersDTO(
+                MERCHANT_ID,
+                INITIATIVE_ID,
+                null,
+                null,
+                batchId,
+                RewardBatchTrxStatus.CONSULTABLE,
+                null
+        );
+
+        List<RewardTransaction> onlyConsultable = rewardTransactionSpecificRepository.findByFilter(
+                filters,
+                USER_ID,
+                false,
+                paging
+        ).toStream().toList();
+
+        assertEquals(1, onlyConsultable.size());
+        assertEquals(rt1.getId(), onlyConsultable.getFirst().getId());
+
+        List<RewardTransaction> consultableAndToCheck = rewardTransactionSpecificRepository.findByFilter(
+                filters,
+                USER_ID,
+                true,
+                paging
+        ).toStream().toList();
+
+        assertEquals(2, consultableAndToCheck.size());
+        List<String> ids = consultableAndToCheck.stream().map(RewardTransaction::getId).toList();
+        assertTrue(ids.contains(rt1.getId()));
+        assertTrue(ids.contains(rt2.getId()));
+
+        rewardTransactionRepository.deleteById("id1").block();
+        rewardTransactionRepository.deleteById("id2").block();
     }
 
     @Test
@@ -702,12 +779,13 @@ class RewardTransactionSpecificRepositoryTest {
             .userId("TESTUSER")
             .merchantId(MERCHANT_ID)
             .status("REWARDED")
+            .initiativeId("id1")
             .initiatives(List.of("id1"))
             .build();
         rewardTransactionRepository.save(rt1).block();
 
         RewardTransaction found = rewardTransactionSpecificRepository
-            .findByInitiativeIdAndUserId("TESTUSER","id1")
+            .findByInitiativeIdAndUserId("id1","TESTUSER")
                 .blockFirst();
 
         assertNotNull(found);
@@ -715,7 +793,7 @@ class RewardTransactionSpecificRepositoryTest {
         assertEquals("TESTUSER", found.getUserId());
 
         RewardTransaction wrongUser = rewardTransactionSpecificRepository
-            .findByInitiativeIdAndUserId( "OTHERUSER","id1")
+            .findByInitiativeIdAndUserId( "id1","OTHERUSER")
             .blockFirst();
         assertNull(wrongUser);
 
@@ -732,27 +810,27 @@ class RewardTransactionSpecificRepositoryTest {
         String batchId = "BATCH123";
 
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
-            .id("id1")
-            .rewardBatchId(batchId)
-            .status("INVOICED")
-            .samplingKey(1)
-            .build();
+                .id("id1")
+                .rewardBatchId(batchId)
+                .status("INVOICED")
+                .samplingKey(1)
+                .build();
         rewardTransactionRepository.save(rt1).block();
 
         rt2 = RewardTransactionFaker.mockInstanceBuilder(2)
-            .id("id2")
-            .rewardBatchId(batchId)
-            .status("INVOICED")
-            .samplingKey(1)
-            .build();
+                .id("id2")
+                .rewardBatchId(batchId)
+                .status("INVOICED")
+                .samplingKey(1)
+                .build();
         rewardTransactionRepository.save(rt2).block();
 
         rt3 = RewardTransactionFaker.mockInstanceBuilder(3)
-            .id("id3")
-            .rewardBatchId("OTHERBATCH")
-            .status("INVOICED")
-            .samplingKey(3)
-            .build();
+                .id("id3")
+                .rewardBatchId("OTHERBATCH")
+                .status("INVOICED")
+                .samplingKey(3)
+                .build();
         rewardTransactionRepository.save(rt3).block();
 
         rewardTransactionSpecificRepository.rewardTransactionsByBatchId(batchId).block();
@@ -958,45 +1036,45 @@ class RewardTransactionSpecificRepositoryTest {
 
     }
 
-  @Test
-  void findInvoicedTransactionsWithoutBatch_returnsOnlyMatchingTransactions() {
+    @Test
+    void findInvoicedTransactionsWithoutBatch_returnsOnlyMatchingTransactions() {
 
-    rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
-        .id("id1")
-        .rewardBatchId(null)
-        .status("INVOICED")
-        .build();
-    rewardTransactionRepository.save(rt1).block();
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .rewardBatchId(null)
+                .status("INVOICED")
+                .build();
+        rewardTransactionRepository.save(rt1).block();
 
-    rt2 = RewardTransactionFaker.mockInstanceBuilder(2)
-        .id("id2")
-        .rewardBatchId("BATCH1")
-        .status("INVOICED")
-        .build();
-    rewardTransactionRepository.save(rt2).block();
+        rt2 = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("id2")
+                .rewardBatchId("BATCH1")
+                .status("INVOICED")
+                .build();
+        rewardTransactionRepository.save(rt2).block();
 
-    rt3 = RewardTransactionFaker.mockInstanceBuilder(3)
-        .id("id3")
-        .rewardBatchId(null)
-        .status("CANCELLED")
-        .build();
-    rewardTransactionRepository.save(rt3).block();
+        rt3 = RewardTransactionFaker.mockInstanceBuilder(3)
+                .id("id3")
+                .rewardBatchId(null)
+                .status("CANCELLED")
+                .build();
+        rewardTransactionRepository.save(rt3).block();
 
-    Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findInvoicedTransactionsWithoutBatch(10);
+        Flux<RewardTransaction> result = rewardTransactionSpecificRepository.findInvoicedTransactionsWithoutBatch(10);
 
-    List<RewardTransaction> list = result.collectList().block();
-    Assertions.assertNotNull(list);
-    Assertions.assertEquals(1, list.size());
-    Assertions.assertEquals("id1", list.get(0).getId());
-  }
+        List<RewardTransaction> list = result.collectList().block();
+        Assertions.assertNotNull(list);
+        Assertions.assertEquals(1, list.size());
+        Assertions.assertEquals("id1", list.get(0).getId());
+    }
 
     @Test
     void findInvoicedTrxByIdWithoutBatch_returnsTransaction_whenMatching() {
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
-            .id("id1")
-            .status("INVOICED")
-            .rewardBatchId(null)
-            .build();
+                .id("id1")
+                .status("INVOICED")
+                .rewardBatchId(null)
+                .build();
         rewardTransactionRepository.save(rt1).block();
 
         Mono<RewardTransaction> resultMono = rewardTransactionSpecificRepository.findInvoicedTrxByIdWithoutBatch("id1");
@@ -1013,17 +1091,17 @@ class RewardTransactionSpecificRepositoryTest {
     @Test
     void findInvoicedTrxByIdWithoutBatch_returnsEmpty_whenNotMatching() {
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
-            .id("id1")
-            .status("CANCELLED")
-            .rewardBatchId(null)
-            .build();
+                .id("id1")
+                .status("CANCELLED")
+                .rewardBatchId(null)
+                .build();
         rewardTransactionRepository.save(rt1).block();
 
         Mono<RewardTransaction> resultMono = rewardTransactionSpecificRepository.findInvoicedTrxByIdWithoutBatch("id1");
 
         StepVerifier.create(resultMono)
-            .expectNextCount(0)
-            .verifyComplete();
+                .expectNextCount(0)
+                .verifyComplete();
 
         rewardTransactionRepository.deleteById(rt1.getId()).block();
     }
@@ -1031,17 +1109,17 @@ class RewardTransactionSpecificRepositoryTest {
     @Test
     void findInvoicedTrxByIdWithoutBatch_returnsEmpty_whenRewardBatchIdNotNull() {
         rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
-            .id("id1")
-            .status("INVOICED")
-            .rewardBatchId("BATCH1")
-            .build();
+                .id("id1")
+                .status("INVOICED")
+                .rewardBatchId("BATCH1")
+                .build();
         rewardTransactionRepository.save(rt1).block();
 
         Mono<RewardTransaction> resultMono = rewardTransactionSpecificRepository.findInvoicedTrxByIdWithoutBatch("id1");
 
         StepVerifier.create(resultMono)
-            .expectNextCount(0)
-            .verifyComplete();
+                .expectNextCount(0)
+                .verifyComplete();
 
         rewardTransactionRepository.deleteById(rt1.getId()).block();
     }

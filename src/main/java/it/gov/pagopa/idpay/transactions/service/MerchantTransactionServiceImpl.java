@@ -101,40 +101,44 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
             String organizationRole,
             Pageable pageable) {
 
-        TrxFiltersDTO effectiveFilters;
-        if (!isOperator(organizationRole)
-                && filters.getRewardBatchTrxStatus() == RewardBatchTrxStatus.CONSULTABLE) {
-            effectiveFilters = new TrxFiltersDTO(
-                    filters.getMerchantId(),
-                    filters.getInitiativeId(),
-                    filters.getFiscalCode(),
-                    filters.getStatus(),
-                    filters.getRewardBatchId(),
-                    null,
-                    filters.getPointOfSaleId()
-            );
-        } else {
-            effectiveFilters = filters;
-        }
+        boolean includeToCheckWithConsultable =
+                !isOperator(organizationRole)
+                        && filters.getRewardBatchTrxStatus() == RewardBatchTrxStatus.CONSULTABLE;
 
-        if (StringUtils.isNotBlank(effectiveFilters.getFiscalCode())) {
-            return userRestClient.retrieveFiscalCodeInfo(effectiveFilters.getFiscalCode())
+        if (StringUtils.isNotBlank(filters.getFiscalCode())) {
+            return userRestClient.retrieveFiscalCodeInfo(filters.getFiscalCode())
                     .map(FiscalCodeInfoPDV::getToken)
-                    .flatMap(userId -> getMerchantTransactionDTOs(effectiveFilters, userId, organizationRole, pageable));
+                    .flatMap(userId ->
+                            getMerchantTransactionDTOs(
+                                    filters,
+                                    userId,
+                                    organizationRole,
+                                    pageable,
+                                    includeToCheckWithConsultable
+                            )
+                    );
         } else {
-            return getMerchantTransactionDTOs(effectiveFilters, null, organizationRole, pageable);
+            return getMerchantTransactionDTOs(
+                    filters,
+                    null,
+                    organizationRole,
+                    pageable,
+                    includeToCheckWithConsultable
+            );
         }
     }
+
 
 
     private Mono<Tuple2<List<MerchantTransactionDTO>, Long>> getMerchantTransactionDTOs(
             TrxFiltersDTO filters,
             String userId,
             String organizationRole,
-            Pageable pageable) {
+            Pageable pageable,
+            boolean includeToCheckWithConsultable) {
 
         return rewardTransactionRepository
-                .findByFilter(filters, userId, pageable)
+                .findByFilter(filters, userId, includeToCheckWithConsultable, pageable)
                 .concatMap(t -> createMerchantTransactionDTO(
                         filters.getInitiativeId(),
                         t,
@@ -145,12 +149,14 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .zipWith(
                         rewardTransactionRepository.getCount(
                                 filters,
+                                filters.getPointOfSaleId(),
                                 null,
-                                null,
-                                userId
+                                userId,
+                                includeToCheckWithConsultable
                         )
                 );
     }
+
 
     private Mono<MerchantTransactionDTO> createMerchantTransactionDTO(
             String initiativeId,

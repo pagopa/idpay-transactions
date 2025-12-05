@@ -132,14 +132,17 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                           String productGtin,
                                                           Pageable pageable) {
 
+        boolean includeToCheckWithConsultable = false;
+
         return rewardTransactionRepository
-                .findByFilterTrx(filters, pointOfSaleId, userId, productGtin, pageable)
+                .findByFilterTrx(filters, pointOfSaleId, userId, productGtin, includeToCheckWithConsultable, pageable)
                 .collectList()
                 .zipWith(rewardTransactionRepository.getCount(
                         filters,
                         pointOfSaleId,
                         productGtin,
-                        userId
+                        userId,
+                        includeToCheckWithConsultable
                 ))
                 .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
     }
@@ -182,10 +185,8 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
             return file.transferTo(tempPath)
                 .then(Mono.fromCallable(() -> {
-                  // Delete old file from storage
                   invoiceStorageClient.deleteFile(oldBlobPath);
 
-                  // Upload new file on storage
                   try (InputStream is = Files.newInputStream(tempPath)) {
                     String contentType = file.headers().getContentType() != null
                         ? file.headers().getContentType().toString()
@@ -200,7 +201,6 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                       ExceptionConstants.ExceptionCode.GENERIC_ERROR, "Error uploading invoice file", e);
                 })
                 .then(Mono.defer(() -> {
-                  // Update Transaction document
                   rewardTransaction.setInvoiceData(InvoiceData.builder()
                       .filename(file.filename())
                       .docNumber(docNumber)
@@ -219,7 +219,6 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                       .get(initiativeId)
                       .getAccruedRewardCents();
 
-                  // Recupero/creo il lotto per il mese corrente
                   return rewardBatchService.findOrCreateBatch(
                           merchantId,
                           posType,
@@ -227,15 +226,12 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                           businessName
                       )
                       .flatMap(newRewardBatch -> {
-                        // Se il lotto non è cambiato, aggiorno solo la transaction
                         if (newRewardBatch.getId().equals(oldBatchId)) {
                           return rewardTransactionRepository.save(rewardTransaction).then();
                         }
-                        // Altrimenti: sposto gli importi dal lotto dal vecchio al nuovo
                         return rewardBatchService.decrementTotals(oldBatchId, accruedRewardCents)
                                 .then(rewardBatchService.incrementTotals(newRewardBatch.getId(), accruedRewardCents))
                                 .then(Mono.fromRunnable(() -> {
-                                    // Associo la transaction al nuovo lotto
                                     rewardTransaction.setRewardBatchId(newRewardBatch.getId());
                                     rewardTransaction.setUpdateDate(LocalDateTime.now());
                                 }))

@@ -168,4 +168,17 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     return rewardBatchService.evaluatingRewardBatches(rewardBatchesRequest.getRewardBatchIds())
             .then();
   }
+
+  @Override
+  public Mono<Void> validateRewardBatch(String organizationRole, String initiativeId, String rewardBatchId) {
+
+    log.info(
+            "[VALIDATE_REWARD_BATCH] Request to validate rewardBatch {} for initiative {} by role {}",
+            Utilities.sanitizeString(rewardBatchId),
+            Utilities.sanitizeString(initiativeId),
+            Utilities.sanitizeString(organizationRole)
+    );
+
+    return rewardBatchService.validateRewardBatch(organizationRole, initiativeId, rewardBatchId);
+  }
 }

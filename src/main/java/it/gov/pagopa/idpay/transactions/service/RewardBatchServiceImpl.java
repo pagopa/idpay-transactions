@@ -24,6 +24,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -632,6 +633,59 @@ private String buildBatchName(YearMonth month) {
 
     }
 
+    @Override
+    public Mono<Void> validateRewardBatch(String organizationRole, String initiativeId, String rewardBatchId) {
+        return rewardBatchRepository.findById(rewardBatchId)
+                .switchIfEmpty(Mono.error(new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND
+                )))
+                .flatMap(batch -> {
+
+                    RewardBatchAssignee assignee = batch.getAssigneeLevel();
+
+                    if (assignee == RewardBatchAssignee.L1) {
+
+                        if (!"operator1".equals(organizationRole)) {
+                            return Mono.error(new ResponseStatusException(
+                                    HttpStatus.FORBIDDEN,
+                                    ExceptionConstants.ExceptionCode.ROLE_NOT_ALLOWED_FOR_L1_PROMOTION
+                            ));
+                        }
+
+                        long total = batch.getNumberOfTransactions();
+                        long elaborated = batch.getNumberOfTransactionsElaborated();
+
+                        if (total == 0 || elaborated < Math.ceil(total * 0.15)) {
+                            return Mono.error(new ResponseStatusException(
+                                    HttpStatus.BAD_REQUEST,
+                                    ExceptionConstants.ExceptionCode.BATCH_NOT_ELABORATED_15_PERCENT
+                            ));
+                        }
+
+                        batch.setAssigneeLevel(RewardBatchAssignee.L2);
+                        return rewardBatchRepository.save(batch).then();
+                    }
+
+                    if (assignee == RewardBatchAssignee.L2) {
+
+                        if (!"operator2".equals(organizationRole)) {
+                            return Mono.error(new ResponseStatusException(
+                                    HttpStatus.FORBIDDEN,
+                                    ExceptionConstants.ExceptionCode.ROLE_NOT_ALLOWED_FOR_L2_PROMOTION
+                            ));
+                        }
+
+                        batch.setAssigneeLevel(RewardBatchAssignee.L3);
+                        return rewardBatchRepository.save(batch).then();
+                    }
+
+                    return Mono.error(new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            ExceptionConstants.ExceptionCode.INVALID_BATCH_STATE_FOR_PROMOTION
+                    ));
+                });
+    }
 
         public Mono<Void> generateAndSaveCsv(String rewardBatchId, String initiativeId) {
 

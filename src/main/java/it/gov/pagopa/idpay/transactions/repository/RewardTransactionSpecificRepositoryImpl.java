@@ -96,7 +96,8 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     private Criteria getCriteria(TrxFiltersDTO filters,
                                  String pointOfSaleId,
                                  String userId,
-                                 String productGtin) {
+                                 String productGtin,
+                                 boolean includeToCheckWithConsultable) {
 
         Criteria criteria = Criteria.where(RewardTransaction.Fields.merchantId).is(filters.getMerchantId())
                 .and(RewardTransaction.Fields.initiatives).is(filters.getInitiativeId());
@@ -124,8 +125,17 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         }
 
         if (filters.getRewardBatchTrxStatus() != null) {
-            criteria.and(Fields.rewardBatchTrxStatus)
-                    .is(filters.getRewardBatchTrxStatus().name());
+            if (includeToCheckWithConsultable
+                    && filters.getRewardBatchTrxStatus() == RewardBatchTrxStatus.CONSULTABLE) {
+
+                criteria.and(Fields.rewardBatchTrxStatus)
+                        .in(RewardBatchTrxStatus.CONSULTABLE.name(),
+                                RewardBatchTrxStatus.TO_CHECK.name());
+
+            } else {
+                criteria.and(Fields.rewardBatchTrxStatus)
+                        .is(filters.getRewardBatchTrxStatus().name());
+            }
         }
 
         return criteria;
@@ -135,20 +145,21 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     @Override
     public Flux<RewardTransaction> findByFilter(TrxFiltersDTO filters,
                                                 String userId,
+                                                boolean includeToCheckWithConsultable,
                                                 Pageable pageable) {
-        Criteria criteria = getCriteria(filters, filters.getPointOfSaleId(), userId, null);
+        Criteria criteria = getCriteria(filters, filters.getPointOfSaleId(), userId, null, includeToCheckWithConsultable);
         return mongoTemplate.find(Query.query(criteria).with(getPageable(pageable)), RewardTransaction.class);
     }
-
 
     @Override
     public Flux<RewardTransaction> findByFilterTrx(TrxFiltersDTO filters,
                                                    String pointOfSaleId,
                                                    String userId,
                                                    String productGtin,
+                                                   boolean includeToCheckWithConsultable,
                                                    Pageable pageable) {
 
-        Criteria criteria = getCriteria(filters, pointOfSaleId, userId, productGtin);
+        Criteria criteria = getCriteria(filters, pointOfSaleId, userId, productGtin, includeToCheckWithConsultable);
 
         Pageable mappedPageable = mapSort(pageable);
 
@@ -159,9 +170,11 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         } else {
             return mongoTemplate.find(
                     Query.query(criteria).with(getPageableTrx(mappedPageable)),
-                    RewardTransaction.class);
+                    RewardTransaction.class
+            );
         }
     }
+
 
     @Override
     public Flux<RewardTransaction> findByFilter(String rewardBatchId, String initiativeId, List<RewardBatchTrxStatus> statusList) {
@@ -224,10 +237,10 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                 .addField("statusRank")
                 .withValue(
                     ConditionalOperators.switchCases(
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("CANCELLED")).then(1), //ANNULLATO
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("INVOICED")).then(2),  //PRESO IN CARICO
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REWARDED")).then(3),  //RIMBORSO RICHIESTO
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REFUNDED")).then(4)   //STORNATO
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("CANCELLED")).then(1),
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("INVOICED")).then(2),
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REWARDED")).then(3),
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REFUNDED")).then(4)
                     ).defaultTo(99)
                 ).build(),
             Aggregation.match(criteria),
@@ -247,14 +260,12 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     public Mono<Long> getCount(TrxFiltersDTO filters,
                                String pointOfSaleId,
                                String productGtin,
-                               String userId) {
+                               String userId,
+                               boolean includeToCheckWithConsultable) {
 
-        Criteria criteria = getCriteria(filters, pointOfSaleId, userId, productGtin);
-
+        Criteria criteria = getCriteria(filters, pointOfSaleId, userId, productGtin, includeToCheckWithConsultable);
         return mongoTemplate.count(Query.query(criteria), RewardTransaction.class);
     }
-
-
 
     @Override
     public Mono<RewardTransaction> findOneByInitiativeId(String initiativeId) {
@@ -286,9 +297,9 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
     @Override
 
-    public Flux<RewardTransaction> findByInitiativeIdAndUserId(String userId, String initiativeId) {
+    public Flux<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId) {
         Criteria criteria = Criteria.where(RewardTransaction.Fields.userId).is(userId)
-                .and(RewardTransaction.Fields.initiatives).in(initiativeId);
+                .and(Fields.initiatives).in(initiativeId);
 
         return mongoTemplate.find(Query.query(criteria), RewardTransaction.class);
     }
@@ -296,11 +307,8 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
     @Override
     public Mono<Void> rewardTransactionsByBatchId(String batchId) {
-        // all transactions of batchId lot
         Criteria batchCriteria = Criteria.where(Fields.rewardBatchId).is(batchId);
 
-        // 1) All the trx in the lot -> REWARDED
-        //    Use modifiedCount to find out how many have been updated
         Mono<Long> totalMono = mongoTemplate.updateMulti(
                         Query.query(batchCriteria),
                         new Update().set(Fields.status, SyncTrxStatus.REWARDED),
@@ -309,25 +317,21 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                 .map(UpdateResult::getModifiedCount);
 
         return totalMono
-                // if there are no transactions, is done
                 .filter(total -> total > 0)
                 .flatMap(total -> {
                     int toVerify = (int) Math.ceil(total * 0.15);
 
-                    // 2) Query to select the top 15% sorted by samplingKey
                     Query sampleQuery = Query.query(batchCriteria);
                     sampleQuery.with(Sort.by(Sort.Direction.ASC, Fields.samplingKey));
                     sampleQuery.limit(toVerify);
                     sampleQuery.fields().include(Fields.id);
 
-                    // Extract the list of ids (String) directly
                     Mono<List<String>> idsToVerifyMono = mongoTemplate
                             .find(sampleQuery, RewardTransaction.class)
                             .map(RewardTransaction::getId)
                             .collectList();
 
-                    // 3) Override: 15% sample -> TO_CHECK
-                    return idsToVerifyMono
+                   return idsToVerifyMono
                             .filter(ids -> !ids.isEmpty())
                             .flatMap(idsToVerify -> {
                                 Criteria toVerifyCriteria = Criteria.where(Fields.id).in(idsToVerify);
