@@ -19,6 +19,7 @@ public interface RewardBatchService {
   Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId);
 
   Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds);
+  public Mono<Void> generateAndSaveCsv(String rewardBatchId, String initiativeId);
 
   Mono<Void> sendRewardBatch(String merchantId, String batchId);
   Mono<RewardBatch> suspendTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request);

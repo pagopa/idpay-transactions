@@ -3,7 +3,6 @@ package it.gov.pagopa.idpay.transactions.controller;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
-import it.gov.pagopa.idpay.transactions.dto.RewardBatchRequest;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchesRequest;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
@@ -79,12 +78,20 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
-  public  Mono<Void> rewardBatchConfirmationBatch(String initiativeId, RewardBatchRequest request) {
+  public  Mono<Void> rewardBatchConfirmationBatch(String initiativeId, RewardBatchesRequest request) {
     List<String> rewardBatchIds = request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
     log.info("[REWARD_BATCH_CONFIRMATION_BATCH] Batch confirmation for initiative {} and batchs {}",
             Utilities.sanitizeString(initiativeId), rewardBatchIds.toString() );
     return rewardBatchService.rewardBatchConfirmationBatch(initiativeId, rewardBatchIds);
   }
+
+  @Override
+  public  Mono<Void> generateAndSaveCsv(String initiativeId, String rewardBatchId) {
+    log.info("[GENERATE_AND_SAVE_CSV] Generate CSV for initiative {} and batch {}",
+            Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(rewardBatchId) );
+    return rewardBatchService.generateAndSaveCsv(rewardBatchId, initiativeId);
+  }
+
 
   @Override
   public Mono<RewardBatchDTO> suspendTransactions(String initiativeId, String rewardBatchId, TransactionsRequest request) {

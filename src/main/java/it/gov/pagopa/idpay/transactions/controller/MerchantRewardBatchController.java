@@ -2,7 +2,6 @@ package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
-import it.gov.pagopa.idpay.transactions.dto.RewardBatchRequest;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchesRequest;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
@@ -49,7 +48,13 @@ Mono<RewardBatch>  rewardBatchConfirmation(
   @PutMapping("/initiatives/{initiativeId}/reward-batches/approved")
   Mono<Void>  rewardBatchConfirmationBatch(
           @PathVariable("initiativeId") String initiativeId,
-          @RequestBody  RewardBatchRequest request);
+          @RequestBody  RewardBatchesRequest request);
+
+  @PutMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/generateAndSaveCsv")
+  Mono<Void>  generateAndSaveCsv(
+          @PathVariable("initiativeId") String initiativeId,
+          @PathVariable("rewardBatchId") String rewardBatchId);
+
 
   @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/rejected")
   Mono<RewardBatchDTO> rejectTransactions(

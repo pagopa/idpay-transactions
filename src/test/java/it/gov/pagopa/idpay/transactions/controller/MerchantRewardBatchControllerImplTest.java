@@ -11,7 +11,6 @@ import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
 import it.gov.pagopa.idpay.transactions.config.ServiceExceptionConfig;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
-import it.gov.pagopa.idpay.transactions.dto.RewardBatchRequest;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchesRequest;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
@@ -62,7 +61,7 @@ class MerchantRewardBatchControllerImplTest {
 
     @Test
     void rewardBatchConfirmationBatch_WithValidList() {
-        RewardBatchRequest request = new RewardBatchRequest(BATCH_IDS);
+        RewardBatchesRequest request = new RewardBatchesRequest(BATCH_IDS);
         when(rewardBatchService.rewardBatchConfirmationBatch(INITIATIVE_ID, BATCH_IDS))
                 .thenReturn(Mono.empty());
         webClient.put()
@@ -77,7 +76,7 @@ class MerchantRewardBatchControllerImplTest {
 
         @Test
         void rewardBatchConfirmationBatch_WhenRequestListIsNull() {
-            RewardBatchRequest request = new RewardBatchRequest(null);
+            RewardBatchesRequest request = new RewardBatchesRequest(null);
             when(rewardBatchService.rewardBatchConfirmationBatch(INITIATIVE_ID, BATCH_IDS))
                     .thenReturn(Mono.empty());
             webClient.put()
@@ -96,7 +95,7 @@ class MerchantRewardBatchControllerImplTest {
 
         @Test
         void rewardBatchConfirmationBatch_WhenRequestListIsEmpty() {
-            RewardBatchRequest request = new RewardBatchRequest(Collections.emptyList());
+            RewardBatchesRequest request = new RewardBatchesRequest(Collections.emptyList());
 
             when(rewardBatchService.rewardBatchConfirmationBatch(INITIATIVE_ID, BATCH_IDS))
                     .thenReturn(Mono.empty()); // Assume successo
