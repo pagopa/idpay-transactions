@@ -27,8 +27,12 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.MultipartBodyBuilder;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.reactive.function.BodyInserters;
 import reactor.core.publisher.Mono;
 
 @WebFluxTest(controllers = PointOfSaleTransactionControllerImpl.class)
@@ -187,5 +191,56 @@ class PointOfSaleTransactionControllerImplTest {
           assertNotNull(res);
           assertEquals("testUrl", res.getInvoiceUrl());
         });
+  }
+
+  @Test
+  void updateInvoiceFileOk() {
+
+    when(pointOfSaleTransactionService.updateInvoiceTransaction(
+        eq(TRX_ID),
+        eq(MERCHANT_ID),
+        eq(POINT_OF_SALE_ID),
+        any(FilePart.class),
+        eq("DOC123")
+    )).thenReturn(Mono.empty());
+
+    MultipartBodyBuilder builder = new MultipartBodyBuilder();
+    builder.part("file", "dummycontent".getBytes())
+        .filename("invoice.pdf")
+        .contentType(MediaType.APPLICATION_OCTET_STREAM);
+    builder.part("docNumber", "DOC123");
+
+    webClient.put()
+        .uri("/idpay/transactions/{id}/invoice/update", TRX_ID)
+        .header("x-merchant-id", MERCHANT_ID)
+        .header("x-point-of-sale-id", POINT_OF_SALE_ID)
+        .contentType(MediaType.MULTIPART_FORM_DATA)
+        .body(BodyInserters.fromMultipartData(builder.build()))
+        .exchange()
+        .expectStatus().isNoContent();
+
+    verify(pointOfSaleTransactionService).updateInvoiceTransaction(
+        eq(TRX_ID),
+        eq(MERCHANT_ID),
+        eq(POINT_OF_SALE_ID),
+        any(FilePart.class),
+        eq("DOC123")
+    );
+  }
+
+  @Test
+  void updateInvoiceFileBadRequestWhenMissingMerchantId() {
+    MultipartBodyBuilder builder = new MultipartBodyBuilder();
+    builder.part("file", "dummy".getBytes())
+        .filename("f.pdf")
+        .contentType(MediaType.APPLICATION_OCTET_STREAM);
+
+    webClient.put()
+        .uri("/idpay/transactions/{transactionId}/invoice/update", TRX_ID)
+        .header("x-point-of-sale-id", POINT_OF_SALE_ID)
+        .contentType(MediaType.MULTIPART_FORM_DATA)
+        .body(BodyInserters.fromMultipartData(builder.build()))
+        .exchange()
+        .expectStatus().isBadRequest();
   }
 }

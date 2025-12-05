@@ -1,5 +1,8 @@
 package it.gov.pagopa.common.reactive.web.exception;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.IThrowableProxy;
@@ -11,6 +14,7 @@ import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.ErrorManager;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
+import it.gov.pagopa.common.web.exception.ServiceException;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -204,10 +208,23 @@ public class ErrorManagerTest {
                         loggedEvent.getFormattedMessage()),
                 "Unexpected logged message: " + loggedMessage);
 
-        Assertions.assertEquals(expectedLoggedExceptionMessage,
+        assertEquals(expectedLoggedExceptionMessage,
                 loggedException.getClassName() + ": " + loggedException.getMessage());
 
-        Assertions.assertEquals(expectedLoggedExceptionOccurrencePosition,
+        assertEquals(expectedLoggedExceptionOccurrencePosition,
                 loggedExceptionOccurrenceStackTrace.getStackTraceElement().getClassName() + "." + loggedExceptionOccurrenceStackTrace.getStackTraceElement().getMethodName());
     }
+
+  @Test
+  void shouldCreateServiceExceptionWithDefaultValues() {
+    String code = "TEST_CODE";
+    String message = "Test message";
+
+    ServiceException ex = new ServiceException(code, message);
+
+    assertEquals(code, ex.getCode());
+    assertEquals(message, ex.getMessage());
+    assertFalse(ex.isPrintStackTrace());
+    assertNull(ex.getCause());
+  }
 }
