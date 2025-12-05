@@ -149,7 +149,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .zipWith(
                         rewardTransactionRepository.getCount(
                                 filters,
-                                null,
+                                filters.getPointOfSaleId(),
                                 null,
                                 userId,
                                 includeToCheckWithConsultable
