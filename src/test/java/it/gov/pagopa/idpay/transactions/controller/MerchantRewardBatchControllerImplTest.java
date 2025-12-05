@@ -490,4 +490,119 @@ class MerchantRewardBatchControllerImplTest {
                 });
     }
 
+    @Test
+    void validateRewardBatch_L1ToL2_Success() {
+        String rewardBatchId = "BATCH1";
+
+        when(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, rewardBatchId))
+                .thenReturn(Mono.empty());
+
+        webClient.post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/validated",
+                        INITIATIVE_ID, rewardBatchId)
+                .header("x-organization-role", "operator1")
+                .exchange()
+                .expectStatus().isNoContent();
+
+        verify(rewardBatchService, times(1)).validateRewardBatch("operator1", INITIATIVE_ID, rewardBatchId);
+    }
+
+    @Test
+    void validateRewardBatch_L1ToL2_RoleNotAllowed() {
+        String rewardBatchId = "BATCH2";
+
+        when(rewardBatchService.validateRewardBatch("wrongRole", INITIATIVE_ID, rewardBatchId))
+                .thenReturn(Mono.error(new RewardBatchException(HttpStatus.FORBIDDEN,
+                        ExceptionConstants.ExceptionCode.ROLE_NOT_ALLOWED_FOR_L1_PROMOTION)));
+
+        webClient.post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/validated",
+                        INITIATIVE_ID, rewardBatchId)
+                .header("x-organization-role", "wrongRole")
+                .exchange()
+                .expectStatus().isForbidden()
+                .expectBody()
+                .jsonPath("$.message").isEqualTo(ExceptionConstants.ExceptionCode.ROLE_NOT_ALLOWED_FOR_L1_PROMOTION);
+
+        verify(rewardBatchService, times(1)).validateRewardBatch("wrongRole", INITIATIVE_ID, rewardBatchId);
+    }
+
+    @Test
+    void validateRewardBatch_L1ToL2_LessThan15Percent() {
+        String rewardBatchId = "BATCH3";
+
+        when(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, rewardBatchId))
+                .thenReturn(Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
+                        ExceptionConstants.ExceptionCode.BATCH_NOT_ELABORATED_15_PERCENT)));
+
+        webClient.post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/validated",
+                        INITIATIVE_ID, rewardBatchId)
+                .header("x-organization-role", "operator1")
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.message").isEqualTo(ExceptionConstants.ExceptionCode.BATCH_NOT_ELABORATED_15_PERCENT);
+
+        verify(rewardBatchService, times(1)).validateRewardBatch("operator1", INITIATIVE_ID, rewardBatchId);
+    }
+
+    @Test
+    void validateRewardBatch_L2ToL3_Success() {
+        String rewardBatchId = "BATCH4";
+
+        when(rewardBatchService.validateRewardBatch("operator2", INITIATIVE_ID, rewardBatchId))
+                .thenReturn(Mono.empty());
+
+        webClient.post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/validated",
+                        INITIATIVE_ID, rewardBatchId)
+                .header("x-organization-role", "operator2")
+                .exchange()
+                .expectStatus().isNoContent();
+
+        verify(rewardBatchService, times(1)).validateRewardBatch("operator2", INITIATIVE_ID, rewardBatchId);
+    }
+
+    @Test
+    void validateRewardBatch_InvalidState() {
+        String rewardBatchId = "BATCH5";
+
+        when(rewardBatchService.validateRewardBatch("operator3", INITIATIVE_ID, rewardBatchId))
+                .thenReturn(Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
+                        ExceptionConstants.ExceptionCode.INVALID_BATCH_STATE_FOR_PROMOTION)));
+
+        webClient.post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/validated",
+                        INITIATIVE_ID, rewardBatchId)
+                .header("x-organization-role", "operator3")
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.message").isEqualTo(ExceptionConstants.ExceptionCode.INVALID_BATCH_STATE_FOR_PROMOTION);
+
+        verify(rewardBatchService, times(1)).validateRewardBatch("operator3", INITIATIVE_ID, rewardBatchId);
+    }
+
+    @Test
+    void validateRewardBatch_NotFound() {
+        String rewardBatchId = "BATCH6";
+
+        when(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, rewardBatchId))
+                .thenReturn(Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
+                        ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)));
+
+        webClient.post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/validated",
+                        INITIATIVE_ID, rewardBatchId)
+                .header("x-organization-role", "operator1")
+                .exchange()
+                .expectStatus().isNotFound()
+                .expectBody()
+                .jsonPath("$.message").isEqualTo(ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND);
+
+        verify(rewardBatchService, times(1)).validateRewardBatch("operator1", INITIATIVE_ID, rewardBatchId);
+    }
+
+
 }
