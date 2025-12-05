@@ -10,6 +10,7 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
@@ -26,6 +27,12 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -35,7 +42,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND;
+import java.util.function.Function;
+import java.util.function.LongFunction;
+import java.util.stream.Collectors;
+
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT;
 
 @Service
@@ -47,8 +57,30 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   private final RewardTransactionRepository rewardTransactionRepository;
   private static final Set<String> OPERATORS = Set.of("operator1", "operator2", "operator3");
 
+    //private static final String CSV_HEADER = String.join(";",
+    //        "ID", "ID_TRX_ACQUIRER", "ACQUIRER_CODE", "TRX_DATE", "HPAN",
+    //        "OPERATION_TYPE", "CIRCUIT_TYPE", "ID_TRX_ISSUER", "CORRELATION_ID",
+    //        "AMOUNT_CENTS", "AMOUNT_CURRENCY", "MCC", "ACQUIRER_ID", "MERCHANT_ID",
+    //        "POINT_OF_SALE_ID", "TERMINAL_ID", "BIN", "SENDER_CODE", "FISCAL_CODE",
+    //        "VAT", "POS_TYPE", "PAR", "STATUS", "REJECTION_REASONS_LIST",
+    //        "INITIATIVE_REJECTION_REASONS_MAP", "INITIATIVES_LIST", "REWARDS_MAP_SUMMARY",
+    //        "USER_ID", "MASKED_PAN", "BRAND_LOGO", "OPERATION_TYPE_TRANSCODED",
+    //        "EFFECTIVE_AMOUNT_CENTS", "TRX_CHARGE_DATE", "REFUND_INFO_SUMMARY",
+    //        "ELABORATION_DATE_TIME", "CHANNEL", "ADDITIONAL_PROPERTIES_MAP",
+    //        "INVOICE_DATA_SUMMARY", "CREDIT_NOTE_DATA_SUMMARY", "TRX_CODE",
+    //        "REWARD_BATCH_ID", "REWARD_BATCH_TRX_STATUS", "REWARD_BATCH_REJECTION_REASON",
+    //        "REWARD_BATCH_INCLUSION_DATE", "FRANCHISE_NAME", "POINT_OF_SALE_TYPE",
+    //        "BUSINESS_NAME", "INVOICE_UPLOAD_DATE", "SAMPLING_KEY", "UPDATE_DATE",
+    //        "EXTENDED_AUTHORIZATION", "VOUCHER_AMOUNT_CENTS"
+    //);
 
-  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository,
+    private static final String CSV_HEADER = String.join(";",
+            "Data e ora", "Elettrodomestico", "Codice Fiscale Beneficiario", "ID transazione", "Codice sconto",
+            "Totale della spesa", "Sconto applicato", "Importo autorizzato", "Numero fattura",
+            "Fattura", "Stato"
+    );
+
+    public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository,
                                 RewardTransactionRepository rewardTransactionRepository) {
     this.rewardBatchRepository = rewardBatchRepository;
     this.rewardTransactionRepository = rewardTransactionRepository;
@@ -476,7 +508,15 @@ private String buildBatchName(YearMonth month) {
                     originalBatch.setUpdateDate(LocalDateTime.now());
                     return originalBatch;
                 })
-                .flatMap(rewardBatchRepository::save);
+                .flatMap(rewardBatchRepository::save)
+                .flatMap(savedBatch ->
+                        this.generateAndSaveCsv(rewardBatchId, initiativeId)
+                                .onErrorResume(e -> {
+                                    log.error("Critical error while generating CSV for batch {}", rewardBatchId, e);
+                                    return Mono.empty();
+                                })
+                                .thenReturn(savedBatch)
+                );
     }
 
   Mono<RewardBatch> createRewardBatchAndSave(RewardBatch savedBatch) {
@@ -592,6 +632,98 @@ private String buildBatchName(YearMonth month) {
 
     }
 
+
+        public Mono<Void> generateAndSaveCsv(String rewardBatchId, String initiativeId) {
+
+            log.info("[GENERATE_AND_SAVE_CSV] Generate CSV for initiative {} and batch {}",
+                    Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(rewardBatchId) );
+
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            String filename = "report_" + rewardBatchId + "_" + timestamp + ".csv";
+
+            List<RewardBatchTrxStatus> statusList = new ArrayList<>();
+            statusList.add(RewardBatchTrxStatus.APPROVED);
+            Flux<RewardTransaction> transactionFlux = rewardTransactionRepository.findByFilter(
+                    rewardBatchId, initiativeId, statusList);
+
+            Flux<String> csvRowsFlux = transactionFlux
+                    .map(transaction -> this.mapTransactionToCsvRow(transaction, initiativeId));
+
+            Flux<String> fullCsvFlux = Flux.just(CSV_HEADER).concatWith(csvRowsFlux);
+
+            return fullCsvFlux.collect(StringBuilder::new, (sb, s) -> sb.append(s).append("\n"))
+                    .map(StringBuilder::toString)
+                    .flatMap(csvContent -> {
+                        return saveCsvToLocalFile(filename, csvContent);
+                    })
+                    .doOnTerminate(() -> log.info("CSV generation has been completed for batch: {}", rewardBatchId))
+            .then();
+        }
+
+        private String mapTransactionToCsvRow(RewardTransaction trx, String initiativeId) {
+            Function<Object, String> safeToString = obj -> obj != null ? obj.toString().replace(";", ",") : "";
+            Function<LocalDateTime, String> safeDateToString = date ->
+                    date != null ? date.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
+
+            LongFunction<String> centsToEuroString = cents -> {
+                NumberFormat numberFormat = NumberFormat.getNumberInstance(Locale.ITALY);
+                numberFormat.setMinimumFractionDigits(2);
+                numberFormat.setMaximumFractionDigits(2);
+                return  numberFormat.format(cents / 100.0);
+
+            };
+
+            String productName = trx.getAdditionalProperties().get("productName") != null ? trx.getAdditionalProperties().get("productName") : "";
+            String productGtin = trx.getAdditionalProperties().get("productGtin") != null ? trx.getAdditionalProperties().get("productGtin") : "";
+
+            String additionalProperties = productName + "\n" + productGtin;
+
+            String quotedAdditionalProperties = "\"" + additionalProperties + "\"";
+
+            return String.join(";",
+                    safeDateToString.apply(trx.getTrxChargeDate()),
+                    safeToString.apply(quotedAdditionalProperties),
+                    safeToString.apply(trx.getFiscalCode()),
+                    safeToString.apply(trx.getId()),
+                    safeToString.apply(trx.getTrxCode()),
+                    trx.getEffectiveAmountCents() != null ? centsToEuroString.apply(trx.getEffectiveAmountCents()) : "",
+                    trx.getRewards().get(initiativeId).getAccruedRewardCents() != null
+                            ? centsToEuroString.apply(trx.getRewards().get(initiativeId).getAccruedRewardCents())
+                            : "",
+                    //trx.getRewards().get(initiativeId).getProvidedRewardCents() != null
+                    //        ? centsToEuroString.apply(trx.getRewards().get(initiativeId).getProvidedRewardCents())
+                    //        : "",
+                    safeToString.apply(trx.getInvoiceData().getDocNumber()),
+                    safeToString.apply(trx.getInvoiceData().getFilename()),
+                    safeToString.apply(trx.getRewardBatchTrxStatus().getDescription())
+            );
+        }
+
+        private Mono<String> saveCsvToLocalFile(String filename, String csvContent) {
+            // 1. Definisci la directory di output (usiamo la temp directory del sistema + una sottocartella)
+            //Path outputDirectory = Paths.get(System.getProperty("java.io.tmpdir"), "batch_reports");
+            //Path filePath = outputDirectory.resolve(filename);
+
+            // 1. Definisci la directory di output con il percorso Windows fornito
+            // Usiamo Paths.get() che gestisce correttamente gli slash su Windows.
+            Path outputDirectory = Paths.get("C:", "Users", "EMELIGMWW", "OneDrive - NTT DATA EMEAL", "Desktop", "PagoPA", "CSV - conferma lotto");
+            Path filePath = outputDirectory.resolve(filename);
+
+            try {
+                Files.createDirectories(outputDirectory);
+            } catch (IOException e) {
+                log.error("Unable to create output directory: {}", outputDirectory, e);
+                return Mono.error(new RuntimeException("Unable to access or create output directory.", e));
+            }
+
+            return Mono.fromCallable(() -> {
+                Files.writeString(filePath, csvContent, StandardCharsets.UTF_8);
+                return filePath.toAbsolutePath().toString();
+            }).onErrorMap(IOException.class, e -> {
+                log.error("Error writing CSV file to disk: {}", filePath, e);
+                return new RuntimeException("I/O error while writing CSV report.", e);
+            });
+        }
 
     @Data
     public static class TotalAmount {
