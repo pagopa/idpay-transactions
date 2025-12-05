@@ -1,5 +1,9 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
@@ -32,13 +36,10 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class RewardBatchServiceImplTest {
@@ -1628,6 +1629,156 @@ class RewardBatchServiceImplTest {
         Assertions.assertEquals(1L, result);
     }
 
+    @Test
+    void validateRewardBatch_L1ToL2_Success() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .assigneeLevel(RewardBatchAssignee.L1)
+                .numberOfTransactions(100L)
+                .numberOfTransactionsElaborated(20L)
+                .build();
+
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.save(any())).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .verifyComplete();
+
+        verify(rewardBatchRepository, times(1)).save(batch);
+        assertEquals(RewardBatchAssignee.L2, batch.getAssigneeLevel());
+    }
+
+    @Test
+    void validateRewardBatch_L2ToL3_Success() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .assigneeLevel(RewardBatchAssignee.L2)
+                .build();
+
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.save(any())).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        StepVerifier.create(rewardBatchService.validateRewardBatch("operator2", INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .verifyComplete();
+
+        verify(rewardBatchRepository, times(1)).save(batch);
+        assertEquals(RewardBatchAssignee.L3, batch.getAssigneeLevel());
+    }
+
+    @Test
+    void validateRewardBatch_RoleNotAllowed_L1() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .assigneeLevel(RewardBatchAssignee.L1)
+                .numberOfTransactions(100L)
+                .numberOfTransactionsElaborated(20L)
+                .build();
+
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardBatchService.validateRewardBatch("wrongRole", INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectErrorSatisfies(ex -> {
+                    assertInstanceOf(ResponseStatusException.class, ex);
+                    assertEquals(HttpStatus.FORBIDDEN, ((ResponseStatusException) ex).getStatusCode());
+                    assertEquals(ExceptionConstants.ExceptionCode.ROLE_NOT_ALLOWED_FOR_L1_PROMOTION,
+                            ((ResponseStatusException) ex).getReason());
+                })
+                .verify();
+    }
+
+    @Test
+    void validateRewardBatch_LessThan15Percent() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .assigneeLevel(RewardBatchAssignee.L1)
+                .numberOfTransactions(100L)
+                .numberOfTransactionsElaborated(10L)
+                .build();
+
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectErrorSatisfies(ex -> {
+                    assertInstanceOf(ResponseStatusException.class, ex);
+                    assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) ex).getStatusCode());
+                    assertEquals(ExceptionConstants.ExceptionCode.BATCH_NOT_ELABORATED_15_PERCENT,
+                            ((ResponseStatusException) ex).getReason());
+                })
+                .verify();
+    }
+
+    @Test
+    void validateRewardBatch_RoleNotAllowed_L2() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .assigneeLevel(RewardBatchAssignee.L2)
+                .build();
+
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardBatchService.validateRewardBatch("wrongRole", INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectErrorSatisfies(ex -> {
+                    assertInstanceOf(ResponseStatusException.class, ex);
+                    assertEquals(HttpStatus.FORBIDDEN, ((ResponseStatusException) ex).getStatusCode());
+                    assertEquals(ExceptionConstants.ExceptionCode.ROLE_NOT_ALLOWED_FOR_L2_PROMOTION,
+                            ((ResponseStatusException) ex).getReason());
+                })
+                .verify();
+    }
+
+    @Test
+    void validateRewardBatch_InvalidState() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .assigneeLevel(RewardBatchAssignee.L3)
+                .build();
+
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardBatchService.validateRewardBatch("operator3", INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectErrorSatisfies(ex -> {
+                    assertInstanceOf(ResponseStatusException.class, ex);
+                    assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) ex).getStatusCode());
+                    assertEquals(ExceptionConstants.ExceptionCode.INVALID_BATCH_STATE_FOR_PROMOTION,
+                            ((ResponseStatusException) ex).getReason());
+                })
+                .verify();
+    }
+
+    @Test
+    void validateRewardBatch_NotFound() {
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.empty());
+
+        StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectErrorSatisfies(ex -> {
+                    assertInstanceOf(ResponseStatusException.class, ex);
+                    assertEquals(HttpStatus.NOT_FOUND, ((ResponseStatusException) ex).getStatusCode());
+                    assertEquals(ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND,
+                            ((ResponseStatusException) ex).getReason());
+                })
+                .verify();
+    }
+
+    @Test
+    void validateRewardBatch_TotalZero() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .assigneeLevel(RewardBatchAssignee.L1)
+                .numberOfTransactions(0L)
+                .numberOfTransactionsElaborated(0L)
+                .build();
+
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectErrorSatisfies(ex -> {
+                    assertInstanceOf(ResponseStatusException.class, ex);
+                    assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) ex).getStatusCode());
+                    assertEquals(ExceptionConstants.ExceptionCode.BATCH_NOT_ELABORATED_15_PERCENT,
+                            ((ResponseStatusException) ex).getReason());
+                })
+                .verify();
+    }
 
     @Test
     void evaluatingRewardBatchStatusScheduler() {
