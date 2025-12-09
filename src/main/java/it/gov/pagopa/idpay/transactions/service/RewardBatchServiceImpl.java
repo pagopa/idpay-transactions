@@ -57,25 +57,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   private final RewardBatchRepository rewardBatchRepository;
   private final RewardTransactionRepository rewardTransactionRepository;
   private static final Set<String> OPERATORS = Set.of("operator1", "operator2", "operator3");
-
-    //private static final String CSV_HEADER = String.join(";",
-    //        "ID", "ID_TRX_ACQUIRER", "ACQUIRER_CODE", "TRX_DATE", "HPAN",
-    //        "OPERATION_TYPE", "CIRCUIT_TYPE", "ID_TRX_ISSUER", "CORRELATION_ID",
-    //        "AMOUNT_CENTS", "AMOUNT_CURRENCY", "MCC", "ACQUIRER_ID", "MERCHANT_ID",
-    //        "POINT_OF_SALE_ID", "TERMINAL_ID", "BIN", "SENDER_CODE", "FISCAL_CODE",
-    //        "VAT", "POS_TYPE", "PAR", "STATUS", "REJECTION_REASONS_LIST",
-    //        "INITIATIVE_REJECTION_REASONS_MAP", "INITIATIVES_LIST", "REWARDS_MAP_SUMMARY",
-    //        "USER_ID", "MASKED_PAN", "BRAND_LOGO", "OPERATION_TYPE_TRANSCODED",
-    //        "EFFECTIVE_AMOUNT_CENTS", "TRX_CHARGE_DATE", "REFUND_INFO_SUMMARY",
-    //        "ELABORATION_DATE_TIME", "CHANNEL", "ADDITIONAL_PROPERTIES_MAP",
-    //        "INVOICE_DATA_SUMMARY", "CREDIT_NOTE_DATA_SUMMARY", "TRX_CODE",
-    //        "REWARD_BATCH_ID", "REWARD_BATCH_TRX_STATUS", "REWARD_BATCH_REJECTION_REASON",
-    //        "REWARD_BATCH_INCLUSION_DATE", "FRANCHISE_NAME", "POINT_OF_SALE_TYPE",
-    //        "BUSINESS_NAME", "INVOICE_UPLOAD_DATE", "SAMPLING_KEY", "UPDATE_DATE",
-    //        "EXTENDED_AUTHORIZATION", "VOUCHER_AMOUNT_CENTS"
-    //);
-
-    private static final String CSV_HEADER = String.join(";",
+  private static final String CSV_HEADER = String.join(";",
             "Data e ora", "Elettrodomestico", "Codice Fiscale Beneficiario", "ID transazione", "Codice sconto",
             "Totale della spesa", "Sconto applicato",//"Importo autorizzato",
             "Numero fattura",
@@ -718,9 +700,7 @@ private String buildBatchName(YearMonth month) {
 
             return fullCsvFlux.collect(StringBuilder::new, (sb, s) -> sb.append(s).append("\n"))
                     .map(StringBuilder::toString)
-                    .flatMap(csvContent -> {
-                        return saveCsvToLocalFile(filename, csvContent);
-                    })
+                    .flatMap(csvContent -> saveCsvToLocalFile(filename, csvContent))
                     .doOnTerminate(() -> log.info("CSV generation has been completed for batch: {}", Utilities.sanitizeString(rewardBatchId)))
                     .map(absolutePath -> filename);
         }
