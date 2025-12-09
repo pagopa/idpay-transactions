@@ -698,7 +698,6 @@ private String buildBatchName(YearMonth month) {
             log.info("[GENERATE_AND_SAVE_CSV] Generate CSV for initiative {} and batch {}",
                     Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(rewardBatchId) );
 
-            // Validate rewardBatchId to prevent path traversal or injection attacks
             if (rewardBatchId.contains("..") || rewardBatchId.contains("/") || rewardBatchId.contains("\\"))
             {
                 log.error("Invalid rewardBatchId for CSV filename: {}", Utilities.sanitizeString(rewardBatchId));
@@ -756,9 +755,6 @@ private String buildBatchName(YearMonth month) {
                     trx.getRewards().get(initiativeId).getAccruedRewardCents() != null
                             ? centsToEuroString.apply(trx.getRewards().get(initiativeId).getAccruedRewardCents())
                             : "",
-                    //trx.getRewards().get(initiativeId).getProvidedRewardCents() != null
-                    //        ? centsToEuroString.apply(trx.getRewards().get(initiativeId).getProvidedRewardCents())
-                    //        : "",
                     safeToString.apply(trx.getInvoiceData().getDocNumber()),
                     safeToString.apply(trx.getInvoiceData().getFilename()),
                     safeToString.apply(trx.getRewardBatchTrxStatus().getDescription())
@@ -766,12 +762,6 @@ private String buildBatchName(YearMonth month) {
         }
 
         public Mono<String> saveCsvToLocalFile(String filename, String csvContent) {
-            // 1. Definisci la directory di output (usiamo la temp directory del sistema + una sottocartella)
-            //Path outputDirectory = Paths.get(System.getProperty("java.io.tmpdir"), "batch_reports");
-            //Path filePath = outputDirectory.resolve(filename);
-
-            // 1. Definisci la directory di output con il percorso Windows fornito
-            // Usiamo Paths.get() che gestisce correttamente gli slash su Windows.
             Path outputDirectory = Paths.get("C:", "Users", "EMELIGMWW", "OneDrive - NTT DATA EMEAL", "Desktop", "PagoPA", "CSV - conferma lotto");
             Path filePath = outputDirectory.resolve(filename);
 
