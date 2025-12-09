@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
+import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
@@ -16,12 +17,9 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 
+import java.time.LocalDateTime;
 import java.time.YearMonth;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
@@ -69,6 +67,16 @@ class RewardBatchServiceImplTest {
     private static final String CURRENT_MONTH_NAME = "dicembre 2025";
     private static final String NEXT_MONTH_NAME = "gennaio 2026";
 
+    private static final String CSV_HEADER = String.join(";",
+            "Data e ora", "Elettrodomestico", "Codice Fiscale Beneficiario", "ID transazione", "Codice sconto",
+            "Totale della spesa", "Sconto applicato",//"Importo autorizzato",
+            "Numero fattura",
+            "Fattura", "Stato"
+    );
+    // Variabile per catturare il contenuto CSV e il nome del file generato
+    private String capturedCsvContent;
+    private String capturedFilename;
+
 
 
   @BeforeEach
@@ -77,6 +85,129 @@ class RewardBatchServiceImplTest {
         rewardTransactionRepository);
     rewardBatchServiceSpy = spy((RewardBatchServiceImpl) rewardBatchService);
   }
+
+
+
+
+    // Metodo helper per creare una transazione mock, come nell'esempio precedente
+    private RewardTransaction createMockTransaction(String id, Long effectiveAmount, Long accruedReward, String gtin, String name) {
+        RewardTransaction trx = new RewardTransaction();
+        trx.setId(id);
+        trx.setTrxChargeDate(LocalDateTime.of(2025, 12, 10, 10, 30, 0));
+        trx.setFiscalCode("RSSMRA70A01H501U");
+        trx.setTrxCode("TXCODE123");
+        trx.setEffectiveAmountCents(effectiveAmount);
+        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED);
+
+        Map<String, Reward> rewards = new HashMap<>();
+        // Assumi che Reward abbia un costruttore o setter
+        Reward reward = new Reward();
+        reward.setAccruedRewardCents(accruedReward);
+        rewards.put(INITIATIVE_ID, reward);
+        trx.setRewards(rewards);
+
+        Map<String, String> additionalProperties = new HashMap<>();
+        additionalProperties.put("productGtin", gtin);
+        additionalProperties.put("productName", name);
+        trx.setAdditionalProperties(additionalProperties);
+
+        InvoiceData invoice = new InvoiceData();
+        invoice.setDocNumber("DOC001");
+        invoice.setFilename("invoice.pdf");
+        trx.setInvoiceData(invoice);
+
+        return trx;
+    }
+
+    @Test
+    void testGenerateAndSaveCsv_Success() {
+        RewardTransaction trx1 = createMockTransaction("T001", 10000L, 500L, "8033675155005", "Lavatrice"); // 100.00 EUR, 5.00 EUR
+        RewardTransaction trx2 = createMockTransaction("T002", 500L, 10L, "1234567890123", "Aspirapolvere"); // 5.00 EUR, 0.10 EUR
+        when(rewardTransactionRepository.findByFilter(
+                REWARD_BATCH_ID_1,
+                INITIATIVE_ID,
+                List.of(RewardBatchTrxStatus.APPROVED) // Il metodo cerca solo APPROVED
+        )).thenReturn(Flux.just(trx1, trx2));
+        doAnswer(invocation -> {
+            capturedFilename = invocation.getArgument(0);
+            capturedCsvContent = invocation.getArgument(1);
+            // Non eseguiamo I/O reale, restituiamo un Mono<String> fittizio
+            return Mono.just("/fake/path/" + capturedFilename);
+        }).when(rewardBatchServiceSpy).saveCsvToLocalFile(anyString(), anyString());
+
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID))
+                .verifyComplete();
+
+        verify(rewardTransactionRepository).findByFilter(
+                REWARD_BATCH_ID_1,
+                INITIATIVE_ID,
+                List.of(RewardBatchTrxStatus.APPROVED)
+        );
+
+        verify(rewardBatchServiceSpy).saveCsvToLocalFile(anyString(), anyString());
+
+        org.assertj.core.api.Assertions.assertThat(capturedFilename)
+                .startsWith("report_" + REWARD_BATCH_ID_1 + "_")
+                .endsWith(".csv");
+
+        String dataOra = "2025-12-10T10:30:00";
+        String importo1 = "100,00";
+        String reward1 = "5,00";
+        String importo2 = "5,00";
+        String reward2 = "0,10";
+
+        String expectedRow1 = dataOra + ";\"Lavatrice\n8033675155005\";RSSMRA70A01H501U;T001;TXCODE123;" + importo1 + ";" + reward1 + ";DOC001;invoice.pdf;Approvata";
+        String expectedRow2 = dataOra + ";\"Aspirapolvere\n1234567890123\";RSSMRA70A01H501U;T002;TXCODE123;" + importo2 + ";" + reward2 + ";DOC001;invoice.pdf;Approvata";
+        String expectedContent = CSV_HEADER + "\n" + expectedRow1 + "\n" + expectedRow2 + "\n";
+        org.assertj.core.api.Assertions.assertThat(capturedCsvContent).isEqualTo(expectedContent);
+    }
+
+    @Test
+    void testGenerateAndSaveCsv_RepositoryReturnsNoTransactions() {
+        when(rewardTransactionRepository.findByFilter(any(), any(), anyList()))
+                .thenReturn(Flux.empty());
+        doAnswer(invocation -> {
+            capturedCsvContent = invocation.getArgument(1);
+            return Mono.just("/fake/path/report.csv");
+        }).when(rewardBatchServiceSpy).saveCsvToLocalFile(anyString(), anyString());
+
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(REWARD_BATCH_ID_2, INITIATIVE_ID))
+                .verifyComplete();
+
+        verify(rewardTransactionRepository).findByFilter(any(), any(), anyList());
+        verify(rewardBatchServiceSpy).saveCsvToLocalFile(anyString(), anyString());
+
+        String expectedContent = CSV_HEADER + "\n";
+        org.assertj.core.api.Assertions.assertThat(capturedCsvContent).isEqualTo(expectedContent);
+    }
+
+    @Test
+    void testGenerateAndSaveCsv_SavingFails() {
+        // --- 1. PREPARAZIONE ---
+        // Mock dei dati
+        RewardTransaction trx = createMockTransaction("T003", 100L, 10L, "1", "Prod");
+        when(rewardTransactionRepository.findByFilter(any(), any(), anyList()))
+                .thenReturn(Flux.just(trx));
+
+        // Mock del salvataggio: simula un errore di I/O
+        doReturn(Mono.error(new RuntimeException("Simulated I/O Error")))
+                .when(rewardBatchServiceSpy).saveCsvToLocalFile(anyString(), anyString());
+
+
+        // --- 2. ESECUZIONE E VERIFICA REATTIVA ---
+        // Verifica che il Mono propaghi l'errore
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID))
+                .expectErrorSatisfies(throwable ->
+                        org.assertj.core.api.Assertions.assertThat(throwable)
+                                .isInstanceOf(RuntimeException.class)
+                                .hasMessageContaining("Simulated I/O Error")
+                )
+                .verify();
+
+        // --- 3. ASSERTION ---
+        verify(rewardTransactionRepository).findByFilter(any(), any(), anyList());
+        verify(rewardBatchServiceSpy).saveCsvToLocalFile(anyString(), anyString());
+    }
 
 
     @Test
@@ -194,6 +325,11 @@ class RewardBatchServiceImplTest {
             when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(REWARD_BATCH_1));
             doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsToApprove(anyString(), anyString());
             when(rewardBatchRepository.save(any(RewardBatch.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+            when(rewardTransactionRepository.findByFilter(
+                    REWARD_BATCH_ID_1,
+                    INITIATIVE_ID,
+                    List.of(RewardBatchTrxStatus.APPROVED)
+            )).thenReturn(Flux.empty());
 
             StepVerifier.create(rewardBatchServiceSpy.processSingleBatch(REWARD_BATCH_ID_1, INITIATIVE_ID))
                     .expectNextMatches(batch ->
@@ -220,12 +356,17 @@ class RewardBatchServiceImplTest {
             doReturn(Mono.just(REWARD_BATCH_2)).when(rewardBatchServiceSpy).createRewardBatchAndSave(any(RewardBatch.class));
             doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsSuspended(anyString(), anyString(), anyString());
             when(rewardBatchRepository.save(any(RewardBatch.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+            when(rewardTransactionRepository.findByFilter(
+                    REWARD_BATCH_ID_1,
+                    INITIATIVE_ID,
+                    List.of(RewardBatchTrxStatus.APPROVED)
+            )).thenReturn(Flux.empty());
 
             StepVerifier.create(rewardBatchServiceSpy.processSingleBatch(REWARD_BATCH_ID_1, INITIATIVE_ID))
                     .expectNextMatches(batch ->
                             batch.getId().equals(REWARD_BATCH_ID_1) &&
                                     batch.getStatus().equals(RewardBatchStatus.APPROVED) &&
-                                    batch.getNumberOfTransactionsSuspended().equals(1L) && // Il conteggio rimane
+                                    batch.getNumberOfTransactionsSuspended().equals(1L) &&
                                     batch.getUpdateDate() != null)
                     .verifyComplete();
 

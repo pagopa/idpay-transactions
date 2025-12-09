@@ -77,7 +77,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     private static final String CSV_HEADER = String.join(";",
             "Data e ora", "Elettrodomestico", "Codice Fiscale Beneficiario", "ID transazione", "Codice sconto",
-            "Totale della spesa", "Sconto applicato", "Importo autorizzato", "Numero fattura",
+            "Totale della spesa", "Sconto applicato",//"Importo autorizzato",
+            "Numero fattura",
             "Fattura", "Stato"
     );
 
@@ -753,7 +754,7 @@ private String buildBatchName(YearMonth month) {
             );
         }
 
-        private Mono<String> saveCsvToLocalFile(String filename, String csvContent) {
+        public Mono<String> saveCsvToLocalFile(String filename, String csvContent) {
             // 1. Definisci la directory di output (usiamo la temp directory del sistema + una sottocartella)
             //Path outputDirectory = Paths.get(System.getProperty("java.io.tmpdir"), "batch_reports");
             //Path filePath = outputDirectory.resolve(filename);
