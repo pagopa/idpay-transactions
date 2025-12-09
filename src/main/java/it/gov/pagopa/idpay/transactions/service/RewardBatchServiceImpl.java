@@ -517,7 +517,14 @@ private String buildBatchName(YearMonth month) {
                                     log.error("Critical error while generating CSV for batch {}", rewardBatchId, e);
                                     return Mono.empty();
                                 })
-                                .thenReturn(savedBatch)
+                                .flatMap(filename -> {
+                                    // Passo 1: Aggiorna il filename su savedBatch
+                                    savedBatch.setFilename(filename);
+                                    log.info("Updated batch {} with filename: {}", rewardBatchId, filename);
+
+                                    // Passo 2: Salva il batch aggiornato nel DB (ipotizzando che il repository restituisca Mono<RewardBatch>)
+                                    return rewardBatchRepository.save(savedBatch);
+                                })
                 );
     }
 
@@ -688,7 +695,8 @@ private String buildBatchName(YearMonth month) {
                 });
     }
 
-        public Mono<Void> generateAndSaveCsv(String rewardBatchId, String initiativeId) {
+    @Override
+        public Mono<String> generateAndSaveCsv(String rewardBatchId, String initiativeId) {
 
             log.info("[GENERATE_AND_SAVE_CSV] Generate CSV for initiative {} and batch {}",
                     Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(rewardBatchId) );
@@ -718,7 +726,7 @@ private String buildBatchName(YearMonth month) {
                         return saveCsvToLocalFile(filename, csvContent);
                     })
                     .doOnTerminate(() -> log.info("CSV generation has been completed for batch: {}", Utilities.sanitizeString(rewardBatchId)))
-            .then();
+                    .map(absolutePath -> filename);
         }
 
         private String mapTransactionToCsvRow(RewardTransaction trx, String initiativeId) {

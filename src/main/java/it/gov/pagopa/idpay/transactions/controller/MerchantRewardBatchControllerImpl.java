@@ -86,7 +86,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
-  public  Mono<Void> generateAndSaveCsv(String initiativeId, String rewardBatchId) {
+  public  Mono<String> generateAndSaveCsv(String initiativeId, String rewardBatchId) {
     log.info("[GENERATE_AND_SAVE_CSV] Generate CSV for initiative {} and batch {}",
             Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(rewardBatchId) );
     return rewardBatchService.generateAndSaveCsv(rewardBatchId, initiativeId);
