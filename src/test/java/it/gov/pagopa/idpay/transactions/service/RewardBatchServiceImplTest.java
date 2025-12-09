@@ -212,6 +212,41 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
+    void testGenerateAndSaveCsv_InvalidBatchId_ThrowsError() {
+        String invalidBatchId1 = "batch_id/../secret";
+
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(invalidBatchId1, INITIATIVE_ID))
+                .expectErrorSatisfies(throwable ->
+                        org.assertj.core.api.Assertions.assertThat(throwable)
+                                .isInstanceOf(IllegalArgumentException.class)
+                                .hasMessageContaining("Invalid batch id for CSV file generation")
+                )
+                .verify();
+
+        String invalidBatchId2 = "batch_id/other";
+
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(invalidBatchId2, INITIATIVE_ID))
+                .expectErrorSatisfies(throwable ->
+                        org.assertj.core.api.Assertions.assertThat(throwable)
+                                .isInstanceOf(IllegalArgumentException.class)
+                                .hasMessageContaining("Invalid batch id for CSV file generation")
+                )
+                .verify();
+
+        String invalidBatchId3 = "batch_id\\other";
+
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(invalidBatchId3, INITIATIVE_ID))
+                .expectErrorSatisfies(throwable ->
+                        org.assertj.core.api.Assertions.assertThat(throwable)
+                                .isInstanceOf(IllegalArgumentException.class)
+                                .hasMessageContaining("Invalid batch id for CSV file generation")
+                )
+                .verify();
+
+        verify(rewardTransactionRepository, never()).findByFilter(any(), any(), anyList());
+        verify(rewardBatchServiceSpy, never()).saveCsvToLocalFile(anyString(), anyString());
+    }
+    @Test
     void createRewardBatchAndSave_Success_NewBatchCreated() {
 
         REWARD_BATCH_1.setMonth(CURRENT_MONTH);
