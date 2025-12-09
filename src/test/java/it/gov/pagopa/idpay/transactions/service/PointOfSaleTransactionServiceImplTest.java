@@ -14,13 +14,14 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
-import it.gov.pagopa.idpay.transactions.model.counters.RewardCounters;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,6 +64,9 @@ class PointOfSaleTransactionServiceImplTest {
     @Mock
     private RewardBatchService rewardBatchService;
 
+    @Mock
+    private RewardBatchRepository rewardBatchRepository;
+
     private PointOfSaleTransactionService pointOfSaleTransactionService;
 
     private final Pageable pageable = PageRequest.of(0, 10);
@@ -81,9 +85,9 @@ class PointOfSaleTransactionServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        Mockito.reset(rewardTransactionRepository, invoiceStorageClient, userRestClient, rewardBatchService);
+        Mockito.reset(rewardTransactionRepository, invoiceStorageClient, userRestClient, rewardBatchService, rewardBatchRepository);
         pointOfSaleTransactionService = new PointOfSaleTransactionServiceImpl(
-                userRestClient, rewardTransactionRepository, invoiceStorageClient, rewardBatchService);
+                userRestClient, rewardTransactionRepository, invoiceStorageClient, rewardBatchService, rewardBatchRepository);
     }
 
     @Test
@@ -414,6 +418,7 @@ class PointOfSaleTransactionServiceImplTest {
 
         RewardBatch newBatch = new RewardBatch();
         newBatch.setId("NEW_BATCH_ID");
+        newBatch.setStatus(RewardBatchStatus.CREATED);
 
         when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
@@ -431,6 +436,8 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardBatchService.incrementTotals(eq("NEW_BATCH_ID"), eq(1000L)))
                 .thenReturn(Mono.empty());
         when(rewardTransactionRepository.save(any(RewardTransaction.class))).thenReturn(Mono.just(trx));
+
+        when(rewardBatchRepository.findRewardBatchById(anyString())).thenReturn(Mono.just(newBatch));
 
         Mono<Void> result = pointOfSaleTransactionService.updateInvoiceTransaction(
                 TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, NEW_DOC_NUMBER);
