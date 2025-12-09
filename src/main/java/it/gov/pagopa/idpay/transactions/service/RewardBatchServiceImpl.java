@@ -693,8 +693,14 @@ private String buildBatchName(YearMonth month) {
             log.info("[GENERATE_AND_SAVE_CSV] Generate CSV for initiative {} and batch {}",
                     Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(rewardBatchId) );
 
+            // Validate rewardBatchId to prevent path traversal or injection attacks
+            if (rewardBatchId.contains("..") || rewardBatchId.contains("/") || rewardBatchId.contains("\\"))
+            {
+                log.error("Invalid rewardBatchId for CSV filename: {}", rewardBatchId);
+                return Mono.error(new IllegalArgumentException("Invalid batch id for CSV file generation"));
+            }
             String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-            String filename = "report_" + rewardBatchId + "_" + timestamp + ".csv";
+            String filename = "report_" + Utilities.sanitizeString(rewardBatchId) + "_" + timestamp + ".csv";
 
             List<RewardBatchTrxStatus> statusList = new ArrayList<>();
             statusList.add(RewardBatchTrxStatus.APPROVED);
@@ -711,7 +717,7 @@ private String buildBatchName(YearMonth month) {
                     .flatMap(csvContent -> {
                         return saveCsvToLocalFile(filename, csvContent);
                     })
-                    .doOnTerminate(() -> log.info("CSV generation has been completed for batch: {}", rewardBatchId))
+                    .doOnTerminate(() -> log.info("CSV generation has been completed for batch: {}", Utilities.sanitizeString(rewardBatchId)))
             .then();
         }
 
