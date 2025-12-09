@@ -29,6 +29,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
@@ -58,6 +59,39 @@ class MerchantRewardBatchControllerImplTest {
 
     private static final List<String> BATCH_IDS = Arrays.asList(REWARD_BATCH_ID_1, REWARD_BATCH_ID_2);
 
+    @Test
+    void generateAndSaveCsv_Success_Accepted() {
+        when(rewardBatchService.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID))
+                .thenReturn(Mono.empty());
+
+        webClient.put()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/generateAndSaveCsv",
+                        INITIATIVE_ID, REWARD_BATCH_ID_1)
+                .contentType(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().isEmpty();
+
+        verify(rewardBatchService).generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID);
+    }
+
+    @Test
+    void generateAndSaveCsv_ServiceFails_InternalServerError() {
+
+        RuntimeException serviceException = new RuntimeException();
+        when(rewardBatchService.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID))
+                .thenReturn(Mono.error(serviceException));
+
+        webClient.put()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/generateAndSaveCsv",
+                        INITIATIVE_ID, REWARD_BATCH_ID_1)
+                .contentType(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().is5xxServerError()
+                .expectBody();
+
+        verify(rewardBatchService).generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID);
+    }
 
     @Test
     void rewardBatchConfirmationBatch_WithValidList() {
