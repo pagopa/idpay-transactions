@@ -36,6 +36,7 @@ import java.time.YearMonth;
 import static it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus.CREATED;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_ALREADY_SENT;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.TRANSACTION_MISSING_INVOICE;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.TRANSACTION_NOT_FOUND;
 
 @Service
 @Slf4j
@@ -165,7 +166,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
             Mono<Void> batchCheck = Mono.empty();
             if (rewardbatchId != null) {
               batchCheck = rewardBatchRepository.findRewardBatchById(rewardbatchId)
-                  .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
+                  .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_NOT_FOUND)))
                   .flatMap(rewardBatch -> {
                     if (!CREATED.equals(rewardBatch.getStatus())) {
                       return Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_ALREADY_SENT));
