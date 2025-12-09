@@ -8,18 +8,20 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @WebFluxTest(controllers = {TransactionsController.class})
 class TransactionsControllerImplTest {
-    @MockBean
+    @MockitoBean
     RewardTransactionService rewardTransactionService;
 
     @Autowired
@@ -199,5 +201,75 @@ class TransactionsControllerImplTest {
                 .expectBodyList(RewardTransaction.class).contains(rt);
         Mockito.verify(rewardTransactionService, Mockito.times(1)).findByIdTrxIssuer(Mockito.eq("idTrxIssuer2"), Mockito.any(), Mockito.any(),Mockito.any(),Mockito.any(),Mockito.eq(expectedPageable2));
 
+    }
+
+  @Test
+  void findByInitiativeIdAndUserId_Ok() {
+    LocalDateTime now = LocalDateTime.of(2022, 9, 20, 13, 15,45);
+
+    RewardTransaction rt = RewardTransaction.builder()
+        .idTrxIssuer("IDTRXISSUER")
+            .initiatives(List.of("ID"))
+        .userId("USERID")
+        .trxDate(now)
+        .amountCents(3000L).build();
+
+
+    Mockito.when(rewardTransactionService.findByInitiativeIdAndUserId("ID","USERID"))
+        .thenReturn(Flux.just(rt));
+
+    webClient.get()
+        .uri(uriBuilder -> uriBuilder.path("/idpay/transactions/ID/USERID")
+            .build())
+        .exchange()
+        .expectStatus().isOk()
+        .expectBodyList(RewardTransaction.class).contains(rt);
+
+  }
+
+    @Test
+    void cleanupInvoicedTransactions_defaultChunkSize() {
+        Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(Mockito.anyInt(),
+            Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
+            .thenReturn(Mono.empty());
+
+        webClient.post()
+            .uri("/idpay/transactions/cleanup")
+            .exchange()
+            .expectStatus().isAccepted()
+            .expectBody(String.class);
+
+        Mockito.verify(rewardTransactionService, Mockito.times(1))
+            .assignInvoicedTransactionsToBatches(
+                Mockito.eq(200),
+                Mockito.eq(1),
+                Mockito.eq(false),
+                Mockito.isNull());
+    }
+
+    @Test
+    void cleanupInvoicedTransactions_customChunkSize() {
+        Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(Mockito.anyInt(),
+                Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
+            .thenReturn(Mono.empty());
+
+        int customChunkSize = 500;
+        int customIteration = 10;
+
+        webClient.post()
+            .uri(uriBuilder -> uriBuilder.path("/idpay/transactions/cleanup")
+                .queryParam("chunkSize", customChunkSize)
+                .queryParam("repetitionsNumber", customIteration)
+                .build())
+            .exchange()
+            .expectStatus().isAccepted()
+            .expectBody(String.class);
+
+        Mockito.verify(rewardTransactionService, Mockito.times(1))
+            .assignInvoicedTransactionsToBatches(
+                Mockito.eq(customChunkSize),
+                Mockito.eq(customIteration), Mockito.eq(false),
+                Mockito.isNull()
+            );
     }
 }

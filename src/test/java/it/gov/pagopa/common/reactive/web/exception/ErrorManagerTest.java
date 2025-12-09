@@ -1,5 +1,8 @@
 package it.gov.pagopa.common.reactive.web.exception;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.IThrowableProxy;
@@ -10,6 +13,8 @@ import it.gov.pagopa.common.web.exception.ClientException;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.ErrorManager;
+import it.gov.pagopa.common.web.exception.RewardBatchException;
+import it.gov.pagopa.common.web.exception.ServiceException;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -20,9 +25,9 @@ import org.mockito.Mockito;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
-import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,7 +41,7 @@ import java.util.regex.Pattern;
 @WebFluxTest
 public class ErrorManagerTest {
 
-    @SpyBean
+    @MockitoSpyBean
     private TestController testController;
 
     @RestController
@@ -164,6 +169,29 @@ public class ErrorManagerTest {
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDefault);
     }
 
+    @Test
+    void handleExceptionRewardBatchException() {
+        RewardBatchException ex = new RewardBatchException(HttpStatus.BAD_REQUEST, "RB_ERROR");
+
+        Mockito.doThrow(ex)
+            .when(testController).testEndpoint();
+
+        ErrorDTO expected = new ErrorDTO("RB_ERROR", "RB_ERROR");
+
+        webTestClient.get()
+            .uri("/test")
+            .exchange()
+            .expectStatus().isBadRequest()
+            .expectHeader().contentType("application/json")
+            .expectBody(ErrorDTO.class).isEqualTo(expected);
+
+        String loggedMessage = memoryAppender.getLoggedEvents().get(0).getFormattedMessage();
+        Assertions.assertTrue(
+            loggedMessage.contains("Something went wrong handling request"),
+            "Unexpected log message: " + loggedMessage
+        );
+    }
+
     public static void checkStackTraceSuppressedLog(MemoryAppender memoryAppender, String expectedLoggedMessage) {
         String loggedMessage = memoryAppender.getLoggedEvents().get(0).getFormattedMessage();
         Assertions.assertTrue(Pattern.matches(expectedLoggedMessage, loggedMessage),
@@ -180,10 +208,23 @@ public class ErrorManagerTest {
                         loggedEvent.getFormattedMessage()),
                 "Unexpected logged message: " + loggedMessage);
 
-        Assertions.assertEquals(expectedLoggedExceptionMessage,
+        assertEquals(expectedLoggedExceptionMessage,
                 loggedException.getClassName() + ": " + loggedException.getMessage());
 
-        Assertions.assertEquals(expectedLoggedExceptionOccurrencePosition,
+        assertEquals(expectedLoggedExceptionOccurrencePosition,
                 loggedExceptionOccurrenceStackTrace.getStackTraceElement().getClassName() + "." + loggedExceptionOccurrenceStackTrace.getStackTraceElement().getMethodName());
     }
+
+  @Test
+  void shouldCreateServiceExceptionWithDefaultValues() {
+    String code = "TEST_CODE";
+    String message = "Test message";
+
+    ServiceException ex = new ServiceException(code, message);
+
+    assertEquals(code, ex.getCode());
+    assertEquals(message, ex.getMessage());
+    assertFalse(ex.isPrintStackTrace());
+    assertNull(ex.getCause());
+  }
 }

@@ -4,8 +4,10 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import reactor.core.publisher.Flux;
@@ -36,9 +38,17 @@ public interface TransactionsController {
             @PageableDefault(size = 2000) Pageable pageable
     );
 
-    @GetMapping("/{trxId}/{userId}")
-    Mono<RewardTransaction> findByTrxIdAndUserId(
-            @PathVariable(value = "trxId") String trxId,
+    @GetMapping("/{initiativeId}/{userId}")
+    Flux<RewardTransaction> findByInitiativeIdAndUserId(
+            @PathVariable(value = "initiativeId") String initiativeId,
             @PathVariable(value = "userId") String userId
+    );
+
+    @PostMapping("/cleanup")
+    ResponseEntity<String> cleanupInvoicedTransactions(
+        @RequestParam(defaultValue = "200") Integer chunkSize,
+        @RequestParam(defaultValue = "1") Integer repetitionsNumber,
+        @RequestParam(defaultValue = "false") boolean processAll,
+        @RequestParam(required = false) String trxId
     );
 }

@@ -3,22 +3,25 @@ package it.gov.pagopa.idpay.transactions.repository;
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_NAME;
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
 
+import com.mongodb.client.result.UpdateResult;
+import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
+import it.gov.pagopa.idpay.transactions.service.RewardBatchServiceImpl;
 import it.gov.pagopa.idpay.transactions.utils.AggregationConstants;
-import java.util.Optional;
-
-import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.ComparisonOperators;
 import org.springframework.data.mongodb.core.aggregation.ConditionalOperators;
+import org.springframework.data.mongodb.core.aggregation.MatchOperation;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -26,9 +29,12 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.regex.Pattern;
 
 @Slf4j
-public class RewardTransactionSpecificRepositoryImpl implements RewardTransactionSpecificRepository{
+public class RewardTransactionSpecificRepositoryImpl implements RewardTransactionSpecificRepository {
     private final ReactiveMongoTemplate mongoTemplate;
 
     public RewardTransactionSpecificRepositoryImpl(ReactiveMongoTemplate mongoTemplate) {
@@ -87,9 +93,15 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         return pageable;
     }
 
-    private Criteria getCriteria(String merchantId, String initiativeId, String pointOfSaleId, String userId, String status, String productGtin) {
-        Criteria criteria = Criteria.where(RewardTransaction.Fields.merchantId).is(merchantId)
-                .and(RewardTransaction.Fields.initiatives).is(initiativeId);
+    private Criteria getCriteria(TrxFiltersDTO filters,
+                                 String pointOfSaleId,
+                                 String userId,
+                                 String productGtin,
+                                 boolean includeToCheckWithConsultable) {
+
+        Criteria criteria = Criteria.where(RewardTransaction.Fields.merchantId).is(filters.getMerchantId())
+                .and(RewardTransaction.Fields.initiatives).is(filters.getInitiativeId());
+
         if (userId != null) {
             criteria.and(RewardTransaction.Fields.userId).is(userId);
         }
@@ -97,26 +109,57 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
             criteria.and(Fields.pointOfSaleId).is(pointOfSaleId);
         }
         if (StringUtils.isNotBlank(productGtin)) {
-          criteria.and(AggregationConstants.FIELD_PRODUCT_GTIN)
-              .regex(".*" + Pattern.quote(productGtin) + ".*", "i");
+            criteria.and(AggregationConstants.FIELD_PRODUCT_GTIN)
+                    .regex(".*" + Pattern.quote(productGtin) + ".*", "i");
         }
-        if (StringUtils.isNotBlank(status)) {
-            criteria.and(RewardTransaction.Fields.status).is(status);
+
+        if (StringUtils.isNotBlank(filters.getStatus())) {
+            criteria.and(RewardTransaction.Fields.status).is(filters.getStatus());
         } else {
-            criteria.and(RewardTransaction.Fields.status).in("CANCELLED", "REWARDED", "REFUNDED", "INVOICED");
+            criteria.and(RewardTransaction.Fields.status)
+                    .in("CANCELLED", "REWARDED", "REFUNDED", "INVOICED");
         }
+
+        if (filters.getRewardBatchId() != null) {
+            criteria.and(Fields.rewardBatchId).is(filters.getRewardBatchId());
+        }
+
+        if (filters.getRewardBatchTrxStatus() != null) {
+            if (includeToCheckWithConsultable
+                    && filters.getRewardBatchTrxStatus() == RewardBatchTrxStatus.CONSULTABLE) {
+
+                criteria.and(Fields.rewardBatchTrxStatus)
+                        .in(RewardBatchTrxStatus.CONSULTABLE.name(),
+                                RewardBatchTrxStatus.TO_CHECK.name());
+
+            } else {
+                criteria.and(Fields.rewardBatchTrxStatus)
+                        .is(filters.getRewardBatchTrxStatus().name());
+            }
+        }
+
         return criteria;
     }
 
+
     @Override
-    public Flux<RewardTransaction> findByFilter(String merchantId, String initiativeId, String userId, String status, Pageable pageable){
-        Criteria criteria = getCriteria(merchantId, initiativeId, null, userId, status, null);
+    public Flux<RewardTransaction> findByFilter(TrxFiltersDTO filters,
+                                                String userId,
+                                                boolean includeToCheckWithConsultable,
+                                                Pageable pageable) {
+        Criteria criteria = getCriteria(filters, filters.getPointOfSaleId(), userId, null, includeToCheckWithConsultable);
         return mongoTemplate.find(Query.query(criteria).with(getPageable(pageable)), RewardTransaction.class);
     }
 
     @Override
-    public Flux<RewardTransaction> findByFilterTrx(String merchantId, String initiativeId, String pointOfSaleId, String userId, String productGtin, String status, Pageable pageable){
-        Criteria criteria = getCriteria(merchantId, initiativeId, pointOfSaleId, userId, status, productGtin);
+    public Flux<RewardTransaction> findByFilterTrx(TrxFiltersDTO filters,
+                                                   String pointOfSaleId,
+                                                   String userId,
+                                                   String productGtin,
+                                                   boolean includeToCheckWithConsultable,
+                                                   Pageable pageable) {
+
+        Criteria criteria = getCriteria(filters, pointOfSaleId, userId, productGtin, includeToCheckWithConsultable);
 
         Pageable mappedPageable = mapSort(pageable);
 
@@ -126,10 +169,24 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
             return mongoTemplate.aggregate(aggregation, RewardTransaction.class, RewardTransaction.class);
         } else {
             return mongoTemplate.find(
-                Query.query(criteria).with(getPageableTrx(mappedPageable)),
-                RewardTransaction.class);
+                    Query.query(criteria).with(getPageableTrx(mappedPageable)),
+                    RewardTransaction.class
+            );
         }
     }
+
+
+    @Override
+    public Flux<RewardTransaction> findByFilter(String rewardBatchId, String initiativeId, List<RewardBatchTrxStatus> statusList) {
+        Criteria criteria = getCriteria(rewardBatchId, initiativeId, statusList);
+        return mongoTemplate.find(Query.query(criteria), RewardTransaction.class);
+    }
+    private Criteria getCriteria(String rewardBatchId, String initiativeId, List<RewardBatchTrxStatus> statusList) {
+        return Criteria.where(RewardTransaction.Fields.rewardBatchId).is(rewardBatchId)
+                .and(RewardTransaction.Fields.initiatives).is(initiativeId)
+                .and(Fields.rewardBatchTrxStatus).in(statusList);
+    }
+
 
     @Override
     public Mono<RewardTransaction> findTransaction(
@@ -180,10 +237,10 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                 .addField("statusRank")
                 .withValue(
                     ConditionalOperators.switchCases(
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("CANCELLED")).then(1), //ANNULLATO
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("INVOICED")).then(2),  //PRESO IN CARICO
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REWARDED")).then(3),  //RIMBORSO RICHIESTO
-                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REFUNDED")).then(4)   //STORNATO
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("CANCELLED")).then(1),
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("INVOICED")).then(2),
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REWARDED")).then(3),
+                        ConditionalOperators.Switch.CaseOperator.when(ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REFUNDED")).then(4)
                     ).defaultTo(99)
                 ).build(),
             Aggregation.match(criteria),
@@ -200,16 +257,24 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Mono<Long> getCount(String merchantId, String initiativeId, String pointOfSaleId, String productGtin, String userId, String status) {
-        Criteria criteria = getCriteria(merchantId, initiativeId, pointOfSaleId, userId, status, productGtin);
+    public Mono<Long> getCount(TrxFiltersDTO filters,
+                               String pointOfSaleId,
+                               String productGtin,
+                               String userId,
+                               boolean includeToCheckWithConsultable) {
 
+        Criteria criteria = getCriteria(filters, pointOfSaleId, userId, productGtin, includeToCheckWithConsultable);
         return mongoTemplate.count(Query.query(criteria), RewardTransaction.class);
     }
 
     @Override
     public Mono<RewardTransaction> findOneByInitiativeId(String initiativeId) {
-        Criteria criteria = Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId);
+        Criteria criteria = getCriteria(initiativeId);
         return mongoTemplate.findOne(Query.query(criteria), RewardTransaction.class);
+    }
+
+    private static Criteria getCriteria(String initiativeId) {
+        return Criteria.where(Fields.initiatives).is(initiativeId);
     }
 
     @Override
@@ -231,12 +296,133 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Mono<RewardTransaction> findByTrxIdAndUserId(String trxId, String userId) {
-        Criteria criteria = Criteria.where(RewardTransaction.Fields.id).is(trxId);
-        criteria.and(RewardTransaction.Fields.userId).is(userId);
 
-        return mongoTemplate.findOne(
+    public Flux<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId) {
+        Criteria criteria = Criteria.where(RewardTransaction.Fields.userId).is(userId)
+                .and(Fields.initiatives).in(initiativeId);
+
+        return mongoTemplate.find(Query.query(criteria), RewardTransaction.class);
+    }
+
+
+    @Override
+    public Mono<Void> rewardTransactionsByBatchId(String batchId) {
+        Criteria batchCriteria = Criteria.where(Fields.rewardBatchId).is(batchId);
+
+        Mono<Long> totalMono = mongoTemplate.updateMulti(
+                        Query.query(batchCriteria),
+                        new Update().set(Fields.status, SyncTrxStatus.REWARDED),
+                        RewardTransaction.class
+                )
+                .map(UpdateResult::getModifiedCount);
+
+        return totalMono
+                .filter(total -> total > 0)
+                .flatMap(total -> {
+                    int toVerify = (int) Math.ceil(total * 0.15);
+
+                    Query sampleQuery = Query.query(batchCriteria);
+                    sampleQuery.with(Sort.by(Sort.Direction.ASC, Fields.samplingKey));
+                    sampleQuery.limit(toVerify);
+                    sampleQuery.fields().include(Fields.id);
+
+                    Mono<List<String>> idsToVerifyMono = mongoTemplate
+                            .find(sampleQuery, RewardTransaction.class)
+                            .map(RewardTransaction::getId)
+                            .collectList();
+
+                   return idsToVerifyMono
+                            .filter(ids -> !ids.isEmpty())
+                            .flatMap(idsToVerify -> {
+                                Criteria toVerifyCriteria = Criteria.where(Fields.id).in(idsToVerify);
+
+                                return mongoTemplate.updateMulti(
+                                                Query.query(toVerifyCriteria),
+                                                new Update().set(Fields.rewardBatchTrxStatus, RewardBatchTrxStatus.TO_CHECK),
+                                                RewardTransaction.class
+                                        )
+                                        .then();
+                            });
+                })
+                .then();
+    }
+
+    @Override
+    public Mono<Long> sumSuspendedAccruedRewardCents(String rewardBatchId, List<String> transactionIds, String initiativeId) {
+
+        MatchOperation match = Aggregation.match(
+                Criteria.where("rewardBatchId").is(rewardBatchId)
+                        .and("id").in(transactionIds)
+                        .and("rewardBatchTrxStatus").is(RewardBatchTrxStatus.SUSPENDED)
+        );
+
+        Aggregation agg = Aggregation.newAggregation(
+                match,
+                Aggregation.project().andExpression("objectToArray(rewards)").as("rewardsArray"),
+                Aggregation.unwind("rewardsArray"),
+                Aggregation.match(Criteria.where("rewardsArray.k").is(initiativeId)),
+                Aggregation.group().sum("rewardsArray.v.accruedRewardCents").as("total")
+        );
+
+        return mongoTemplate
+                .aggregate(agg, RewardTransaction.class, RewardBatchServiceImpl.TotalAmount.class)
+                .next()
+                .map(RewardBatchServiceImpl.TotalAmount::getTotal)
+                .defaultIfEmpty(0L);
+    }
+
+
+    @Override
+    public Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus status, String reason) {
+        Criteria criteria = Criteria.where(Fields.id).is(trxId)
+                .and(Fields.rewardBatchId).is(batchId);
+
+        Update update = new Update()
+                .set(Fields.rewardBatchTrxStatus, status);
+
+        if(reason != null){
+            update.set(RewardTransaction.Fields.rewardBatchRejectionReason, reason);
+        } else {
+            update.unset(RewardTransaction.Fields.rewardBatchRejectionReason);
+        }
+
+        return mongoTemplate.findAndModify(
                 Query.query(criteria),
-                RewardTransaction.class);
+                update,
+                FindAndModifyOptions.options()
+                        .returnNew(false)
+                        .upsert(false),
+                RewardTransaction.class
+        ).flatMap(trx -> {
+            if (trx == null){
+                log.info("Transaction not found for id {} and reward batch {}", trxId, batchId);
+                return Mono.empty();
+            }
+            return Mono.just(trx);
+        });
+    }
+
+    @Override
+    public Flux<RewardTransaction> findInvoicedTransactionsWithoutBatch(int pageSize) {
+        Pageable pageable = PageRequest.of(0, pageSize);
+
+        Criteria criteria = Criteria
+            .where(Fields.status).is(SyncTrxStatus.INVOICED)
+            .and(Fields.rewardBatchId).isNull();
+
+        Query query = Query.query(criteria).with(pageable);
+
+        return mongoTemplate.find(query, RewardTransaction.class);
+    }
+
+    @Override
+    public Mono<RewardTransaction> findInvoicedTrxByIdWithoutBatch(String trxId) {
+        Criteria criteria = Criteria.where(Fields.id).is(trxId)
+            .and(Fields.status).is(SyncTrxStatus.INVOICED)
+            .and(Fields.rewardBatchId).isNull();
+
+        Query query = Query.query(criteria);
+
+        return Mono.from(mongoTemplate.findOne(query, RewardTransaction.class));
     }
 }

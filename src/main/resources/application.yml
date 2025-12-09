@@ -31,6 +31,8 @@ spring:
   config:
     activate:
       on-profile: default
+  cache:
+    type: redis
   cloud:
     function:
       definition: rewardTrxConsumer;errors;consumerCommands
@@ -126,9 +128,11 @@ spring:
                   max.ms: ${KAFKA_COMMANDS_CONNECTION_TIMEOUT_MAX_MS:${KAFKA_CONSUMER_CONFIG_CONNECTION_TIMEOUT_MAX_MS:200000}}
                   ms: ${KAFKA_COMMANDS_CONNECTION_TIMEOUT_MS:${KAFKA_CONSUMER_CONFIG_CONNECTION_TIMEOUT_MS:100000}}
   data:
+    redis:
+      url: ${REDIS_CONNECTION_URL:redis://@localhost:6379}
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017}
-      database: ${MONGODB_DBNAME:idpay}
+      database: ${MONGODB_DBNAME:idpay-pagamenti}
       # custom configured properties
       config:
         connectionPool:
@@ -141,6 +145,7 @@ spring:
 
 management:
   health:
+    redis.enabled: ${REDIS_CACHE_ENABLED:false}
     mongo.enabled: ${HEALTH_MONGO_ENABLED:true}
   endpoint:
     health:
@@ -188,6 +193,11 @@ app:
     retry:
       delay-millis: ${PDV_RETRY_DELAY_MILLIS:2000}
       max-attempts: ${PDV_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:10}}
+  merchant:
+    base-url: ${MERCHANT_BASE_URL:http://idpay-merchant}
+    retry:
+      delay-millis: ${MERCHANT_RETRY_DELAY_MILLIS:2000}
+      max-attempts: ${MERCHANT_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:10}}
   web-client:
     connect.timeout.millis: ${CONNECT_TIMEOUT_MILLIS:10000}
     response.timeout: ${RESPONSE_TIMEOUT:60000}
@@ -196,3 +206,8 @@ app:
   delete:
     paginationSize: ${DELETE_PAGINATION_SIZE:45}
     delayTime: ${DELETE_DELAY_TIME:1000}
+  sampling: ${SAMPLING_HASH_SEED:15121984}
+  transactions:
+    reward-batch:
+      to-evaluating:
+        schedule: ${SCHEDULE_REWARD_BATCH_TO_EVALUATING:0 0 1 * * ?} # each day at 01:00AM

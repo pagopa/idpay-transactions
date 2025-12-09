@@ -67,6 +67,9 @@ public class RewardTransactionMapper {
             rewardTrx.setInvoiceData(rewardTrxDto.getInvoiceData());
             rewardTrx.setCreditNoteData(rewardTrxDto.getCreditNoteData());
             rewardTrx.setTrxCode((rewardTrxDto.getTrxCode()));
+            rewardTrx.setFranchiseName((rewardTrxDto.getFranchiseName()));
+            rewardTrx.setPointOfSaleType(rewardTrxDto.getPointOfSaleType());
+            rewardTrx.setBusinessName(rewardTrxDto.getBusinessName());
             if(SyncTrxStatus.INVOICED.name().equals(rewardTrxDto.getStatus())){
               rewardTrx.setInvoiceUploadDate(rewardTrxDto.getUpdateDate());
             }

@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.dto;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
+import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.model.RefundInfo;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import lombok.AllArgsConstructor;
@@ -69,6 +70,9 @@ public class RewardTransactionDTO {
     private InvoiceData invoiceData;
     private InvoiceData creditNoteData;
     private String trxCode;
+    private String franchiseName;
+    private PosType pointOfSaleType;
+    private String businessName;
     private LocalDateTime updateDate;
 
     private Boolean extendedAuthorization;
