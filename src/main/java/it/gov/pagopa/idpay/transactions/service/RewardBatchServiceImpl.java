@@ -514,15 +514,12 @@ private String buildBatchName(YearMonth month) {
                 .flatMap(savedBatch ->
                         this.generateAndSaveCsv(rewardBatchId, initiativeId)
                                 .onErrorResume(e -> {
-                                    log.error("Critical error while generating CSV for batch {}", rewardBatchId, e);
+                                    log.error("Critical error while generating CSV for batch {}", Utilities.sanitizeString(rewardBatchId), e);
                                     return Mono.empty();
                                 })
                                 .flatMap(filename -> {
-                                    // Passo 1: Aggiorna il filename su savedBatch
                                     savedBatch.setFilename(filename);
-                                    log.info("Updated batch {} with filename: {}", rewardBatchId, filename);
-
-                                    // Passo 2: Salva il batch aggiornato nel DB (ipotizzando che il repository restituisca Mono<RewardBatch>)
+                                    log.info("Updated batch {} with filename: {}", Utilities.sanitizeString(rewardBatchId), filename);
                                     return rewardBatchRepository.save(savedBatch);
                                 })
                 );
@@ -704,7 +701,7 @@ private String buildBatchName(YearMonth month) {
             // Validate rewardBatchId to prevent path traversal or injection attacks
             if (rewardBatchId.contains("..") || rewardBatchId.contains("/") || rewardBatchId.contains("\\"))
             {
-                log.error("Invalid rewardBatchId for CSV filename: {}", rewardBatchId);
+                log.error("Invalid rewardBatchId for CSV filename: {}", Utilities.sanitizeString(rewardBatchId));
                 return Mono.error(new IllegalArgumentException("Invalid batch id for CSV file generation"));
             }
             String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
