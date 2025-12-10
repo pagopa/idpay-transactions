@@ -1,8 +1,10 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
+import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
@@ -12,6 +14,7 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.storage.CsvStorageClient;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.Data;
@@ -36,7 +39,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT;
 
 @Service
@@ -47,12 +50,13 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   private final RewardBatchRepository rewardBatchRepository;
   private final RewardTransactionRepository rewardTransactionRepository;
   private static final Set<String> OPERATORS = Set.of("operator1", "operator2", "operator3");
+    private final CsvStorageClient csvStorageClient;
 
 
-  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository,
-                                RewardTransactionRepository rewardTransactionRepository) {
+  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, CsvStorageClient csvStorageClient) {
     this.rewardBatchRepository = rewardBatchRepository;
     this.rewardTransactionRepository = rewardTransactionRepository;
+    this.csvStorageClient = csvStorageClient;
   }
 
   @Override
@@ -341,7 +345,55 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                         log.info("[EVALUATING_REWARD_BATCH] Completed evaluation. Total batches processed: {}", count));
     }
 
-private String buildBatchName(YearMonth month) {
+    @Override
+    public Mono<DownloadInvoiceResponseDTO> downloadApprovedRewardBatchFile(
+            String merchantId, String initiativeId, String rewardBatchId) {
+
+        return rewardBatchRepository.findById(rewardBatchId)
+                .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
+                        HttpStatus.BAD_REQUEST,
+                        REWARD_BATCH_NOT_FOUND
+                )))
+                .map(rewardBatch -> {
+
+                    if (!merchantId.equals(rewardBatch.getMerchantId())) {
+                        throw new ClientExceptionNoBody(
+                                HttpStatus.FORBIDDEN,
+                                REWARD_BATCH_INVALID_MERCHANT
+                        );
+                    }
+
+                    if (!RewardBatchStatus.APPROVED.equals(rewardBatch.getStatus())) {
+                        throw new ClientExceptionNoBody(
+                                HttpStatus.BAD_REQUEST,
+                                REWARD_BATCH_NOT_APPROVED
+                        );
+                    }
+
+
+                    String filename = rewardBatch.getFilename();
+                    if (filename == null || filename.isBlank()) {
+                        throw new ClientExceptionNoBody(
+                                HttpStatus.BAD_REQUEST,
+                                REWARD_BATCH_MISSING_FILENAME
+                        );
+                    }
+
+                    String blobPath = String.format(
+                            "initiative/%s/merchant/%s/batch/%s/%s",
+                            initiativeId,
+                            merchantId,
+                            rewardBatchId,
+                            filename
+                    );
+
+                    return DownloadInvoiceResponseDTO.builder()
+                            .invoiceUrl(csvStorageClient.getCsvFileSignedUrl(blobPath))
+                            .build();
+                });
+    }
+
+    private String buildBatchName(YearMonth month) {
   String monthName = month.getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN);
   String year = String.valueOf(month.getYear());
 
