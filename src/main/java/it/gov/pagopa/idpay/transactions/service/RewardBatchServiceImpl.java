@@ -18,7 +18,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
-import it.gov.pagopa.idpay.transactions.storage.CsvStorageClient;
+import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.Data;
@@ -35,12 +35,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -67,7 +63,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
 
   private static final Set<String> OPERATORS = Set.of("operator1", "operator2", "operator3");
-  private final CsvStorageClient csvStorageClient;
+  private final ApprovedRewardBatchBlobService approvedRewardBatchBlobService;
 
   private static final String CSV_HEADER = String.join(";",
             "Data e ora", "Elettrodomestico", "Codice Fiscale Beneficiario", "ID transazione", "Codice sconto",
@@ -76,12 +72,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             "Fattura", "Stato"
     );
 
- public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository,
-                                  RewardTransactionRepository rewardTransactionRepository,
-                               CsvStorageClient csvStorageClient) {
+  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, ApprovedRewardBatchBlobService approvedRewardBatchBlobService) {
     this.rewardBatchRepository = rewardBatchRepository;
     this.rewardTransactionRepository = rewardTransactionRepository;
-    this.csvStorageClient = csvStorageClient;
+    this.approvedRewardBatchBlobService = approvedRewardBatchBlobService;
   }
 
   @Override
@@ -371,8 +365,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     }
 
     @Override
-    public Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatchFile(
-            String merchantId, String initiativeId, String rewardBatchId) {
+    public Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatchFile(String merchantId, String initiativeId, String rewardBatchId) {
 
         return rewardBatchRepository.findByMerchantIdAndId(merchantId, rewardBatchId)
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
@@ -380,13 +373,6 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                         REWARD_BATCH_NOT_FOUND
                 )))
                 .map(rewardBatch -> {
-
-                    if (!merchantId.equals(rewardBatch.getMerchantId())) {
-                        throw new ClientExceptionNoBody(
-                                HttpStatus.FORBIDDEN,
-                                REWARD_BATCH_INVALID_MERCHANT
-                        );
-                    }
 
                     if (!RewardBatchStatus.APPROVED.equals(rewardBatch.getStatus())) {
                         throw new ClientExceptionNoBody(
@@ -413,7 +399,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                     );
 
                     return DownloadRewardBatchResponseDTO.builder()
-                            .approvedBatchUrl(csvStorageClient.getCsvFileSignedUrl(blobPath))
+                            .approvedBatchUrl(approvedRewardBatchBlobService.getFileSignedUrl(blobPath))
                             .build();
                 });
     }
@@ -813,12 +799,11 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
             );
         }
 
-
     public Mono<String> uploadCsvToBlob(String filename, String csvContent) {
 
         return Mono.fromCallable(() -> {
             InputStream inputStream = new ByteArrayInputStream(csvContent.getBytes(StandardCharsets.UTF_8));
-            Response<BlockBlobItem> response = csvStorageClient.upload(
+            Response<BlockBlobItem> response = approvedRewardBatchBlobService.upload(
                     inputStream,
                     filename,
                     "text/csv; charset=UTF-8"
@@ -835,7 +820,6 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
             return new RuntimeException("Error uploading CSV to Blob Storage.", e);
         });
     }
-
 
 
 
