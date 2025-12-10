@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.azure.core.http.rest.Response;
 import com.azure.storage.blob.models.BlockBlobItem;
+import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
@@ -1999,4 +2000,110 @@ class RewardBatchServiceImplTest {
         verify(rewardBatchRepository, never()).updateStatusAndApprovedAmountCents(any(), any(), any());
 
     }
+
+    @Test
+    void downloadRewardBatch_NotFound() {
+        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectErrorMatches(throwable ->
+                        throwable instanceof ClientExceptionNoBody &&
+                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_NOT_FOUND"))
+                .verify();
+    }
+
+    @Test
+    void downloadRewardBatch_NotApproved() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.EVALUATING)
+                .build();
+
+        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectErrorMatches(throwable ->
+                        throwable instanceof ClientExceptionNoBody &&
+                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_NOT_APPROVED"))
+                .verify();
+    }
+
+    @Test
+    void downloadRewardBatch_MissingFilename() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.APPROVED)
+                .filename("")
+                .build();
+
+        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectErrorMatches(throwable ->
+                        throwable instanceof ClientExceptionNoBody &&
+                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_MISSING_FILENAME"))
+                .verify();
+    }
+
+    @Test
+    void downloadRewardBatch_Success() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.APPROVED)
+                .filename("file.csv")
+                .build();
+
+        String blobPath = String.format("initiative/%s/merchant/%s/batch/%s/%s",
+                INITIATIVE_ID, MERCHANT_ID, REWARD_BATCH_ID_1, batch.getFilename());
+
+        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+        when(approvedRewardBatchBlobService.getFileSignedUrl(blobPath))
+                .thenReturn("signed-url");
+
+        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectNextMatches(response ->
+                        response.getApprovedBatchUrl().equals("signed-url"))
+                .verifyComplete();
+    }
+
+    @Test
+    void downloadRewardBatch_FilenameNull() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.APPROVED)
+                .filename(null)
+                .build();
+
+        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectErrorMatches(throwable ->
+                        throwable instanceof ClientExceptionNoBody &&
+                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_MISSING_FILENAME"))
+                .verify();
+    }
+
+    @Test
+    void downloadRewardBatch_FilenameBlank() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.APPROVED)
+                .filename("   ")
+                .build();
+
+        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectErrorMatches(throwable ->
+                        throwable instanceof ClientExceptionNoBody &&
+                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_MISSING_FILENAME"))
+                .verify();
+    }
+
 }
