@@ -46,5 +46,6 @@ public final class ExceptionConstants {
 
         public static final String ERROR_MESSAGE_PREVIOUS_BATCH_TO_APPROVE = "Is not possible to approve batch %s because there are previous Batch to approve";
         public static final String ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT = "No reward batches found with status SENT";
+        public static final String ERROR_MESSAGE_REWARD_BATCH_ALREADY_SENT = "Reward batch has already been sent";
     }
 }

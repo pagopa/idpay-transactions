@@ -24,6 +24,7 @@ import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -643,7 +644,7 @@ class PointOfSaleTransactionServiceImplTest {
                 throwable instanceof ClientExceptionWithBody &&
                     ((ClientExceptionWithBody) throwable).getHttpStatus() == HttpStatus.BAD_REQUEST &&
                     throwable.getMessage().contains(
-                        it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_ALREADY_SENT
+                        ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_REWARD_BATCH_ALREADY_SENT
                     )
             )
             .verify();
