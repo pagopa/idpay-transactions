@@ -51,5 +51,4 @@ public class RewardBatch {
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime updateDate;
 
-    private String filename;
 }

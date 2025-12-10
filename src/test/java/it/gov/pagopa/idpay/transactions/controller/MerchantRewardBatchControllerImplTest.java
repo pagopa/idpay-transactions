@@ -61,36 +61,36 @@ class MerchantRewardBatchControllerImplTest {
 
     @Test
     void generateAndSaveCsv_Success_Accepted() {
-        when(rewardBatchService.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID))
+        when(rewardBatchService.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
                 .thenReturn(Mono.empty());
 
         webClient.put()
-                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/generateAndSaveCsv",
-                        INITIATIVE_ID, REWARD_BATCH_ID_1)
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/{merchantId}/generateAndSaveCsv",
+                        INITIATIVE_ID, REWARD_BATCH_ID_1, MERCHANT_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody().isEmpty();
 
-        verify(rewardBatchService).generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID);
+        verify(rewardBatchService).generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID);
     }
 
     @Test
     void generateAndSaveCsv_ServiceFails_InternalServerError() {
 
         RuntimeException serviceException = new RuntimeException();
-        when(rewardBatchService.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID))
+        when(rewardBatchService.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
                 .thenReturn(Mono.error(serviceException));
 
         webClient.put()
-                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/generateAndSaveCsv",
-                        INITIATIVE_ID, REWARD_BATCH_ID_1)
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/{merchantId}/generateAndSaveCsv",
+                        INITIATIVE_ID, REWARD_BATCH_ID_1, MERCHANT_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .exchange()
                 .expectStatus().is5xxServerError()
                 .expectBody();
 
-        verify(rewardBatchService).generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID);
+        verify(rewardBatchService).generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID);
     }
 
     @Test
@@ -99,7 +99,7 @@ class MerchantRewardBatchControllerImplTest {
         when(rewardBatchService.rewardBatchConfirmationBatch(INITIATIVE_ID, BATCH_IDS))
                 .thenReturn(Mono.empty());
         webClient.put()
-                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/approved", INITIATIVE_ID) // <--- Aggiorna con l'URI corretto
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/approved", INITIATIVE_ID)
                 .bodyValue(request)
                 .exchange()
                 .expectStatus().isOk()

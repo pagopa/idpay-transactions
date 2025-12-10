@@ -22,6 +22,7 @@ import java.time.YearMonth;
 import java.util.*;
 
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.storage.CsvStorageClient;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,10 +51,13 @@ class RewardBatchServiceImplTest {
   private RewardBatchService rewardBatchService;
   private RewardBatchServiceImpl rewardBatchServiceSpy;
 
+  private CsvStorageClient csvStorageClient;
+
   private static final String BUSINESS_NAME = "Test Business name";
   private static final String REWARD_BATCH_ID_1 = "REWARD_BATCH_ID_1";
     private static final String REWARD_BATCH_ID_2 = "REWARD_BATCH_ID_2";
   private static final String INITIATIVE_ID = "INITIATIVE_ID";
+    private static final String MERCHANT_ID = "MERCHANT_ID";
   private static final  RewardBatch REWARD_BATCH_1 = RewardBatch.builder()
             .id(REWARD_BATCH_ID_1)
             .build();
@@ -80,8 +84,7 @@ class RewardBatchServiceImplTest {
 
   @BeforeEach
   void setUp() {
-    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository,
-        rewardTransactionRepository);
+    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, csvStorageClient);
     rewardBatchServiceSpy = spy((RewardBatchServiceImpl) rewardBatchService);
   }
 
@@ -131,7 +134,7 @@ class RewardBatchServiceImplTest {
             return Mono.just("/fake/path/" + capturedFilename);
         }).when(rewardBatchServiceSpy).saveCsvToLocalFile(anyString(), anyString());
 
-        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID))
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
                 .expectNextMatches(filename -> {
                     emittedFilename[0] = filename;
                     return filename.equals(capturedFilename);
@@ -177,7 +180,7 @@ class RewardBatchServiceImplTest {
             return Mono.just("/fake/path/report.csv");
         }).when(rewardBatchServiceSpy).saveCsvToLocalFile(anyString(), anyString());
 
-        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(REWARD_BATCH_ID_2, INITIATIVE_ID))
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(REWARD_BATCH_ID_2, INITIATIVE_ID, MERCHANT_ID))
                 .expectNextMatches(filename -> {
                     emittedFilename[0] = filename;
                     return filename.equals(capturedFilename);
@@ -199,7 +202,7 @@ class RewardBatchServiceImplTest {
         doReturn(Mono.error(new RuntimeException("Simulated I/O Error")))
                 .when(rewardBatchServiceSpy).saveCsvToLocalFile(anyString(), anyString());
 
-        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID))
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
                 .expectErrorSatisfies(throwable ->
                         org.assertj.core.api.Assertions.assertThat(throwable)
                                 .isInstanceOf(RuntimeException.class)
@@ -215,7 +218,7 @@ class RewardBatchServiceImplTest {
     void testGenerateAndSaveCsv_InvalidBatchId_ThrowsError() {
         String invalidBatchId1 = "batch_id/../secret";
 
-        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(invalidBatchId1, INITIATIVE_ID))
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(invalidBatchId1, INITIATIVE_ID, MERCHANT_ID))
                 .expectErrorSatisfies(throwable ->
                         org.assertj.core.api.Assertions.assertThat(throwable)
                                 .isInstanceOf(IllegalArgumentException.class)
@@ -225,7 +228,7 @@ class RewardBatchServiceImplTest {
 
         String invalidBatchId2 = "batch_id/other";
 
-        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(invalidBatchId2, INITIATIVE_ID))
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(invalidBatchId2, INITIATIVE_ID, MERCHANT_ID))
                 .expectErrorSatisfies(throwable ->
                         org.assertj.core.api.Assertions.assertThat(throwable)
                                 .isInstanceOf(IllegalArgumentException.class)
@@ -235,7 +238,7 @@ class RewardBatchServiceImplTest {
 
         String invalidBatchId3 = "batch_id\\other";
 
-        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(invalidBatchId3, INITIATIVE_ID))
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(invalidBatchId3, INITIATIVE_ID, MERCHANT_ID))
                 .expectErrorSatisfies(throwable ->
                         org.assertj.core.api.Assertions.assertThat(throwable)
                                 .isInstanceOf(IllegalArgumentException.class)
@@ -583,7 +586,7 @@ class RewardBatchServiceImplTest {
         .thenReturn(Mono.error(new DuplicateKeyException("Duplicate")));
 
     StepVerifier.create(
-            new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository)
+            new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, csvStorageClient)
                 .findOrCreateBatch("M1", posType, batchMonth, BUSINESS_NAME)
         )
         .assertNext(batch -> {

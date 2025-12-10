@@ -19,7 +19,6 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.CsvStorageClient;
-import it.gov.pagopa.idpay.transactions.storage.RewardConfirmationBatchStorageClient;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.Data;
@@ -55,7 +54,6 @@ import java.util.Set;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
 import java.util.function.Function;
 import java.util.function.LongFunction;
-import java.util.stream.Collectors;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT;
 
@@ -67,10 +65,9 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   private final RewardBatchRepository rewardBatchRepository;
   private final RewardTransactionRepository rewardTransactionRepository;
 
-  private final RewardConfirmationBatchStorageClient storageClient;
 
   private static final Set<String> OPERATORS = Set.of("operator1", "operator2", "operator3");
-    private final CsvStorageClient csvStorageClient;
+  private final CsvStorageClient csvStorageClient;
 
   private static final String CSV_HEADER = String.join(";",
             "Data e ora", "Elettrodomestico", "Codice Fiscale Beneficiario", "ID transazione", "Codice sconto",
@@ -79,14 +76,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             "Fattura", "Stato"
     );
 
-  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, CsvStorageClient csvStorageClient) {
-    public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository,
+ public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository,
                                   RewardTransactionRepository rewardTransactionRepository,
-                                  RewardConfirmationBatchStorageClient storageClient) {
+                               CsvStorageClient csvStorageClient) {
     this.rewardBatchRepository = rewardBatchRepository;
     this.rewardTransactionRepository = rewardTransactionRepository;
-    this.storageClient = storageClient;
-    }
     this.csvStorageClient = csvStorageClient;
   }
 
@@ -562,7 +556,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                 })
                 .flatMap(rewardBatchRepository::save)
                 .flatMap(savedBatch ->
-                        this.generateAndSaveCsv(rewardBatchId, initiativeId)
+                        this.generateAndSaveCsv(rewardBatchId, initiativeId, savedBatch.getMerchantId())
                                 .onErrorResume(e -> {
                                     log.error("Critical error while generating CSV for batch {}", Utilities.sanitizeString(rewardBatchId), e);
                                     return Mono.empty();
@@ -744,7 +738,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
 
 
     @Override
-        public Mono<String> generateAndSaveCsv(String rewardBatchId, String initiativeId) {
+        public Mono<String> generateAndSaveCsv(String rewardBatchId, String initiativeId, String merchantId) {
 
             log.info("[GENERATE_AND_SAVE_CSV] Generate CSV for initiative {} and batch {}",
                     Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(rewardBatchId) );
@@ -756,8 +750,9 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
             }
             String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
 
-        String pathPrefix = String.format("initiative/%s/batch/%s/",
+        String pathPrefix = String.format("initiative/%s/merchant/%s/batch/%s/",
                 Utilities.sanitizeString(initiativeId),
+                Utilities.sanitizeString(merchantId),
                 Utilities.sanitizeString(rewardBatchId));
 
         String reportFilename = String.format("report_%s_%s.csv",
@@ -830,7 +825,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
             InputStream inputStream = new ByteArrayInputStream(csvContent.getBytes(StandardCharsets.UTF_8));
 
             // Chiamata al metodo sincrono di upload
-            Response<BlockBlobItem> response = storageClient.upload(
+            Response<BlockBlobItem> response = csvStorageClient.upload(
                     inputStream,
                     filename,
                     "text/csv; charset=UTF-8"
