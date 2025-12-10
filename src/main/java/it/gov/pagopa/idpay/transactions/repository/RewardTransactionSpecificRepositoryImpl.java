@@ -4,6 +4,7 @@ import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_
 import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
 
 import com.mongodb.client.result.UpdateResult;
+import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
@@ -18,10 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
-import org.springframework.data.mongodb.core.aggregation.Aggregation;
-import org.springframework.data.mongodb.core.aggregation.ComparisonOperators;
-import org.springframework.data.mongodb.core.aggregation.ConditionalOperators;
-import org.springframework.data.mongodb.core.aggregation.MatchOperation;
+import org.springframework.data.mongodb.core.aggregation.*;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -425,4 +423,34 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
         return Mono.from(mongoTemplate.findOne(query, RewardTransaction.class));
     }
+
+    @Override
+    public Flux<FranchisePointOfSaleDTO> findDistinctFranchiseAndPosByRewardBatchId(String rewardBatchId) {
+
+        MatchOperation match = Aggregation.match(
+                Criteria.where(RewardTransaction.Fields.rewardBatchId).is(rewardBatchId)
+        );
+
+        GroupOperation group = Aggregation.group(
+                RewardTransaction.Fields.franchiseName,
+                RewardTransaction.Fields.pointOfSaleId
+        );
+
+        ProjectionOperation project = Aggregation.project()
+                .and("_id." + RewardTransaction.Fields.franchiseName).as("franchiseName")
+                .and("_id." + RewardTransaction.Fields.pointOfSaleId).as("pointOfSaleId");
+
+        Aggregation aggregation = Aggregation.newAggregation(
+                match,
+                group,
+                project
+        );
+
+        return mongoTemplate.aggregate(
+                aggregation,
+                RewardTransaction.class,
+                FranchisePointOfSaleDTO.class
+        );
+    }
+
 }
