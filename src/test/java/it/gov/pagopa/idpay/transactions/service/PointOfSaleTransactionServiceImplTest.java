@@ -433,9 +433,9 @@ class PointOfSaleTransactionServiceImplTest {
         when(invoiceStorageClient.upload(any(), anyString(), anyString())).thenReturn(null);
         when(rewardBatchService.findOrCreateBatch(eq(MERCHANT_ID), any(), anyString(), eq("Test Business")))
                 .thenReturn(Mono.just(newBatch));
-        when(rewardBatchService.decrementTotals(eq("OLD_BATCH_ID"), eq(1000L)))
+        when(rewardBatchService.decrementTotals("OLD_BATCH_ID",1000L))
                 .thenReturn(Mono.empty());
-        when(rewardBatchService.incrementTotals(eq("NEW_BATCH_ID"), eq(1000L)))
+        when(rewardBatchService.incrementTotals("NEW_BATCH_ID",1000L))
                 .thenReturn(Mono.empty());
         when(rewardTransactionRepository.save(any(RewardTransaction.class))).thenReturn(Mono.just(trx));
 
@@ -569,7 +569,7 @@ class PointOfSaleTransactionServiceImplTest {
                 () -> pointOfSaleTransactionService.updateInvoiceTransaction(
                         TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, NEW_DOC_NUMBER));
 
-        assertEquals("File must be a PDF or XML", ex.getCause().getMessage());
+        assertEquals("File must be a PDF or XML", ex.getMessage());
     }
 
     @Test
@@ -578,7 +578,7 @@ class PointOfSaleTransactionServiceImplTest {
                 () -> pointOfSaleTransactionService.updateInvoiceTransaction(
                         TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, null, DOC_NUMBER));
 
-        assertEquals("File is required", ex.getCause().getMessage());
+        assertEquals("File is required", ex.getMessage());
     }
 
     @Test

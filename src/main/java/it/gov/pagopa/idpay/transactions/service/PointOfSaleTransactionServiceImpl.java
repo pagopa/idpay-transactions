@@ -38,7 +38,7 @@ import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.Exceptio
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_REWARD_BATCH_ALREADY_SENT;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.TRANSACTION_MISSING_INVOICE;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.TRANSACTION_NOT_FOUND;
+
 
 @Service
 @Slf4j
@@ -158,18 +158,17 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
   public Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId,
       String pointOfSaleId, FilePart file, String docNumber) {
-    try {
+
       Utilities.checkFileExtensionOrThrow(file);
 
       return rewardTransactionRepository.findTransaction(merchantId, pointOfSaleId, transactionId)
           .switchIfEmpty(Mono.error(
               new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
           .flatMap(rewardTransaction -> {
-            String status = rewardTransaction.getStatus();
-            String rewardbatchId = rewardTransaction.getRewardBatchId();
+            String rewardBatchId = rewardTransaction.getRewardBatchId();
             Mono<Void> batchStatusCheck = Mono.empty();
-            if (rewardbatchId != null) {
-              batchStatusCheck = rewardBatchRepository.findRewardBatchById(rewardbatchId)
+            if (rewardBatchId != null) {
+              batchStatusCheck = rewardBatchRepository.findRewardBatchById(rewardBatchId)
                   .switchIfEmpty(Mono.error(
                       new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)))
                   .flatMap(rewardBatch -> {
@@ -183,56 +182,9 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
             }
 
             return batchStatusCheck.then(Mono.defer(() -> {
-              InvoiceData oldDocumentData = null;
+              InvoiceData oldDocumentData = validateTransactionData(rewardTransaction, merchantId, pointOfSaleId);
 
-              if (SyncTrxStatus.INVOICED.name().equalsIgnoreCase(status)) {
-                oldDocumentData = rewardTransaction.getInvoiceData();
-              } else {
-                throw new ClientExceptionNoBody(HttpStatus.BAD_REQUEST,
-                    TRANSACTION_MISSING_INVOICE);
-              }
-              if (!rewardTransaction.getMerchantId().equals(merchantId)) {
-                throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
-                    ExceptionConstants.ExceptionCode.GENERIC_ERROR,
-                    "The merchant with id [%s] associated to the transaction is not equal to the merchant with id [%s]".formatted(
-                        rewardTransaction.getMerchantId(), merchantId));
-              }
-              if (!rewardTransaction.getPointOfSaleId().equals(pointOfSaleId)) {
-                throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
-                    ExceptionConstants.ExceptionCode.GENERIC_ERROR,
-                    "The pointOfSaleId with id [%s] associated to the transaction is not equal to the pointOfSaleId with id [%s]".formatted(
-                        rewardTransaction.getPointOfSaleId(), pointOfSaleId));
-              }
-
-              String oldFilename = oldDocumentData.getFilename();
-
-              String blobPath = String.format(
-                  "invoices/merchant/%s/pos/%s/transaction/%s/invoice/%s",
-                  merchantId, pointOfSaleId, transactionId, file.filename());
-              String oldBlobPath = String.format(
-                  "invoices/merchant/%s/pos/%s/transaction/%s/invoice/%s",
-                  merchantId, pointOfSaleId, transactionId, oldFilename);
-              Path tempPath = Paths.get(System.getProperty("java.io.tmpdir"), file.filename());
-
-              return file.transferTo(tempPath)
-                  .then(Mono.fromCallable(() -> {
-                    invoiceStorageClient.deleteFile(oldBlobPath);
-
-                    try (InputStream is = Files.newInputStream(tempPath)) {
-                      String contentType = file.headers().getContentType() != null
-                          ? file.headers().getContentType().toString()
-                          : null;
-                      invoiceStorageClient.upload(is, blobPath, contentType);
-                    }
-                    return Boolean.TRUE;
-                  }))
-                  .onErrorMap(IOException.class, e -> {
-                    log.error("Error uploading file to storage for transaction [{}]",
-                        Utilities.sanitizeString(transactionId), e);
-                    throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
-                        ExceptionConstants.ExceptionCode.GENERIC_ERROR,
-                        "Error uploading invoice file", e);
-                  })
+              return replaceInvoiceFile(file, oldDocumentData, merchantId, pointOfSaleId, transactionId)
                   .then(Mono.defer(() -> {
                     rewardTransaction.setInvoiceData(InvoiceData.builder()
                         .filename(file.filename())
@@ -275,9 +227,67 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                   }));
             }));
           });
-    } catch (Exception e) {
-      throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
-          ExceptionConstants.ExceptionCode.GENERIC_ERROR, "Error uploading invoice file", e);
-    }
   }
+
+  private Mono<Void> replaceInvoiceFile(FilePart file,
+      InvoiceData oldDocumentData,
+      String merchantId,
+      String pointOfSaleId,
+      String transactionId) {
+
+    String oldFilename = oldDocumentData.getFilename();
+
+    String blobPath = String.format(
+        "invoices/merchant/%s/pos/%s/transaction/%s/invoice/%s",
+        merchantId, pointOfSaleId, transactionId, file.filename());
+    String oldBlobPath = String.format(
+        "invoices/merchant/%s/pos/%s/transaction/%s/invoice/%s",
+        merchantId, pointOfSaleId, transactionId, oldFilename);
+    Path tempPath = Paths.get(System.getProperty("java.io.tmpdir"), file.filename());
+
+    return file.transferTo(tempPath)
+        .then(Mono.fromCallable(() -> {
+          invoiceStorageClient.deleteFile(oldBlobPath);
+
+          try (InputStream is = Files.newInputStream(tempPath)) {
+            String contentType = file.headers().getContentType() != null
+                ? file.headers().getContentType().toString()
+                : null;
+            invoiceStorageClient.upload(is, blobPath, contentType);
+          }
+          return Boolean.TRUE;
+        }))
+        .onErrorMap(IOException.class, e -> {
+          log.error("Error uploading file to storage for transaction [{}]",
+              Utilities.sanitizeString(transactionId), e);
+          throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
+              ExceptionConstants.ExceptionCode.GENERIC_ERROR,
+              "Error uploading invoice file", e);
+        })
+        .then();
+  }
+
+  private InvoiceData validateTransactionData(RewardTransaction rewardTransaction, String merchantId, String pointOfSaleId) {
+
+    if (!SyncTrxStatus.INVOICED.name().equalsIgnoreCase(rewardTransaction.getStatus())) {
+      throw new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE);
+    }
+
+    if (!rewardTransaction.getMerchantId().equals(merchantId)) {
+      throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
+          ExceptionConstants.ExceptionCode.GENERIC_ERROR,
+          "The merchant with id [%s] associated to the transaction is not equal to the merchant with id [%s]".formatted(
+              rewardTransaction.getMerchantId(), merchantId));
+    }
+
+    if (!rewardTransaction.getPointOfSaleId().equals(pointOfSaleId)) {
+      throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
+          ExceptionConstants.ExceptionCode.GENERIC_ERROR,
+          "The pointOfSaleId with id [%s] associated to the transaction is not equal to the pointOfSaleId with id [%s]".formatted(
+              rewardTransaction.getPointOfSaleId(), pointOfSaleId));
+    }
+
+    return rewardTransaction.getInvoiceData();
+  }
+
 }
