@@ -17,4 +17,6 @@ public interface RewardBatchRepository extends ReactiveMongoRepository<RewardBat
   Mono<RewardBatch> findByIdAndStatus(String rewardBatchId, RewardBatchStatus rewardBatchTrxStatus);
 
   Flux<RewardBatch> findByStatus(RewardBatchStatus rewardBatchStatus);
+
+  Mono<RewardBatch> findByMerchantIdAndRewardBatchId (String merchantId, String rewardBatchId);
 }

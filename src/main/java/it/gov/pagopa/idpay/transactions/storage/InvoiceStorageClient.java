@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
@@ -33,7 +34,7 @@ public class InvoiceStorageClient {
     private final Integer sasDurationSeconds;
 
     public InvoiceStorageClient(BlobServiceClient blobServiceClient,
-        BlobContainerClient blobContainerClient,
+        @Qualifier("invoiceContainerClient") BlobContainerClient blobContainerClient,
         BlobStorageProperties properties) {
         this.blobServiceClient = blobServiceClient;
         this.blobContainerClient = blobContainerClient;

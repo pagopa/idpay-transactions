@@ -4,6 +4,7 @@ import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchesRequest;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
+import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
@@ -80,4 +81,10 @@ Mono<RewardBatch>  rewardBatchConfirmation(
   Mono<Void> evaluatingRewardBatches(
           @RequestBody RewardBatchesRequest rewardBatchIds
   );
+
+  @GetMapping("/initiatives/{initiativeId}/reward-batched/{rewardBatchId}/approved/download")
+  Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatch(
+          @RequestHeader(value = "x-merchant-id", required = false) String merchantId,
+          @PathVariable("initiativeId") String initiativeId,
+          @PathVariable("rewardBatchId") String rewardBatchId);
 }

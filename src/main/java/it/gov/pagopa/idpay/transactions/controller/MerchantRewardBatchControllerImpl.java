@@ -5,6 +5,7 @@ import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchesRequest;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
+import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.service.RewardBatchService;
@@ -167,6 +168,20 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     );
     return rewardBatchService.evaluatingRewardBatches(rewardBatchesRequest.getRewardBatchIds())
             .then();
+  }
+
+  @Override
+  public Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatch(String merchantId, String initiativeId, String rewardBatchId) {
+
+    log.info("[DOWNLOAD_APPROVED_REWARD_BATCH] Requested to download approved reward batch {} for initiative {}",
+            Utilities.sanitizeString(rewardBatchId),
+            Utilities.sanitizeString(initiativeId));
+
+    return rewardBatchService.downloadApprovedRewardBatchFile(
+            merchantId,
+            initiativeId,
+            rewardBatchId
+    );
   }
 
   @Override

@@ -3,9 +3,11 @@ package it.gov.pagopa.idpay.transactions.service;
 import com.azure.core.http.rest.Response;
 import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.models.BlockBlobItem;
+import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
+import it.gov.pagopa.idpay.transactions.dto.DownloadRewardBatchResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
@@ -16,6 +18,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.storage.CsvStorageClient;
 import it.gov.pagopa.idpay.transactions.storage.RewardConfirmationBatchStorageClient;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
@@ -49,6 +52,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
 import java.util.function.Function;
 import java.util.function.LongFunction;
 import java.util.stream.Collectors;
@@ -66,6 +70,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   private final RewardConfirmationBatchStorageClient storageClient;
 
   private static final Set<String> OPERATORS = Set.of("operator1", "operator2", "operator3");
+    private final CsvStorageClient csvStorageClient;
+
   private static final String CSV_HEADER = String.join(";",
             "Data e ora", "Elettrodomestico", "Codice Fiscale Beneficiario", "ID transazione", "Codice sconto",
             "Totale della spesa", "Sconto applicato",//"Importo autorizzato",
@@ -73,6 +79,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             "Fattura", "Stato"
     );
 
+  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, CsvStorageClient csvStorageClient) {
     public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository,
                                   RewardTransactionRepository rewardTransactionRepository,
                                   RewardConfirmationBatchStorageClient storageClient) {
@@ -80,6 +87,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     this.rewardTransactionRepository = rewardTransactionRepository;
     this.storageClient = storageClient;
     }
+    this.csvStorageClient = csvStorageClient;
+  }
 
   @Override
   public Mono<RewardBatch> findOrCreateBatch(String merchantId, PosType posType, String month, String businessName) {
@@ -367,7 +376,55 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                         log.info("[EVALUATING_REWARD_BATCH] Completed evaluation. Total batches processed: {}", count));
     }
 
-private String buildBatchName(YearMonth month) {
+    @Override
+    public Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatchFile(
+            String merchantId, String initiativeId, String rewardBatchId) {
+
+        return rewardBatchRepository.findByMerchantIdAndRewardBatchId(merchantId, rewardBatchId)
+                .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
+                        HttpStatus.BAD_REQUEST,
+                        REWARD_BATCH_NOT_FOUND
+                )))
+                .map(rewardBatch -> {
+
+                    if (!merchantId.equals(rewardBatch.getMerchantId())) {
+                        throw new ClientExceptionNoBody(
+                                HttpStatus.FORBIDDEN,
+                                REWARD_BATCH_INVALID_MERCHANT
+                        );
+                    }
+
+                    if (!RewardBatchStatus.APPROVED.equals(rewardBatch.getStatus())) {
+                        throw new ClientExceptionNoBody(
+                                HttpStatus.BAD_REQUEST,
+                                REWARD_BATCH_NOT_APPROVED
+                        );
+                    }
+
+
+                    String filename = rewardBatch.getFilename();
+                    if (filename == null || filename.isBlank()) {
+                        throw new ClientExceptionNoBody(
+                                HttpStatus.BAD_REQUEST,
+                                REWARD_BATCH_MISSING_FILENAME
+                        );
+                    }
+
+                    String blobPath = String.format(
+                            "initiative/%s/merchant/%s/batch/%s/%s",
+                            initiativeId,
+                            merchantId,
+                            rewardBatchId,
+                            filename
+                    );
+
+                    return DownloadRewardBatchResponseDTO.builder()
+                            .approvedBatchUrl(csvStorageClient.getCsvFileSignedUrl(blobPath))
+                            .build();
+                });
+    }
+
+    private String buildBatchName(YearMonth month) {
   String monthName = month.getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN);
   String year = String.valueOf(month.getYear());
 
