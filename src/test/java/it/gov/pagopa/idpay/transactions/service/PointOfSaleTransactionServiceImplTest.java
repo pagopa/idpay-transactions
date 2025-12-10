@@ -1,8 +1,8 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_ON_GET_FILE_URL_REQUEST;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.TRANSACTION_MISSING_INVOICE;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.TRANSACTION_NOT_FOUND;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -606,7 +606,7 @@ class PointOfSaleTransactionServiceImplTest {
             .expectErrorMatches(throwable ->
                 throwable instanceof ClientExceptionNoBody &&
                     ((ClientExceptionNoBody) throwable).getHttpStatus() == HttpStatus.BAD_REQUEST &&
-                    TRANSACTION_NOT_FOUND.equals(throwable.getMessage()))
+                    REWARD_BATCH_NOT_FOUND.equals(throwable.getMessage()))
             .verify();
 
         verify(rewardTransactionRepository).findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
