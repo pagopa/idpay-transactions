@@ -1,5 +1,8 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import com.azure.core.http.rest.Response;
+import com.azure.storage.blob.models.BlobStorageException;
+import com.azure.storage.blob.models.BlockBlobItem;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
@@ -13,6 +16,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.storage.RewardConfirmationBatchStorageClient;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.Data;
@@ -28,7 +32,9 @@ import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -56,6 +62,9 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
   private final RewardBatchRepository rewardBatchRepository;
   private final RewardTransactionRepository rewardTransactionRepository;
+
+  private final RewardConfirmationBatchStorageClient storageClient;
+
   private static final Set<String> OPERATORS = Set.of("operator1", "operator2", "operator3");
   private static final String CSV_HEADER = String.join(";",
             "Data e ora", "Elettrodomestico", "Codice Fiscale Beneficiario", "ID transazione", "Codice sconto",
@@ -65,10 +74,12 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     );
 
     public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository,
-                                RewardTransactionRepository rewardTransactionRepository) {
+                                  RewardTransactionRepository rewardTransactionRepository,
+                                  RewardConfirmationBatchStorageClient storageClient) {
     this.rewardBatchRepository = rewardBatchRepository;
     this.rewardTransactionRepository = rewardTransactionRepository;
-  }
+    this.storageClient = storageClient;
+    }
 
   @Override
   public Mono<RewardBatch> findOrCreateBatch(String merchantId, PosType posType, String month, String businessName) {
@@ -674,6 +685,7 @@ private String buildBatchName(YearMonth month) {
                 });
     }
 
+
     @Override
         public Mono<String> generateAndSaveCsv(String rewardBatchId, String initiativeId) {
 
@@ -686,7 +698,15 @@ private String buildBatchName(YearMonth month) {
                 return Mono.error(new IllegalArgumentException("Invalid batch id for CSV file generation"));
             }
             String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-            String filename = "report_" + Utilities.sanitizeString(rewardBatchId) + "_" + timestamp + ".csv";
+
+        String pathPrefix = String.format("initiative/%s/batch/%s/",
+                Utilities.sanitizeString(initiativeId),
+                Utilities.sanitizeString(rewardBatchId));
+
+        String reportFilename = String.format("report_%s_%s.csv",
+                Utilities.sanitizeString(rewardBatchId),
+                timestamp);
+        String filename = pathPrefix + reportFilename;
 
             List<RewardBatchTrxStatus> statusList = new ArrayList<>();
             statusList.add(RewardBatchTrxStatus.APPROVED);
@@ -698,11 +718,11 @@ private String buildBatchName(YearMonth month) {
 
             Flux<String> fullCsvFlux = Flux.just(CSV_HEADER).concatWith(csvRowsFlux);
 
-            return fullCsvFlux.collect(StringBuilder::new, (sb, s) -> sb.append(s).append("\n"))
-                    .map(StringBuilder::toString)
-                    .flatMap(csvContent -> saveCsvToLocalFile(filename, csvContent))
-                    .doOnTerminate(() -> log.info("CSV generation has been completed for batch: {}", Utilities.sanitizeString(rewardBatchId)))
-                    .map(absolutePath -> filename);
+        return fullCsvFlux.collect(StringBuilder::new, (sb, s) -> sb.append(s).append("\n"))
+                .map(StringBuilder::toString)
+                .flatMap(csvContent -> this.uploadCsvToBlob(filename, csvContent))
+                .doOnTerminate(() -> log.info("CSV generation has been completed for batch: {}", Utilities.sanitizeString(rewardBatchId)))
+                .map(uploadedKey -> filename);
         }
 
         private String mapTransactionToCsvRow(RewardTransaction trx, String initiativeId) {
@@ -740,6 +760,41 @@ private String buildBatchName(YearMonth month) {
                     safeToString.apply(trx.getRewardBatchTrxStatus().getDescription())
             );
         }
+
+
+
+// Rimuovi saveCsvToLocalFile se non lo usi più.
+
+    // NUOVO METODO: Wrapper reattivo per la chiamata sincrona di upload
+    private Mono<String> uploadCsvToBlob(String filename, String csvContent) {
+
+        return Mono.fromCallable(() -> {
+            // Conversione da Stringa a InputStream
+            InputStream inputStream = new ByteArrayInputStream(csvContent.getBytes(StandardCharsets.UTF_8));
+
+            // Chiamata al metodo sincrono di upload
+            Response<BlockBlobItem> response = storageClient.upload(
+                    inputStream,
+                    filename,
+                    "text/csv; charset=UTF-8"
+            );
+
+            // Verifica la risposta di Azure (opzionale, ma consigliato)
+            if (response.getStatusCode() != HttpStatus.CREATED.value()) {
+                throw new RuntimeException("Blob upload failed with status code: " + response.getStatusCode());
+            }
+
+            // Restituisce il nome del file come chiave
+            return filename;
+
+        }).onErrorMap(BlobStorageException.class, e -> {
+            log.error("Azure Blob Storage upload failed for file {}", filename, e);
+            // Mappa l'errore specifico di Azure in un'eccezione runtime
+            return new RuntimeException("Error uploading CSV to Blob Storage.", e);
+        });
+    }
+
+
 
         public Mono<String> saveCsvToLocalFile(String filename, String csvContent) {
             Path outputDirectory = Paths.get("C:", "Users", "EMELIGMWW", "OneDrive - NTT DATA EMEAL", "Desktop", "PagoPA", "CSV - conferma lotto");
