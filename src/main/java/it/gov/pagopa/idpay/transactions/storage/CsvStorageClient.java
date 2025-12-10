@@ -10,6 +10,7 @@ import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import it.gov.pagopa.common.web.exception.ClientException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
@@ -29,7 +30,7 @@ public class CsvStorageClient {
 
     public CsvStorageClient(
             BlobServiceClient blobServiceClient,
-            BlobContainerClient csvContainerClient,
+            @Qualifier("csvContainerClient") BlobContainerClient csvContainerClient,
             BlobStorageProperties properties) {
 
         this.blobServiceClient = blobServiceClient;

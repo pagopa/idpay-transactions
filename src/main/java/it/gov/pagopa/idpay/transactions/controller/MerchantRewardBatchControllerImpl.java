@@ -159,7 +159,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
-  public Mono<DownloadInvoiceResponseDTO> downloadApprovedRewardBatch(String merchantId, String initiativeId, String rewardBatchId) {
+  public Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatch(String merchantId, String initiativeId, String rewardBatchId) {
 
     log.info("[DOWNLOAD_APPROVED_REWARD_BATCH] Requested to download approved reward batch {} for initiative {}",
             Utilities.sanitizeString(rewardBatchId),

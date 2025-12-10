@@ -73,7 +73,7 @@ Mono<RewardBatch>  rewardBatchConfirmation(
   );
 
   @GetMapping("/initiatives/{initiativeId}/reward-batched/{rewardBatchId}/approved/download")
-  Mono<DownloadInvoiceResponseDTO> downloadApprovedRewardBatch(
+  Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatch(
           @RequestHeader(value = "x-merchant-id", required = false) String merchantId,
           @PathVariable("initiativeId") String initiativeId,
           @PathVariable("rewardBatchId") String rewardBatchId);

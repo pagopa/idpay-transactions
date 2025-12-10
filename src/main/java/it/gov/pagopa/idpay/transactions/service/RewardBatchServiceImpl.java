@@ -4,7 +4,7 @@ import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
-import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
+import it.gov.pagopa.idpay.transactions.dto.DownloadRewardBatchResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
@@ -346,10 +346,10 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     }
 
     @Override
-    public Mono<DownloadInvoiceResponseDTO> downloadApprovedRewardBatchFile(
+    public Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatchFile(
             String merchantId, String initiativeId, String rewardBatchId) {
 
-        return rewardBatchRepository.findById(rewardBatchId)
+        return rewardBatchRepository.findByMerchantIdAndRewardBatchId(merchantId, rewardBatchId)
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
                         HttpStatus.BAD_REQUEST,
                         REWARD_BATCH_NOT_FOUND
@@ -387,8 +387,8 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                             filename
                     );
 
-                    return DownloadInvoiceResponseDTO.builder()
-                            .invoiceUrl(csvStorageClient.getCsvFileSignedUrl(blobPath))
+                    return DownloadRewardBatchResponseDTO.builder()
+                            .approvedBatchUrl(csvStorageClient.getCsvFileSignedUrl(blobPath))
                             .build();
                 });
     }
