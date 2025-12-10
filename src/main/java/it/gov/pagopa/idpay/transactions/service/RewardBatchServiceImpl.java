@@ -374,7 +374,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     public Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatchFile(
             String merchantId, String initiativeId, String rewardBatchId) {
 
-        return rewardBatchRepository.findByMerchantIdAndRewardBatchId(merchantId, rewardBatchId)
+        return rewardBatchRepository.findByMerchantIdAndId(merchantId, rewardBatchId)
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
                         HttpStatus.BAD_REQUEST,
                         REWARD_BATCH_NOT_FOUND
