@@ -814,59 +814,30 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
         }
 
 
-
-// Rimuovi saveCsvToLocalFile se non lo usi più.
-
-    // NUOVO METODO: Wrapper reattivo per la chiamata sincrona di upload
-    private Mono<String> uploadCsvToBlob(String filename, String csvContent) {
+    public Mono<String> uploadCsvToBlob(String filename, String csvContent) {
 
         return Mono.fromCallable(() -> {
-            // Conversione da Stringa a InputStream
             InputStream inputStream = new ByteArrayInputStream(csvContent.getBytes(StandardCharsets.UTF_8));
-
-            // Chiamata al metodo sincrono di upload
             Response<BlockBlobItem> response = csvStorageClient.upload(
                     inputStream,
                     filename,
                     "text/csv; charset=UTF-8"
             );
 
-            // Verifica la risposta di Azure (opzionale, ma consigliato)
             if (response.getStatusCode() != HttpStatus.CREATED.value()) {
                 throw new RuntimeException("Blob upload failed with status code: " + response.getStatusCode());
             }
 
-            // Restituisce il nome del file come chiave
             return filename;
 
         }).onErrorMap(BlobStorageException.class, e -> {
             log.error("Azure Blob Storage upload failed for file {}", filename, e);
-            // Mappa l'errore specifico di Azure in un'eccezione runtime
             return new RuntimeException("Error uploading CSV to Blob Storage.", e);
         });
     }
 
 
 
-        public Mono<String> saveCsvToLocalFile(String filename, String csvContent) {
-            Path outputDirectory = Paths.get("C:", "Users", "EMELIGMWW", "OneDrive - NTT DATA EMEAL", "Desktop", "PagoPA", "CSV - conferma lotto");
-            Path filePath = outputDirectory.resolve(filename);
-
-            try {
-                Files.createDirectories(outputDirectory);
-            } catch (IOException e) {
-                log.error("Unable to create output directory: {}", outputDirectory, e);
-                return Mono.error(new RuntimeException("Unable to access or create output directory.", e));
-            }
-
-            return Mono.fromCallable(() -> {
-                Files.writeString(filePath, csvContent, StandardCharsets.UTF_8);
-                return filePath.toAbsolutePath().toString();
-            }).onErrorMap(IOException.class, e -> {
-                log.error("Error writing CSV file to disk: {}", filePath, e);
-                return new RuntimeException("I/O error while writing CSV report.", e);
-            });
-        }
 
     @Data
     public static class TotalAmount {
