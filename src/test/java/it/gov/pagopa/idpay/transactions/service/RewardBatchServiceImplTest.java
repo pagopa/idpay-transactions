@@ -26,7 +26,7 @@ import java.time.YearMonth;
 import java.util.*;
 
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
-import it.gov.pagopa.idpay.transactions.storage.CsvStorageClient;
+import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,7 +56,7 @@ class RewardBatchServiceImplTest {
   private RewardBatchServiceImpl rewardBatchServiceSpy;
 
   @Mock
-  private CsvStorageClient csvStorageClient;
+  private ApprovedRewardBatchBlobService approvedRewardBatchBlobService;
 
   private static final String BUSINESS_NAME = "Test Business name";
   private static final String REWARD_BATCH_ID_1 = "REWARD_BATCH_ID_1";
@@ -89,7 +89,7 @@ class RewardBatchServiceImplTest {
 
   @BeforeEach
   void setUp() {
-    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, csvStorageClient);
+    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, approvedRewardBatchBlobService);
     rewardBatchServiceSpy = spy((RewardBatchServiceImpl) rewardBatchService);
   }
 
@@ -142,7 +142,7 @@ class RewardBatchServiceImplTest {
             InputStream inputStream = invocation.getArgument(0);
             capturedCsvContent = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
             return mockResponseSuccess;
-        }).when(csvStorageClient).upload(
+        }).when(approvedRewardBatchBlobService).upload(
                 any(InputStream.class),
                 any(String.class),
                 any(String.class)
@@ -612,7 +612,7 @@ class RewardBatchServiceImplTest {
         .thenReturn(Mono.error(new DuplicateKeyException("Duplicate")));
 
     StepVerifier.create(
-            new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, csvStorageClient)
+            new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, approvedRewardBatchBlobService)
                 .findOrCreateBatch("M1", posType, batchMonth, BUSINESS_NAME)
         )
         .assertNext(batch -> {
