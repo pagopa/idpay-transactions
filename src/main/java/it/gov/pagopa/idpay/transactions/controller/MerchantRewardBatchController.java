@@ -51,7 +51,7 @@ Mono<RewardBatch>  rewardBatchConfirmation(
           @PathVariable("initiativeId") String initiativeId,
           @RequestBody  RewardBatchesRequest request);
 
-  @PutMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/{merchantId}generateAndSaveCsv")
+  @PutMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/{merchantId}/generateAndSaveCsv")
   Mono<String>  generateAndSaveCsv(
           @PathVariable("initiativeId") String initiativeId,
           @PathVariable("rewardBatchId") String rewardBatchId,

@@ -31,6 +31,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.reactive.server.ExchangeResult;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
@@ -61,8 +62,10 @@ class MerchantRewardBatchControllerImplTest {
 
     @Test
     void generateAndSaveCsv_Success_Accepted() {
+        final String FAKE_FILENAME = "test/path/report.csv";
+
         when(rewardBatchService.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
-                .thenReturn(Mono.empty());
+                .thenReturn(Mono.just(FAKE_FILENAME));
 
         webClient.put()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/{merchantId}/generateAndSaveCsv",
@@ -70,7 +73,8 @@ class MerchantRewardBatchControllerImplTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .exchange()
                 .expectStatus().isOk()
-                .expectBody().isEmpty();
+                .expectBody(String.class)
+                .isEqualTo(FAKE_FILENAME);
 
         verify(rewardBatchService).generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID);
     }
