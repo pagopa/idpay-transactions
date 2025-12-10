@@ -154,28 +154,32 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
     }
 
-  public Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId, String pointOfSaleId, FilePart file, String docNumber) {
+  public Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId,
+      String pointOfSaleId, FilePart file, String docNumber) {
     try {
       Utilities.checkFileExtensionOrThrow(file);
 
       return rewardTransactionRepository.findTransaction(merchantId, pointOfSaleId, transactionId)
-          .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
+          .switchIfEmpty(Mono.error(
+              new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
           .flatMap(rewardTransaction -> {
             String status = rewardTransaction.getStatus();
             String rewardbatchId = rewardTransaction.getRewardBatchId();
-            Mono<Void> batchCheck = Mono.empty();
+            Mono<Void> batchStatusCheck = Mono.empty();
             if (rewardbatchId != null) {
-              batchCheck = rewardBatchRepository.findRewardBatchById(rewardbatchId)
-                  .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_NOT_FOUND)))
+              batchStatusCheck = rewardBatchRepository.findRewardBatchById(rewardbatchId)
+                  .switchIfEmpty(Mono.error(
+                      new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_NOT_FOUND)))
                   .flatMap(rewardBatch -> {
                     if (!CREATED.equals(rewardBatch.getStatus())) {
-                      return Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_ALREADY_SENT));
+                      return Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST,
+                          REWARD_BATCH_ALREADY_SENT));
                     }
                     return Mono.empty();
                   });
             }
 
-            return batchCheck.then(Mono.defer(() -> {
+            return batchStatusCheck.then(Mono.defer(() -> {
               InvoiceData oldDocumentData = null;
 
               if (SyncTrxStatus.INVOICED.name().equalsIgnoreCase(status)) {
