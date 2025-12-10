@@ -640,8 +640,8 @@ class PointOfSaleTransactionServiceImplTest {
 
         StepVerifier.create(result)
             .expectErrorMatches(throwable ->
-                throwable instanceof ClientExceptionNoBody &&
-                    ((ClientExceptionNoBody) throwable).getHttpStatus() == HttpStatus.BAD_REQUEST &&
+                throwable instanceof ClientExceptionWithBody &&
+                    ((ClientExceptionWithBody) throwable).getHttpStatus() == HttpStatus.BAD_REQUEST &&
                     throwable.getMessage().contains(
                         it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_ALREADY_SENT
                     )

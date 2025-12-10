@@ -172,7 +172,8 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                       new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_NOT_FOUND)))
                   .flatMap(rewardBatch -> {
                     if (!CREATED.equals(rewardBatch.getStatus())) {
-                      return Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST,
+                      return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
+                          REWARD_BATCH_ALREADY_SENT,
                           REWARD_BATCH_ALREADY_SENT));
                     }
                     return Mono.empty();
