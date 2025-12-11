@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
+import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionsListDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
@@ -11,9 +12,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.codec.multipart.FilePart;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 @RestController
 @Slf4j
@@ -93,4 +97,11 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
     return pointOfSaleTransactionService.updateInvoiceTransaction(transactionId, merchantId,
         pointOfSaleId, file, docNumber);
   }
+
+    @Override
+    public Mono<List<FranchisePointOfSaleDTO>> getFranchisePointOfSale(String rewardBatchId) {
+      log.info("[POINT_OF_SALE_TRANSACTION_CONTROLLER] - Get point of sales by reward batch id {}", rewardBatchId);
+      return pointOfSaleTransactionService.getDistinctFranchiseAndPosByRewardBatchId(rewardBatchId);
+    }
+
 }
