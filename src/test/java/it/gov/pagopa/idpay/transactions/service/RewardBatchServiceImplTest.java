@@ -33,6 +33,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -83,6 +86,8 @@ class RewardBatchServiceImplTest {
             "Numero fattura",
             "Fattura", "Stato"
     );
+
+    String FAKE_CSV_FILENAME = "test/path/report_fake.csv";
     private String capturedCsvContent;
     private String capturedFilename;
 
@@ -167,14 +172,10 @@ class RewardBatchServiceImplTest {
         String expectedPathPrefix = String.format("initiative/%s/merchant/%s/batch/%s/",
                 INITIATIVE_ID,
                 MERCHANT_ID,
-                REWARD_BATCH_ID_1); // Usiamo le costanti del test
-
+                REWARD_BATCH_ID_1);
         org.assertj.core.api.Assertions.assertThat(capturedFilename)
-                // 1. Deve iniziare con la struttura del path dinamico
                 .startsWith(expectedPathPrefix)
-                // 2. Deve contenere il prefisso del report (perché il timestamp è dinamico)
                 .contains("report_" + REWARD_BATCH_ID_1 + "_")
-                // 3. Deve finire con l'estensione corretta
                 .endsWith(".csv");
 
         org.assertj.core.api.Assertions.assertThat(emittedFilename[0]).isEqualTo(capturedFilename);
@@ -385,8 +386,6 @@ class RewardBatchServiceImplTest {
             REWARD_BATCH_1.setAssigneeLevel(RewardBatchAssignee.L3);
             REWARD_BATCH_1.setNumberOfTransactionsSuspended(0L);
 
-            String FAKE_CSV_FILENAME = "test/path/report_fake.csv";
-
             doReturn(Mono.just(FAKE_CSV_FILENAME))
                     .when(rewardBatchServiceSpy)
                     .generateAndSaveCsv(anyString(), anyString(), anyString());
@@ -414,8 +413,6 @@ class RewardBatchServiceImplTest {
             REWARD_BATCH_1.setAssigneeLevel(RewardBatchAssignee.L3);
             REWARD_BATCH_1.setNumberOfTransactionsSuspended(1L);
             REWARD_BATCH_2.setStatus(RewardBatchStatus.CREATED);
-
-            String FAKE_CSV_FILENAME = "test/path/report_fake.csv";
 
             doReturn(Mono.just(FAKE_CSV_FILENAME))
                     .when(rewardBatchServiceSpy)
@@ -2031,24 +2028,6 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void downloadRewardBatch_MissingFilename() {
-        RewardBatch batch = RewardBatch.builder()
-                .id(REWARD_BATCH_ID_1)
-                .status(RewardBatchStatus.APPROVED)
-                .filename("")
-                .build();
-
-        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
-                .thenReturn(Mono.just(batch));
-
-        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
-                .expectErrorMatches(throwable ->
-                        throwable instanceof ClientExceptionNoBody &&
-                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_MISSING_FILENAME"))
-                .verify();
-    }
-
-    @Test
     void downloadRewardBatch_Success() {
         RewardBatch batch = RewardBatch.builder()
                 .id(REWARD_BATCH_ID_1)
@@ -2070,12 +2049,18 @@ class RewardBatchServiceImplTest {
                 .verifyComplete();
     }
 
-    @Test
-    void downloadRewardBatch_FilenameNull() {
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "",
+            "   "
+    })
+    @NullSource
+    void downloadRewardBatch_InvalidFilename(String invalidFilename) {
+
         RewardBatch batch = RewardBatch.builder()
                 .id(REWARD_BATCH_ID_1)
                 .status(RewardBatchStatus.APPROVED)
-                .filename(null)
+                .filename(invalidFilename)
                 .build();
 
         when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
@@ -2088,22 +2073,5 @@ class RewardBatchServiceImplTest {
                 .verify();
     }
 
-    @Test
-    void downloadRewardBatch_FilenameBlank() {
-        RewardBatch batch = RewardBatch.builder()
-                .id(REWARD_BATCH_ID_1)
-                .status(RewardBatchStatus.APPROVED)
-                .filename("   ")
-                .build();
-
-        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
-                .thenReturn(Mono.just(batch));
-
-        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
-                .expectErrorMatches(throwable ->
-                        throwable instanceof ClientExceptionNoBody &&
-                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_MISSING_FILENAME"))
-                .verify();
-    }
 
 }

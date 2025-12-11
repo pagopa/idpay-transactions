@@ -810,9 +810,12 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
             );
 
             if (response.getStatusCode() != HttpStatus.CREATED.value()) {
-                throw new RuntimeException("Blob upload failed with status code: " + response.getStatusCode());
+                log.error("Error uploading file to storage for file [{}]",
+                        Utilities.sanitizeString(filename));
+                throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
+                        ExceptionConstants.ExceptionCode.GENERIC_ERROR,
+                        "Error uploading csv file");
             }
-
             return filename;
 
         }).onErrorMap(BlobStorageException.class, e -> {

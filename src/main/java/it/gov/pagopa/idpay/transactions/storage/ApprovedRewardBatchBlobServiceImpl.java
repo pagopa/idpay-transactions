@@ -25,11 +25,6 @@ public class ApprovedRewardBatchBlobServiceImpl extends AbstractBlobStorageClien
     }
 
     @Override
-    public String getFileSignedUrl(String blobPath) {
-        return super.getFileSignedUrl(blobPath);
-    }
-
-    @Override
     public Response<BlockBlobItem> upload(InputStream inputStream, String destination, String contentType) {
         log.info("[ApprovedRewardBatch] Uploading file to {}", Utilities.sanitizeString(destination));
 
