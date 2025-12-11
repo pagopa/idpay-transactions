@@ -734,34 +734,50 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                 log.error("Invalid rewardBatchId for CSV filename: {}", Utilities.sanitizeString(rewardBatchId));
                 return Mono.error(new IllegalArgumentException("Invalid batch id for CSV file generation"));
             }
-            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
 
-        String pathPrefix = String.format("initiative/%s/merchant/%s/batch/%s/",
-                Utilities.sanitizeString(initiativeId),
-                Utilities.sanitizeString(merchantId),
-                Utilities.sanitizeString(rewardBatchId));
+        Mono<String> merchantIdMono;
 
-        String reportFilename = String.format("report_%s_%s.csv",
-                Utilities.sanitizeString(rewardBatchId),
-                timestamp);
-        String filename = pathPrefix + reportFilename;
-
-            List<RewardBatchTrxStatus> statusList = new ArrayList<>();
-            statusList.add(RewardBatchTrxStatus.APPROVED);
-            Flux<RewardTransaction> transactionFlux = rewardTransactionRepository.findByFilter(
-                    rewardBatchId, initiativeId, statusList);
-
-            Flux<String> csvRowsFlux = transactionFlux
-                    .map(transaction -> this.mapTransactionToCsvRow(transaction, initiativeId));
-
-            Flux<String> fullCsvFlux = Flux.just(CSV_HEADER).concatWith(csvRowsFlux);
-
-        return fullCsvFlux.collect(StringBuilder::new, (sb, s) -> sb.append(s).append("\n"))
-                .map(StringBuilder::toString)
-                .flatMap(csvContent -> this.uploadCsvToBlob(filename, csvContent))
-                .doOnTerminate(() -> log.info("CSV generation has been completed for batch: {}", Utilities.sanitizeString(rewardBatchId)))
-                .map(uploadedKey -> filename);
+        if (merchantId != null && !merchantId.trim().isEmpty()) {
+            merchantIdMono = Mono.just(merchantId);
+        } else {
+            merchantIdMono = rewardBatchRepository.findById(rewardBatchId)
+                    .map(RewardBatch::getMerchantId)
+                    .switchIfEmpty(Mono.error(new IllegalArgumentException("RewardBatch not found or MerchantId missing in batch")));
         }
+
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+
+        return merchantIdMono
+                .flatMap(resolvedMerchantId -> {
+
+                    String pathPrefix = String.format("initiative/%s/merchant/%s/batch/%s/",
+                            Utilities.sanitizeString(initiativeId),
+                            Utilities.sanitizeString(resolvedMerchantId),
+                            Utilities.sanitizeString(rewardBatchId));
+
+                    String reportFilename = String.format("report_%s_%s.csv",
+                            Utilities.sanitizeString(rewardBatchId),
+                            timestamp);
+                    String filename = pathPrefix + reportFilename;
+
+                    List<RewardBatchTrxStatus> statusList = new ArrayList<>();
+                    statusList.add(RewardBatchTrxStatus.APPROVED);
+
+                    Flux<RewardTransaction> transactionFlux = rewardTransactionRepository.findByFilter(
+                            rewardBatchId, initiativeId, statusList);
+
+                    Flux<String> csvRowsFlux = transactionFlux
+                            .map(transaction -> this.mapTransactionToCsvRow(transaction, initiativeId));
+
+                    Flux<String> fullCsvFlux = Flux.just(CSV_HEADER).concatWith(csvRowsFlux);
+
+                    return fullCsvFlux.collect(StringBuilder::new, (sb, s) -> sb.append(s).append("\n"))
+                            .map(StringBuilder::toString)
+                            .flatMap(csvContent -> this.uploadCsvToBlob(filename, csvContent))
+                            .doOnTerminate(() -> log.info("CSV generation has been completed for batch: {}", Utilities.sanitizeString(rewardBatchId)))
+                            .map(uploadedKey -> filename);
+                });
+    }
 
         private String mapTransactionToCsvRow(RewardTransaction trx, String initiativeId) {
             Function<Object, String> safeToString = obj -> obj != null ? obj.toString().replace(";", ",") : "";
