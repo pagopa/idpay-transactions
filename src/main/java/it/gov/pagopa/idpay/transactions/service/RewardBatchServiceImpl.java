@@ -1,8 +1,13 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import com.azure.core.http.rest.Response;
+import com.azure.storage.blob.models.BlobStorageException;
+import com.azure.storage.blob.models.BlockBlobItem;
+import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
+import it.gov.pagopa.idpay.transactions.dto.DownloadRewardBatchResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
@@ -10,8 +15,10 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.Data;
@@ -27,6 +34,10 @@ import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -36,7 +47,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
+import java.util.function.Function;
+import java.util.function.LongFunction;
+
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT;
 
 @Service
@@ -46,13 +60,22 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
   private final RewardBatchRepository rewardBatchRepository;
   private final RewardTransactionRepository rewardTransactionRepository;
+
+
   private static final Set<String> OPERATORS = Set.of("operator1", "operator2", "operator3");
+  private final ApprovedRewardBatchBlobService approvedRewardBatchBlobService;
 
+  private static final String CSV_HEADER = String.join(";",
+            "Data e ora", "Elettrodomestico", "Codice Fiscale Beneficiario", "ID transazione", "Codice sconto",
+            "Totale della spesa", "Sconto applicato",//"Importo autorizzato",
+            "Numero fattura",
+            "Fattura", "Stato"
+    );
 
-  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository,
-                                RewardTransactionRepository rewardTransactionRepository) {
+  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, ApprovedRewardBatchBlobService approvedRewardBatchBlobService) {
     this.rewardBatchRepository = rewardBatchRepository;
     this.rewardTransactionRepository = rewardTransactionRepository;
+    this.approvedRewardBatchBlobService = approvedRewardBatchBlobService;
   }
 
   @Override
@@ -341,7 +364,47 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                         log.info("[EVALUATING_REWARD_BATCH] Completed evaluation. Total batches processed: {}", count));
     }
 
-private String buildBatchName(YearMonth month) {
+    @Override
+    public Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatchFile(String merchantId, String initiativeId, String rewardBatchId) {
+
+        return rewardBatchRepository.findByMerchantIdAndId(merchantId, rewardBatchId)
+                .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
+                        HttpStatus.BAD_REQUEST,
+                        REWARD_BATCH_NOT_FOUND
+                )))
+                .map(rewardBatch -> {
+
+                    if (!RewardBatchStatus.APPROVED.equals(rewardBatch.getStatus())) {
+                        throw new ClientExceptionNoBody(
+                                HttpStatus.BAD_REQUEST,
+                                REWARD_BATCH_NOT_APPROVED
+                        );
+                    }
+
+
+                    String filename = rewardBatch.getFilename();
+                    if (filename == null || filename.isBlank()) {
+                        throw new ClientExceptionNoBody(
+                                HttpStatus.BAD_REQUEST,
+                                REWARD_BATCH_MISSING_FILENAME
+                        );
+                    }
+
+                    String blobPath = String.format(
+                            "initiative/%s/merchant/%s/batch/%s/%s",
+                            initiativeId,
+                            merchantId,
+                            rewardBatchId,
+                            filename
+                    );
+
+                    return DownloadRewardBatchResponseDTO.builder()
+                            .approvedBatchUrl(approvedRewardBatchBlobService.getFileSignedUrl(blobPath))
+                            .build();
+                });
+    }
+
+    private String buildBatchName(YearMonth month) {
   String monthName = month.getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN);
   String year = String.valueOf(month.getYear());
 
@@ -477,7 +540,19 @@ private String buildBatchName(YearMonth month) {
                     originalBatch.setUpdateDate(LocalDateTime.now());
                     return originalBatch;
                 })
-                .flatMap(rewardBatchRepository::save);
+                .flatMap(rewardBatchRepository::save)
+                .flatMap(savedBatch ->
+                        this.generateAndSaveCsv(rewardBatchId, initiativeId, savedBatch.getMerchantId())
+                                .onErrorResume(e -> {
+                                    log.error("Critical error while generating CSV for batch {}", Utilities.sanitizeString(rewardBatchId), e);
+                                    return Mono.empty();
+                                })
+                                .flatMap(filename -> {
+                                    savedBatch.setFilename(filename);
+                                    log.info("Updated batch {} with filename: {}", Utilities.sanitizeString(rewardBatchId), filename);
+                                    return rewardBatchRepository.save(savedBatch);
+                                })
+                );
     }
 
   Mono<RewardBatch> createRewardBatchAndSave(RewardBatch savedBatch) {
@@ -646,6 +721,107 @@ private String buildBatchName(YearMonth month) {
                     ));
                 });
     }
+
+
+    @Override
+        public Mono<String> generateAndSaveCsv(String rewardBatchId, String initiativeId, String merchantId) {
+
+            log.info("[GENERATE_AND_SAVE_CSV] Generate CSV for initiative {} and batch {}",
+                    Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(rewardBatchId) );
+
+            if (rewardBatchId.contains("..") || rewardBatchId.contains("/") || rewardBatchId.contains("\\"))
+            {
+                log.error("Invalid rewardBatchId for CSV filename: {}", Utilities.sanitizeString(rewardBatchId));
+                return Mono.error(new IllegalArgumentException("Invalid batch id for CSV file generation"));
+            }
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+
+        String pathPrefix = String.format("initiative/%s/merchant/%s/batch/%s/",
+                Utilities.sanitizeString(initiativeId),
+                Utilities.sanitizeString(merchantId),
+                Utilities.sanitizeString(rewardBatchId));
+
+        String reportFilename = String.format("report_%s_%s.csv",
+                Utilities.sanitizeString(rewardBatchId),
+                timestamp);
+        String filename = pathPrefix + reportFilename;
+
+            List<RewardBatchTrxStatus> statusList = new ArrayList<>();
+            statusList.add(RewardBatchTrxStatus.APPROVED);
+            Flux<RewardTransaction> transactionFlux = rewardTransactionRepository.findByFilter(
+                    rewardBatchId, initiativeId, statusList);
+
+            Flux<String> csvRowsFlux = transactionFlux
+                    .map(transaction -> this.mapTransactionToCsvRow(transaction, initiativeId));
+
+            Flux<String> fullCsvFlux = Flux.just(CSV_HEADER).concatWith(csvRowsFlux);
+
+        return fullCsvFlux.collect(StringBuilder::new, (sb, s) -> sb.append(s).append("\n"))
+                .map(StringBuilder::toString)
+                .flatMap(csvContent -> this.uploadCsvToBlob(filename, csvContent))
+                .doOnTerminate(() -> log.info("CSV generation has been completed for batch: {}", Utilities.sanitizeString(rewardBatchId)))
+                .map(uploadedKey -> filename);
+        }
+
+        private String mapTransactionToCsvRow(RewardTransaction trx, String initiativeId) {
+            Function<Object, String> safeToString = obj -> obj != null ? obj.toString().replace(";", ",") : "";
+            Function<LocalDateTime, String> safeDateToString = date ->
+                    date != null ? date.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
+
+            LongFunction<String> centsToEuroString = cents -> {
+                NumberFormat numberFormat = NumberFormat.getNumberInstance(Locale.ITALY);
+                numberFormat.setMinimumFractionDigits(2);
+                numberFormat.setMaximumFractionDigits(2);
+                return  numberFormat.format(cents / 100.0);
+
+            };
+
+            String productName = trx.getAdditionalProperties().get("productName") != null ? trx.getAdditionalProperties().get("productName") : "";
+            String productGtin = trx.getAdditionalProperties().get("productGtin") != null ? trx.getAdditionalProperties().get("productGtin") : "";
+
+            String additionalProperties = productName + "\n" + productGtin;
+
+            String quotedAdditionalProperties = "\"" + additionalProperties + "\"";
+
+            return String.join(";",
+                    safeDateToString.apply(trx.getTrxChargeDate()),
+                    safeToString.apply(quotedAdditionalProperties),
+                    safeToString.apply(trx.getFiscalCode()),
+                    safeToString.apply(trx.getId()),
+                    safeToString.apply(trx.getTrxCode()),
+                    trx.getEffectiveAmountCents() != null ? centsToEuroString.apply(trx.getEffectiveAmountCents()) : "",
+                    trx.getRewards().get(initiativeId).getAccruedRewardCents() != null
+                            ? centsToEuroString.apply(trx.getRewards().get(initiativeId).getAccruedRewardCents())
+                            : "",
+                    safeToString.apply(trx.getInvoiceData().getDocNumber()),
+                    safeToString.apply(trx.getInvoiceData().getFilename()),
+                    safeToString.apply(trx.getRewardBatchTrxStatus().getDescription())
+            );
+        }
+
+    public Mono<String> uploadCsvToBlob(String filename, String csvContent) {
+
+        return Mono.fromCallable(() -> {
+            InputStream inputStream = new ByteArrayInputStream(csvContent.getBytes(StandardCharsets.UTF_8));
+            Response<BlockBlobItem> response = approvedRewardBatchBlobService.upload(
+                    inputStream,
+                    filename,
+                    "text/csv; charset=UTF-8"
+            );
+
+            if (response.getStatusCode() != HttpStatus.CREATED.value()) {
+                throw new RuntimeException("Blob upload failed with status code: " + response.getStatusCode());
+            }
+
+            return filename;
+
+        }).onErrorMap(BlobStorageException.class, e -> {
+            log.error("Azure Blob Storage upload failed for file {}", filename, e);
+            return new RuntimeException("Error uploading CSV to Blob Storage.", e);
+        });
+    }
+
+
 
     @Data
     public static class TotalAmount {

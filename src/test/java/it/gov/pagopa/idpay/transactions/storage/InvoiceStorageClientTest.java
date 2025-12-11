@@ -130,4 +130,24 @@ class InvoiceStorageClientTest {
         assertFalse(result.getValue());
     }
 
+    @Test
+    void getInvoiceFileSignedUrlShouldReturnOK() {
+        when(blobClientMock.getBlobUrl()).thenReturn("http://localhost:8080");
+        when(blobClientMock.generateUserDelegationSas(any(), any())).thenReturn("token");
+
+        String url = invoiceStorageClient.getInvoiceFileSignedUrl("fileId");
+
+        assertNotNull(url);
+        assertEquals("http://localhost:8080?token", url);
+    }
+
+    @Test
+    void getInvoiceFileSignedUrlShouldReturnKO() {
+        when(blobClientMock.generateUserDelegationSas(any(), any()))
+                .thenThrow(new BlobStorageException("test", null, null));
+
+        assertThrows(ClientException.class,
+                () -> invoiceStorageClient.getInvoiceFileSignedUrl("fileId"));
+    }
+
 }

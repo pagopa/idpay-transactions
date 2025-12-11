@@ -4,8 +4,12 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import com.azure.core.http.rest.Response;
+import com.azure.storage.blob.models.BlockBlobItem;
+import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
+import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
@@ -16,14 +20,14 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,10 +56,14 @@ class RewardBatchServiceImplTest {
   private RewardBatchService rewardBatchService;
   private RewardBatchServiceImpl rewardBatchServiceSpy;
 
+  @Mock
+  private ApprovedRewardBatchBlobService approvedRewardBatchBlobService;
+
   private static final String BUSINESS_NAME = "Test Business name";
   private static final String REWARD_BATCH_ID_1 = "REWARD_BATCH_ID_1";
     private static final String REWARD_BATCH_ID_2 = "REWARD_BATCH_ID_2";
   private static final String INITIATIVE_ID = "INITIATIVE_ID";
+    private static final String MERCHANT_ID = "MERCHANT_ID";
   private static final  RewardBatch REWARD_BATCH_1 = RewardBatch.builder()
             .id(REWARD_BATCH_ID_1)
             .build();
@@ -69,16 +77,202 @@ class RewardBatchServiceImplTest {
     private static final String CURRENT_MONTH_NAME = "dicembre 2025";
     private static final String NEXT_MONTH_NAME = "gennaio 2026";
 
+    private static final String CSV_HEADER = String.join(";",
+            "Data e ora", "Elettrodomestico", "Codice Fiscale Beneficiario", "ID transazione", "Codice sconto",
+            "Totale della spesa", "Sconto applicato",//"Importo autorizzato",
+            "Numero fattura",
+            "Fattura", "Stato"
+    );
+    private String capturedCsvContent;
+    private String capturedFilename;
+
 
 
   @BeforeEach
   void setUp() {
-    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository,
-        rewardTransactionRepository);
+    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, approvedRewardBatchBlobService);
     rewardBatchServiceSpy = spy((RewardBatchServiceImpl) rewardBatchService);
   }
 
+    private RewardTransaction createMockTransaction(String id, Long effectiveAmount, Long accruedReward, String gtin, String name) {
+        RewardTransaction trx = new RewardTransaction();
+        trx.setId(id);
+        trx.setTrxChargeDate(LocalDateTime.of(2025, 12, 10, 10, 30, 0));
+        trx.setFiscalCode("RSSMRA70A01H501U");
+        trx.setTrxCode("TXCODE123");
+        trx.setEffectiveAmountCents(effectiveAmount);
+        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED);
 
+        Map<String, Reward> rewards = new HashMap<>();
+        Reward reward = new Reward();
+        reward.setAccruedRewardCents(accruedReward);
+        rewards.put(INITIATIVE_ID, reward);
+        trx.setRewards(rewards);
+
+        Map<String, String> additionalProperties = new HashMap<>();
+        additionalProperties.put("productGtin", gtin);
+        additionalProperties.put("productName", name);
+        trx.setAdditionalProperties(additionalProperties);
+
+        InvoiceData invoice = new InvoiceData();
+        invoice.setDocNumber("DOC001");
+        invoice.setFilename("invoice.pdf");
+        trx.setInvoiceData(invoice);
+
+        return trx;
+    }
+
+    @Test
+    void testGenerateAndSaveCsv_Success() {
+        RewardTransaction trx1 = createMockTransaction("T001", 10000L, 500L, "8033675155005", "Lavatrice"); // 100.00 EUR, 5.00 EUR
+        RewardTransaction trx2 = createMockTransaction("T002", 500L, 10L, "1234567890123", "Aspirapolvere"); // 5.00 EUR, 0.10 EUR
+        when(rewardTransactionRepository.findByFilter(
+                REWARD_BATCH_ID_1,
+                INITIATIVE_ID,
+                List.of(RewardBatchTrxStatus.APPROVED)
+        )).thenReturn(Flux.just(trx1, trx2));
+
+        @SuppressWarnings("unchecked")
+        Response<BlockBlobItem> mockResponseSuccess = Mockito.mock(Response.class);
+        when(mockResponseSuccess.getStatusCode()).thenReturn(HttpStatus.CREATED.value());
+
+        final String[] emittedFilename = new String[1];
+
+        doAnswer(invocation -> {
+            capturedFilename = invocation.getArgument(1);
+            InputStream inputStream = invocation.getArgument(0);
+            capturedCsvContent = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+            return mockResponseSuccess;
+        }).when(approvedRewardBatchBlobService).upload(
+                any(InputStream.class),
+                any(String.class),
+                any(String.class)
+        );
+
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
+                .expectNextMatches(filename -> {
+                    emittedFilename[0] = filename;
+                    return filename.equals(capturedFilename);
+                })
+                .verifyComplete();
+
+        verify(rewardTransactionRepository).findByFilter(
+                REWARD_BATCH_ID_1,
+                INITIATIVE_ID,
+                List.of(RewardBatchTrxStatus.APPROVED)
+        );
+
+        verify(rewardBatchServiceSpy).uploadCsvToBlob(anyString(), anyString());
+
+        String expectedPathPrefix = String.format("initiative/%s/merchant/%s/batch/%s/",
+                INITIATIVE_ID,
+                MERCHANT_ID,
+                REWARD_BATCH_ID_1); // Usiamo le costanti del test
+
+        org.assertj.core.api.Assertions.assertThat(capturedFilename)
+                // 1. Deve iniziare con la struttura del path dinamico
+                .startsWith(expectedPathPrefix)
+                // 2. Deve contenere il prefisso del report (perché il timestamp è dinamico)
+                .contains("report_" + REWARD_BATCH_ID_1 + "_")
+                // 3. Deve finire con l'estensione corretta
+                .endsWith(".csv");
+
+        org.assertj.core.api.Assertions.assertThat(emittedFilename[0]).isEqualTo(capturedFilename);
+
+        String dataOra = "2025-12-10T10:30:00";
+        String importo1 = "100,00";
+        String reward1 = "5,00";
+        String importo2 = "5,00";
+        String reward2 = "0,10";
+
+        String expectedRow1 = dataOra + ";\"Lavatrice\n8033675155005\";RSSMRA70A01H501U;T001;TXCODE123;" + importo1 + ";" + reward1 + ";DOC001;invoice.pdf;Approvata";
+        String expectedRow2 = dataOra + ";\"Aspirapolvere\n1234567890123\";RSSMRA70A01H501U;T002;TXCODE123;" + importo2 + ";" + reward2 + ";DOC001;invoice.pdf;Approvata";
+        String expectedContent = CSV_HEADER + "\n" + expectedRow1 + "\n" + expectedRow2 + "\n";
+        org.assertj.core.api.Assertions.assertThat(capturedCsvContent).isEqualTo(expectedContent);
+    }
+
+    @Test
+    void testGenerateAndSaveCsv_RepositoryReturnsNoTransactions() {
+        when(rewardTransactionRepository.findByFilter(any(), any(), anyList()))
+                .thenReturn(Flux.empty());
+
+        final String[] emittedFilename = new String[1];
+
+        doAnswer(invocation -> {
+            capturedFilename = invocation.getArgument(0);
+            capturedCsvContent = invocation.getArgument(1);
+            return Mono.just("/fake/path/report.csv");
+        }).when(rewardBatchServiceSpy).uploadCsvToBlob(anyString(), anyString());
+
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(REWARD_BATCH_ID_2, INITIATIVE_ID, MERCHANT_ID))
+                .expectNextMatches(filename -> {
+                    emittedFilename[0] = filename;
+                    return filename.equals(capturedFilename);
+                })
+                .verifyComplete();
+
+        verify(rewardTransactionRepository).findByFilter(any(), any(), anyList());
+        verify(rewardBatchServiceSpy).uploadCsvToBlob(anyString(), anyString());
+        org.assertj.core.api.Assertions.assertThat(emittedFilename[0]).isEqualTo(capturedFilename);
+        String expectedContent = CSV_HEADER + "\n";
+        org.assertj.core.api.Assertions.assertThat(capturedCsvContent).isEqualTo(expectedContent);
+    }
+
+    @Test
+    void testGenerateAndSaveCsv_SavingFails() {
+        RewardTransaction trx = createMockTransaction("T003", 100L, 10L, "1", "Prod");
+        when(rewardTransactionRepository.findByFilter(any(), any(), anyList()))
+                .thenReturn(Flux.just(trx));
+        doReturn(Mono.error(new RuntimeException("Simulated I/O Error")))
+                .when(rewardBatchServiceSpy).uploadCsvToBlob(anyString(), anyString());
+
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
+                .expectErrorSatisfies(throwable ->
+                        org.assertj.core.api.Assertions.assertThat(throwable)
+                                .isInstanceOf(RuntimeException.class)
+                                .hasMessageContaining("Simulated I/O Error")
+                )
+                .verify();
+
+        verify(rewardTransactionRepository).findByFilter(any(), any(), anyList());
+        verify(rewardBatchServiceSpy).uploadCsvToBlob(anyString(), anyString());
+    }
+
+    @Test
+    void testGenerateAndSaveCsv_InvalidBatchId_ThrowsError() {
+        String invalidBatchId1 = "batch_id/../secret";
+
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(invalidBatchId1, INITIATIVE_ID, MERCHANT_ID))
+                .expectErrorSatisfies(throwable ->
+                        org.assertj.core.api.Assertions.assertThat(throwable)
+                                .isInstanceOf(IllegalArgumentException.class)
+                                .hasMessageContaining("Invalid batch id for CSV file generation")
+                )
+                .verify();
+
+        String invalidBatchId2 = "batch_id/other";
+
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(invalidBatchId2, INITIATIVE_ID, MERCHANT_ID))
+                .expectErrorSatisfies(throwable ->
+                        org.assertj.core.api.Assertions.assertThat(throwable)
+                                .isInstanceOf(IllegalArgumentException.class)
+                                .hasMessageContaining("Invalid batch id for CSV file generation")
+                )
+                .verify();
+
+        String invalidBatchId3 = "batch_id\\other";
+
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(invalidBatchId3, INITIATIVE_ID, MERCHANT_ID))
+                .expectErrorSatisfies(throwable ->
+                        org.assertj.core.api.Assertions.assertThat(throwable)
+                                .isInstanceOf(IllegalArgumentException.class)
+                                .hasMessageContaining("Invalid batch id for CSV file generation")
+                )
+                .verify();
+
+        verify(rewardTransactionRepository, never()).findByFilter(any(), any(), anyList());
+        verify(rewardBatchServiceSpy, never()).uploadCsvToBlob(anyString(), anyString());
+    }
     @Test
     void createRewardBatchAndSave_Success_NewBatchCreated() {
 
@@ -191,6 +385,12 @@ class RewardBatchServiceImplTest {
             REWARD_BATCH_1.setAssigneeLevel(RewardBatchAssignee.L3);
             REWARD_BATCH_1.setNumberOfTransactionsSuspended(0L);
 
+            String FAKE_CSV_FILENAME = "test/path/report_fake.csv";
+
+            doReturn(Mono.just(FAKE_CSV_FILENAME))
+                    .when(rewardBatchServiceSpy)
+                    .generateAndSaveCsv(anyString(), anyString(), anyString());
+
             when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(REWARD_BATCH_1));
             doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsToApprove(anyString(), anyString());
             when(rewardBatchRepository.save(any(RewardBatch.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
@@ -205,7 +405,7 @@ class RewardBatchServiceImplTest {
 
             verify(rewardBatchServiceSpy, times(1)).updateAndSaveRewardTransactionsToApprove(REWARD_BATCH_ID_1, INITIATIVE_ID);
             verify(rewardBatchServiceSpy, never()).createRewardBatchAndSave(any());
-            verify(rewardBatchRepository, times(1)).save(any(RewardBatch.class));
+            verify(rewardBatchRepository, times(2)).save(any(RewardBatch.class));
         }
 
         @Test
@@ -215,17 +415,24 @@ class RewardBatchServiceImplTest {
             REWARD_BATCH_1.setNumberOfTransactionsSuspended(1L);
             REWARD_BATCH_2.setStatus(RewardBatchStatus.CREATED);
 
+            String FAKE_CSV_FILENAME = "test/path/report_fake.csv";
+
+            doReturn(Mono.just(FAKE_CSV_FILENAME))
+                    .when(rewardBatchServiceSpy)
+                    .generateAndSaveCsv(anyString(), anyString(), anyString());
+
             when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(REWARD_BATCH_1));
             doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsToApprove(anyString(), anyString());
             doReturn(Mono.just(REWARD_BATCH_2)).when(rewardBatchServiceSpy).createRewardBatchAndSave(any(RewardBatch.class));
             doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsSuspended(anyString(), anyString(), anyString());
             when(rewardBatchRepository.save(any(RewardBatch.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
+
             StepVerifier.create(rewardBatchServiceSpy.processSingleBatch(REWARD_BATCH_ID_1, INITIATIVE_ID))
                     .expectNextMatches(batch ->
                             batch.getId().equals(REWARD_BATCH_ID_1) &&
                                     batch.getStatus().equals(RewardBatchStatus.APPROVED) &&
-                                    batch.getNumberOfTransactionsSuspended().equals(1L) && // Il conteggio rimane
+                                    batch.getNumberOfTransactionsSuspended().equals(1L) &&
                                     batch.getUpdateDate() != null)
                     .verifyComplete();
 
@@ -236,7 +443,7 @@ class RewardBatchServiceImplTest {
                     INITIATIVE_ID,
                     REWARD_BATCH_ID_2
             );
-            verify(rewardBatchRepository, times(1)).save(argThat(batch ->
+            verify(rewardBatchRepository, times(2)).save(argThat(batch ->
                     batch.getId().equals(REWARD_BATCH_ID_1) && batch.getStatus().equals(RewardBatchStatus.APPROVED)));
         }
 
@@ -406,7 +613,7 @@ class RewardBatchServiceImplTest {
         .thenReturn(Mono.error(new DuplicateKeyException("Duplicate")));
 
     StepVerifier.create(
-            new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository)
+            new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, approvedRewardBatchBlobService)
                 .findOrCreateBatch("M1", posType, batchMonth, BUSINESS_NAME)
         )
         .assertNext(batch -> {
@@ -1793,4 +2000,110 @@ class RewardBatchServiceImplTest {
         verify(rewardBatchRepository, never()).updateStatusAndApprovedAmountCents(any(), any(), any());
 
     }
+
+    @Test
+    void downloadRewardBatch_NotFound() {
+        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectErrorMatches(throwable ->
+                        throwable instanceof ClientExceptionNoBody &&
+                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_NOT_FOUND"))
+                .verify();
+    }
+
+    @Test
+    void downloadRewardBatch_NotApproved() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.EVALUATING)
+                .build();
+
+        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectErrorMatches(throwable ->
+                        throwable instanceof ClientExceptionNoBody &&
+                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_NOT_APPROVED"))
+                .verify();
+    }
+
+    @Test
+    void downloadRewardBatch_MissingFilename() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.APPROVED)
+                .filename("")
+                .build();
+
+        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectErrorMatches(throwable ->
+                        throwable instanceof ClientExceptionNoBody &&
+                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_MISSING_FILENAME"))
+                .verify();
+    }
+
+    @Test
+    void downloadRewardBatch_Success() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.APPROVED)
+                .filename("file.csv")
+                .build();
+
+        String blobPath = String.format("initiative/%s/merchant/%s/batch/%s/%s",
+                INITIATIVE_ID, MERCHANT_ID, REWARD_BATCH_ID_1, batch.getFilename());
+
+        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+        when(approvedRewardBatchBlobService.getFileSignedUrl(blobPath))
+                .thenReturn("signed-url");
+
+        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectNextMatches(response ->
+                        response.getApprovedBatchUrl().equals("signed-url"))
+                .verifyComplete();
+    }
+
+    @Test
+    void downloadRewardBatch_FilenameNull() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.APPROVED)
+                .filename(null)
+                .build();
+
+        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectErrorMatches(throwable ->
+                        throwable instanceof ClientExceptionNoBody &&
+                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_MISSING_FILENAME"))
+                .verify();
+    }
+
+    @Test
+    void downloadRewardBatch_FilenameBlank() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.APPROVED)
+                .filename("   ")
+                .build();
+
+        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectErrorMatches(throwable ->
+                        throwable instanceof ClientExceptionNoBody &&
+                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_MISSING_FILENAME"))
+                .verify();
+    }
+
 }
