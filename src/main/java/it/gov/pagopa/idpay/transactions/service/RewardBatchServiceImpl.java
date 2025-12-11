@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND;
+//import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT;
 
 @Service
@@ -606,12 +606,12 @@ private String buildBatchName(YearMonth month) {
 
                     if (assignee == RewardBatchAssignee.L1) {
 
-                        if (!"operator1".equals(organizationRole)) {
-                            return Mono.error(new ResponseStatusException(
-                                    HttpStatus.FORBIDDEN,
-                                    ExceptionConstants.ExceptionCode.ROLE_NOT_ALLOWED_FOR_L1_PROMOTION
-                            ));
-                        }
+//                        if (!"operator1".equals(organizationRole)) {
+//                            return Mono.error(new ResponseStatusException(
+//                                    HttpStatus.FORBIDDEN,
+//                                    ExceptionConstants.ExceptionCode.ROLE_NOT_ALLOWED_FOR_L1_PROMOTION
+//                            ));
+//                        }
 
                         long total = batch.getNumberOfTransactions();
                         long elaborated = batch.getNumberOfTransactionsElaborated();
@@ -629,12 +629,12 @@ private String buildBatchName(YearMonth month) {
 
                     if (assignee == RewardBatchAssignee.L2) {
 
-                        if (!"operator2".equals(organizationRole)) {
-                            return Mono.error(new ResponseStatusException(
-                                    HttpStatus.FORBIDDEN,
-                                    ExceptionConstants.ExceptionCode.ROLE_NOT_ALLOWED_FOR_L2_PROMOTION
-                            ));
-                        }
+//                        if (!"operator2".equals(organizationRole)) {
+//                            return Mono.error(new ResponseStatusException(
+//                                    HttpStatus.FORBIDDEN,
+//                                    ExceptionConstants.ExceptionCode.ROLE_NOT_ALLOWED_FOR_L2_PROMOTION
+//                            ));
+//                        }
 
                         batch.setAssigneeLevel(RewardBatchAssignee.L3);
                         return rewardBatchRepository.save(batch).then();
