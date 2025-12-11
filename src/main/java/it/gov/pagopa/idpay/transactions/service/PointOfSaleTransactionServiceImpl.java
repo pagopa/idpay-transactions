@@ -8,6 +8,7 @@ import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
@@ -24,7 +25,6 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
-import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,10 +34,9 @@ import java.nio.file.Paths;
 import java.time.YearMonth;
 
 import static it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus.CREATED;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_ALREADY_SENT;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_REWARD_BATCH_ALREADY_SENT;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.TRANSACTION_MISSING_INVOICE;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.GENERIC_ERROR;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.*;
 
 
 @Service
@@ -198,7 +197,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     PosType posType = rewardTransaction.getPointOfSaleType();
                     String businessName = rewardTransaction.getBusinessName();
 
-                    String initiativeId = rewardTransaction.getInitiatives().get(0);
+                    String initiativeId = rewardTransaction.getInitiatives().getFirst();
 
                     long accruedRewardCents = rewardTransaction.getRewards()
                         .get(initiativeId)
@@ -229,7 +228,107 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
           });
   }
 
-  private Mono<Void> replaceInvoiceFile(FilePart file,
+
+    public Mono<Void> reversalTransaction(
+            String transactionId,
+            String merchantId,
+            String pointOfSaleId,
+            FilePart file,
+            String docNumber
+    ) {
+        // Controllo sul file
+        Utilities.checkFileExtensionOrThrow(file);
+
+        return rewardTransactionRepository.findTransaction(merchantId, pointOfSaleId, transactionId)
+                .switchIfEmpty(Mono.error(
+                        new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE))
+                )
+                .flatMap(rt -> {
+                    //Stato transazione INVOICED
+                    if (!SyncTrxStatus.INVOICED.toString().equals(rt.getStatus())) {
+                        return Mono.error(new ClientExceptionWithBody(
+                                HttpStatus.BAD_REQUEST,
+                                GENERIC_ERROR,
+                                TRANSACTION_NOT_STATUS_INVOICED
+                        ));
+                    }
+
+                    final String rewardBatchId = rt.getRewardBatchId();
+
+                    //Verifica stato reward batch CREATED
+                    Mono<Void> batchStatusCheckMono =
+                            rewardBatchId != null
+                                    ? rewardBatchRepository.findRewardBatchById(rewardBatchId)
+                                    .switchIfEmpty(Mono.error(
+                                            new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND))
+                                    )
+                                    .flatMap(rb -> {
+                                        if (!CREATED.equals(rb.getStatus())) {
+                                            return Mono.error(new ClientExceptionWithBody(
+                                                    HttpStatus.BAD_REQUEST,
+                                                    REWARD_BATCH_ALREADY_SENT,
+                                                    ERROR_MESSAGE_REWARD_BATCH_ALREADY_SENT
+                                            ));
+                                        }
+                                        return Mono.empty();
+                                    })
+                                    : Mono.empty();
+
+                    return batchStatusCheckMono.then(Mono.defer(() -> {
+
+                        // PULIZIA TRANSACTION
+                        rt.setRewardBatchId(null);
+                        rt.setRewardBatchInclusionDate(null);
+                        rt.setRewardBatchTrxStatus(null);
+                        rt.setSamplingKey(0);
+
+                        // INVOICED -> REFUNDED
+                        rt.setStatus(SyncTrxStatus.REFUNDED.toString());
+                        rt.setUpdateDate(LocalDateTime.now());
+
+                        String initiativeId = rt.getInitiatives().getFirst();
+                        long accruedRewardCents = rt.getRewards()
+                                .get(initiativeId)
+                                .getAccruedRewardCents();
+
+                        Mono<Void> saveRewardTransactionMono =
+                                rewardTransactionRepository.save(rt).then();
+
+                        // PULIZIA REWARDBATCH
+                        Mono<RewardBatch> decrementRewardBatchMono =
+                                rewardBatchId != null
+                                        ? rewardBatchRepository.decrementTotals(rewardBatchId, accruedRewardCents)
+                                        : Mono.<RewardBatch>empty();
+
+                        // Upload nota di credito + update invoiceData
+                        Mono<Void> uploadCreditNoteMono =
+                                replaceInvoiceFileToCreditNote(file, merchantId, pointOfSaleId, transactionId)
+                                        .onErrorMap(IOException.class, e ->
+                                                new ClientExceptionWithBody(
+                                                        HttpStatus.INTERNAL_SERVER_ERROR,
+                                                        GENERIC_ERROR,
+                                                        "Error uploading credit note file"
+                                                )
+                                        )
+                                        .then(Mono.fromRunnable(() -> rt.setInvoiceData(InvoiceData.builder()
+                                                .filename(file.filename())
+                                                .docNumber(docNumber)
+                                                .build())))
+                                        .then(rewardTransactionRepository.save(rt).then());
+
+                        // sparare su coda idpay-transaction
+
+                        return saveRewardTransactionMono
+                                .then(decrementRewardBatchMono)
+                                .then(uploadCreditNoteMono);
+                    }));
+                })
+                .doOnError(e ->
+                        log.error("Error during reversalTransaction [transactionId={}, merchantId={}]",
+                                transactionId, merchantId, e));
+    }
+
+    private Mono<Void> replaceInvoiceFile(FilePart file,
       InvoiceData oldDocumentData,
       String merchantId,
       String pointOfSaleId,
@@ -261,11 +360,43 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
           log.error("Error uploading file to storage for transaction [{}]",
               Utilities.sanitizeString(transactionId), e);
           throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
-              ExceptionConstants.ExceptionCode.GENERIC_ERROR,
+              GENERIC_ERROR,
               "Error uploading invoice file", e);
         })
         .then();
   }
+
+    private Mono<Void> replaceInvoiceFileToCreditNote(FilePart file,
+                                          String merchantId,
+                                          String pointOfSaleId,
+                                          String transactionId) {
+
+        String blobPath = String.format(
+                "invoices/merchant/%s/pos/%s/transaction/%s/creditNote/%s",
+                merchantId, pointOfSaleId, transactionId, file.filename());
+
+        Path tempPath = Paths.get(System.getProperty("java.io.tmpdir"), file.filename());
+
+        return file.transferTo(tempPath)
+                .then(Mono.fromCallable(() -> {
+
+                    try (InputStream is = Files.newInputStream(tempPath)) {
+                        String contentType = file.headers().getContentType() != null
+                                ? file.headers().getContentType().toString()
+                                : null;
+                        invoiceStorageClient.upload(is, blobPath, contentType);
+                    }
+                    return Boolean.TRUE;
+                }))
+                .onErrorMap(IOException.class, e -> {
+                    log.error("Error uploading file to storage for transaction [{}]",
+                            Utilities.sanitizeString(transactionId), e);
+                    throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
+                            GENERIC_ERROR,
+                            "Error uploading credit note file", e);
+                })
+                .then();
+    }
 
   private InvoiceData validateTransactionData(RewardTransaction rewardTransaction, String merchantId, String pointOfSaleId) {
 
@@ -275,14 +406,14 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
     if (!rewardTransaction.getMerchantId().equals(merchantId)) {
       throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
-          ExceptionConstants.ExceptionCode.GENERIC_ERROR,
+          GENERIC_ERROR,
           "The merchant with id [%s] associated to the transaction is not equal to the merchant with id [%s]".formatted(
               rewardTransaction.getMerchantId(), merchantId));
     }
 
     if (!rewardTransaction.getPointOfSaleId().equals(pointOfSaleId)) {
       throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
-          ExceptionConstants.ExceptionCode.GENERIC_ERROR,
+          GENERIC_ERROR,
           "The pointOfSaleId with id [%s] associated to the transaction is not equal to the pointOfSaleId with id [%s]".formatted(
               rewardTransaction.getPointOfSaleId(), pointOfSaleId));
     }

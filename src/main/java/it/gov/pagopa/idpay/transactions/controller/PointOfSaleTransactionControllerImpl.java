@@ -93,4 +93,18 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
     return pointOfSaleTransactionService.updateInvoiceTransaction(transactionId, merchantId,
         pointOfSaleId, file, docNumber);
   }
+
+    @Override
+    public void reversalTransaction(String transactionId, String merchantId, String pointOfSaleId, FilePart file, String docNumber) {
+
+        final String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
+        final String sanitizedTrxCode = Utilities.sanitizeString(transactionId);
+        final String sanitizedPointOfSaleId = Utilities.sanitizeString(pointOfSaleId);
+
+        log.info(
+                "[REVERSAL_TRANSACTION] The merchant {} is requesting a reversal for the transactionId {} at POS {}",
+                sanitizedMerchantId, sanitizedTrxCode, sanitizedPointOfSaleId
+        );
+        pointOfSaleTransactionService.reversalTransaction(transactionId, merchantId, pointOfSaleId, file, docNumber);
+    }
 }
