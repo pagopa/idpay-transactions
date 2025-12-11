@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_ON_GET_FILE_URL_REQUEST;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.TRANSACTION_MISSING_INVOICE;
 import static org.junit.jupiter.api.Assertions.*;
@@ -14,14 +15,16 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
-import it.gov.pagopa.idpay.transactions.model.counters.RewardCounters;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -63,6 +66,9 @@ class PointOfSaleTransactionServiceImplTest {
     @Mock
     private RewardBatchService rewardBatchService;
 
+    @Mock
+    private RewardBatchRepository rewardBatchRepository;
+
     private PointOfSaleTransactionService pointOfSaleTransactionService;
 
     private final Pageable pageable = PageRequest.of(0, 10);
@@ -81,9 +87,9 @@ class PointOfSaleTransactionServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        Mockito.reset(rewardTransactionRepository, invoiceStorageClient, userRestClient, rewardBatchService);
+        Mockito.reset(rewardTransactionRepository, invoiceStorageClient, userRestClient, rewardBatchService, rewardBatchRepository);
         pointOfSaleTransactionService = new PointOfSaleTransactionServiceImpl(
-                userRestClient, rewardTransactionRepository, invoiceStorageClient, rewardBatchService);
+                userRestClient, rewardTransactionRepository, invoiceStorageClient, rewardBatchService, rewardBatchRepository);
     }
 
     @Test
@@ -414,6 +420,7 @@ class PointOfSaleTransactionServiceImplTest {
 
         RewardBatch newBatch = new RewardBatch();
         newBatch.setId("NEW_BATCH_ID");
+        newBatch.setStatus(RewardBatchStatus.CREATED);
 
         when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
@@ -426,11 +433,13 @@ class PointOfSaleTransactionServiceImplTest {
         when(invoiceStorageClient.upload(any(), anyString(), anyString())).thenReturn(null);
         when(rewardBatchService.findOrCreateBatch(eq(MERCHANT_ID), any(), anyString(), eq("Test Business")))
                 .thenReturn(Mono.just(newBatch));
-        when(rewardBatchService.decrementTotals(eq("OLD_BATCH_ID"), eq(1000L)))
+        when(rewardBatchService.decrementTotals("OLD_BATCH_ID",1000L))
                 .thenReturn(Mono.empty());
-        when(rewardBatchService.incrementTotals(eq("NEW_BATCH_ID"), eq(1000L)))
+        when(rewardBatchService.incrementTotals("NEW_BATCH_ID",1000L))
                 .thenReturn(Mono.empty());
         when(rewardTransactionRepository.save(any(RewardTransaction.class))).thenReturn(Mono.just(trx));
+
+        when(rewardBatchRepository.findRewardBatchById(anyString())).thenReturn(Mono.just(newBatch));
 
         Mono<Void> result = pointOfSaleTransactionService.updateInvoiceTransaction(
                 TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, NEW_DOC_NUMBER);
@@ -560,7 +569,7 @@ class PointOfSaleTransactionServiceImplTest {
                 () -> pointOfSaleTransactionService.updateInvoiceTransaction(
                         TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, NEW_DOC_NUMBER));
 
-        assertEquals("File must be a PDF or XML", ex.getCause().getMessage());
+        assertEquals("File must be a PDF or XML", ex.getMessage());
     }
 
     @Test
@@ -569,7 +578,80 @@ class PointOfSaleTransactionServiceImplTest {
                 () -> pointOfSaleTransactionService.updateInvoiceTransaction(
                         TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, null, DOC_NUMBER));
 
-        assertEquals("File is required", ex.getCause().getMessage());
+        assertEquals("File is required", ex.getMessage());
+    }
+
+    @Test
+    void updateInvoiceTransaction_rewardBatchNotFound_shouldThrowTransactionNotFound() {
+        FilePart filePart = createMockFilePart(NEW_FILENAME, MediaType.APPLICATION_PDF_VALUE);
+
+        RewardTransaction trx = RewardTransaction.builder()
+            .id(TRX_ID)
+            .merchantId(MERCHANT_ID)
+            .pointOfSaleId(POINT_OF_SALE_ID)
+            .status("INVOICED")
+            .invoiceData(InvoiceData.builder().filename(OLD_FILENAME).build())
+            .rewardBatchId("BATCH_ID")
+            .build();
+
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID))
+            .thenReturn(Mono.just(trx));
+        when(rewardBatchRepository.findRewardBatchById("BATCH_ID"))
+            .thenReturn(Mono.empty());
+
+        Mono<Void> result = pointOfSaleTransactionService.updateInvoiceTransaction(
+            TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, NEW_DOC_NUMBER);
+
+        StepVerifier.create(result)
+            .expectErrorMatches(throwable ->
+                throwable instanceof ClientExceptionNoBody &&
+                    ((ClientExceptionNoBody) throwable).getHttpStatus() == HttpStatus.BAD_REQUEST &&
+                    REWARD_BATCH_NOT_FOUND.equals(throwable.getMessage()))
+            .verify();
+
+        verify(rewardTransactionRepository).findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+        verify(rewardBatchRepository).findRewardBatchById("BATCH_ID");
+        verifyNoInteractions(invoiceStorageClient);
+    }
+
+    @Test
+    void updateInvoiceTransaction_rewardBatchStatusNotCreated_shouldThrowRewardBatchAlreadySent() {
+        FilePart filePart = createMockFilePart(NEW_FILENAME, MediaType.APPLICATION_PDF_VALUE);
+
+        RewardTransaction trx = RewardTransaction.builder()
+            .id(TRX_ID)
+            .merchantId(MERCHANT_ID)
+            .pointOfSaleId(POINT_OF_SALE_ID)
+            .status("INVOICED")
+            .invoiceData(InvoiceData.builder().filename(OLD_FILENAME).build())
+            .rewardBatchId("BATCH_ID")
+            .build();
+
+        RewardBatch batch = new RewardBatch();
+        batch.setId("BATCH_ID");
+        batch.setStatus(RewardBatchStatus.SENT); // stato diverso da CREATED
+
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID))
+            .thenReturn(Mono.just(trx));
+        when(rewardBatchRepository.findRewardBatchById("BATCH_ID"))
+            .thenReturn(Mono.just(batch));
+
+        Mono<Void> result = pointOfSaleTransactionService.updateInvoiceTransaction(
+            TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, NEW_DOC_NUMBER);
+
+        StepVerifier.create(result)
+            .expectErrorMatches(throwable ->
+                throwable instanceof ClientExceptionWithBody &&
+                    ((ClientExceptionWithBody) throwable).getHttpStatus() == HttpStatus.BAD_REQUEST &&
+                    throwable.getMessage().contains(
+                        ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_REWARD_BATCH_ALREADY_SENT
+                    )
+            )
+            .verify();
+
+        verify(rewardTransactionRepository).findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+        verify(rewardBatchRepository).findRewardBatchById("BATCH_ID");
+        verifyNoInteractions(invoiceStorageClient);
     }
 
     private FilePart createMockFilePart(String filename, String contentType) {
