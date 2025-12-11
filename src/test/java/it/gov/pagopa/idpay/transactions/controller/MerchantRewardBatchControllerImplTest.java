@@ -56,15 +56,15 @@ class MerchantRewardBatchControllerImplTest {
 
     private static final List<String> BATCH_IDS = Arrays.asList(REWARD_BATCH_ID_1, REWARD_BATCH_ID_2);
 
+    private static final String FAKE_FILENAME = "test/path/report.csv";
     @Test
     void generateAndSaveCsv_Success_Accepted() {
-        final String FAKE_FILENAME = "test/path/report.csv";
 
         when(rewardBatchService.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
                 .thenReturn(Mono.just(FAKE_FILENAME));
 
         webClient.put()
-                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/{merchantId}/generateAndSaveCsv",
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/generateAndSaveCsv?merchantId={merchantId}",
                         INITIATIVE_ID, REWARD_BATCH_ID_1, MERCHANT_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .exchange()
@@ -83,7 +83,7 @@ class MerchantRewardBatchControllerImplTest {
                 .thenReturn(Mono.error(serviceException));
 
         webClient.put()
-                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/{merchantId}/generateAndSaveCsv",
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/generateAndSaveCsv?merchantId={merchantId}",
                         INITIATIVE_ID, REWARD_BATCH_ID_1, MERCHANT_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .exchange()
