@@ -87,7 +87,7 @@ class RewardBatchServiceImplTest {
             "Fattura", "Stato"
     );
 
-    String FAKE_CSV_FILENAME = "test/path/report_fake.csv";
+    private static final String FAKE_CSV_FILENAME = "test/path/report_fake.csv";
     private String capturedCsvContent;
     private String capturedFilename;
 
