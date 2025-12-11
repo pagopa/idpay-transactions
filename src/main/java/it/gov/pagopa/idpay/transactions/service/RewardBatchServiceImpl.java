@@ -604,7 +604,7 @@ private String buildBatchName(YearMonth month) {
 
                     RewardBatchAssignee assignee = batch.getAssigneeLevel();
 
-                    if (assignee == RewardBatchAssignee.L1 || assignee == RewardBatchAssignee.L2) {
+                    if (assignee == RewardBatchAssignee.L1 || assignee == RewardBatchAssignee.L2 || assignee == RewardBatchAssignee.L3) {
                         long total = batch.getNumberOfTransactions();
                         long elaborated = batch.getNumberOfTransactionsElaborated();
 
