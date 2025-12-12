@@ -84,7 +84,7 @@ public interface PointOfSaleTransactionController {
 
     @PostMapping("/transactions/{transactionId}/reversal-invoiced")
     @ResponseStatus(code = HttpStatus.NO_CONTENT)
-    void reversalTransaction(
+    Mono<Void> reversalTransaction(
             @PathVariable("transactionId") String transactionId,
             @RequestHeader("x-merchant-id") String merchantId,
             @RequestHeader("x-point-of-sale-id") String pointOfSaleId,

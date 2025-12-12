@@ -236,16 +236,26 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
             FilePart file,
             String docNumber
     ) {
+
+        log.info("[REVERSAL-TRANSACTION-SERVICE] Start reversalTransaction transactionId={}, merchantId={}, posId={}, docNumber={}",
+                transactionId, merchantId, pointOfSaleId, docNumber);
+
         // Controllo sul file
         Utilities.checkFileExtensionOrThrow(file);
 
         return rewardTransactionRepository.findTransaction(merchantId, pointOfSaleId, transactionId)
+                .doOnSubscribe(s -> log.debug("[REVERSAL-TRANSACTION-SERVICE] Looking for transaction merchantId={}, posId={}, trxId={}",
+                        merchantId, pointOfSaleId, transactionId))
                 .switchIfEmpty(Mono.error(
                         new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE))
                 )
+                .doOnNext(rt -> log.info("[REVERSAL-TRANSACTION-SERVICE] Found transaction id={}, status={}, rewardBatchId={}",
+                        rt.getId(), rt.getStatus(), rt.getRewardBatchId()))
                 .flatMap(rt -> {
-                    //Stato transazione INVOICED
+                    // Stato transazione INVOICED
                     if (!SyncTrxStatus.INVOICED.toString().equals(rt.getStatus())) {
+                        log.warn("[REVERSAL-TRANSACTION-SERVICE] Transaction id={} has invalid status={} (expected INVOICED)",
+                                rt.getId(), rt.getStatus());
                         return Mono.error(new ClientExceptionWithBody(
                                 HttpStatus.BAD_REQUEST,
                                 GENERIC_ERROR,
@@ -259,11 +269,17 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     Mono<Void> batchStatusCheckMono =
                             rewardBatchId != null
                                     ? rewardBatchRepository.findRewardBatchById(rewardBatchId)
+                                    .doOnSubscribe(s -> log.debug("[REVERSAL-TRANSACTION-SERVICE] Checking reward batch id={} for transaction id={}",
+                                            rewardBatchId, rt.getId()))
                                     .switchIfEmpty(Mono.error(
                                             new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND))
                                     )
+                                    .doOnNext(rb -> log.info("[REVERSAL-TRANSACTION-SERVICE] Found reward batch id={} with status={}",
+                                            rb.getId(), rb.getStatus()))
                                     .flatMap(rb -> {
                                         if (!CREATED.equals(rb.getStatus())) {
+                                            log.warn("[REVERSAL-TRANSACTION-SERVICE] Reward batch id={} is not in CREATED status={}",
+                                                    rb.getId(), rb.getStatus());
                                             return Mono.error(new ClientExceptionWithBody(
                                                     HttpStatus.BAD_REQUEST,
                                                     REWARD_BATCH_ALREADY_SENT,
@@ -272,10 +288,13 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                         }
                                         return Mono.empty();
                                     })
-                                    : Mono.empty();
+                                    : Mono.defer(() -> {
+                                log.info("[REVERSAL-TRANSACTION-SERVICE] Transaction id={} has no rewardBatchId, skipping batch checks", rt.getId());
+                                return Mono.empty();
+                            });
 
                     return batchStatusCheckMono.then(Mono.defer(() -> {
-
+                        log.info("[REVERSAL-TRANSACTION-SERVICE] Updating transaction id={} for reversal", rt.getId());
                         // PULIZIA TRANSACTION
                         rt.setRewardBatchId(null);
                         rt.setRewardBatchInclusionDate(null);
@@ -286,46 +305,79 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                         rt.setStatus(SyncTrxStatus.REFUNDED.toString());
                         rt.setUpdateDate(LocalDateTime.now());
 
+                        log.debug("[REVERSAL-TRANSACTION-SERVICE] Transaction id={} cleaned. New status={}, rewardBatchId={}, samplingKey={}",
+                                rt.getId(), rt.getStatus(), rt.getRewardBatchId(), rt.getSamplingKey());
+
                         String initiativeId = rt.getInitiatives().getFirst();
                         long accruedRewardCents = rt.getRewards()
                                 .get(initiativeId)
                                 .getAccruedRewardCents();
 
+                        log.debug("[REVERSAL-TRANSACTION-SERVICE] Transaction id={} initiativeId={}, accruedRewardCents={}",
+                                rt.getId(), initiativeId, accruedRewardCents);
+
+
                         Mono<Void> saveRewardTransactionMono =
-                                rewardTransactionRepository.save(rt).then();
+                                rewardTransactionRepository.save(rt)
+                                        .doOnSuccess(saved ->
+                                                log.info("[REVERSAL-TRANSACTION-SERVICE] Saved transaction id={} with new status={}",
+                                                        saved.getId(), saved.getStatus()))
+                                        .then();
 
                         // PULIZIA REWARDBATCH
                         Mono<RewardBatch> decrementRewardBatchMono =
                                 rewardBatchId != null
                                         ? rewardBatchRepository.decrementTotals(rewardBatchId, accruedRewardCents)
-                                        : Mono.<RewardBatch>empty();
+                                        .doOnNext(rb ->
+                                                log.info("[REVERSAL-TRANSACTION-SERVICE] Decremented reward batch id={} totals after removing trx id={}",
+                                                        rb.getId(), rt.getId()))
+                                        : Mono.<RewardBatch>fromRunnable(() ->
+                                        log.info("[REVERSAL-TRANSACTION-SERVICE] No rewardBatchId for transaction id={}, skipping decrementTotals", rt.getId())
+                                );
 
                         // Upload nota di credito + update invoiceData
                         Mono<Void> uploadCreditNoteMono =
                                 replaceInvoiceFileToCreditNote(file, merchantId, pointOfSaleId, transactionId)
-                                        .onErrorMap(IOException.class, e ->
-                                                new ClientExceptionWithBody(
-                                                        HttpStatus.INTERNAL_SERVER_ERROR,
-                                                        GENERIC_ERROR,
-                                                        "Error uploading credit note file"
-                                                )
-                                        )
-                                        .then(Mono.fromRunnable(() -> rt.setInvoiceData(InvoiceData.builder()
-                                                .filename(file.filename())
-                                                .docNumber(docNumber)
-                                                .build())))
-                                        .then(rewardTransactionRepository.save(rt).then());
+                                        .doOnSubscribe(s -> log.info("[REVERSAL-TRANSACTION-SERVICE] Uploading credit note for transaction id={}", rt.getId()))
+                                        .onErrorMap(IOException.class, e -> {
+                                            log.error("[REVERSAL-TRANSACTION-SERVICE] IOException while uploading credit note for transaction id={}",
+                                                    rt.getId(), e);
+                                            return new ClientExceptionWithBody(
+                                                    HttpStatus.INTERNAL_SERVER_ERROR,
+                                                    GENERIC_ERROR,
+                                                    "Error uploading credit note file"
+                                            );
+                                        })
+                                        .then(Mono.fromRunnable(() -> {
+                                            rt.setInvoiceData(InvoiceData.builder()
+                                                    .filename(file.filename())
+                                                    .docNumber(docNumber)
+                                                    .build());
+                                            log.info("[REVERSAL-TRANSACTION-SERVICE] Set invoiceData for transaction id={} filename={} docNumber={}",
+                                                    rt.getId(), file.filename(), docNumber);
+                                        }))
+                                        .then(
+                                                rewardTransactionRepository.save(rt)
+                                                        .doOnSuccess(saved ->
+                                                                log.info("[REVERSAL-TRANSACTION-SERVICE] Saved transaction id={} with updated invoiceData",
+                                                                        saved.getId()))
+                                                        .then()
+                                        );
 
                         // sparare su coda idpay-transaction
 
                         return saveRewardTransactionMono
                                 .then(decrementRewardBatchMono)
-                                .then(uploadCreditNoteMono);
+                                .then(uploadCreditNoteMono)
+                                .doOnSuccess(v ->
+                                        log.info("[REVERSAL-TRANSACTION-SERVICE] Completed reversal pipeline for transaction id={}", rt.getId()));
                     }));
                 })
                 .doOnError(e ->
-                        log.error("Error during reversalTransaction [transactionId={}, merchantId={}]",
-                                transactionId, merchantId, e));
+                        log.error("[REVERSAL-TRANSACTION-SERVICE] Error during reversalTransaction [transactionId={}, merchantId={}]",
+                                transactionId, merchantId, e))
+                .doOnTerminate(() ->
+                        log.info("[REVERSAL-TRANSACTION-SERVICE] reversalTransaction flow terminated for transactionId={}", transactionId));
     }
 
     private Mono<Void> replaceInvoiceFile(FilePart file,
