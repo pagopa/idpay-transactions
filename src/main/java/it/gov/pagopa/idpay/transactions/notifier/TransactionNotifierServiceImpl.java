@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.notifier;
 
+import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,6 +17,8 @@ import reactor.core.publisher.Flux;
 public class TransactionNotifierServiceImpl implements TransactionNotifierService {
 
   private String binder;
+  private static final String OPERATION_TYPE_HEADER = "operationType";
+  private static final String OPERATION_TYPE_REFUNDED = "REFUNDED";
 
   private final StreamBridge streamBridge;
 
@@ -39,8 +42,11 @@ public class TransactionNotifierServiceImpl implements TransactionNotifierServic
 
   @Override
   public Message<RewardTransaction> buildMessage(RewardTransaction trx, String key) {
-    return MessageBuilder.withPayload(trx)
-        .setHeader(KafkaHeaders.KEY, key)
-        .build();
+    MessageBuilder<RewardTransaction> builder = MessageBuilder.withPayload(trx).setHeader(KafkaHeaders.KEY, key);
+    if (SyncTrxStatus.REFUNDED.name().equalsIgnoreCase(trx.getStatus())) {
+      builder.setHeader(OPERATION_TYPE_HEADER, OPERATION_TYPE_REFUNDED);
+
+    }
+    return builder.build();
   }
 }
