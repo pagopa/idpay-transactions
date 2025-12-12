@@ -850,9 +850,9 @@ class PointOfSaleTransactionServiceImplTest {
         assertEquals(0, saved.getSamplingKey());
         assertNotNull(saved.getUpdateDate());
 
-        assertNotNull(saved.getInvoiceData());
-        assertEquals("credit-note.pdf", saved.getInvoiceData().getFilename());
-        assertEquals(DOC_NUMBER, saved.getInvoiceData().getDocNumber());
+        assertNotNull(saved.getCreditNoteData());
+        assertEquals("credit-note.pdf", saved.getCreditNoteData().getFilename());
+        assertEquals(DOC_NUMBER, saved.getCreditNoteData().getDocNumber());
 
         verify(rewardBatchRepository, times(1)).decrementTotals(BATCH_ID, 123L);
     }
