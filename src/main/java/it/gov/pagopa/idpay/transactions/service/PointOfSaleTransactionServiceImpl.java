@@ -10,6 +10,7 @@ import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.notifier.TransactionNotifierService;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
@@ -48,15 +49,21 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
   private final InvoiceStorageClient invoiceStorageClient;
   private final RewardBatchService rewardBatchService;
   private final RewardBatchRepository rewardBatchRepository;
+  private final TransactionErrorNotifierService transactionErrorNotifierService;
+  private final TransactionNotifierService transactionNotifierService;
 
   protected PointOfSaleTransactionServiceImpl(
           UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository, InvoiceStorageClient invoiceStorageClient, RewardBatchService rewardBatchService,
-      RewardBatchRepository rewardBatchRepository) {
+      RewardBatchRepository rewardBatchRepository,
+      TransactionErrorNotifierService transactionErrorNotifierService,
+      TransactionNotifierService transactionNotifierService) {
     this.userRestClient = userRestClient;
     this.rewardTransactionRepository = rewardTransactionRepository;
     this.invoiceStorageClient = invoiceStorageClient;
     this.rewardBatchService = rewardBatchService;
     this.rewardBatchRepository = rewardBatchRepository;
+    this.transactionErrorNotifierService = transactionErrorNotifierService;
+    this.transactionNotifierService = transactionNotifierService;
   }
 
     @Override
@@ -373,12 +380,11 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                             rb.getId(), rt.getId()))
                                             : Mono.<RewardBatch>empty();
 
-                            // TODO: publish su coda idpay-transaction
-                            // Mono<Void> sendToQueueMono = sendToIdPayQueue(rt);
+                            Mono<Void> sendToQueueMono = sendReversedInvoicedTransactionNotification(rt);
 
                             return saveTransactionMono
                                     .then(decrementRewardBatchMono.then())
-                                    // .then(sendToQueueMono)
+                                    .then(sendToQueueMono)
                                     .doOnSuccess(v -> log.info("[REVERSAL-TRANSACTION-SERVICE] Completed reversal for trxId={}", rt.getId()));
                         }));
                     }));
@@ -389,6 +395,33 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .then();
     }
 
+  private Mono<Void> sendReversedInvoicedTransactionNotification(RewardTransaction trx) {
+    return Mono.fromRunnable(() -> {
+          log.info(
+              "[REVERSAL_INVOICED_TRANSACTION][SEND_NOTIFICATION] Sending Reverse Invoiced Transaction event to Notification: trxId {} - merchantId {}",
+              trx.getId(), trx.getMerchantId());
+
+          if (!transactionNotifierService.notify(trx, trx.getUserId())) {
+            throw new IllegalStateException(
+                "[TRANSACTION_REVERSAL_INVOICED_REQUEST] Something gone wrong while reversing Invoiced Transaction notify");
+          }
+        })
+        .onErrorResume(e -> {
+          log.error(
+              "[UNEXPECTED_REVERSAL_INVOICED_ERROR][SEND_NOTIFICATION] An error has occurred and was not possible to notify it: trxId {} - merchantId {}",
+              trx.getId(), trx.getUserId(), e);
+
+          transactionErrorNotifierService.notifyTransactionOutcome(
+              transactionNotifierService.buildMessage(trx, trx.getUserId()),
+              "[REVERSAL_INVOICED_TRANSACTION_REQUEST] An error occurred while publishing the reversal invoiced result: trxId %s - merchantId %s".formatted(
+                  trx.getId(), trx.getMerchantId()),
+              true,
+              e
+          );
+
+          return Mono.error(e);
+        }).then();
+  }
 
     private Mono<Void> replaceInvoiceFile(FilePart file,
       InvoiceData oldDocumentData,
