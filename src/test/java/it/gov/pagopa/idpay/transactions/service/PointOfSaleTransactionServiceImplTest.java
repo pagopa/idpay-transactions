@@ -20,6 +20,7 @@ import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.notifier.TransactionNotifierService;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
@@ -77,7 +78,14 @@ class PointOfSaleTransactionServiceImplTest {
     @InjectMocks
     private PointOfSaleTransactionServiceImpl service;
 
-    private PointOfSaleTransactionService pointOfSaleTransactionService;
+  @Mock
+  private TransactionErrorNotifierService transactionErrorNotifierService;
+
+  @Mock
+  private TransactionNotifierService transactionNotifierService;
+
+
+  private PointOfSaleTransactionService pointOfSaleTransactionService;
 
     private final Pageable pageable = PageRequest.of(0, 10);
 
@@ -99,7 +107,7 @@ class PointOfSaleTransactionServiceImplTest {
         when(filePart.filename()).thenReturn("credit-note.pdf");
         Mockito.reset(rewardTransactionRepository, invoiceStorageClient, userRestClient, rewardBatchService, rewardBatchRepository);
         pointOfSaleTransactionService = new PointOfSaleTransactionServiceImpl(
-                userRestClient, rewardTransactionRepository, invoiceStorageClient, rewardBatchService, rewardBatchRepository);
+                userRestClient, rewardTransactionRepository, invoiceStorageClient, rewardBatchService, rewardBatchRepository,transactionErrorNotifierService, transactionNotifierService);
     }
 
     @Test
@@ -134,7 +142,7 @@ class PointOfSaleTransactionServiceImplTest {
                 .assertNext(page -> {
                     assertEquals(1, page.getTotalElements());
                     assertEquals(1, page.getContent().size());
-                    assertEquals(trx.getIdTrxAcquirer(), page.getContent().get(0).getIdTrxAcquirer());
+                    assertEquals(trx.getIdTrxAcquirer(), page.getContent().getFirst().getIdTrxAcquirer());
                 })
                 .verifyComplete();
 
@@ -185,7 +193,7 @@ class PointOfSaleTransactionServiceImplTest {
                 .assertNext(page -> {
                     assertEquals(1, page.getTotalElements());
                     assertEquals(1, page.getContent().size());
-                    assertEquals(trx.getIdTrxAcquirer(), page.getContent().get(0).getIdTrxAcquirer());
+                    assertEquals(trx.getIdTrxAcquirer(), page.getContent().getFirst().getIdTrxAcquirer());
                 })
                 .verifyComplete();
 
@@ -755,7 +763,7 @@ class PointOfSaleTransactionServiceImplTest {
     }
 
     @Test
-    void reversalTransaction_uploadFailsWithIOException_returns500_andDoesNotTouchDb() throws Exception {
+    void reversalTransaction_uploadFailsWithIOException_returns500_andDoesNotTouchDb() {
         RewardTransaction trx = trx(INITIATIVE_ID, 100L);
         trx.setStatus(SyncTrxStatus.INVOICED.toString());
         trx.setRewardBatchId(BATCH_ID);
@@ -785,7 +793,7 @@ class PointOfSaleTransactionServiceImplTest {
     }
 
     @Test
-    void reversalTransaction_uploadFailsWithAzureCredential_returns500_andDoesNotTouchDb() throws Exception {
+    void reversalTransaction_uploadFailsWithAzureCredential_returns500_andDoesNotTouchDb() {
         RewardTransaction trx = trx(INITIATIVE_ID, 100L);
         trx.setStatus(SyncTrxStatus.INVOICED.toString());
         trx.setRewardBatchId(BATCH_ID);
@@ -816,7 +824,7 @@ class PointOfSaleTransactionServiceImplTest {
     }
 
     @Test
-    void reversalTransaction_success_withBatch_updatesDb_andDecrements() throws Exception {
+    void reversalTransaction_success_withBatch_updatesDb_andDecrements() {
         RewardTransaction trx = trx(INITIATIVE_ID, 123L);
         trx.setId(TRX_ID);
         trx.setStatus(SyncTrxStatus.INVOICED.toString());
@@ -835,6 +843,8 @@ class PointOfSaleTransactionServiceImplTest {
 
         when(rewardBatchRepository.decrementTotals(BATCH_ID, 123L))
                 .thenReturn(Mono.just(batch));
+
+        when(transactionNotifierService.notify(any(), any())).thenReturn(true);
 
         StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, DOC_NUMBER))
                 .verifyComplete();
@@ -858,7 +868,7 @@ class PointOfSaleTransactionServiceImplTest {
     }
 
     @Test
-    void reversalTransaction_success_withoutBatch_doesNotQueryBatchRepo() throws Exception {
+    void reversalTransaction_success_withoutBatch_doesNotQueryBatchRepo() {
         RewardTransaction trx = trx(INITIATIVE_ID, 50L);
         trx.setId(TRX_ID);
         trx.setStatus(SyncTrxStatus.INVOICED.toString());
@@ -868,6 +878,7 @@ class PointOfSaleTransactionServiceImplTest {
 
         doReturn(Mono.empty()).when(service).addCreditNoteFile(filePart, MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
         when(rewardTransactionRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(transactionNotifierService.notify(any(), any())).thenReturn(true);
 
         StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, DOC_NUMBER))
                 .verifyComplete();
