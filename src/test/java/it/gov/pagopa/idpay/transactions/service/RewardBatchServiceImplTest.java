@@ -1,14 +1,13 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.azure.core.http.rest.Response;
 import com.azure.storage.blob.models.BlockBlobItem;
-import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
-import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
-import it.gov.pagopa.common.web.exception.RewardBatchException;
+import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
@@ -45,7 +44,6 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -1890,10 +1888,9 @@ class RewardBatchServiceImplTest {
 
         StepVerifier.create(rewardBatchService.validateRewardBatch("wrongRole", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .expectErrorSatisfies(ex -> {
-                    assertInstanceOf(ResponseStatusException.class, ex);
-                    assertEquals(HttpStatus.FORBIDDEN, ((ResponseStatusException) ex).getStatusCode());
-                    assertEquals(ExceptionConstants.ExceptionCode.ROLE_NOT_ALLOWED_FOR_L1_PROMOTION,
-                            ((ResponseStatusException) ex).getReason());
+                    assertInstanceOf(RoleNotAllowedForL1PromotionException.class, ex);
+                    assertEquals(ROLE_NOT_ALLOWED_FOR_L1_PROMOTION,
+                            ((RoleNotAllowedForL1PromotionException) ex).getCode());
                 })
                 .verify();
     }
@@ -1911,10 +1908,9 @@ class RewardBatchServiceImplTest {
 
         StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .expectErrorSatisfies(ex -> {
-                    assertInstanceOf(ResponseStatusException.class, ex);
-                    assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) ex).getStatusCode());
-                    assertEquals(ExceptionConstants.ExceptionCode.BATCH_NOT_ELABORATED_15_PERCENT,
-                            ((ResponseStatusException) ex).getReason());
+                    assertInstanceOf(BatchNotElaborated15PercentException.class, ex);
+                    assertEquals(BATCH_NOT_ELABORATED_15_PERCENT,
+                            ((BatchNotElaborated15PercentException) ex).getCode());
                 })
                 .verify();
     }
@@ -1930,10 +1926,9 @@ class RewardBatchServiceImplTest {
 
         StepVerifier.create(rewardBatchService.validateRewardBatch("wrongRole", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .expectErrorSatisfies(ex -> {
-                    assertInstanceOf(ResponseStatusException.class, ex);
-                    assertEquals(HttpStatus.FORBIDDEN, ((ResponseStatusException) ex).getStatusCode());
-                    assertEquals(ExceptionConstants.ExceptionCode.ROLE_NOT_ALLOWED_FOR_L2_PROMOTION,
-                            ((ResponseStatusException) ex).getReason());
+                    assertInstanceOf(RoleNotAllowedForL2PromotionException.class, ex);
+                    assertEquals(ROLE_NOT_ALLOWED_FOR_L2_PROMOTION,
+                            ((RoleNotAllowedForL2PromotionException) ex).getCode());
                 })
                 .verify();
     }
@@ -1949,10 +1944,9 @@ class RewardBatchServiceImplTest {
 
         StepVerifier.create(rewardBatchService.validateRewardBatch("operator3", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .expectErrorSatisfies(ex -> {
-                    assertInstanceOf(ResponseStatusException.class, ex);
-                    assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) ex).getStatusCode());
-                    assertEquals(ExceptionConstants.ExceptionCode.INVALID_BATCH_STATE_FOR_PROMOTION,
-                            ((ResponseStatusException) ex).getReason());
+                    assertInstanceOf(InvalidBatchStateForPromotionException.class, ex);
+                    assertEquals(INVALID_BATCH_STATE_FOR_PROMOTION,
+                            ((InvalidBatchStateForPromotionException) ex).getCode());
                 })
                 .verify();
     }
@@ -1963,10 +1957,9 @@ class RewardBatchServiceImplTest {
 
         StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .expectErrorSatisfies(ex -> {
-                    assertInstanceOf(ResponseStatusException.class, ex);
-                    assertEquals(HttpStatus.NOT_FOUND, ((ResponseStatusException) ex).getStatusCode());
-                    assertEquals(ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND,
-                            ((ResponseStatusException) ex).getReason());
+                    assertInstanceOf(RewardBatchNotFound.class, ex);
+                    assertEquals(REWARD_BATCH_NOT_FOUND,
+                            ((RewardBatchNotFound) ex).getCode());
                 })
                 .verify();
     }
@@ -1984,10 +1977,9 @@ class RewardBatchServiceImplTest {
 
         StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .expectErrorSatisfies(ex -> {
-                    assertInstanceOf(ResponseStatusException.class, ex);
-                    assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) ex).getStatusCode());
-                    assertEquals(ExceptionConstants.ExceptionCode.BATCH_NOT_ELABORATED_15_PERCENT,
-                            ((ResponseStatusException) ex).getReason());
+                    assertInstanceOf(BatchNotElaborated15PercentException.class, ex);
+                    assertEquals(BATCH_NOT_ELABORATED_15_PERCENT,
+                            ((BatchNotElaborated15PercentException) ex).getCode());
                 })
                 .verify();
     }
@@ -2081,5 +2073,82 @@ class RewardBatchServiceImplTest {
                 .verify();
     }
 
+    @Test
+    void downloadRewardBatch_NotFound_WhenMerchantIdNull() {
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(null, INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectErrorMatches(throwable ->
+                        throwable instanceof ClientExceptionNoBody &&
+                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_NOT_FOUND"))
+                .verify();
+    }
+
+    @Test
+    void downloadRewardBatch_NotApproved_WhenMerchantIdNull() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.EVALUATING)
+                .build();
+
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(null, INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectErrorMatches(throwable ->
+                        throwable instanceof ClientExceptionNoBody &&
+                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_NOT_APPROVED"))
+                .verify();
+    }
+
+    @Test
+    void downloadRewardBatch_Success_WhenMerchantIdNull() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.APPROVED)
+                .filename("file.csv")
+                .build();
+
+        String blobPath = String.format(
+                "initiative/%s/merchant/%s/batch/%s/%s",
+                INITIATIVE_ID,
+                null,
+                REWARD_BATCH_ID_1,
+                batch.getFilename()
+        );
+
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        when(approvedRewardBatchBlobService.getFileSignedUrl(blobPath))
+                .thenReturn("signed-url");
+
+        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(null, INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectNextMatches(response ->
+                        response.getApprovedBatchUrl().equals("signed-url"))
+                .verifyComplete();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "   "})
+    @NullSource
+    void downloadRewardBatch_InvalidFilename_WhenMerchantIdNull(String invalidFilename) {
+
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.APPROVED)
+                .filename(invalidFilename)
+                .build();
+
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(null, INITIATIVE_ID, REWARD_BATCH_ID_1))
+                .expectErrorMatches(throwable ->
+                        throwable instanceof ClientExceptionNoBody &&
+                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_MISSING_FILENAME"))
+                .verify();
+    }
 
 }

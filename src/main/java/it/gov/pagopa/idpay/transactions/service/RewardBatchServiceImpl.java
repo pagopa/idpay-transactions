@@ -3,10 +3,7 @@ package it.gov.pagopa.idpay.transactions.service;
 import com.azure.core.http.rest.Response;
 import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.models.BlockBlobItem;
-import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
-import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
-import it.gov.pagopa.common.web.exception.RewardBatchException;
-import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
+import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.dto.DownloadRewardBatchResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
@@ -31,7 +28,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -49,10 +45,12 @@ import java.util.Locale;
 import java.util.Set;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.*;
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
+import static org.springframework.http.HttpStatus.NOT_FOUND;
+
 import java.util.function.Function;
 import java.util.function.LongFunction;
-
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT;
 
 @Service
 @Slf4j
@@ -149,22 +147,22 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 @Override
 public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
   return rewardBatchRepository.findById(batchId)
-      .switchIfEmpty(Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
+      .switchIfEmpty(Mono.error(new RewardBatchException(NOT_FOUND,
           ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)))
       .flatMap(batch -> {
         if (!merchantId.equals(batch.getMerchantId())) {
           log.warn("[SEND_REWARD_BATCHES] Merchant id mismatch !");
-          return Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
+          return Mono.error(new RewardBatchException(NOT_FOUND,
               ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND));
         }
         if (batch.getStatus() != RewardBatchStatus.CREATED) {
-          return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
+          return Mono.error(new RewardBatchException(BAD_REQUEST,
               ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST));
         }
         YearMonth batchMonth = YearMonth.parse(batch.getMonth());
         if (!YearMonth.now().isAfter(batchMonth)) {
           log.warn("[SEND_REWARD_BATCHES] Batch month too early to be sent !");
-          return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
+          return Mono.error(new RewardBatchException(BAD_REQUEST,
               ExceptionConstants.ExceptionCode.REWARD_BATCH_MONTH_TOO_EARLY));
         }
         batch.setStatus(RewardBatchStatus.SENT);
@@ -178,7 +176,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     @Override
     public Mono<RewardBatch> suspendTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request) {
         return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.EVALUATING)
-                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(HttpStatus.NOT_FOUND,
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(NOT_FOUND,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
                         ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()))
@@ -239,7 +237,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     @Override
     public Mono<RewardBatch> rejectTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request) {
         return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.EVALUATING)
-                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(HttpStatus.NOT_FOUND,
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(NOT_FOUND,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
                         ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()))
@@ -304,7 +302,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     @Override
     public Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String initiativeId) {
         return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.EVALUATING)
-                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(HttpStatus.NOT_FOUND,
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(NOT_FOUND,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
                         ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()))
@@ -370,25 +368,32 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     @Override
     public Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatchFile(String merchantId, String initiativeId, String rewardBatchId) {
 
-        return rewardBatchRepository.findByMerchantIdAndId(merchantId, rewardBatchId)
+        Mono<RewardBatch> query;
+
+        if (merchantId == null) {
+            query = rewardBatchRepository.findById(rewardBatchId);
+        } else {
+            query = rewardBatchRepository.findByMerchantIdAndId(merchantId, rewardBatchId);
+        }
+
+        return query
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
-                        HttpStatus.BAD_REQUEST,
+                        BAD_REQUEST,
                         REWARD_BATCH_NOT_FOUND
                 )))
                 .map(rewardBatch -> {
 
                     if (!RewardBatchStatus.APPROVED.equals(rewardBatch.getStatus())) {
                         throw new ClientExceptionNoBody(
-                                HttpStatus.BAD_REQUEST,
+                                BAD_REQUEST,
                                 REWARD_BATCH_NOT_APPROVED
                         );
                     }
 
-
                     String filename = rewardBatch.getFilename();
                     if (filename == null || filename.isBlank()) {
                         throw new ClientExceptionNoBody(
-                                HttpStatus.BAD_REQUEST,
+                                BAD_REQUEST,
                                 REWARD_BATCH_MISSING_FILENAME
                         );
                     }
@@ -419,15 +424,15 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     public Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId) {
         return rewardBatchRepository.findRewardBatchById(rewardBatchId)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
-                        HttpStatus.NOT_FOUND,
-                        ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND,
-                        ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
+                        NOT_FOUND,
+                        REWARD_BATCH_NOT_FOUND,
+                        ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
                 .filter(rewardBatch -> rewardBatch.getStatus().equals(RewardBatchStatus.EVALUATING)
                         && rewardBatch.getAssigneeLevel().equals(RewardBatchAssignee.L3))
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
-                        HttpStatus.BAD_REQUEST,
-                        ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST,
-                        ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
+                        BAD_REQUEST,
+                        REWARD_BATCH_INVALID_REQUEST,
+                        ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
                 )))
                 .flatMap(rewardBatch -> {
                     Flux<RewardBatch> previousBatchesFlux = rewardBatchRepository.findRewardBatchByMonthBefore(
@@ -442,9 +447,9 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                             .flatMap(isUnapprovedPresent ->
                                     Boolean.TRUE.equals(isUnapprovedPresent)
                                             ? Mono.error(new ClientExceptionWithBody(
-                                            HttpStatus.BAD_REQUEST,
-                                            ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST,
-                                            ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_PREVIOUS_BATCH_TO_APPROVE.formatted(rewardBatchId)
+                                            BAD_REQUEST,
+                                            REWARD_BATCH_INVALID_REQUEST,
+                                            ERROR_MESSAGE_PREVIOUS_BATCH_TO_APPROVE.formatted(rewardBatchId)
                                     ))
                                             : Mono.just(rewardBatch)
                             );
@@ -508,17 +513,17 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     public Mono<RewardBatch> processSingleBatch(String rewardBatchId, String initiativeId) {
         return rewardBatchRepository.findRewardBatchById(rewardBatchId)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
-                        HttpStatus.NOT_FOUND,
-                        ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND,
-                        ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
+                        NOT_FOUND,
+                        REWARD_BATCH_NOT_FOUND,
+                        ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
 
                 .filter(rewardBatch -> rewardBatch.getStatus().equals(RewardBatchStatus.APPROVING)
                         &&  rewardBatch.getAssigneeLevel().equals(RewardBatchAssignee.L3 ))
 
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
-                        HttpStatus.BAD_REQUEST,
-                        ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST,
-                        ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
+                        BAD_REQUEST,
+                        REWARD_BATCH_INVALID_REQUEST,
+                        ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
                 )))
                 .flatMap(originalBatch -> {
                     Mono<Void> transactionsUpdate = updateAndSaveRewardTransactionsToApprove(rewardBatchId, initiativeId);
@@ -674,9 +679,9 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     @Override
     public Mono<Void> validateRewardBatch(String organizationRole, String initiativeId, String rewardBatchId) {
         return rewardBatchRepository.findById(rewardBatchId)
-                .switchIfEmpty(Mono.error(new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND
+                .switchIfEmpty(Mono.error(new RewardBatchNotFound(
+                        REWARD_BATCH_NOT_FOUND,
+                        ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId)
                 )))
                 .flatMap(batch -> {
 
@@ -685,9 +690,9 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                     if (assignee == RewardBatchAssignee.L1) {
 
                         if (!"operator1".equals(organizationRole)) {
-                            return Mono.error(new ResponseStatusException(
-                                    HttpStatus.FORBIDDEN,
-                                    ExceptionConstants.ExceptionCode.ROLE_NOT_ALLOWED_FOR_L1_PROMOTION
+                            return Mono.error(new RoleNotAllowedForL1PromotionException(
+                                    ROLE_NOT_ALLOWED_FOR_L1_PROMOTION,
+                                    ERROR_MESSAGE_ROLE_NOT_ALLOWED_FOR_L1_PROMOTION
                             ));
                         }
 
@@ -695,9 +700,9 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                         long elaborated = batch.getNumberOfTransactionsElaborated();
 
                         if (total == 0 || elaborated < Math.ceil(total * 0.15)) {
-                            return Mono.error(new ResponseStatusException(
-                                    HttpStatus.BAD_REQUEST,
-                                    ExceptionConstants.ExceptionCode.BATCH_NOT_ELABORATED_15_PERCENT
+                            return Mono.error(new BatchNotElaborated15PercentException(
+                                    BATCH_NOT_ELABORATED_15_PERCENT,
+                                    ERROR_MESSAGE_BATCH_NOT_ELABORATED_15_PERCENT
                             ));
                         }
 
@@ -708,9 +713,9 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                     if (assignee == RewardBatchAssignee.L2) {
 
                         if (!"operator2".equals(organizationRole)) {
-                            return Mono.error(new ResponseStatusException(
-                                    HttpStatus.FORBIDDEN,
-                                    ExceptionConstants.ExceptionCode.ROLE_NOT_ALLOWED_FOR_L2_PROMOTION
+                            return Mono.error(new RoleNotAllowedForL2PromotionException(
+                                    ROLE_NOT_ALLOWED_FOR_L2_PROMOTION,
+                                    ERROR_MESSAGE_ROLE_NOT_ALLOWED_FOR_L2_PROMOTION
                             ));
                         }
 
@@ -718,10 +723,10 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                         return rewardBatchRepository.save(batch).then();
                     }
 
-                    return Mono.error(new ResponseStatusException(
-                            HttpStatus.BAD_REQUEST,
-                            ExceptionConstants.ExceptionCode.INVALID_BATCH_STATE_FOR_PROMOTION
-                    ));
+                    return Mono.error((new InvalidBatchStateForPromotionException(
+                            INVALID_BATCH_STATE_FOR_PROMOTION,
+                            ERROR_MESSAGE_INVALID_BATCH_STATE_FOR_PROMOTION
+                    )));
                 });
     }
 
