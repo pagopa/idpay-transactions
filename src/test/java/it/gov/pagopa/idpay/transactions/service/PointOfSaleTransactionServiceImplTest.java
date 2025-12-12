@@ -844,6 +844,8 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardBatchRepository.decrementTotals(BATCH_ID, 123L))
                 .thenReturn(Mono.just(batch));
 
+        when(transactionNotifierService.notify(any(), any())).thenReturn(true);
+
         StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, DOC_NUMBER))
                 .verifyComplete();
 
@@ -876,6 +878,7 @@ class PointOfSaleTransactionServiceImplTest {
 
         doReturn(Mono.empty()).when(service).addCreditNoteFile(filePart, MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
         when(rewardTransactionRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(transactionNotifierService.notify(any(), any())).thenReturn(true);
 
         StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, DOC_NUMBER))
                 .verifyComplete();
