@@ -427,10 +427,10 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         .then();
   }
 
-    private Mono<Void> replaceInvoiceFileToCreditNote(FilePart file,
-                                          String merchantId,
-                                          String pointOfSaleId,
-                                          String transactionId) {
+    Mono<Void> replaceInvoiceFileToCreditNote(FilePart file,
+                                              String merchantId,
+                                              String pointOfSaleId,
+                                              String transactionId) {
 
         String blobPath = String.format(
                 "invoices/merchant/%s/pos/%s/transaction/%s/creditNote/%s",
