@@ -72,6 +72,9 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             "Fattura", "Stato"
     );
 
+  private static final String REWARD_BATCHES_PATH_STORAGE_FORMAT = "initiative/%s/merchant/%s/batch/%s/";
+  private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "report_%s_%s.csv";
+
   public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService) {
     this.rewardBatchRepository = rewardBatchRepository;
     this.rewardTransactionRepository = rewardTransactionRepository;
@@ -399,7 +402,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                     }
 
                     String blobPath = String.format(
-                            "initiative/%s/merchant/%s/batch/%s/%s",
+                            REWARD_BATCHES_PATH_STORAGE_FORMAT + "%s",
                             initiativeId,
                             merchantId,
                             rewardBatchId,
@@ -455,8 +458,10 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                             );
                 })
                 .map(rewardBatch -> {
+                    LocalDateTime nowDateTime = LocalDateTime.now();
                     rewardBatch.setStatus(RewardBatchStatus.APPROVING);
-                    rewardBatch.setUpdateDate(LocalDateTime.now());
+                    rewardBatch.setApprovalDate(nowDateTime);
+                    rewardBatch.setUpdateDate(nowDateTime);
                     return rewardBatch;
                 })
                 .flatMap(rewardBatchRepository::save);
@@ -543,12 +548,11 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                         return Mono.just(originalBatch);
                     }
                 })
-                .map(originalBatch -> {
-                    originalBatch.setStatus(RewardBatchStatus.APPROVED);
-                    originalBatch.setUpdateDate(LocalDateTime.now());
-                    return originalBatch;
+                .flatMap(originalBatch -> {
+                            originalBatch.setStatus(RewardBatchStatus.APPROVED);
+                            originalBatch.setUpdateDate(LocalDateTime.now());
+                            return rewardBatchRepository.save(originalBatch);
                 })
-                .flatMap(rewardBatchRepository::save)
                 .flatMap(savedBatch ->
                         this.generateAndSaveCsv(rewardBatchId, initiativeId, savedBatch.getMerchantId())
                                 .onErrorResume(e -> {
@@ -758,12 +762,12 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
         return merchantIdMono
                 .flatMap(resolvedMerchantId -> {
 
-                    String pathPrefix = String.format("initiative/%s/merchant/%s/batch/%s/",
+                    String pathPrefix = String.format(REWARD_BATCHES_PATH_STORAGE_FORMAT,
                             Utilities.sanitizeString(initiativeId),
                             Utilities.sanitizeString(resolvedMerchantId),
                             Utilities.sanitizeString(rewardBatchId));
 
-                    String reportFilename = String.format("report_%s_%s.csv",
+                    String reportFilename = String.format(REWARD_BATCHES_REPORT_NAME_FORMAT,
                             Utilities.sanitizeString(rewardBatchId),
                             timestamp);
                     String filename = pathPrefix + reportFilename;
