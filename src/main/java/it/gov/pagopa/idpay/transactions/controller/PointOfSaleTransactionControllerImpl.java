@@ -95,7 +95,7 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
   }
 
     @Override
-    public Mono<Void> reversalTransaction(String transactionId, String merchantId, String pointOfSaleId, FilePart file, String docNumber) {
+    public Mono<Void> reversalTransactionInvoiced(String transactionId, String merchantId, String pointOfSaleId, FilePart file, String docNumber) {
 
         final String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
         final String sanitizedTrxCode = Utilities.sanitizeString(transactionId);
