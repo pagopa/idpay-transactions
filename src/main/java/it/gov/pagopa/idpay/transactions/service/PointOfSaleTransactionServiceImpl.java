@@ -385,7 +385,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 })
                 .doOnError(e ->
                         log.error("[REVERSAL-TRANSACTION-SERVICE] Error during reversalTransaction [transactionId={}, merchantId={}]",
-                                transactionId, merchantId, e))
+                               sanitizedTransactionId, sanitizedMerchantId, e))
                 .then();
     }
 
