@@ -303,7 +303,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                         log.info("[REVERSAL-TRANSACTION-SERVICE] Uploading credit note BEFORE DB updates for trxId={}", rt.getId());
 
                         Mono<Void> uploadCreditNoteMono =
-                                replaceInvoiceFileToCreditNote(file, merchantId, pointOfSaleId, transactionId)
+                                addCreditNoteFile(file, merchantId, pointOfSaleId, transactionId)
                                         .doOnSuccess(v -> log.info("[REVERSAL-TRANSACTION-SERVICE] Credit note uploaded for trxId={}", rt.getId()))
                                         .onErrorMap(IOException.class, e -> {
                                             log.error("[REVERSAL-TRANSACTION-SERVICE] IOException uploading credit note trxId={}", rt.getId(), e);
@@ -345,7 +345,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                             rt.setUpdateDate(LocalDateTime.now());
 
                             // 3c) Salva invoiceData su transaction
-                            rt.setInvoiceData(InvoiceData.builder()
+                            rt.setCreditNoteData(InvoiceData.builder()
                                     .filename(file.filename())
                                     .docNumber(sanitizedDocNumber)
                                     .build());
@@ -461,10 +461,10 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         .then();
   }
 
-    Mono<Void> replaceInvoiceFileToCreditNote(FilePart file,
-                                              String merchantId,
-                                              String pointOfSaleId,
-                                              String transactionId) {
+    Mono<Void> addCreditNoteFile(FilePart file,
+                                 String merchantId,
+                                 String pointOfSaleId,
+                                 String transactionId) {
 
         String blobPath = String.format(
                 "invoices/merchant/%s/pos/%s/transaction/%s/creditNote/%s",
