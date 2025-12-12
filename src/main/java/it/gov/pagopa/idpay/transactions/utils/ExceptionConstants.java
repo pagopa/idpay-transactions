@@ -11,6 +11,10 @@ public final class ExceptionConstants {
         public static final String GENERIC_ERROR = "TRANSACTIONS_GENERIC_ERROR";
         public static final String TRANSACTIONS_MISSING_MANDATORY_FILTERS = "TRANSACTIONS_MISSING_MANDATORY_FILTERS";
         public static final String REWARD_BATCH_NOT_FOUND = "REWARD_BATCH_NOT_FOUND";
+        public static final String REWARD_BATCH_NOT_APPROVED = "REWARD_BATCH_NOT_APPROVED";
+        public static final String REWARD_BATCH_MISSING_FILENAME = "REWARD_BATCH_MISSING_FILENAME";
+        public static final String REWARD_BATCH_INVALID_MERCHANT = "REWARD_BATCH_INVALID_MERCHANT";
+
         public static final String REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE = "REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE";
         public static final String REWARD_BATCH_ALREADY_APPROVED = "REWARD_BATCH_ALREADY_APPROVED";
         public static final String REWARD_BATCH_INVALID_REQUEST = "REWARD_BATCH_INVALID_REQUEST";
@@ -47,5 +51,9 @@ public final class ExceptionConstants {
         public static final String ERROR_MESSAGE_PREVIOUS_BATCH_TO_APPROVE = "Is not possible to approve batch %s because there are previous Batch to approve";
         public static final String ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT = "No reward batches found with status SENT";
         public static final String ERROR_MESSAGE_REWARD_BATCH_ALREADY_SENT = "Reward batch has already been sent";
+        public static final String ERROR_MESSAGE_ROLE_NOT_ALLOWED_FOR_L1_PROMOTION = "Operator not allowed to promote from L1";
+        public static final String ERROR_MESSAGE_BATCH_NOT_ELABORATED_15_PERCENT = "At least 15% of transactions must be elaborated";
+        public static final String ERROR_MESSAGE_ROLE_NOT_ALLOWED_FOR_L2_PROMOTION = "Operator not allowed to promote from L2";
+        public static final String ERROR_MESSAGE_INVALID_BATCH_STATE_FOR_PROMOTION = "Invalid state for batch promotion";
     }
 }

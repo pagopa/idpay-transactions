@@ -21,6 +21,7 @@ springdoc.swagger-ui.path: "/swagger-ui/index.html"
 blobStorage:
   storageAccountName: ${BLOB_STORAGE_ACCOUNT_NAME:}
   containerReference: ${BLOB_STORAGE_CONTAINER_REFERENCE:}
+  csvContainerReference: ${BLOB_STORAGE_CSV_CONTAINER_REFERENCE:}
   invoiceTokenDurationSeconds: ${INVOICE_STORAGE_SAS_DURATION_SECONDS:60}
 
 spring:

@@ -2,9 +2,9 @@ package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
-import it.gov.pagopa.idpay.transactions.dto.RewardBatchRequest;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchesRequest;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
+import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
@@ -13,6 +13,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
+
 
 @RequestMapping("/idpay/merchant/portal")
 public interface MerchantRewardBatchController {
@@ -49,7 +50,14 @@ Mono<RewardBatch>  rewardBatchConfirmation(
   @PutMapping("/initiatives/{initiativeId}/reward-batches/approved")
   Mono<Void>  rewardBatchConfirmationBatch(
           @PathVariable("initiativeId") String initiativeId,
-          @RequestBody  RewardBatchRequest request);
+          @RequestBody  RewardBatchesRequest request);
+
+  @PutMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/generateAndSaveCsv")
+  Mono<String>  generateAndSaveCsv(
+          @PathVariable("initiativeId") String initiativeId,
+          @PathVariable("rewardBatchId") String rewardBatchId,
+          @RequestParam(value = "merchantId", required = false) String merchantId);
+
 
   @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/rejected")
   Mono<RewardBatchDTO> rejectTransactions(
@@ -75,4 +83,10 @@ Mono<RewardBatch>  rewardBatchConfirmation(
   Mono<Void> evaluatingRewardBatches(
           @RequestBody RewardBatchesRequest rewardBatchIds
   );
+
+  @GetMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/approved/download")
+  Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatch(
+          @RequestHeader(value = "x-merchant-id", required = false) String merchantId,
+          @PathVariable("initiativeId") String initiativeId,
+          @PathVariable("rewardBatchId") String rewardBatchId);
 }
