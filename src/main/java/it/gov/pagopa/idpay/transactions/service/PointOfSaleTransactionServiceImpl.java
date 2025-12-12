@@ -236,16 +236,17 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
             FilePart file,
             String docNumber
     ) {
-        Utilities.sanitizeString(transactionId);
-        Utilities.sanitizeString(pointOfSaleId);
+        String sanitizedTransactionId = Utilities.sanitizeString(transactionId);
+        String sanitizedPointOfSaleId =  Utilities.sanitizeString(pointOfSaleId);
+        String sanitizedMerchantId =  Utilities.sanitizeString(merchantId);
+        String sanitizedDocNumber = Utilities.sanitizeString(docNumber);
         Utilities.checkFileExtensionOrThrow(file);
-        Utilities.sanitizeString(docNumber);
 
         log.info("[REVERSAL-TRANSACTION-SERVICE] Start reversalTransaction transactionId={}, merchantId={}, posId={}, docNumber={}",
-                transactionId, merchantId, pointOfSaleId, docNumber);
+                sanitizedTransactionId, sanitizedMerchantId, sanitizedPointOfSaleId, sanitizedDocNumber);
 
 
-        return rewardTransactionRepository.findTransaction(merchantId, pointOfSaleId, transactionId)
+        return rewardTransactionRepository.findTransaction(sanitizedMerchantId, sanitizedPointOfSaleId, sanitizedTransactionId)
                 .switchIfEmpty(Mono.error(
                         new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE))
                 )
@@ -339,7 +340,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                             // 3c) Salva invoiceData su transaction
                             rt.setInvoiceData(InvoiceData.builder()
                                     .filename(file.filename())
-                                    .docNumber(docNumber)
+                                    .docNumber(sanitizedDocNumber)
                                     .build());
 
                             // 3d) Calcolo importo per decrement batch totals
