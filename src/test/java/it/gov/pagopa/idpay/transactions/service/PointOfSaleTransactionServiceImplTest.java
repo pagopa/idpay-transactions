@@ -768,7 +768,7 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardBatchRepository.findRewardBatchById(BATCH_ID)).thenReturn(Mono.just(batch));
 
         doReturn(Mono.error(new IOException("boom")))
-                .when(service).replaceInvoiceFileToCreditNote(filePart, MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+                .when(service).addCreditNoteFile(filePart, MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
 
         StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, DOC_NUMBER))
                 .expectErrorSatisfies(ex -> {
@@ -798,7 +798,7 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardBatchRepository.findRewardBatchById(BATCH_ID)).thenReturn(Mono.just(batch));
 
         doReturn(Mono.error(new com.azure.identity.CredentialUnavailableException("no creds")))
-                .when(service).replaceInvoiceFileToCreditNote(filePart, MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+                .when(service).addCreditNoteFile(filePart, MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
 
         StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, DOC_NUMBER))
                 .expectErrorSatisfies(ex -> {
@@ -829,7 +829,7 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID)).thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findRewardBatchById(BATCH_ID)).thenReturn(Mono.just(batch));
 
-        doReturn(Mono.empty()).when(service).replaceInvoiceFileToCreditNote(filePart, MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+        doReturn(Mono.empty()).when(service).addCreditNoteFile(filePart, MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
 
         when(rewardTransactionRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
@@ -866,7 +866,7 @@ class PointOfSaleTransactionServiceImplTest {
 
         when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID)).thenReturn(Mono.just(trx));
 
-        doReturn(Mono.empty()).when(service).replaceInvoiceFileToCreditNote(filePart, MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
+        doReturn(Mono.empty()).when(service).addCreditNoteFile(filePart, MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
         when(rewardTransactionRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
         StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, DOC_NUMBER))
