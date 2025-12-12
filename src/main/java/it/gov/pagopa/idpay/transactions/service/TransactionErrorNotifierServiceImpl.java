@@ -13,6 +13,7 @@ public class TransactionErrorNotifierServiceImpl implements TransactionErrorNoti
     private static final String KAFKA_BINDINGS_TRANSACTIONS_COMMANDS = "consumerCommands-in-0";
     private final ErrorNotifierService errorNotifierService;
     private final KafkaConfiguration kafkaConfiguration;
+    private static final String BINDING_NAME_TRANSACTION_OUTCOME = "transactionOutcome-out-0";
 
     public TransactionErrorNotifierServiceImpl(KafkaConfiguration kafkaConfiguration,
                                                ErrorNotifierService errorNotifierService) {
@@ -28,6 +29,11 @@ public class TransactionErrorNotifierServiceImpl implements TransactionErrorNoti
     @Override
     public void notifyTransactionCommands(Message<String> message, String description, boolean retryable, Throwable exception) {
         notify(kafkaConfiguration.getStream().getBindings().get(KAFKA_BINDINGS_TRANSACTIONS_COMMANDS), message, description, retryable, true, exception);
+    }
+
+    @Override
+    public void notifyTransactionOutcome(Message<?> message, String description, boolean retryable, Throwable exception) {
+        notify(kafkaConfiguration.getStream().getBindings().get(BINDING_NAME_TRANSACTION_OUTCOME), message, description, retryable, false, exception);
     }
 
     @Override
