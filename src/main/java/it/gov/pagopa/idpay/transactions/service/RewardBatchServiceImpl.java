@@ -7,6 +7,7 @@ import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
+import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.dto.DownloadRewardBatchResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
@@ -60,6 +61,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
   private final RewardBatchRepository rewardBatchRepository;
   private final RewardTransactionRepository rewardTransactionRepository;
+  private final UserRestClient userRestClient;
 
 
   private static final Set<String> OPERATORS = Set.of("operator1", "operator2", "operator3");
@@ -72,10 +74,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             "Fattura", "Stato"
     );
 
-  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, ApprovedRewardBatchBlobService approvedRewardBatchBlobService) {
+  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService) {
     this.rewardBatchRepository = rewardBatchRepository;
     this.rewardTransactionRepository = rewardTransactionRepository;
-    this.approvedRewardBatchBlobService = approvedRewardBatchBlobService;
+      this.userRestClient = userRestClient;
+      this.approvedRewardBatchBlobService = approvedRewardBatchBlobService;
   }
 
   @Override
@@ -760,14 +763,20 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                             timestamp);
                     String filename = pathPrefix + reportFilename;
 
-                    List<RewardBatchTrxStatus> statusList = new ArrayList<>();
-                    statusList.add(RewardBatchTrxStatus.APPROVED);
-
                     Flux<RewardTransaction> transactionFlux = rewardTransactionRepository.findByFilter(
-                            rewardBatchId, initiativeId, statusList);
+                            rewardBatchId, initiativeId, List.of(RewardBatchTrxStatus.APPROVED, RewardBatchTrxStatus.REJECTED));
 
                     Flux<String> csvRowsFlux = transactionFlux
-                            .map(transaction -> this.mapTransactionToCsvRow(transaction, initiativeId));
+                            .flatMap(transaction -> {
+                                if(transaction.getFiscalCode() == null || transaction.getFiscalCode().isEmpty()){
+                                    return userRestClient.retrieveUserInfo(transaction.getUserId())
+                                            .map(cf -> {
+                                                transaction.setFiscalCode(cf.getPii());
+                                                return this.mapTransactionToCsvRow(transaction, initiativeId);});
+                                } else {
+                                    return Mono.just(this.mapTransactionToCsvRow(transaction, initiativeId));
+                                }
+                            });
 
                     Flux<String> fullCsvFlux = Flux.just(CSV_HEADER).concatWith(csvRowsFlux);
 

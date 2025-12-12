@@ -33,14 +33,6 @@ public class InvoiceStorageClient extends AbstractBlobStorageClient {
         return getFileSignedUrl(blobPath);
     }
 
-    public Response<BlockBlobItem> upload(InputStream inputStream, String destination, String contentType) {
-        log.info("Uploading (contentType={}) into azure blob at destination {}",
-                Utilities.sanitizeString(contentType),
-                Utilities.sanitizeString(destination));
-
-        return containerClient.getBlobClient(destination)
-                .uploadWithResponse(new BlobParallelUploadOptions(inputStream), null, null);
-    }
 
     public Response<Boolean> deleteFile(String destination) {
         log.info("Deleting file {} from azure blob container", Utilities.sanitizeString(destination));

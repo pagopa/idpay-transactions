@@ -9,6 +9,8 @@ import com.azure.storage.blob.models.BlockBlobItem;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
+import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
@@ -55,6 +57,8 @@ class RewardBatchServiceImplTest {
   private RewardBatchRepository rewardBatchRepository;
   @Mock
   private RewardTransactionRepository rewardTransactionRepository;
+  @Mock
+  private UserRestClient userRestClient;
 
   private RewardBatchService rewardBatchService;
   private RewardBatchServiceImpl rewardBatchServiceSpy;
@@ -95,7 +99,7 @@ class RewardBatchServiceImplTest {
 
   @BeforeEach
   void setUp() {
-    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, approvedRewardBatchBlobService);
+    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, userRestClient, approvedRewardBatchBlobService);
     rewardBatchServiceSpy = spy((RewardBatchServiceImpl) rewardBatchService);
   }
 
@@ -131,12 +135,16 @@ class RewardBatchServiceImplTest {
     void testGenerateAndSaveCsv_Success() {
         RewardTransaction trx1 = createMockTransaction("T001", 10000L, 500L, "8033675155005", "Lavatrice"); // 100.00 EUR, 5.00 EUR
         RewardTransaction trx2 = createMockTransaction("T002", 500L, 10L, "1234567890123", "Aspirapolvere"); // 5.00 EUR, 0.10 EUR
+        trx2.setFiscalCode(null);
         when(rewardTransactionRepository.findByFilter(
                 REWARD_BATCH_ID_1,
                 INITIATIVE_ID,
-                List.of(RewardBatchTrxStatus.APPROVED)
+                List.of(RewardBatchTrxStatus.APPROVED, RewardBatchTrxStatus.REJECTED)
         )).thenReturn(Flux.just(trx1, trx2));
 
+        String cfUser2 = "CF_2";
+        UserInfoPDV infoPdv2 = UserInfoPDV.builder().pii(cfUser2).build();
+        when(userRestClient.retrieveUserInfo(trx2.getUserId())).thenReturn(Mono.just(infoPdv2));
         @SuppressWarnings("unchecked")
         Response<BlockBlobItem> mockResponseSuccess = Mockito.mock(Response.class);
         when(mockResponseSuccess.getStatusCode()).thenReturn(HttpStatus.CREATED.value());
@@ -164,7 +172,7 @@ class RewardBatchServiceImplTest {
         verify(rewardTransactionRepository).findByFilter(
                 REWARD_BATCH_ID_1,
                 INITIATIVE_ID,
-                List.of(RewardBatchTrxStatus.APPROVED)
+                List.of(RewardBatchTrxStatus.APPROVED, RewardBatchTrxStatus.REJECTED)
         );
 
         verify(rewardBatchServiceSpy).uploadCsvToBlob(anyString(), anyString());
@@ -187,7 +195,7 @@ class RewardBatchServiceImplTest {
         String reward2 = "0,10";
 
         String expectedRow1 = dataOra + ";\"Lavatrice\n8033675155005\";RSSMRA70A01H501U;T001;TXCODE123;" + importo1 + ";" + reward1 + ";DOC001;invoice.pdf;Approvata";
-        String expectedRow2 = dataOra + ";\"Aspirapolvere\n1234567890123\";RSSMRA70A01H501U;T002;TXCODE123;" + importo2 + ";" + reward2 + ";DOC001;invoice.pdf;Approvata";
+        String expectedRow2 = dataOra + ";\"Aspirapolvere\n1234567890123\";CF_2;T002;TXCODE123;" + importo2 + ";" + reward2 + ";DOC001;invoice.pdf;Approvata";
         String expectedContent = CSV_HEADER + "\n" + expectedRow1 + "\n" + expectedRow2 + "\n";
         org.assertj.core.api.Assertions.assertThat(capturedCsvContent).isEqualTo(expectedContent);
     }
@@ -610,7 +618,7 @@ class RewardBatchServiceImplTest {
         .thenReturn(Mono.error(new DuplicateKeyException("Duplicate")));
 
     StepVerifier.create(
-            new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, approvedRewardBatchBlobService)
+            new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository,userRestClient, approvedRewardBatchBlobService)
                 .findOrCreateBatch("M1", posType, batchMonth, BUSINESS_NAME)
         )
         .assertNext(batch -> {
