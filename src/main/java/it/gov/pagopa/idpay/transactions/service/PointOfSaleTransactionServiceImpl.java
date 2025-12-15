@@ -302,7 +302,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
                         log.info("[REVERSAL-TRANSACTION-SERVICE] Uploading credit note BEFORE DB updates for trxId={}", rt.getId());
 
-                        Mono<Void> uploadCreditNoteMono =
+                        /*Mono<Void> uploadCreditNoteMono =
                                 addCreditNoteFile(file, merchantId, pointOfSaleId, transactionId)
                                         .doOnSuccess(v -> log.info("[REVERSAL-TRANSACTION-SERVICE] Credit note uploaded for trxId={}", rt.getId()))
                                         .onErrorMap(IOException.class, e -> {
@@ -330,7 +330,9 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                             );
                                         });
 
-                        return uploadCreditNoteMono.then(Mono.defer(() -> {
+                        return uploadCreditNoteMono.then(Mono.defer(() -> {*/
+                        return batchStatusCheckMono.then(Mono.defer(() -> {
+
 
                             log.info("[REVERSAL-TRANSACTION-SERVICE] Upload OK. Applying DB updates for trxId={}", rt.getId());
 

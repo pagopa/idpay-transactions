@@ -44,6 +44,7 @@ import org.springframework.http.codec.multipart.FilePart;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -763,67 +764,6 @@ class PointOfSaleTransactionServiceImplTest {
     }
 
     @Test
-    void reversalTransaction_uploadFailsWithIOException_returns500_andDoesNotTouchDb() {
-        RewardTransaction trx = trx(INITIATIVE_ID, 100L);
-        trx.setStatus(SyncTrxStatus.INVOICED.toString());
-        trx.setRewardBatchId(BATCH_ID);
-
-        RewardBatch batch = new RewardBatch();
-        batch.setId(BATCH_ID);
-        batch.setStatus(RewardBatchStatus.CREATED);
-
-        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID)).thenReturn(Mono.just(trx));
-        when(rewardBatchRepository.findRewardBatchById(BATCH_ID)).thenReturn(Mono.just(batch));
-
-        doReturn(Mono.error(new IOException("boom")))
-                .when(service).addCreditNoteFile(filePart, MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
-
-        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, DOC_NUMBER))
-                .expectErrorSatisfies(ex -> {
-                    assertInstanceOf(ClientExceptionWithBody.class, ex);
-                    ClientExceptionWithBody ce = (ClientExceptionWithBody) ex;
-                    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, ce.getHttpStatus());
-                    assertEquals(GENERIC_ERROR, ce.getCode());
-                    assertEquals("Error uploading credit note file", ce.getMessage());
-                })
-                .verify();
-
-        verify(rewardTransactionRepository, never()).save(any());
-        verify(rewardBatchRepository, never()).decrementTotals(any(), anyLong());
-    }
-
-    @Test
-    void reversalTransaction_uploadFailsWithAzureCredential_returns500_andDoesNotTouchDb() {
-        RewardTransaction trx = trx(INITIATIVE_ID, 100L);
-        trx.setStatus(SyncTrxStatus.INVOICED.toString());
-        trx.setRewardBatchId(BATCH_ID);
-
-        RewardBatch batch = new RewardBatch();
-        batch.setId(BATCH_ID);
-        batch.setStatus(RewardBatchStatus.CREATED);
-
-        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID)).thenReturn(Mono.just(trx));
-        when(rewardBatchRepository.findRewardBatchById(BATCH_ID)).thenReturn(Mono.just(batch));
-
-        doReturn(Mono.error(new com.azure.identity.CredentialUnavailableException("no creds")))
-                .when(service).addCreditNoteFile(filePart, MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
-
-        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, filePart, DOC_NUMBER))
-                .expectErrorSatisfies(ex -> {
-                    assertInstanceOf(ClientExceptionWithBody.class, ex);
-                    ClientExceptionWithBody ce = (ClientExceptionWithBody) ex;
-                    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, ce.getHttpStatus());
-                    assertEquals(GENERIC_ERROR, ce.getCode());
-                    assertEquals("Error uploading credit note file", ce.getMessage());
-
-                })
-                .verify();
-
-        verify(rewardTransactionRepository, never()).save(any());
-        verify(rewardBatchRepository, never()).decrementTotals(any(), anyLong());
-    }
-
-    @Test
     void reversalTransaction_success_withBatch_updatesDb_andDecrements() {
         RewardTransaction trx = trx(INITIATIVE_ID, 123L);
         trx.setId(TRX_ID);
@@ -887,6 +827,113 @@ class PointOfSaleTransactionServiceImplTest {
         verify(rewardBatchRepository, never()).decrementTotals(any(), anyLong());
         verify(rewardTransactionRepository, times(1)).save(any());
     }
+
+    @Test
+    void downloadTransactionInvoice_shouldThrow_whenStatusNotAllowed() {
+        RewardTransaction trx = RewardTransaction.builder()
+                .status("AUTHORIZED")
+                .invoiceData(InvoiceData.builder().filename("x.pdf").build())
+                .build();
+
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID))
+                .thenReturn(Mono.just(trx));
+
+        StepVerifier.create(pointOfSaleTransactionService.downloadTransactionInvoice(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID))
+                .expectErrorMatches(ex ->
+                        ex instanceof ClientExceptionNoBody
+                                && ((ClientExceptionNoBody) ex).getHttpStatus() == HttpStatus.BAD_REQUEST
+                                && TRANSACTION_MISSING_INVOICE.equals(ex.getMessage()))
+                .verify();
+
+        verifyNoInteractions(invoiceStorageClient);
+    }
+
+    @Test
+    void updateInvoiceTransaction_whenNewBatchEqualsOldBatch_shouldOnlySave() throws IOException {
+        Path tempPath = Files.createTempFile("invoice_samebatch", ".pdf");
+        Files.write(tempPath, "test".getBytes());
+
+        FilePart fp = createMockFilePart(tempPath.getFileName().toString(), MediaType.APPLICATION_PDF_VALUE);
+
+        RewardTransaction trx = RewardTransaction.builder()
+                .id(TRX_ID)
+                .merchantId(MERCHANT_ID)
+                .pointOfSaleId(POINT_OF_SALE_ID)
+                .initiatives(List.of(INITIATIVE_ID))
+                .status(SyncTrxStatus.INVOICED.toString())
+                .invoiceData(InvoiceData.builder().filename(OLD_FILENAME).docNumber("OLD").build())
+                .rewardBatchId(BATCH_ID) // old
+                .pointOfSaleType(PosType.ONLINE)
+                .businessName("Test Business")
+                .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(1000L).build()))
+                .build();
+
+        RewardBatch existingBatch = new RewardBatch();
+        existingBatch.setId(BATCH_ID);
+        existingBatch.setStatus(RewardBatchStatus.CREATED);
+
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID))
+                .thenReturn(Mono.just(trx));
+
+        when(fp.transferTo(any(Path.class))).thenAnswer(invocation -> Mono.empty());
+
+        when(rewardBatchRepository.findRewardBatchById(BATCH_ID)).thenReturn(Mono.just(existingBatch));
+        when(rewardBatchService.findOrCreateBatch(eq(MERCHANT_ID), any(), anyString(), eq("Test Business")))
+                .thenReturn(Mono.just(existingBatch));
+
+        when(rewardTransactionRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        StepVerifier.create(pointOfSaleTransactionService.updateInvoiceTransaction(
+                        TRX_ID, MERCHANT_ID, POINT_OF_SALE_ID, fp, NEW_DOC_NUMBER))
+                .verifyComplete();
+
+        verify(rewardBatchService, never()).decrementTotals(anyString(), anyLong());
+        verify(rewardBatchService, never()).incrementTotals(anyString(), anyLong());
+        verify(rewardTransactionRepository, times(1)).save(any(RewardTransaction.class));
+    }
+
+    @Test
+    void addCreditNoteFile_whenTransferToReturnsIOException_shouldMapToClientExceptionWithBody() {
+        FilePart fp = createMockFilePart("cn.pdf", MediaType.APPLICATION_PDF_VALUE);
+        when(fp.transferTo(any(Path.class))).thenReturn(Mono.error(new IOException("io")));
+
+        StepVerifier.create(service.addCreditNoteFile(fp, MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID))
+                .expectErrorMatches(ex ->
+                        ex instanceof ClientExceptionWithBody
+                                && ((ClientExceptionWithBody) ex).getHttpStatus() == HttpStatus.INTERNAL_SERVER_ERROR
+                                && GENERIC_ERROR.equals(((ClientExceptionWithBody) ex).getCode())
+                                && "Error uploading credit note file".equals(ex.getMessage()))
+                .verify();
+
+        verifyNoInteractions(invoiceStorageClient);
+    }
+
+    @Test
+    void replaceInvoiceFile_whenTransferToIOException_shouldMapToClientExceptionWithBody() {
+        FilePart fp = createMockFilePart("new.pdf", MediaType.APPLICATION_PDF_VALUE);
+        when(fp.transferTo(any(Path.class))).thenReturn(Mono.error(new IOException("io")));
+
+        InvoiceData oldData = InvoiceData.builder().filename("old.pdf").build();
+
+        Mono<Void> mono = (Mono<Void>) ReflectionTestUtils.invokeMethod(
+                service,
+                "replaceInvoiceFile",
+                fp,
+                oldData,
+                MERCHANT_ID,
+                POINT_OF_SALE_ID,
+                TRX_ID
+        );
+
+        StepVerifier.create(mono)
+                .expectErrorMatches(ex ->
+                        ex instanceof ClientExceptionWithBody
+                                && ((ClientExceptionWithBody) ex).getHttpStatus() == HttpStatus.INTERNAL_SERVER_ERROR
+                                && GENERIC_ERROR.equals(((ClientExceptionWithBody) ex).getCode())
+                                && "Error uploading invoice file".equals(ex.getMessage()))
+                .verify();
+    }
+
 
     private RewardTransaction trx(String initiativeId, long accruedRewardCents) {
         Reward r = new Reward();
