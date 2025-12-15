@@ -554,10 +554,10 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                 })
                 .flatMap(savedBatch ->
                         this.generateAndSaveCsv(rewardBatchId, initiativeId, savedBatch.getMerchantId())
-                                .onErrorResume(e -> {
-                                    log.error("Critical error while generating CSV for batch {}", Utilities.sanitizeString(rewardBatchId), e);
-                                    return Mono.empty();
-                                })
+//                                .onErrorResume(e -> {
+//                                    log.error("Critical error while generating CSV for batch {}", Utilities.sanitizeString(rewardBatchId), e);
+//                                    return Mono.empty();
+//                                })
                                 .flatMap(filename -> {
                                     savedBatch.setFilename(filename);
                                     log.info("Updated batch {} with filename: {}", Utilities.sanitizeString(rewardBatchId), filename);
@@ -840,11 +840,11 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                         "Error uploading csv file");
             }
             return filename;
-
-        }).onErrorMap(BlobStorageException.class, e -> {
-            log.error("Azure Blob Storage upload failed for file {}", filename, e);
-            return new RuntimeException("Error uploading CSV to Blob Storage.", e);
         });
+//                .onErrorMap(BlobStorageException.class, e -> {
+//                    log.error("Azure Blob Storage upload failed for file {}", filename, e);
+//                    return new RuntimeException("Error uploading CSV to Blob Storage.", e);
+//        });
     }
 
 
