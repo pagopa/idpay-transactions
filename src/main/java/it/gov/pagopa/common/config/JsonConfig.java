@@ -9,10 +9,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.datatype.jsr310.ser.OffsetDateTimeSerializer;
 import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.TimeZone;
 
 @Configuration
@@ -21,7 +24,19 @@ public class JsonConfig {
     @Bean
     public ObjectMapper objectMapper() {
         ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());
+
+        JavaTimeModule javaTimeModule = new JavaTimeModule();
+        // I add timezone to OffsetDateTime fields (es. 2025-11-28T13:18:06.057+00:00)
+        javaTimeModule.addSerializer(OffsetDateTime.class,
+            new OffsetDateTimeSerializer(
+                OffsetDateTimeSerializer.INSTANCE,
+                false,
+                DateTimeFormatter.ISO_OFFSET_DATE_TIME,
+                null
+            )
+        );
+
+        mapper.registerModule(javaTimeModule);
         mapper.registerModule(new Jdk8Module());
         mapper.registerModule(new ParameterNamesModule(JsonCreator.Mode.DEFAULT));
         mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
