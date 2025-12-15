@@ -1123,4 +1123,88 @@ class RewardTransactionSpecificRepositoryTest {
 
         rewardTransactionRepository.deleteById(rt1.getId()).block();
     }
+
+    @Test
+    void findTransactionInBatch_returnsTransaction_whenAllCriteriaMatch() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .merchantId(MERCHANT_ID)
+            .rewardBatchId("BATCH1")
+            .build();
+
+        rewardTransactionRepository.save(rt1).block();
+
+        RewardTransaction result =
+            rewardTransactionSpecificRepository
+                .findTransactionInBatch(MERCHANT_ID, "BATCH1", "id1")
+                .block();
+
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals("id1", result.getId());
+        Assertions.assertEquals(MERCHANT_ID, result.getMerchantId());
+        Assertions.assertEquals("BATCH1", result.getRewardBatchId());
+
+        rewardTransactionRepository.deleteById(rt1.getId()).block();
+    }
+
+    @Test
+    void findTransactionInBatch_returnsEmpty_whenMerchantIdDoesNotMatch() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .merchantId(MERCHANT_ID)
+            .rewardBatchId("BATCH1")
+            .build();
+
+        rewardTransactionRepository.save(rt1).block();
+
+        RewardTransaction result =
+            rewardTransactionSpecificRepository
+                .findTransactionInBatch("OTHER_MERCHANT", "BATCH1", "id1")
+                .block();
+
+        Assertions.assertNull(result);
+
+        rewardTransactionRepository.deleteById(rt1.getId()).block();
+    }
+
+    @Test
+    void findTransactionInBatch_returnsEmpty_whenRewardBatchIdDoesNotMatch() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .merchantId(MERCHANT_ID)
+            .rewardBatchId("BATCH1")
+            .build();
+
+        rewardTransactionRepository.save(rt1).block();
+
+        RewardTransaction result =
+            rewardTransactionSpecificRepository
+                .findTransactionInBatch(MERCHANT_ID, "BATCH2", "id1")
+                .block();
+
+        Assertions.assertNull(result);
+
+        rewardTransactionRepository.deleteById(rt1.getId()).block();
+    }
+
+    @Test
+    void findTransactionInBatch_returnsEmpty_whenTransactionIdDoesNotMatch() {
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+            .id("id1")
+            .merchantId(MERCHANT_ID)
+            .rewardBatchId("BATCH1")
+            .build();
+
+        rewardTransactionRepository.save(rt1).block();
+
+        RewardTransaction result =
+            rewardTransactionSpecificRepository
+                .findTransactionInBatch(MERCHANT_ID, "BATCH1", "OTHER_TRX")
+                .block();
+
+        Assertions.assertNull(result);
+
+        rewardTransactionRepository.deleteById(rt1.getId()).block();
+    }
+
 }

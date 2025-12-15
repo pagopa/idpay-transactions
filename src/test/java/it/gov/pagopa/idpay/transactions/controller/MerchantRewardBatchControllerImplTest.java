@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
 import it.gov.pagopa.common.web.dto.ErrorDTO;
+import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
 import it.gov.pagopa.idpay.transactions.config.ServiceExceptionConfig;
@@ -19,7 +21,9 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.service.RewardBatchService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
+import java.time.LocalDate;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -257,6 +261,7 @@ class MerchantRewardBatchControllerImplTest {
         .expectStatus().isBadRequest()
         .expectBody()
         .consumeWith(response -> {
+          assertNotNull(response.getResponseBody());
           String body = new String(response.getResponseBody());
           assertTrue(body.contains(ExceptionMessage.MISSING_TRANSACTIONS_FILTERS));
         });
@@ -604,5 +609,118 @@ class MerchantRewardBatchControllerImplTest {
         verify(rewardBatchService, times(1)).validateRewardBatch("operator1", INITIATIVE_ID, rewardBatchId);
     }
 
+  @Test
+  void postponeTransaction_success() {
+    String transactionId = "TX123";
+    LocalDate initiativeEndDate = LocalDate.of(2026, 1, 6);
+
+    when(rewardBatchService.postponeTransaction(
+        MERCHANT_ID,
+        INITIATIVE_ID,
+        REWARD_BATCH_ID_1,
+        transactionId,
+        initiativeEndDate
+    )).thenReturn(Mono.empty());
+
+    webClient.post()
+        .uri(uriBuilder -> uriBuilder
+            .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/{transactionId}/postpone")
+            .queryParam("initiativeEndDate", initiativeEndDate.toString())
+            .build(INITIATIVE_ID, REWARD_BATCH_ID_1, transactionId))
+        .header("x-merchant-id", MERCHANT_ID)
+        .exchange()
+        .expectStatus().isNoContent();
+
+    verify(rewardBatchService, times(1))
+        .postponeTransaction(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1, transactionId, initiativeEndDate);
+  }
+
+  @Test
+  void postponeTransaction_transactionNotFound() {
+    String transactionId = "TX_NOT_EXIST";
+    LocalDate initiativeEndDate = LocalDate.now();
+
+    when(rewardBatchService.postponeTransaction(
+        anyString(), anyString(), anyString(), eq(transactionId), any(LocalDate.class)
+    )).thenReturn(Mono.error(new ClientExceptionNoBody(HttpStatus.NOT_FOUND, ExceptionMessage.TRANSACTION_NOT_FOUND)));
+
+    webClient.post()
+        .uri(uriBuilder -> uriBuilder
+            .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/{transactionId}/postpone")
+            .queryParam("initiativeEndDate", initiativeEndDate.toString())
+            .build(INITIATIVE_ID, REWARD_BATCH_ID_1, transactionId))
+        .header("x-merchant-id", MERCHANT_ID)
+        .exchange()
+        .expectStatus().isNotFound();
+  }
+
+  @Test
+  void postponeTransaction_batchNotFound() {
+    String transactionId = "TX123";
+    LocalDate initiativeEndDate = LocalDate.now();
+
+    when(rewardBatchService.postponeTransaction(
+        anyString(), anyString(), anyString(), eq(transactionId), any(LocalDate.class)
+    )).thenReturn(Mono.error(new ClientExceptionWithBody(
+        HttpStatus.NOT_FOUND, ExceptionCode.REWARD_BATCH_NOT_FOUND, String.format(ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH, REWARD_BATCH_ID_1))));
+
+    webClient.post()
+        .uri(uriBuilder -> uriBuilder
+            .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/{transactionId}/postpone")
+            .queryParam("initiativeEndDate", initiativeEndDate.toString())
+            .build(INITIATIVE_ID, REWARD_BATCH_ID_1, transactionId))
+        .header("x-merchant-id", MERCHANT_ID)
+        .exchange()
+        .expectStatus().isNotFound()
+        .expectBody()
+        .jsonPath("$.code").isEqualTo(ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)
+        .jsonPath("$.message").isEqualTo(String.format(ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH, REWARD_BATCH_ID_1));
+  }
+
+  @Test
+  void postponeTransaction_batchInvalidStatus() {
+    String transactionId = "TX123";
+    LocalDate initiativeEndDate = LocalDate.now();
+
+    when(rewardBatchService.postponeTransaction(
+        anyString(), anyString(), anyString(), eq(transactionId), any(LocalDate.class)
+    )).thenReturn(Mono.error(new ClientExceptionWithBody(
+        HttpStatus.BAD_REQUEST, ExceptionCode.REWARD_BATCH_INVALID_REQUEST, ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH)));
+
+    webClient.post()
+        .uri(uriBuilder -> uriBuilder
+            .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/{transactionId}/postpone")
+            .queryParam("initiativeEndDate", initiativeEndDate.toString())
+            .build(INITIATIVE_ID, REWARD_BATCH_ID_1, transactionId))
+        .header("x-merchant-id", MERCHANT_ID)
+        .exchange()
+        .expectStatus().isBadRequest()
+        .expectBody()
+        .jsonPath("$.code").isEqualTo(ExceptionCode.REWARD_BATCH_INVALID_REQUEST)
+        .jsonPath("$.message").isEqualTo(ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH);
+  }
+
+  @Test
+  void postponeTransaction_exceedsLimit() {
+    String transactionId = "TX123";
+    LocalDate initiativeEndDate = LocalDate.now();
+
+    when(rewardBatchService.postponeTransaction(
+        anyString(), anyString(), anyString(), eq(transactionId), any(LocalDate.class)
+    )).thenReturn(Mono.error(new ClientExceptionWithBody(
+        HttpStatus.BAD_REQUEST, ExceptionCode.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED, ExceptionMessage.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED)));
+
+    webClient.post()
+        .uri(uriBuilder -> uriBuilder
+            .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/{transactionId}/postpone")
+            .queryParam("initiativeEndDate", initiativeEndDate.toString())
+            .build(INITIATIVE_ID, REWARD_BATCH_ID_1, transactionId))
+        .header("x-merchant-id", MERCHANT_ID)
+        .exchange()
+        .expectStatus().isBadRequest()
+        .expectBody()
+        .jsonPath("$.code").isEqualTo(ExceptionCode.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED)
+        .jsonPath("$.message").isEqualTo(ExceptionMessage.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED);
+  }
 
 }

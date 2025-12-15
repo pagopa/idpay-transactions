@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.service;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import java.time.LocalDate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Mono;
@@ -28,4 +29,6 @@ public interface RewardBatchService {
   Mono<Void> validateRewardBatch(String organizationRole, String initiativeId, String rewardBatchId);
 
   Mono<Long> evaluatingRewardBatches(List<String> rewardBatchesRequest);
+
+  Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, LocalDate initiativeEndDate);
 }

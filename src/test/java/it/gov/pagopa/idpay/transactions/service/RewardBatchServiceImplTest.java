@@ -16,6 +16,9 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1793,4 +1796,136 @@ class RewardBatchServiceImplTest {
         verify(rewardBatchRepository, never()).updateStatusAndApprovedAmountCents(any(), any(), any());
 
     }
+
+  @Test
+  void postponeTransaction_createsNewBatchAndMovesTransaction() {
+    String transactionId = "TX123";
+    LocalDate initiativeEndDate = LocalDate.of(2026, 1, 6);
+
+    RewardTransaction trx = RewardTransaction.builder()
+        .id(transactionId)
+        .merchantId("M1")
+        .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
+        .rewardBatchId(REWARD_BATCH_ID_1)
+        .build();
+
+    when(rewardTransactionRepository.findTransactionInBatch("M1", REWARD_BATCH_ID_1, transactionId))
+        .thenReturn(Mono.just(trx));
+
+    RewardBatch currentBatch = RewardBatch.builder()
+        .id(REWARD_BATCH_ID_1)
+        .merchantId("M1")
+        .month("2026-01")
+        .status(RewardBatchStatus.CREATED)
+        .posType(PosType.PHYSICAL)
+        .businessName(BUSINESS_NAME)
+        .build();
+
+    when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(currentBatch));
+
+    RewardBatch newBatch = RewardBatch.builder()
+        .id(REWARD_BATCH_ID_2)
+        .merchantId("M1")
+        .month("2026-02")
+        .status(RewardBatchStatus.CREATED)
+        .posType(PosType.PHYSICAL)
+        .businessName(BUSINESS_NAME)
+        .build();
+
+    doReturn(Mono.just(newBatch))
+        .when(rewardBatchServiceSpy)
+        .findOrCreateBatch("M1", PosType.PHYSICAL, "2026-02", BUSINESS_NAME);
+
+    doReturn(Mono.just(currentBatch)).when(rewardBatchServiceSpy).decrementTotals(REWARD_BATCH_ID_1, 100L);
+    doReturn(Mono.just(newBatch)).when(rewardBatchServiceSpy).incrementTotals(REWARD_BATCH_ID_2, 100L);
+
+    when(rewardTransactionRepository.save(any(RewardTransaction.class))).thenReturn(Mono.just(trx));
+
+    StepVerifier.create(rewardBatchServiceSpy.postponeTransaction(
+            "M1", INITIATIVE_ID, REWARD_BATCH_ID_1, transactionId, initiativeEndDate))
+        .verifyComplete();
+
+    verify(rewardTransactionRepository, times(1)).findTransactionInBatch("M1", REWARD_BATCH_ID_1, transactionId);
+    verify(rewardBatchRepository, times(1)).findById(REWARD_BATCH_ID_1);
+    verify(rewardBatchServiceSpy, times(1))
+        .findOrCreateBatch("M1", PosType.PHYSICAL, "2026-02", BUSINESS_NAME);
+    verify(rewardBatchServiceSpy, times(1)).decrementTotals(REWARD_BATCH_ID_1, 100L);
+    verify(rewardBatchServiceSpy, times(1)).incrementTotals(REWARD_BATCH_ID_2, 100L);
+    verify(rewardTransactionRepository, times(1)).save(trx);
+
+    assertEquals(REWARD_BATCH_ID_2, trx.getRewardBatchId());
+    assertNotNull(trx.getRewardBatchInclusionDate());
+  }
+
+  @Test
+  void postponeTransaction_invalidBatchStatus() {
+    String transactionId = "TX123";
+    LocalDate initiativeEndDate = LocalDate.of(2026, 1, 6);
+
+    RewardTransaction trx = RewardTransaction.builder()
+        .id(transactionId)
+        .merchantId("M1")
+        .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
+        .rewardBatchId(REWARD_BATCH_ID_1)
+        .build();
+
+    RewardBatch currentBatch = RewardBatch.builder()
+        .id(REWARD_BATCH_ID_1)
+        .month(CURRENT_MONTH)
+        .status(RewardBatchStatus.SENT)
+        .posType(PosType.PHYSICAL)
+        .merchantId("M1")
+        .businessName(BUSINESS_NAME)
+        .build();
+
+    when(rewardTransactionRepository.findTransactionInBatch("M1", REWARD_BATCH_ID_1, transactionId))
+        .thenReturn(Mono.just(trx));
+    when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(currentBatch));
+
+    StepVerifier.create(rewardBatchService.postponeTransaction(
+            "M1", INITIATIVE_ID, REWARD_BATCH_ID_1, transactionId, initiativeEndDate))
+        .expectErrorSatisfies(ex -> {
+          assertInstanceOf(ClientExceptionWithBody.class, ex);
+          ClientExceptionWithBody ce = (ClientExceptionWithBody) ex;
+          assertEquals(ExceptionCode.REWARD_BATCH_INVALID_REQUEST, ce.getCode());
+          assertEquals(ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH, ce.getMessage());
+        })
+        .verify();
+  }
+
+  @Test
+  void postponeTransaction_beyondAllowedPostponeMonth() {
+    String transactionId = "TX123";
+    LocalDate initiativeEndDate = LocalDate.of(2026, 1, 6);
+
+    RewardTransaction trx = RewardTransaction.builder()
+        .id(transactionId)
+        .merchantId("M1")
+        .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
+        .rewardBatchId(REWARD_BATCH_ID_1)
+        .build();
+
+    RewardBatch currentBatch = RewardBatch.builder()
+        .id(REWARD_BATCH_ID_1)
+        .month("2026-02")
+        .status(RewardBatchStatus.CREATED)
+        .posType(PosType.PHYSICAL)
+        .merchantId("M1")
+        .businessName(BUSINESS_NAME)
+        .build();
+
+    when(rewardTransactionRepository.findTransactionInBatch("M1", REWARD_BATCH_ID_1, transactionId))
+        .thenReturn(Mono.just(trx));
+    when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(currentBatch));
+
+    StepVerifier.create(rewardBatchService.postponeTransaction(
+            "M1", INITIATIVE_ID, REWARD_BATCH_ID_1, transactionId, initiativeEndDate))
+        .expectErrorSatisfies(ex -> {
+          assertInstanceOf(ClientExceptionWithBody.class, ex);
+          ClientExceptionWithBody ce = (ClientExceptionWithBody) ex;
+          assertEquals(ExceptionCode.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED, ce.getCode());
+          assertEquals(ExceptionMessage.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED, ce.getMessage());
+        })
+        .verify();
+  }
 }

@@ -425,4 +425,15 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
         return Mono.from(mongoTemplate.findOne(query, RewardTransaction.class));
     }
+
+    @Override
+    public Mono<RewardTransaction> findTransactionInBatch(String merchantId, String rewardBatchId, String transactionId) {
+        Criteria criteria = Criteria
+            .where(RewardTransaction.Fields.id).is(transactionId)
+            .and(RewardTransaction.Fields.merchantId).is(merchantId)
+            .and(RewardTransaction.Fields.rewardBatchId).is(rewardBatchId);
+
+        return mongoTemplate.findOne(Query.query(criteria), RewardTransaction.class);
+    }
+
 }

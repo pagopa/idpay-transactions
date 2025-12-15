@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
@@ -13,7 +14,10 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
+import java.time.LocalDate;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
@@ -36,7 +40,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT;
 
 @Service
@@ -647,7 +650,71 @@ private String buildBatchName(YearMonth month) {
                 });
     }
 
-    @Data
+    @Override
+    public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, LocalDate initiativeEndDate) {
+
+      return rewardTransactionRepository.findTransactionInBatch(merchantId, rewardBatchId, transactionId)
+          .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
+              HttpStatus.NOT_FOUND,
+              String.format(ExceptionMessage.TRANSACTION_NOT_FOUND, transactionId)
+          )))
+          .flatMap(trx -> {
+
+            long accruedRewardCents = trx.getRewards().get(initiativeId).getAccruedRewardCents();
+
+            return rewardBatchRepository.findById(rewardBatchId)
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.NOT_FOUND,
+                    ExceptionCode.REWARD_BATCH_NOT_FOUND,
+                    String.format(ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH, rewardBatchId)
+                )))
+                .flatMap(currentBatch -> {
+
+                  if (currentBatch.getStatus() != RewardBatchStatus.CREATED) {
+                    return Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.BAD_REQUEST,
+                        ExceptionCode.REWARD_BATCH_INVALID_REQUEST,
+                        ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH
+                    ));
+                  }
+
+                  YearMonth currentBatchMonth = YearMonth.parse(currentBatch.getMonth());
+                  YearMonth nextBatchMonth = currentBatchMonth.plusMonths(1);
+
+                  YearMonth maxAllowedMonth = YearMonth.from(initiativeEndDate).plusMonths(1);
+
+                  if (nextBatchMonth.isAfter(maxAllowedMonth)) {
+                    return Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.BAD_REQUEST,
+                        ExceptionCode.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED,
+                        ExceptionMessage.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED
+                    ));
+                  }
+
+                  return this.findOrCreateBatch(
+                          currentBatch.getMerchantId(),
+                          currentBatch.getPosType(),
+                          nextBatchMonth.toString(),
+                          currentBatch.getBusinessName()
+                      )
+                      .flatMap(nextBatch ->
+                          this.decrementTotals(currentBatch.getId(), accruedRewardCents)
+                              .then(this.incrementTotals(nextBatch.getId(), accruedRewardCents))
+                              .then(Mono.defer(() -> {
+
+                                trx.setRewardBatchId(nextBatch.getId());
+                                trx.setRewardBatchInclusionDate(LocalDateTime.now());
+                                trx.setUpdateDate(LocalDateTime.now());
+
+                                return rewardTransactionRepository.save(trx);
+                              }))
+                      );
+                });
+          })
+          .then();
+    }
+
+  @Data
     public static class TotalAmount {
         private long total;
     }
