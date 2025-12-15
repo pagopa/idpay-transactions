@@ -408,7 +408,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                     String blobPath = String.format(
                             REWARD_BATCHES_PATH_STORAGE_FORMAT+ "%s",
                             initiativeId,
-                            merchantId,
+                            batch.getMerchantId(),
                             rewardBatchId,
                             filename
                     );
