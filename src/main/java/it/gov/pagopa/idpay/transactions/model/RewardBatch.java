@@ -40,13 +40,18 @@ public class RewardBatch {
     private Long numberOfTransactions;
     private Long numberOfTransactionsElaborated;
     private String reportPath;
+    private String filename;
     private RewardBatchAssignee assigneeLevel;
     private Long numberOfTransactionsSuspended;
     private Long numberOfTransactionsRejected;
+
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    private LocalDateTime approvalDate;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime creationDate;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime updateDate;
+
 }
