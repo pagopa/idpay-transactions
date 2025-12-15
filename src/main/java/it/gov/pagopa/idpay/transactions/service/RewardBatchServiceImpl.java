@@ -43,14 +43,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.function.LongFunction;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.*;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
-
-import java.util.function.Function;
-import java.util.function.LongFunction;
 
 @Service
 @Slf4j
@@ -73,7 +72,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     );
 
   private static final String REWARD_BATCHES_PATH_STORAGE_FORMAT = "initiative/%s/merchant/%s/batch/%s/";
-  private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "report_%s_%s.csv";
+  private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "%s_%s_%s.csv";
 
   public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService) {
     this.rewardBatchRepository = rewardBatchRepository;
@@ -747,29 +746,18 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                 return Mono.error(new IllegalArgumentException("Invalid batch id for CSV file generation"));
             }
 
-        Mono<String> merchantIdMono;
-
-        if (merchantId != null && !merchantId.trim().isEmpty()) {
-            merchantIdMono = Mono.just(merchantId);
-        } else {
-            merchantIdMono = rewardBatchRepository.findById(rewardBatchId)
-                    .map(RewardBatch::getMerchantId)
-                    .switchIfEmpty(Mono.error(new IllegalArgumentException("RewardBatch not found or MerchantId missing in batch")));
-        }
-
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-
-        return merchantIdMono
-                .flatMap(resolvedMerchantId -> {
+        return rewardBatchRepository.findById(rewardBatchId)
+                .flatMap(batch -> {
 
                     String pathPrefix = String.format(REWARD_BATCHES_PATH_STORAGE_FORMAT,
                             Utilities.sanitizeString(initiativeId),
-                            Utilities.sanitizeString(resolvedMerchantId),
+                            Utilities.sanitizeString(batch.getMerchantId()),
                             Utilities.sanitizeString(rewardBatchId));
 
                     String reportFilename = String.format(REWARD_BATCHES_REPORT_NAME_FORMAT,
-                            Utilities.sanitizeString(rewardBatchId),
-                            timestamp);
+                            batch.getBusinessName(),
+                            batch.getName(),
+                            batch.getPosType());
                     String filename = pathPrefix + reportFilename;
 
                     Flux<RewardTransaction> transactionFlux = rewardTransactionRepository.findByFilter(
@@ -789,7 +777,8 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
 
                     Flux<String> fullCsvFlux = Flux.just(CSV_HEADER).concatWith(csvRowsFlux);
 
-                    return fullCsvFlux.collect(StringBuilder::new, (sb, s) -> sb.append(s).append("\n"))
+                    return fullCsvFlux
+                            .collect(StringBuilder::new, (sb, s) -> sb.append(s).append("\n"))
                             .map(StringBuilder::toString)
                             .flatMap(csvContent -> this.uploadCsvToBlob(filename, csvContent))
                             .doOnTerminate(() -> log.info("CSV generation has been completed for batch: {}", Utilities.sanitizeString(rewardBatchId)))
