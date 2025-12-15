@@ -770,7 +770,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                     String reportFilename = String.format(REWARD_BATCHES_REPORT_NAME_FORMAT,
                             batch.getBusinessName(),
                             batch.getName(),
-                            batch.getPosType());
+                            batch.getPosType()).trim();
                     String filename = pathPrefix + reportFilename;
 
                     Flux<RewardTransaction> transactionFlux = rewardTransactionRepository.findByFilter(
