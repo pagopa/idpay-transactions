@@ -8,7 +8,6 @@ import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
-import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.notifier.TransactionNotifierService;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
@@ -249,6 +248,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         String sanitizedPointOfSaleId = Utilities.sanitizeString(pointOfSaleId);
         String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
         String sanitizedDocNumber = Utilities.sanitizeString(docNumber);
+
         Utilities.checkFileExtensionOrThrow(file);
 
         log.info("[REVERSAL-TRANSACTION-SERVICE] Start reversalTransaction transactionId={}, merchantId={}, posId={}, docNumber={}",
@@ -259,47 +259,50 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .doOnNext(rt -> log.info("[REVERSAL-TRANSACTION-SERVICE] Found transaction id={}, status={}, rewardBatchId={}",
                         rt.getId(), rt.getStatus(), rt.getRewardBatchId()))
                 .flatMap(this::ensureTransactionIsInvoiced)
-                .flatMap(rt -> checkRewardBatchCreatedIfPresent(rt.getRewardBatchId())
-                        .then(Mono.defer(() -> {
-                            log.info("[REVERSAL-TRANSACTION-SERVICE] Uploading credit note BEFORE DB updates for trxId={}", rt.getId());
-                            return uploadCreditNoteOrThrow(file, merchantId, pointOfSaleId, transactionId, rt.getId())
-                                    .then(Mono.defer(() -> {
-                                        log.info("[REVERSAL-TRANSACTION-SERVICE] Upload OK. Applying DB updates for trxId={}", rt.getId());
+                .flatMap(rt -> {
+                    String oldRewardBatchId = rt.getRewardBatchId();
 
-                                        rt.setRewardBatchId(null);
-                                        rt.setRewardBatchInclusionDate(null);
-                                        rt.setRewardBatchTrxStatus(null);
-                                        rt.setSamplingKey(0);
+                    return checkRewardBatchCreatedIfPresent(oldRewardBatchId)
+                            .then(Mono.defer(() -> {
+                                log.info("[REVERSAL-TRANSACTION-SERVICE] Uploading credit note BEFORE DB updates for trxId={}", rt.getId());
 
-                                        rt.setStatus(SyncTrxStatus.REFUNDED.toString());
-                                        rt.setUpdateDate(LocalDateTime.now());
+                                return uploadCreditNoteOrThrow(file, sanitizedMerchantId, sanitizedPointOfSaleId, sanitizedTransactionId, rt.getId())
+                                        .then(Mono.defer(() -> {
+                                            log.info("[REVERSAL-TRANSACTION-SERVICE] Upload OK. Applying DB updates for trxId={}", rt.getId());
 
-                                        rt.setCreditNoteData(InvoiceData.builder()
-                                                .filename(file.filename())
-                                                .docNumber(sanitizedDocNumber)
-                                                .build());
+                                            rt.setRewardBatchId(null);
+                                            rt.setRewardBatchInclusionDate(null);
+                                            rt.setRewardBatchTrxStatus(null);
+                                            rt.setSamplingKey(0);
 
-                                        String initiativeId = rt.getInitiatives().getFirst();
-                                        long accruedRewardCents = rt.getRewards().get(initiativeId).getAccruedRewardCents();
+                                            rt.setStatus(SyncTrxStatus.REFUNDED.toString());
+                                            rt.setUpdateDate(LocalDateTime.now());
 
-                                        Mono<Void> saveTransactionMono =
-                                                rewardTransactionRepository.save(rt).then();
+                                            rt.setCreditNoteData(InvoiceData.builder()
+                                                    .filename(file.filename())
+                                                    .docNumber(sanitizedDocNumber)
+                                                    .build());
 
-                                        Mono<RewardBatch> decrementRewardBatchMono =
-                                                rt.getRewardBatchId() != null
-                                                        ? rewardBatchRepository.decrementTotals(rt.getRewardBatchId(), accruedRewardCents)
-                                                        : Mono.empty();
+                                            String initiativeId = rt.getInitiatives().getFirst();
+                                            long accruedRewardCents = rt.getRewards().get(initiativeId).getAccruedRewardCents();
 
-                                        Mono<Void> sendToQueueMono = sendReversedInvoicedTransactionNotification(rt);
+                                            Mono<Void> saveTransactionMono = rewardTransactionRepository.save(rt).then();
 
-                                        return saveTransactionMono
-                                                .then(decrementRewardBatchMono.then())
-                                                .then(sendToQueueMono);
-                                    }));
-                        })))
-                .doOnError(e ->
-                        log.error("[REVERSAL-TRANSACTION-SERVICE] Error during reversalTransaction [transactionId={}, merchantId={}]",
-                                sanitizedTransactionId, sanitizedMerchantId, e))
+                                            Mono<Void> decrementRewardBatchMono =
+                                                    oldRewardBatchId != null
+                                                            ? rewardBatchRepository.decrementTotals(oldRewardBatchId, accruedRewardCents).then()
+                                                            : Mono.empty();
+
+                                            Mono<Void> sendToQueueMono = sendReversedInvoicedTransactionNotification(rt);
+
+                                            return saveTransactionMono
+                                                    .then(decrementRewardBatchMono)
+                                                    .then(sendToQueueMono);
+                                        }));
+                            }));
+                })
+                .doOnError(e -> log.error("[REVERSAL-TRANSACTION-SERVICE] Error during reversalTransaction [transactionId={}, merchantId={}]",
+                        sanitizedTransactionId, sanitizedMerchantId, e))
                 .then();
     }
 
