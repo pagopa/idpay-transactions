@@ -783,7 +783,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                             .map(StringBuilder::toString)
                             .flatMap(csvContent -> this.uploadCsvToBlob(filename, csvContent))
                             .doOnTerminate(() -> log.info("CSV generation has been completed for batch: {}", Utilities.sanitizeString(rewardBatchId)))
-                            .map(uploadedKey -> filename);
+                            .map(uploadedKey -> reportFilename);
                 });
     }
 

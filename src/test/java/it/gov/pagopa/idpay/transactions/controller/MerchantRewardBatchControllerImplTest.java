@@ -63,7 +63,7 @@ class MerchantRewardBatchControllerImplTest {
         when(rewardBatchService.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
                 .thenReturn(Mono.just(FAKE_FILENAME));
 
-        webClient.put()
+        webClient.post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/generateAndSaveCsv?merchantId={merchantId}",
                         INITIATIVE_ID, REWARD_BATCH_ID_1, MERCHANT_ID)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -82,7 +82,7 @@ class MerchantRewardBatchControllerImplTest {
         when(rewardBatchService.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
                 .thenReturn(Mono.error(serviceException));
 
-        webClient.put()
+        webClient.post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/generateAndSaveCsv?merchantId={merchantId}",
                         INITIATIVE_ID, REWARD_BATCH_ID_1, MERCHANT_ID)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -368,7 +368,7 @@ class MerchantRewardBatchControllerImplTest {
         when(rewardBatchService.rewardBatchConfirmation(INITIATIVE_ID, rewardBatchId))
                 .thenReturn(Mono.just(batch));
 
-        webClient.put()
+        webClient.post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchid}/approved", INITIATIVE_ID, rewardBatchId)
                 .exchange()
                 .expectStatus().isOk() // 200 OK
@@ -386,7 +386,7 @@ class MerchantRewardBatchControllerImplTest {
                 .thenReturn(Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)));
 
-        webClient.put()
+        webClient.post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchid}/approved", INITIATIVE_ID, rewardBatchId)
                 .exchange()
                 .expectStatus().isNotFound()
@@ -404,7 +404,7 @@ class MerchantRewardBatchControllerImplTest {
                 .thenReturn(Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_ALREADY_APPROVED)));
 
-        webClient.put()
+        webClient.post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchid}/approved", INITIATIVE_ID, rewardBatchId)
                 .exchange()
                 .expectStatus().isBadRequest()
