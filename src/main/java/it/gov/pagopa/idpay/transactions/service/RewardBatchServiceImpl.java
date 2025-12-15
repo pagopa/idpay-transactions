@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT;
 
 @Service
@@ -120,34 +119,54 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     return rewardBatchRepository.decrementTotals(batchId, accruedAmountCents);
   }
 
-@Override
-public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
-  return rewardBatchRepository.findById(batchId)
-      .switchIfEmpty(Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
-          ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)))
-      .flatMap(batch -> {
-        if (!merchantId.equals(batch.getMerchantId())) {
-          log.warn("[SEND_REWARD_BATCHES] Merchant id mismatch !");
-          return Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
-              ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND));
-        }
-        if (batch.getStatus() != RewardBatchStatus.CREATED) {
-          return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
-              ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST));
-        }
-        YearMonth batchMonth = YearMonth.parse(batch.getMonth());
-        if (!YearMonth.now().isAfter(batchMonth)) {
-          log.warn("[SEND_REWARD_BATCHES] Batch month too early to be sent !");
-          return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
-              ExceptionConstants.ExceptionCode.REWARD_BATCH_MONTH_TOO_EARLY));
-        }
-        batch.setStatus(RewardBatchStatus.SENT);
-        batch.setUpdateDate(LocalDateTime.now());
-        return rewardBatchRepository.save(batch)
-            .then();
-      });
-}
+  @Override
+  public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
+    return rewardBatchRepository.findById(batchId)
+        .switchIfEmpty(Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
+            ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)))
+        .flatMap(batch -> {
+          if (!merchantId.equals(batch.getMerchantId())) {
+            log.warn("[SEND_REWARD_BATCHES] Merchant id mismatch !");
+            return Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
+                ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND));
+          }
+          if (batch.getStatus() != RewardBatchStatus.CREATED) {
+            return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
+                ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST));
+          }
+          YearMonth batchMonth = YearMonth.parse(batch.getMonth());
+          if (!YearMonth.now().isAfter(batchMonth)) {
+            log.warn("[SEND_REWARD_BATCHES] Batch month too early to be sent !");
+            return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
+                ExceptionConstants.ExceptionCode.REWARD_BATCH_MONTH_TOO_EARLY));
+          }
 
+          return checkPreviousBatchesSent(merchantId, batchMonth, batch.getPosType())
+              .flatMap(allPreviousSent -> {
+                if (Boolean.FALSE.equals(allPreviousSent)) {
+                  log.warn("[SEND_REWARD_BATCHES] Previous batches of type {} not sent yet for merchant {}!",
+                      batch.getPosType(), merchantId);
+                  return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
+                      ExceptionConstants.ExceptionCode.REWARD_BATCH_PREVIOUS_NOT_SENT));
+                }
+
+                batch.setStatus(RewardBatchStatus.SENT);
+                batch.setUpdateDate(LocalDateTime.now());
+                return rewardBatchRepository.save(batch);
+              })
+              .then();
+        });
+  }
+
+  private Mono<Boolean> checkPreviousBatchesSent(String merchantId, YearMonth currentMonth,
+      PosType posType) {
+    return rewardBatchRepository.findByMerchantIdAndPosType(merchantId, posType)
+        .filter(batch -> {
+          YearMonth batchMonth = YearMonth.parse(batch.getMonth());
+          return batchMonth.isBefore(currentMonth);
+        })
+        .all(batch -> batch.getStatus() == RewardBatchStatus.SENT);
+  }
 
     @Override
     public Mono<RewardBatch> suspendTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request) {
