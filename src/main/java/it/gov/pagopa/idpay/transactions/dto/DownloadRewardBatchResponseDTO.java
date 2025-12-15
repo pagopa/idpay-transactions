@@ -10,5 +10,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class DownloadRewardBatchResponseDTO {
-    public String approvedBatchUrl;
+    private String approvedBatchUrl;
 }

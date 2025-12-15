@@ -32,10 +32,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -838,38 +836,25 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     public Mono<String> uploadCsvToBlob(String filename, String csvContent) {
 
         return Mono.fromCallable(() -> {
-//            InputStream inputStream = new ByteArrayInputStream(csvContent.getBytes(StandardCharsets.UTF_8));
-//            Response<BlockBlobItem> response = approvedRewardBatchBlobService.upload(
-//                    inputStream,
-//                    filename,
-//                    "text/csv; charset=UTF-8"
-//            );
-//
-//            if (response.getStatusCode() != HttpStatus.CREATED.value()) {
-//                log.error("Error uploading file to storage for file [{}]",
-//                        Utilities.sanitizeString(filename));
-//                throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
-//                        ExceptionConstants.ExceptionCode.GENERIC_ERROR,
-//                        "Error uploading csv file");
-//            }
-//            return filename;
+            InputStream inputStream = new ByteArrayInputStream(csvContent.getBytes(StandardCharsets.UTF_8));
+            Response<BlockBlobItem> response = approvedRewardBatchBlobService.upload(
+                    inputStream,
+                    filename,
+                    "text/csv; charset=UTF-8"
+            );
 
-            try (InputStream is = new ByteArrayInputStream(csvContent.getBytes(StandardCharsets.UTF_8))) {
-                approvedRewardBatchBlobService.upload(is, filename, "text/csv; charset=UTF-8");
+            if (response.getStatusCode() != HttpStatus.CREATED.value()) {
+                log.error("Error uploading file to storage for file [{}]",
+                        Utilities.sanitizeString(filename));
+                throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
+                        ExceptionConstants.ExceptionCode.GENERIC_ERROR,
+                        "Error uploading csv file");
             }
             return filename;
 
         }).onErrorMap(BlobStorageException.class, e -> {
             log.error("Azure Blob Storage upload failed for file {}", filename, e);
-            return new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
-                    ExceptionConstants.ExceptionCode.GENERIC_ERROR,
-                    "Error uploading csv file");
-        }).onErrorMap(IOException.class, e -> {
-            log.error("Error uploading file to storage for reward-batch with name [{}]",
-                    filename, e);
-            throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
-                    ExceptionConstants.ExceptionCode.GENERIC_ERROR,
-                    "Error uploading csv file", e);
+            return new RuntimeException("Error uploading CSV to Blob Storage.", e);
         });
     }
 
