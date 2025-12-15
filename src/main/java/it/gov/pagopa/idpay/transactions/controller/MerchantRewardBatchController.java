@@ -42,17 +42,17 @@ public interface MerchantRewardBatchController {
           @RequestBody @Valid TransactionsRequest request);
 
 
-@PutMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/approved")
-Mono<RewardBatch>  rewardBatchConfirmation(
+  @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/approved")
+  Mono<RewardBatch>  rewardBatchConfirmation(
         @PathVariable("initiativeId") String initiativeId,
         @PathVariable("rewardBatchId") String rewardBatchId);
 
-  @PutMapping("/initiatives/{initiativeId}/reward-batches/approved")
+  @PostMapping("/initiatives/{initiativeId}/reward-batches/approved")
   Mono<Void>  rewardBatchConfirmationBatch(
           @PathVariable("initiativeId") String initiativeId,
           @RequestBody  RewardBatchesRequest request);
 
-  @PutMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/generateAndSaveCsv")
+  @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/generateAndSaveCsv")
   Mono<String>  generateAndSaveCsv(
           @PathVariable("initiativeId") String initiativeId,
           @PathVariable("rewardBatchId") String rewardBatchId,
