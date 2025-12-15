@@ -594,7 +594,7 @@ private String buildBatchName(YearMonth month) {
     }
 
     @Override
-    public Mono<Void> validateRewardBatch(String organizationRole, String initiativeId, String rewardBatchId) {
+    public Mono<RewardBatch> validateRewardBatch(String organizationRole, String initiativeId, String rewardBatchId) {
         return rewardBatchRepository.findById(rewardBatchId)
                 .switchIfEmpty(Mono.error(new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
@@ -624,7 +624,7 @@ private String buildBatchName(YearMonth month) {
                         }
 
                         batch.setAssigneeLevel(RewardBatchAssignee.L2);
-                        return rewardBatchRepository.save(batch).then();
+                        return rewardBatchRepository.save(batch);
                     }
 
                     if (assignee == RewardBatchAssignee.L2) {
@@ -637,7 +637,7 @@ private String buildBatchName(YearMonth month) {
                         }
 
                         batch.setAssigneeLevel(RewardBatchAssignee.L3);
-                        return rewardBatchRepository.save(batch).then();
+                        return rewardBatchRepository.save(batch);
                     }
 
                     return Mono.error(new ResponseStatusException(

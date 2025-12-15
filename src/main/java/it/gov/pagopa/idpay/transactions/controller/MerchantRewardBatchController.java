@@ -65,8 +65,7 @@ Mono<RewardBatch>  rewardBatchConfirmation(
           @RequestBody @Valid TransactionsRequest request);
 
   @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/validated")
-  @ResponseStatus(HttpStatus.NO_CONTENT)
-  Mono<Void> validateRewardBatch(
+  Mono<RewardBatch> validateRewardBatch(
           @RequestHeader("x-organization-role") String organizationRole,
           @PathVariable String initiativeId,
           @PathVariable String rewardBatchId);

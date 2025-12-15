@@ -1641,8 +1641,10 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
         when(rewardBatchRepository.save(any())).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1))
-                .verifyComplete();
+        RewardBatch result = rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1).block();
+
+        assertNotNull(result);
+        assertEquals(batch, result);
 
         verify(rewardBatchRepository, times(1)).save(batch);
         assertEquals(RewardBatchAssignee.L2, batch.getAssigneeLevel());
@@ -1658,8 +1660,10 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
         when(rewardBatchRepository.save(any())).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        StepVerifier.create(rewardBatchService.validateRewardBatch("operator2", INITIATIVE_ID, REWARD_BATCH_ID_1))
-                .verifyComplete();
+        RewardBatch result = rewardBatchService.validateRewardBatch("operator2", INITIATIVE_ID, REWARD_BATCH_ID_1).block();
+
+        assertNotNull(result);
+        assertEquals(batch, result);
 
         verify(rewardBatchRepository, times(1)).save(batch);
         assertEquals(RewardBatchAssignee.L3, batch.getAssigneeLevel());
