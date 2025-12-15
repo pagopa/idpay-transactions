@@ -14,6 +14,7 @@ public final class ExceptionConstants {
         public static final String REWARD_BATCH_NOT_APPROVED = "REWARD_BATCH_NOT_APPROVED";
         public static final String REWARD_BATCH_MISSING_FILENAME = "REWARD_BATCH_MISSING_FILENAME";
         public static final String REWARD_BATCH_INVALID_MERCHANT = "REWARD_BATCH_INVALID_MERCHANT";
+        public static final String ROLE_NOT_ALLOWED = "ROLE_NOT_ALLOWED";
 
         public static final String REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE = "REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE";
         public static final String REWARD_BATCH_ALREADY_APPROVED = "REWARD_BATCH_ALREADY_APPROVED";
@@ -47,6 +48,9 @@ public final class ExceptionConstants {
         public static final String ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH = "Reward batch  %s not  found  or  not in  a  valid  state";
         public static final String ERROR_MESSAGE_NOT_FOUND_BATCH = "Reward batch  %s not  found";
         public static final String ERROR_MESSAGE_INVALID_STATE_BATCH = "Reward batch  %s  not in  a  valid  state";
+        public static final String ERROR_MESSAGE_ROLE_NOT_ALLOWED = "Role not allowed";
+        public static final String ERROR_MESSAGE_REWARD_BATCH_NOT_APPROVED = "Reward batch  %s not APPROVED";
+        public static final String ERROR_MESSAGE_REWARD_BATCH_MISSING_FILENAME = "Reward batch  %s missing file name";
 
         public static final String ERROR_MESSAGE_PREVIOUS_BATCH_TO_APPROVE = "Is not possible to approve batch %s because there are previous Batch to approve";
         public static final String ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT = "No reward batches found with status SENT";

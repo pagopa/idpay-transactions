@@ -369,40 +369,44 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     }
 
     @Override
-    public Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatchFile(String merchantId, String initiativeId, String rewardBatchId) {
+    public Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatchFile(String merchantId, String organizationRole, String initiativeId, String rewardBatchId) {
 
-        Mono<RewardBatch> query;
-
-        if (merchantId == null) {
-            query = rewardBatchRepository.findById(rewardBatchId);
-        } else {
-            query = rewardBatchRepository.findByMerchantIdAndId(merchantId, rewardBatchId);
-        }
+        Mono<RewardBatch> query =
+                merchantId == null
+                        ? rewardBatchRepository.findById(rewardBatchId)
+                        : rewardBatchRepository.findByMerchantIdAndId(merchantId, rewardBatchId);
 
         return query
-                .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
-                        BAD_REQUEST,
-                        REWARD_BATCH_NOT_FOUND
+                .switchIfEmpty(Mono.error(new RewardBatchNotFound(
+                        REWARD_BATCH_NOT_FOUND,
+                        ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId)
                 )))
-                .map(rewardBatch -> {
+                .map(batch -> {
 
-                    if (!RewardBatchStatus.APPROVED.equals(rewardBatch.getStatus())) {
-                        throw new ClientExceptionNoBody(
-                                BAD_REQUEST,
-                                REWARD_BATCH_NOT_APPROVED
+                    if (merchantId == null && !isValidInvitaliaOperator(organizationRole)) {
+                        throw new RoleNotAllowedException(
+                                ROLE_NOT_ALLOWED,
+                                ERROR_MESSAGE_ROLE_NOT_ALLOWED
                         );
                     }
 
-                    String filename = rewardBatch.getFilename();
+                    if (!RewardBatchStatus.APPROVED.equals(batch.getStatus())) {
+                        throw new RewardBatchNotApprovedException(
+                                REWARD_BATCH_NOT_APPROVED,
+                                ERROR_MESSAGE_REWARD_BATCH_NOT_APPROVED.formatted(rewardBatchId)
+                        );
+                    }
+
+                    String filename = batch.getFilename();
                     if (filename == null || filename.isBlank()) {
-                        throw new ClientExceptionNoBody(
-                                BAD_REQUEST,
-                                REWARD_BATCH_MISSING_FILENAME
+                        throw new RewardBatchMissingFilenameException(
+                                REWARD_BATCH_MISSING_FILENAME,
+                                ERROR_MESSAGE_REWARD_BATCH_MISSING_FILENAME.formatted(rewardBatchId)
                         );
                     }
 
                     String blobPath = String.format(
-                            REWARD_BATCHES_PATH_STORAGE_FORMAT + "%s",
+                            REWARD_BATCHES_PATH_STORAGE_FORMAT+ "%s",
                             initiativeId,
                             merchantId,
                             rewardBatchId,
@@ -410,9 +414,17 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
                     );
 
                     return DownloadRewardBatchResponseDTO.builder()
-                            .approvedBatchUrl(approvedRewardBatchBlobService.getFileSignedUrl(blobPath))
+                            .approvedBatchUrl(
+                                    approvedRewardBatchBlobService.getFileSignedUrl(blobPath)
+                            )
                             .build();
                 });
+    }
+
+    private boolean isValidInvitaliaOperator(String organizationRole) {
+        return "operator1".equals(organizationRole)
+                || "operator2".equals(organizationRole)
+                || "operator3".equals(organizationRole);
     }
 
     private String buildBatchName(YearMonth month) {

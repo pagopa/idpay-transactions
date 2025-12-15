@@ -20,7 +20,7 @@ public interface RewardBatchService {
   Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId);
 
   Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds);
-  public Mono<String> generateAndSaveCsv(String rewardBatchId, String initiativeId, String merchantId);
+  Mono<String> generateAndSaveCsv(String rewardBatchId, String initiativeId, String merchantId);
 
   Mono<Void> sendRewardBatch(String merchantId, String batchId);
   Mono<RewardBatch> suspendTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request);
@@ -31,5 +31,5 @@ public interface RewardBatchService {
 
   Mono<Long> evaluatingRewardBatches(List<String> rewardBatchesRequest);
 
-  Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatchFile(String merchantId, String initiativeId, String rewardBatchId);
+  Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatchFile(String merchantId, String organizationRole, String initiativeId, String rewardBatchId);
 }

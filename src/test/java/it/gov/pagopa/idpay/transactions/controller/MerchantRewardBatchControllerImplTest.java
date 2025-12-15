@@ -643,13 +643,18 @@ class MerchantRewardBatchControllerImplTest {
                 .approvedBatchUrl("https://blobstorage/signed-url")
                 .build();
 
-        when(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
-                .thenReturn(Mono.just(responseDTO));
+        when(rewardBatchService.downloadApprovedRewardBatchFile(
+                MERCHANT_ID,
+                "operator1",
+                INITIATIVE_ID,
+                REWARD_BATCH_ID_1
+        )).thenReturn(Mono.just(responseDTO));
 
         webClient.get()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/approved/download",
                         INITIATIVE_ID, REWARD_BATCH_ID_1)
                 .header("x-merchant-id", MERCHANT_ID)
+                .header("x-organization-role", "operator1")
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(DownloadRewardBatchResponseDTO.class)
@@ -659,24 +664,45 @@ class MerchantRewardBatchControllerImplTest {
                 });
 
         verify(rewardBatchService, times(1))
-                .downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1);
+                .downloadApprovedRewardBatchFile(
+                        MERCHANT_ID,
+                        "operator1",
+                        INITIATIVE_ID,
+                        REWARD_BATCH_ID_1
+                );
     }
 
     @Test
     void downloadApprovedRewardBatch_ServiceFails_BadRequest() {
-        when(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
-                .thenReturn(Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST, ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)));
+        when(rewardBatchService.downloadApprovedRewardBatchFile(
+                MERCHANT_ID,
+                "operator1",
+                INITIATIVE_ID,
+                REWARD_BATCH_ID_1
+        )).thenReturn(Mono.error(
+                new RewardBatchException(
+                        HttpStatus.BAD_REQUEST,
+                        ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND
+                )
+        ));
 
         webClient.get()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/approved/download",
                         INITIATIVE_ID, REWARD_BATCH_ID_1)
                 .header("x-merchant-id", MERCHANT_ID)
+                .header("x-organization-role", "operator1")
                 .exchange()
                 .expectStatus().isBadRequest()
                 .expectBody()
-                .jsonPath("$.message").isEqualTo(ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND);
+                .jsonPath("$.message")
+                .isEqualTo(ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND);
 
         verify(rewardBatchService, times(1))
-                .downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1);
+                .downloadApprovedRewardBatchFile(
+                        MERCHANT_ID,
+                        "operator1",
+                        INITIATIVE_ID,
+                        REWARD_BATCH_ID_1
+                );
     }
 }

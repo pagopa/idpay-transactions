@@ -66,9 +66,9 @@ class RewardBatchServiceImplTest {
 
   private static final String BUSINESS_NAME = "Test Business name";
   private static final String REWARD_BATCH_ID_1 = "REWARD_BATCH_ID_1";
-    private static final String REWARD_BATCH_ID_2 = "REWARD_BATCH_ID_2";
+  private static final String REWARD_BATCH_ID_2 = "REWARD_BATCH_ID_2";
   private static final String INITIATIVE_ID = "INITIATIVE_ID";
-    private static final String MERCHANT_ID = "MERCHANT_ID";
+  private static final String MERCHANT_ID = "MERCHANT_ID";
   private static final  RewardBatch REWARD_BATCH_1 = RewardBatch.builder()
             .id(REWARD_BATCH_ID_1)
             .build();
@@ -93,9 +93,11 @@ class RewardBatchServiceImplTest {
     private String capturedCsvContent;
     private String capturedFilename;
 
+    private static final String VALID_ROLE = "L1";
+    private static final String INVALID_ROLE = "GUEST";
 
 
-  @BeforeEach
+    @BeforeEach
   void setUp() {
     rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, userRestClient, approvedRewardBatchBlobService);
     rewardBatchServiceSpy = spy((RewardBatchServiceImpl) rewardBatchService);
@@ -2003,10 +2005,19 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
                 .thenReturn(Mono.empty());
 
-        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
-                .expectErrorMatches(throwable ->
-                        throwable instanceof ClientExceptionNoBody &&
-                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_NOT_FOUND"))
+        StepVerifier.create(
+                        rewardBatchService.downloadApprovedRewardBatchFile(
+                                MERCHANT_ID,
+                                VALID_ROLE,
+                                INITIATIVE_ID,
+                                REWARD_BATCH_ID_1
+                        )
+                )
+                .expectErrorSatisfies(ex -> {
+                    assertTrue(ex instanceof RewardBatchNotFound);
+                    RewardBatchNotFound e = (RewardBatchNotFound) ex;
+                    assertEquals(REWARD_BATCH_NOT_FOUND, e.getCode());
+                })
                 .verify();
     }
 
@@ -2020,10 +2031,19 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
                 .thenReturn(Mono.just(batch));
 
-        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
-                .expectErrorMatches(throwable ->
-                        throwable instanceof ClientExceptionNoBody &&
-                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_NOT_APPROVED"))
+        StepVerifier.create(
+                        rewardBatchService.downloadApprovedRewardBatchFile(
+                                MERCHANT_ID,
+                                VALID_ROLE,
+                                INITIATIVE_ID,
+                                REWARD_BATCH_ID_1
+                        )
+                )
+                .expectErrorSatisfies(ex -> {
+                    assertTrue(ex instanceof RewardBatchNotApprovedException);
+                    RewardBatchNotApprovedException e = (RewardBatchNotApprovedException) ex;
+                    assertEquals(REWARD_BATCH_NOT_APPROVED, e.getCode());
+                })
                 .verify();
     }
 
@@ -2043,17 +2063,21 @@ class RewardBatchServiceImplTest {
         when(approvedRewardBatchBlobService.getFileSignedUrl(blobPath))
                 .thenReturn("signed-url");
 
-        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
+        StepVerifier.create(
+                        rewardBatchService.downloadApprovedRewardBatchFile(
+                                MERCHANT_ID,
+                                VALID_ROLE,
+                                INITIATIVE_ID,
+                                REWARD_BATCH_ID_1
+                        )
+                )
                 .expectNextMatches(response ->
                         response.getApprovedBatchUrl().equals("signed-url"))
                 .verifyComplete();
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-            "",
-            "   "
-    })
+    @ValueSource(strings = {"", "   "})
     @NullSource
     void downloadRewardBatch_InvalidFilename(String invalidFilename) {
 
@@ -2066,10 +2090,19 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
                 .thenReturn(Mono.just(batch));
 
-        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
-                .expectErrorMatches(throwable ->
-                        throwable instanceof ClientExceptionNoBody &&
-                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_MISSING_FILENAME"))
+        StepVerifier.create(
+                        rewardBatchService.downloadApprovedRewardBatchFile(
+                                MERCHANT_ID,
+                                VALID_ROLE,
+                                INITIATIVE_ID,
+                                REWARD_BATCH_ID_1
+                        )
+                )
+                .expectErrorSatisfies(ex -> {
+                    assertTrue(ex instanceof RewardBatchMissingFilenameException);
+                    RewardBatchMissingFilenameException e = (RewardBatchMissingFilenameException) ex;
+                    assertEquals(REWARD_BATCH_MISSING_FILENAME, e.getCode());
+                })
                 .verify();
     }
 
@@ -2078,10 +2111,42 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
                 .thenReturn(Mono.empty());
 
-        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(null, INITIATIVE_ID, REWARD_BATCH_ID_1))
-                .expectErrorMatches(throwable ->
-                        throwable instanceof ClientExceptionNoBody &&
-                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_NOT_FOUND"))
+        StepVerifier.create(
+                        rewardBatchService.downloadApprovedRewardBatchFile(
+                                null,
+                                VALID_ROLE,
+                                INITIATIVE_ID,
+                                REWARD_BATCH_ID_1
+                        )
+                )
+                .expectErrorSatisfies(ex -> {
+                    assertTrue(ex instanceof RewardBatchNotFound);
+                    RewardBatchNotFound e = (RewardBatchNotFound) ex;
+                    assertEquals(REWARD_BATCH_NOT_FOUND, e.getCode());
+                })
+                .verify();
+    }
+
+    @Test
+    void downloadRewardBatch_RoleNotAllowed_WhenMerchantIdNull() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.APPROVED)
+                .filename("file.csv")
+                .build();
+
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        StepVerifier.create(
+                        rewardBatchService.downloadApprovedRewardBatchFile(
+                                null,
+                                INVALID_ROLE,
+                                INITIATIVE_ID,
+                                REWARD_BATCH_ID_1
+                        )
+                )
+                .expectError(RoleNotAllowedException.class)
                 .verify();
     }
 
@@ -2095,10 +2160,17 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
                 .thenReturn(Mono.just(batch));
 
-        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(null, INITIATIVE_ID, REWARD_BATCH_ID_1))
-                .expectErrorMatches(throwable ->
-                        throwable instanceof ClientExceptionNoBody &&
-                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_NOT_APPROVED"))
+        String validRole = "operator1";
+
+        StepVerifier.create(
+                        rewardBatchService.downloadApprovedRewardBatchFile(
+                                null,
+                                validRole,
+                                INITIATIVE_ID,
+                                REWARD_BATCH_ID_1
+                        )
+                )
+                .expectError(RewardBatchNotApprovedException.class)
                 .verify();
     }
 
@@ -2110,6 +2182,9 @@ class RewardBatchServiceImplTest {
                 .filename("file.csv")
                 .build();
 
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
         String blobPath = String.format(
                 "initiative/%s/merchant/%s/batch/%s/%s",
                 INITIATIVE_ID,
@@ -2118,15 +2193,22 @@ class RewardBatchServiceImplTest {
                 batch.getFilename()
         );
 
-        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
-                .thenReturn(Mono.just(batch));
-
         when(approvedRewardBatchBlobService.getFileSignedUrl(blobPath))
                 .thenReturn("signed-url");
 
-        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(null, INITIATIVE_ID, REWARD_BATCH_ID_1))
+        String validRole = "operator2";
+
+        StepVerifier.create(
+                        rewardBatchService.downloadApprovedRewardBatchFile(
+                                null,
+                                validRole,
+                                INITIATIVE_ID,
+                                REWARD_BATCH_ID_1
+                        )
+                )
                 .expectNextMatches(response ->
-                        response.getApprovedBatchUrl().equals("signed-url"))
+                        "signed-url".equals(response.getApprovedBatchUrl())
+                )
                 .verifyComplete();
     }
 
@@ -2134,7 +2216,6 @@ class RewardBatchServiceImplTest {
     @ValueSource(strings = {"", "   "})
     @NullSource
     void downloadRewardBatch_InvalidFilename_WhenMerchantIdNull(String invalidFilename) {
-
         RewardBatch batch = RewardBatch.builder()
                 .id(REWARD_BATCH_ID_1)
                 .status(RewardBatchStatus.APPROVED)
@@ -2144,10 +2225,17 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
                 .thenReturn(Mono.just(batch));
 
-        StepVerifier.create(rewardBatchService.downloadApprovedRewardBatchFile(null, INITIATIVE_ID, REWARD_BATCH_ID_1))
-                .expectErrorMatches(throwable ->
-                        throwable instanceof ClientExceptionNoBody &&
-                                ((ClientExceptionNoBody) throwable).getMessage().contains("REWARD_BATCH_MISSING_FILENAME"))
+        String validRole = "operator1";
+
+        StepVerifier.create(
+                        rewardBatchService.downloadApprovedRewardBatchFile(
+                                null,
+                                validRole,
+                                INITIATIVE_ID,
+                                REWARD_BATCH_ID_1
+                        )
+                )
+                .expectError(RewardBatchMissingFilenameException.class)
                 .verify();
     }
 
