@@ -145,7 +145,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
               .flatMap(allPreviousSent -> {
                 if (Boolean.FALSE.equals(allPreviousSent)) {
                   log.warn("[SEND_REWARD_BATCHES] Previous batches of type {} not sent yet for merchant {}!",
-                      batch.getPosType(), merchantId);
+                      batch.getPosType(), Utilities.sanitizeString(merchantId));
                   return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
                       ExceptionConstants.ExceptionCode.REWARD_BATCH_PREVIOUS_NOT_SENT));
                 }
