@@ -26,7 +26,6 @@ public class JsonConfig {
         ObjectMapper mapper = new ObjectMapper();
 
         JavaTimeModule javaTimeModule = new JavaTimeModule();
-        // I add timezone to OffsetDateTime fields (es. 2025-11-28T13:18:06.057+00:00)
         javaTimeModule.addSerializer(OffsetDateTime.class,
             new OffsetDateTimeSerializer(
                 OffsetDateTimeSerializer.INSTANCE,
