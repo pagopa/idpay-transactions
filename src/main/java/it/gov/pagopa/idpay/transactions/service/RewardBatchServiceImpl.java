@@ -62,8 +62,12 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   private final UserRestClient userRestClient;
 
 
-  private static final Set<String> OPERATORS = Set.of("operator1", "operator2", "operator3");
-  private final ApprovedRewardBatchBlobService approvedRewardBatchBlobService;
+    private static final String OPERATOR_1 = "operator1";
+    private static final String OPERATOR_2 = "operator2";
+    private static final String OPERATOR_3 = "operator3";
+
+    private static final Set<String> OPERATORS = Set.of(OPERATOR_1, OPERATOR_2, OPERATOR_3);
+    private final ApprovedRewardBatchBlobService approvedRewardBatchBlobService;
 
   private static final String CSV_HEADER = String.join(";",
             "Data e ora", "Elettrodomestico", "Codice Fiscale Beneficiario", "ID transazione", "Codice sconto",
@@ -422,9 +426,9 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     }
 
     private boolean isValidInvitaliaOperator(String organizationRole) {
-        return "operator1".equals(organizationRole)
-                || "operator2".equals(organizationRole)
-                || "operator3".equals(organizationRole);
+        return OPERATOR_1.equals(organizationRole)
+                || OPERATOR_2.equals(organizationRole)
+                || OPERATOR_3.equals(organizationRole);
     }
 
     private String buildBatchName(YearMonth month) {
@@ -705,7 +709,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
 
                     if (assignee == RewardBatchAssignee.L1) {
 
-                        if (!"operator1".equals(organizationRole)) {
+                        if (!OPERATOR_1.equals(organizationRole)) {
                             return Mono.error(new RoleNotAllowedForL1PromotionException(
                                     ROLE_NOT_ALLOWED_FOR_L1_PROMOTION,
                                     ERROR_MESSAGE_ROLE_NOT_ALLOWED_FOR_L1_PROMOTION
@@ -728,7 +732,7 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
 
                     if (assignee == RewardBatchAssignee.L2) {
 
-                        if (!"operator2".equals(organizationRole)) {
+                        if (!OPERATOR_2.equals(organizationRole)) {
                             return Mono.error(new RoleNotAllowedForL2PromotionException(
                                     ROLE_NOT_ALLOWED_FOR_L2_PROMOTION,
                                     ERROR_MESSAGE_ROLE_NOT_ALLOWED_FOR_L2_PROMOTION

@@ -24,7 +24,6 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.*;
@@ -84,15 +83,9 @@ class RewardBatchServiceImplTest {
     private static final String CURRENT_MONTH_NAME = "dicembre 2025";
     private static final String NEXT_MONTH_NAME = "gennaio 2026";
 
-    private static final String CSV_HEADER = String.join(";",
-            "Data e ora", "Elettrodomestico", "Codice Fiscale Beneficiario", "ID transazione", "Codice sconto",
-            "Totale della spesa", "Sconto applicato",//"Importo autorizzato",
-            "Numero fattura",
-            "Fattura", "Stato"
-    );
+
 
     private static final String FAKE_CSV_FILENAME = "test/path/report_fake.csv";
-    private String capturedCsvContent;
     private String capturedFilename;
 
     private static final String VALID_ROLE = "L1";
@@ -167,9 +160,7 @@ class RewardBatchServiceImplTest {
         when(mockResponseSuccess.getStatusCode()).thenReturn(HttpStatus.CREATED.value());
 
         doAnswer(invocation -> {
-            InputStream inputStream = invocation.getArgument(0);
             capturedFilename = invocation.getArgument(1);
-            capturedCsvContent = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
             return mockResponseSuccess;
         }).when(approvedRewardBatchBlobService).upload(
                 any(InputStream.class),
@@ -2023,7 +2014,7 @@ class RewardBatchServiceImplTest {
                         )
                 )
                 .expectErrorSatisfies(ex -> {
-                    assertTrue(ex instanceof RewardBatchNotFound);
+                    assertInstanceOf(RewardBatchNotFound.class, ex);
                     RewardBatchNotFound e = (RewardBatchNotFound) ex;
                     assertEquals(REWARD_BATCH_NOT_FOUND, e.getCode());
                 })
@@ -2049,7 +2040,7 @@ class RewardBatchServiceImplTest {
                         )
                 )
                 .expectErrorSatisfies(ex -> {
-                    assertTrue(ex instanceof RewardBatchNotApprovedException);
+                    assertInstanceOf(RewardBatchNotApprovedException.class, ex);
                     RewardBatchNotApprovedException e = (RewardBatchNotApprovedException) ex;
                     assertEquals(REWARD_BATCH_NOT_APPROVED, e.getCode());
                 })
@@ -2109,7 +2100,7 @@ class RewardBatchServiceImplTest {
                         )
                 )
                 .expectErrorSatisfies(ex -> {
-                    assertTrue(ex instanceof RewardBatchMissingFilenameException);
+                    assertInstanceOf(RewardBatchMissingFilenameException.class, ex);
                     RewardBatchMissingFilenameException e = (RewardBatchMissingFilenameException) ex;
                     assertEquals(REWARD_BATCH_MISSING_FILENAME, e.getCode());
                 })
@@ -2130,7 +2121,7 @@ class RewardBatchServiceImplTest {
                         )
                 )
                 .expectErrorSatisfies(ex -> {
-                    assertTrue(ex instanceof RewardBatchNotFound);
+                    assertInstanceOf(RewardBatchNotFound.class, ex);
                     RewardBatchNotFound e = (RewardBatchNotFound) ex;
                     assertEquals(REWARD_BATCH_NOT_FOUND, e.getCode());
                 })
