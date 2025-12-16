@@ -53,7 +53,7 @@ Il file deve avere le seguenti caratteristiche:
 | `intestatarioContoCorrente` | Intestatario Conto | |
 | `importo` | Importo erogazione | **Inserire in centesimi** (intero).<br>Es: `15000` viene convertito in `150.0`. |
 | `autorizzatore` | Nome Autorizzatore | |
-| `merchantId` | ID Merchant | |
+| `merchantId` | ID Merchant | Valore non utilizzato dallo script|
 | `cap` | CAP Sede | |
 | `indirizzo` | Indirizzo Sede | |
 | `localita` | Località Sede | |
