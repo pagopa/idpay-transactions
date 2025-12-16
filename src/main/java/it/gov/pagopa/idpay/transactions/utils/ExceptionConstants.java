@@ -81,6 +81,7 @@ public final class ExceptionConstants {
         public static final String BATCH_NOT_ELABORATED_15_PERCENT = "BATCH_NOT_ELABORATED_15_PERCENT";
         public static final String INVALID_BATCH_STATE_FOR_PROMOTION = "INVALID_BATCH_STATE_FOR_PROMOTION";
         public static final String REWARD_BATCH_ALREADY_SENT = "REWARD_BATCH_ALREADY_SENT";
+        public static final String REWARD_BATCH_PREVIOUS_NOT_SENT = "REWARD_BATCH_PREVIOUS_NOT_SENT";
     }
 
     public static final class ExceptionMessage {
