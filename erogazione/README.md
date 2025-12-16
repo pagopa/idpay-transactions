@@ -69,7 +69,7 @@ Il file deve avere le seguenti caratteristiche:
 ```
 
 ### Generazione del File CSV di Esempio
-Per generare il file `dati.csv`, è necessario aggioranre la tabella CosmosDB `selfcare_export`, ed eseguire la seguente query:
+Per generare il file `dati.csv`, è necessario aggiornare la tabella CosmosDB `selfcare_export`, ed eseguire la seguente query:
 
 ```query
 merchant
