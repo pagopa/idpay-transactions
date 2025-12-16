@@ -72,7 +72,25 @@ Il file deve avere le seguenti caratteristiche:
 Per generare il file `dati.csv`, è necessario aggioranre la tabella CosmosDB `selfcare_export`, ed eseguire la seguente query:
 
 ```query
-[ ... ]
+merchant
+| join kind=inner rewards_batch on $left._id == $right.merchantId
+| where status == "APPROVED"
+| project id=_id1 ,
+    partitaIvaCliente=vatNumber, 
+    codiceFiscaleCliente=fiscalCode, 
+    ragioneSocialeIntestatario=businessName, 
+    ibanBeneficiario=iban, 
+    intestatarioContoCorrente=ibanHolder,
+    importo=approvedAmountCents,
+    autorizzatore="Gianluca Fiorillo",
+    merchantId=_id,
+    cap="anagrafica.cap",
+    indirizzo="anagrafica.indirizzo",
+    localita="anagrafica.localita",
+    provincia="anagrafica.provincia",
+    pec="anagrafica.pec",
+    idPratica="erogazione.idPratica",
+    dataAmmissione=updateDate
 ```
 
 ## 🚀 Utilizzo
