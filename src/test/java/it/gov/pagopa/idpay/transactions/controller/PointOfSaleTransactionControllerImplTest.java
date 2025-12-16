@@ -243,4 +243,40 @@ class PointOfSaleTransactionControllerImplTest {
         .exchange()
         .expectStatus().isBadRequest();
   }
+
+  @Test
+  void reversalTransactionOk() {
+
+    when(pointOfSaleTransactionService.reversalTransaction(
+        eq(TRX_ID),
+        eq(MERCHANT_ID),
+        eq(POINT_OF_SALE_ID),
+        any(FilePart.class),
+        eq("DOC456")
+    )).thenReturn(Mono.empty());
+
+    MultipartBodyBuilder builder = new MultipartBodyBuilder();
+    builder.part("file", "dummycontent".getBytes())
+        .filename("reversal.pdf")
+        .contentType(MediaType.APPLICATION_OCTET_STREAM);
+    builder.part("docNumber", "DOC456");
+
+    webClient.post()
+        .uri("/idpay/transactions/{id}/reversal-invoiced", TRX_ID)
+        .header("x-merchant-id", MERCHANT_ID)
+        .header("x-point-of-sale-id", POINT_OF_SALE_ID)
+        .contentType(MediaType.MULTIPART_FORM_DATA)
+        .body(BodyInserters.fromMultipartData(builder.build()))
+        .exchange()
+        .expectStatus().isNoContent();
+
+    verify(pointOfSaleTransactionService).reversalTransaction(
+        eq(TRX_ID),
+        eq(MERCHANT_ID),
+        eq(POINT_OF_SALE_ID),
+        any(FilePart.class),
+        eq("DOC456")
+    );
+  }
+
 }

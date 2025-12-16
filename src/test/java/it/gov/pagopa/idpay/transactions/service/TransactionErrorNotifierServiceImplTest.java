@@ -86,6 +86,32 @@ class TransactionErrorNotifierServiceImplTest {
         Mockito.verifyNoMoreInteractions(errorNotifierServiceMock);
     }
 
+    @Test
+    void notifyTransactionOutcome() {
+        KafkaConfiguration.KafkaInfoDTO kafkaInfoDTO = KafkaConfiguration.KafkaInfoDTO.builder()
+                .type(BINDER_KAFKA_TYPE)
+                .brokers(BINDER_BROKER)
+                .destination("transaction-outcome-topic")
+                .group("transaction-outcome-group")
+                .build();
+
+        when(kafkaConfiguration.getStream()).thenReturn(mock(KafkaConfiguration.Stream.class));
+        when(kafkaConfiguration.getStream().getBindings())
+                .thenReturn(Map.of("transactionOutcome-out-0", kafkaInfoDTO));
+
+        errorNotifyMock(kafkaInfoDTO, true, false);
+
+        transactionErrorNotifierService.notifyTransactionOutcome(
+                dummyMessage,
+                DUMMY_MESSAGE,
+                true,
+                new Throwable(DUMMY_MESSAGE)
+        );
+
+        Mockito.verifyNoMoreInteractions(errorNotifierServiceMock);
+    }
+
+
     private void errorNotifyMock(KafkaConfiguration.BaseKafkaInfoDTO baseKafkaInfoDTO,boolean retryable, boolean resendApplication) {
         when(errorNotifierServiceMock.notify(eq(baseKafkaInfoDTO), eq(dummyMessage), eq(DUMMY_MESSAGE), eq(retryable), eq(resendApplication), any()))
                 .thenReturn(true);
