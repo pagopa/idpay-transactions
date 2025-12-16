@@ -3,9 +3,9 @@ package it.gov.pagopa.idpay.transactions.controller;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
-import it.gov.pagopa.idpay.transactions.dto.RewardBatchRequest;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchesRequest;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
+import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.service.RewardBatchService;
@@ -79,12 +79,20 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
-  public  Mono<Void> rewardBatchConfirmationBatch(String initiativeId, RewardBatchRequest request) {
+  public  Mono<Void> rewardBatchConfirmationBatch(String initiativeId, RewardBatchesRequest request) {
     List<String> rewardBatchIds = request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
     log.info("[REWARD_BATCH_CONFIRMATION_BATCH] Batch confirmation for initiative {} and batchs {}",
             Utilities.sanitizeString(initiativeId), rewardBatchIds.toString() );
     return rewardBatchService.rewardBatchConfirmationBatch(initiativeId, rewardBatchIds);
   }
+
+  @Override
+  public  Mono<String> generateAndSaveCsv(String initiativeId, String rewardBatchId, String merchantId) {
+    log.info("[GENERATE_AND_SAVE_CSV] Generate CSV for initiative {} and batch {}",
+            Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(rewardBatchId) );
+    return rewardBatchService.generateAndSaveCsv(rewardBatchId, initiativeId, merchantId);
+  }
+
 
   @Override
   public Mono<RewardBatchDTO> suspendTransactions(String initiativeId, String rewardBatchId, TransactionsRequest request) {
@@ -163,7 +171,22 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
-  public Mono<Void> validateRewardBatch(String organizationRole, String initiativeId, String rewardBatchId) {
+  public Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatch(String merchantId, String organizationRole, String initiativeId, String rewardBatchId) {
+
+    log.info("[DOWNLOAD_APPROVED_REWARD_BATCH] Requested to download approved reward batch {} for initiative {}",
+            Utilities.sanitizeString(rewardBatchId),
+            Utilities.sanitizeString(initiativeId));
+
+    return rewardBatchService.downloadApprovedRewardBatchFile(
+            merchantId,
+            organizationRole,
+            initiativeId,
+            rewardBatchId
+    );
+  }
+
+  @Override
+  public Mono<RewardBatch> validateRewardBatch(String organizationRole, String initiativeId, String rewardBatchId) {
 
     log.info(
             "[VALIDATE_REWARD_BATCH] Request to validate rewardBatch {} for initiative {} by role {}",

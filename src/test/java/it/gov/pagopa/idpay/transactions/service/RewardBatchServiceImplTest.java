@@ -1,11 +1,20 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import static it.gov.pagopa.idpay.transactions.enums.PosType.PHYSICAL;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.MERCHANT_OR_OPERATOR_HEADER_MANDATORY;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
-import it.gov.pagopa.common.web.exception.RewardBatchException;
+import com.azure.core.http.rest.Response;
+import com.azure.storage.blob.models.BlockBlobItem;
+import it.gov.pagopa.common.web.exception.*;
+import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
+import it.gov.pagopa.idpay.transactions.dto.DownloadRewardBatchResponseDTO;
+import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
@@ -16,19 +25,21 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 
+import java.io.InputStream;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -36,7 +47,6 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -48,14 +58,20 @@ class RewardBatchServiceImplTest {
   private RewardBatchRepository rewardBatchRepository;
   @Mock
   private RewardTransactionRepository rewardTransactionRepository;
+  @Mock
+  private UserRestClient userRestClient;
 
   private RewardBatchService rewardBatchService;
   private RewardBatchServiceImpl rewardBatchServiceSpy;
 
+  @Mock
+  private ApprovedRewardBatchBlobService approvedRewardBatchBlobService;
+
   private static final String BUSINESS_NAME = "Test Business name";
   private static final String REWARD_BATCH_ID_1 = "REWARD_BATCH_ID_1";
-    private static final String REWARD_BATCH_ID_2 = "REWARD_BATCH_ID_2";
+  private static final String REWARD_BATCH_ID_2 = "REWARD_BATCH_ID_2";
   private static final String INITIATIVE_ID = "INITIATIVE_ID";
+  private static final String MERCHANT_ID = "MERCHANT_ID";
   private static final  RewardBatch REWARD_BATCH_1 = RewardBatch.builder()
             .id(REWARD_BATCH_ID_1)
             .build();
@@ -71,21 +87,210 @@ class RewardBatchServiceImplTest {
 
 
 
-  @BeforeEach
+    private static final String FAKE_CSV_FILENAME = "test/path/report_fake.csv";
+    private String capturedFilename;
+
+    private static final String VALID_ROLE = "L1";
+    private static final String INVALID_ROLE = "GUEST";
+
+
+    @BeforeEach
   void setUp() {
-    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository,
-        rewardTransactionRepository);
+    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, userRestClient, approvedRewardBatchBlobService);
     rewardBatchServiceSpy = spy((RewardBatchServiceImpl) rewardBatchService);
   }
 
+    private RewardTransaction createMockTransaction(String id, Long effectiveAmount, Long accruedReward, String gtin, String name) {
+        RewardTransaction trx = new RewardTransaction();
+        trx.setId(id);
+        trx.setTrxChargeDate(LocalDateTime.of(2025, 12, 10, 10, 30, 0));
+        trx.setFiscalCode("RSSMRA70A01H501U");
+        trx.setTrxCode("TXCODE123");
+        trx.setEffectiveAmountCents(effectiveAmount);
+        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED);
 
+        Map<String, Reward> rewards = new HashMap<>();
+        Reward reward = new Reward();
+        reward.setAccruedRewardCents(accruedReward);
+        rewards.put(INITIATIVE_ID, reward);
+        trx.setRewards(rewards);
+
+        Map<String, String> additionalProperties = new HashMap<>();
+        additionalProperties.put("productGtin", gtin);
+        additionalProperties.put("productName", name);
+        trx.setAdditionalProperties(additionalProperties);
+
+        InvoiceData invoice = new InvoiceData();
+        invoice.setDocNumber("DOC001");
+        invoice.setFilename("invoice.pdf");
+        trx.setInvoiceData(invoice);
+
+        return trx;
+    }
+
+    @Test
+    void testGenerateAndSaveCsv_Success() {
+
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .merchantId(MERCHANT_ID)
+                .businessName("Business")
+                .name("BatchName")
+                .posType(PHYSICAL)
+                .build();
+
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        RewardTransaction trx1 = createMockTransaction(
+                "T001", 10000L, 500L, "8033675155005", "Lavatrice");
+        RewardTransaction trx2 = createMockTransaction(
+                "T002", 500L, 10L, "1234567890123", "Aspirapolvere");
+        trx2.setFiscalCode(null);
+
+        when(rewardTransactionRepository.findByFilter(
+                REWARD_BATCH_ID_1,
+                INITIATIVE_ID,
+                List.of(RewardBatchTrxStatus.APPROVED, RewardBatchTrxStatus.REJECTED)
+        )).thenReturn(Flux.just(trx1, trx2));
+
+        when(userRestClient.retrieveUserInfo(trx2.getUserId()))
+                .thenReturn(Mono.just(UserInfoPDV.builder().pii("CF_2").build()));
+
+        @SuppressWarnings("unchecked")
+        Response<BlockBlobItem> mockResponseSuccess = Mockito.mock(Response.class);
+        when(mockResponseSuccess.getStatusCode()).thenReturn(HttpStatus.CREATED.value());
+
+        doAnswer(invocation -> {
+            capturedFilename = invocation.getArgument(1);
+            return mockResponseSuccess;
+        }).when(approvedRewardBatchBlobService).upload(
+                any(InputStream.class),
+                any(String.class),
+                any(String.class)
+        );
+
+        String expectedReportFilename = "Business_BatchName_PHYSICAL.csv";
+
+        StepVerifier.create(
+                        rewardBatchServiceSpy.generateAndSaveCsv(
+                                REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
+                .expectNext(expectedReportFilename)
+                .verifyComplete();
+
+        assertThat(capturedFilename)
+                .endsWith(expectedReportFilename)
+                .contains(REWARD_BATCH_ID_1)
+                .contains(MERCHANT_ID);
+    }
+
+    @Test
+    void testGenerateAndSaveCsv_RepositoryReturnsNoTransactions() {
+
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_2)
+                .merchantId(MERCHANT_ID)
+                .businessName("Business")
+                .name("BatchName")
+                .posType(PHYSICAL)
+                .build();
+
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_2))
+                .thenReturn(Mono.just(batch));
+
+        when(rewardTransactionRepository.findByFilter(
+                any(), any(), anyList()))
+                .thenReturn(Flux.empty());
+
+        when(rewardBatchServiceSpy.uploadCsvToBlob(anyString(), anyString()))
+                .thenReturn(Mono.just("Business_BatchName_PHYSICAL.csv"));
+
+        StepVerifier.create(
+                        rewardBatchServiceSpy.generateAndSaveCsv(
+                                REWARD_BATCH_ID_2, INITIATIVE_ID, MERCHANT_ID))
+                .expectNext("Business_BatchName_PHYSICAL.csv")
+                .verifyComplete();
+
+        verify(rewardTransactionRepository).findByFilter(any(), any(), anyList());
+        verify(rewardBatchServiceSpy).uploadCsvToBlob(anyString(), anyString());
+    }
+
+    @Test
+    void testGenerateAndSaveCsv_SavingFails() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .merchantId(MERCHANT_ID)
+                .businessName("Business")
+                .name("BatchName")
+                .posType(PHYSICAL)
+                .build();
+
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        RewardTransaction trx = createMockTransaction("T003", 100L, 10L, "1", "Prod");
+        when(rewardTransactionRepository.findByFilter(any(), any(), anyList()))
+                .thenReturn(Flux.just(trx));
+
+        doReturn(Mono.error(new RuntimeException("Simulated I/O Error")))
+                .when(rewardBatchServiceSpy).uploadCsvToBlob(anyString(), anyString());
+
+        StepVerifier.create(
+                        rewardBatchServiceSpy.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
+                .expectErrorSatisfies(throwable ->
+                        assertThat(throwable)
+                                .isInstanceOf(RuntimeException.class)
+                                .hasMessageContaining("Simulated I/O Error")
+                )
+                .verify();
+
+        verify(rewardBatchRepository).findById(REWARD_BATCH_ID_1);
+        verify(rewardTransactionRepository).findByFilter(any(), any(), anyList());
+        verify(rewardBatchServiceSpy).uploadCsvToBlob(anyString(), anyString());
+    }
+
+    @Test
+    void testGenerateAndSaveCsv_InvalidBatchId_ThrowsError() {
+        String invalidBatchId1 = "batch_id/../secret";
+
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(invalidBatchId1, INITIATIVE_ID, MERCHANT_ID))
+                .expectErrorSatisfies(throwable ->
+                        assertThat(throwable)
+                                .isInstanceOf(IllegalArgumentException.class)
+                                .hasMessageContaining("Invalid batch id for CSV file generation")
+                )
+                .verify();
+
+        String invalidBatchId2 = "batch_id/other";
+
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(invalidBatchId2, INITIATIVE_ID, MERCHANT_ID))
+                .expectErrorSatisfies(throwable ->
+                        assertThat(throwable)
+                                .isInstanceOf(IllegalArgumentException.class)
+                                .hasMessageContaining("Invalid batch id for CSV file generation")
+                )
+                .verify();
+
+        String invalidBatchId3 = "batch_id\\other";
+
+        StepVerifier.create(rewardBatchServiceSpy.generateAndSaveCsv(invalidBatchId3, INITIATIVE_ID, MERCHANT_ID))
+                .expectErrorSatisfies(throwable ->
+                        assertThat(throwable)
+                                .isInstanceOf(IllegalArgumentException.class)
+                                .hasMessageContaining("Invalid batch id for CSV file generation")
+                )
+                .verify();
+
+        verify(rewardTransactionRepository, never()).findByFilter(any(), any(), anyList());
+        verify(rewardBatchServiceSpy, never()).uploadCsvToBlob(anyString(), anyString());
+    }
     @Test
     void createRewardBatchAndSave_Success_NewBatchCreated() {
 
         REWARD_BATCH_1.setMonth(CURRENT_MONTH);
         REWARD_BATCH_1.setName(CURRENT_MONTH_NAME);
         REWARD_BATCH_1.setMerchantId("MERCHANT_ID");
-        REWARD_BATCH_1.setPosType(PosType.PHYSICAL);
+        REWARD_BATCH_1.setPosType(PHYSICAL);
         REWARD_BATCH_1.setNumberOfTransactionsSuspended(1L);
 
         doReturn(NEXT_MONTH).when((RewardBatchServiceImpl) rewardBatchServiceSpy).addOneMonth(CURRENT_MONTH);
@@ -94,7 +299,7 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findRewardBatchByFilter(
                 null,
                 "MERCHANT_ID",
-                PosType.PHYSICAL,
+                PHYSICAL,
                 NEXT_MONTH))
                 .thenReturn(Mono.empty());
 
@@ -130,13 +335,13 @@ class RewardBatchServiceImplTest {
         REWARD_BATCH_1.setMonth(CURRENT_MONTH);
         REWARD_BATCH_1.setName(CURRENT_MONTH_NAME);
         REWARD_BATCH_1.setMerchantId("MERCHANT_ID");
-        REWARD_BATCH_1.setPosType(PosType.PHYSICAL);
+        REWARD_BATCH_1.setPosType(PHYSICAL);
         REWARD_BATCH_1.setNumberOfTransactionsSuspended(1L);
 
         REWARD_BATCH_2.setMonth(NEXT_MONTH);
         REWARD_BATCH_2.setName(NEXT_MONTH_NAME);
         REWARD_BATCH_2.setMerchantId("MERCHANT_ID");
-        REWARD_BATCH_2.setPosType(PosType.PHYSICAL);
+        REWARD_BATCH_2.setPosType(PHYSICAL);
 
 
         doReturn(NEXT_MONTH).when( rewardBatchServiceSpy).addOneMonth(CURRENT_MONTH);
@@ -145,7 +350,7 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findRewardBatchByFilter(
                 null,
                 "MERCHANT_ID",
-                PosType.PHYSICAL,
+                PHYSICAL,
                 NEXT_MONTH))
                 .thenReturn(Mono.just(REWARD_BATCH_2));
 
@@ -191,6 +396,10 @@ class RewardBatchServiceImplTest {
             REWARD_BATCH_1.setAssigneeLevel(RewardBatchAssignee.L3);
             REWARD_BATCH_1.setNumberOfTransactionsSuspended(0L);
 
+            doReturn(Mono.just(FAKE_CSV_FILENAME))
+                    .when(rewardBatchServiceSpy)
+                    .generateAndSaveCsv(anyString(), anyString(), anyString());
+
             when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(REWARD_BATCH_1));
             doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsToApprove(anyString(), anyString());
             when(rewardBatchRepository.save(any(RewardBatch.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
@@ -205,7 +414,7 @@ class RewardBatchServiceImplTest {
 
             verify(rewardBatchServiceSpy, times(1)).updateAndSaveRewardTransactionsToApprove(REWARD_BATCH_ID_1, INITIATIVE_ID);
             verify(rewardBatchServiceSpy, never()).createRewardBatchAndSave(any());
-            verify(rewardBatchRepository, times(1)).save(any(RewardBatch.class));
+            verify(rewardBatchRepository, times(2)).save(any(RewardBatch.class));
         }
 
         @Test
@@ -215,17 +424,22 @@ class RewardBatchServiceImplTest {
             REWARD_BATCH_1.setNumberOfTransactionsSuspended(1L);
             REWARD_BATCH_2.setStatus(RewardBatchStatus.CREATED);
 
+            doReturn(Mono.just(FAKE_CSV_FILENAME))
+                    .when(rewardBatchServiceSpy)
+                    .generateAndSaveCsv(anyString(), anyString(), anyString());
+
             when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(REWARD_BATCH_1));
             doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsToApprove(anyString(), anyString());
             doReturn(Mono.just(REWARD_BATCH_2)).when(rewardBatchServiceSpy).createRewardBatchAndSave(any(RewardBatch.class));
             doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsSuspended(anyString(), anyString(), anyString());
             when(rewardBatchRepository.save(any(RewardBatch.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
+
             StepVerifier.create(rewardBatchServiceSpy.processSingleBatch(REWARD_BATCH_ID_1, INITIATIVE_ID))
                     .expectNextMatches(batch ->
                             batch.getId().equals(REWARD_BATCH_ID_1) &&
                                     batch.getStatus().equals(RewardBatchStatus.APPROVED) &&
-                                    batch.getNumberOfTransactionsSuspended().equals(1L) && // Il conteggio rimane
+                                    batch.getNumberOfTransactionsSuspended().equals(1L) &&
                                     batch.getUpdateDate() != null)
                     .verifyComplete();
 
@@ -236,7 +450,7 @@ class RewardBatchServiceImplTest {
                     INITIATIVE_ID,
                     REWARD_BATCH_ID_2
             );
-            verify(rewardBatchRepository, times(1)).save(argThat(batch ->
+            verify(rewardBatchRepository, times(2)).save(argThat(batch ->
                     batch.getId().equals(REWARD_BATCH_ID_1) && batch.getStatus().equals(RewardBatchStatus.APPROVED)));
         }
 
@@ -330,17 +544,17 @@ class RewardBatchServiceImplTest {
     String batchMonth = yearMonth.toString();
 
     Mockito.when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
-            "M1", PosType.PHYSICAL, batchMonth))
+            "M1", PHYSICAL, batchMonth))
         .thenReturn(Mono.empty());
 
     Mockito.when(rewardBatchRepository.save(any()))
         .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
     StepVerifier.create(
-            rewardBatchService.findOrCreateBatch("M1", PosType.PHYSICAL, batchMonth, BUSINESS_NAME))
+            rewardBatchService.findOrCreateBatch("M1", PHYSICAL, batchMonth, BUSINESS_NAME))
         .assertNext(batch -> {
           assert batch.getMerchantId().equals("M1");
-          assert batch.getPosType() == PosType.PHYSICAL;
+          assert batch.getPosType() == PHYSICAL;
           assert batch.getStatus() == RewardBatchStatus.CREATED;
           assert batch.getName().contains("novembre 2025");
           assert batch.getStartDate().equals(yearMonth.atDay(1).atStartOfDay());
@@ -359,21 +573,21 @@ class RewardBatchServiceImplTest {
     RewardBatch existingBatch = RewardBatch.builder()
         .id("BATCH1")
         .merchantId("M1")
-        .posType(PosType.PHYSICAL)
+        .posType(PHYSICAL)
         .month(batchMonth)
         .status(RewardBatchStatus.CREATED)
         .name("novembre 2025")
         .build();
 
-    Mockito.when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth("M1", PosType.PHYSICAL,
+    Mockito.when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth("M1", PHYSICAL,
             batchMonth))
         .thenReturn(Mono.just(existingBatch));
 
     StepVerifier.create(
-            rewardBatchService.findOrCreateBatch("M1", PosType.PHYSICAL, batchMonth, BUSINESS_NAME))
+            rewardBatchService.findOrCreateBatch("M1", PHYSICAL, batchMonth, BUSINESS_NAME))
         .assertNext(batch -> {
           assert batch.getMerchantId().equals("M1");
-          assert batch.getPosType() == PosType.PHYSICAL;
+          assert batch.getPosType() == PHYSICAL;
           assert batch.getStatus() == RewardBatchStatus.CREATED;
           assert batch.getName().contains("novembre 2025");
         })
@@ -386,7 +600,7 @@ class RewardBatchServiceImplTest {
   void findOrCreateBatch_handlesDuplicateKeyException() {
     YearMonth yearMonth = YearMonth.of(2025, 11);
     String batchMonth = yearMonth.toString();
-    PosType posType = PosType.PHYSICAL;
+    PosType posType = PHYSICAL;
 
     RewardBatch existingBatch = RewardBatch.builder()
         .id("BATCH_DUP")
@@ -406,7 +620,7 @@ class RewardBatchServiceImplTest {
         .thenReturn(Mono.error(new DuplicateKeyException("Duplicate")));
 
     StepVerifier.create(
-            new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository)
+            new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository,userRestClient, approvedRewardBatchBlobService)
                 .findOrCreateBatch("M1", posType, batchMonth, BUSINESS_NAME)
         )
         .assertNext(batch -> {
@@ -427,14 +641,14 @@ class RewardBatchServiceImplTest {
     String batchMonth = yearMonth.toString();
 
     Mockito.when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(
-            "M1", PosType.PHYSICAL, batchMonth))
+            "M1", PHYSICAL, batchMonth))
         .thenReturn(Mono.empty());
 
     Mockito.when(rewardBatchRepository.save(any()))
         .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
     StepVerifier.create(
-            rewardBatchService.findOrCreateBatch("M1", PosType.PHYSICAL, batchMonth, BUSINESS_NAME))
+            rewardBatchService.findOrCreateBatch("M1", PHYSICAL, batchMonth, BUSINESS_NAME))
         .assertNext(batch -> {
           assert batch.getName().contains("novembre 2025");
         })
@@ -1641,8 +1855,10 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
         when(rewardBatchRepository.save(any())).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1))
-                .verifyComplete();
+        RewardBatch result = rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1).block();
+
+        assertNotNull(result);
+        assertEquals(batch, result);
 
         verify(rewardBatchRepository, times(1)).save(batch);
         assertEquals(RewardBatchAssignee.L2, batch.getAssigneeLevel());
@@ -1658,8 +1874,10 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
         when(rewardBatchRepository.save(any())).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        StepVerifier.create(rewardBatchService.validateRewardBatch("operator2", INITIATIVE_ID, REWARD_BATCH_ID_1))
-                .verifyComplete();
+        RewardBatch result = rewardBatchService.validateRewardBatch("operator2", INITIATIVE_ID, REWARD_BATCH_ID_1).block();
+
+        assertNotNull(result);
+        assertEquals(batch, result);
 
         verify(rewardBatchRepository, times(1)).save(batch);
         assertEquals(RewardBatchAssignee.L3, batch.getAssigneeLevel());
@@ -1678,10 +1896,9 @@ class RewardBatchServiceImplTest {
 
         StepVerifier.create(rewardBatchService.validateRewardBatch("wrongRole", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .expectErrorSatisfies(ex -> {
-                    assertInstanceOf(ResponseStatusException.class, ex);
-                    assertEquals(HttpStatus.FORBIDDEN, ((ResponseStatusException) ex).getStatusCode());
-                    assertEquals(ExceptionConstants.ExceptionCode.ROLE_NOT_ALLOWED_FOR_L1_PROMOTION,
-                            ((ResponseStatusException) ex).getReason());
+                    assertInstanceOf(RoleNotAllowedForL1PromotionException.class, ex);
+                    assertEquals(ROLE_NOT_ALLOWED_FOR_L1_PROMOTION,
+                            ((RoleNotAllowedForL1PromotionException) ex).getCode());
                 })
                 .verify();
     }
@@ -1699,10 +1916,9 @@ class RewardBatchServiceImplTest {
 
         StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .expectErrorSatisfies(ex -> {
-                    assertInstanceOf(ResponseStatusException.class, ex);
-                    assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) ex).getStatusCode());
-                    assertEquals(ExceptionConstants.ExceptionCode.BATCH_NOT_ELABORATED_15_PERCENT,
-                            ((ResponseStatusException) ex).getReason());
+                    assertInstanceOf(BatchNotElaborated15PercentException.class, ex);
+                    assertEquals(BATCH_NOT_ELABORATED_15_PERCENT,
+                            ((BatchNotElaborated15PercentException) ex).getCode());
                 })
                 .verify();
     }
@@ -1718,10 +1934,9 @@ class RewardBatchServiceImplTest {
 
         StepVerifier.create(rewardBatchService.validateRewardBatch("wrongRole", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .expectErrorSatisfies(ex -> {
-                    assertInstanceOf(ResponseStatusException.class, ex);
-                    assertEquals(HttpStatus.FORBIDDEN, ((ResponseStatusException) ex).getStatusCode());
-                    assertEquals(ExceptionConstants.ExceptionCode.ROLE_NOT_ALLOWED_FOR_L2_PROMOTION,
-                            ((ResponseStatusException) ex).getReason());
+                    assertInstanceOf(RoleNotAllowedForL2PromotionException.class, ex);
+                    assertEquals(ROLE_NOT_ALLOWED_FOR_L2_PROMOTION,
+                            ((RoleNotAllowedForL2PromotionException) ex).getCode());
                 })
                 .verify();
     }
@@ -1737,10 +1952,9 @@ class RewardBatchServiceImplTest {
 
         StepVerifier.create(rewardBatchService.validateRewardBatch("operator3", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .expectErrorSatisfies(ex -> {
-                    assertInstanceOf(ResponseStatusException.class, ex);
-                    assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) ex).getStatusCode());
-                    assertEquals(ExceptionConstants.ExceptionCode.INVALID_BATCH_STATE_FOR_PROMOTION,
-                            ((ResponseStatusException) ex).getReason());
+                    assertInstanceOf(InvalidBatchStateForPromotionException.class, ex);
+                    assertEquals(INVALID_BATCH_STATE_FOR_PROMOTION,
+                            ((InvalidBatchStateForPromotionException) ex).getCode());
                 })
                 .verify();
     }
@@ -1751,10 +1965,9 @@ class RewardBatchServiceImplTest {
 
         StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .expectErrorSatisfies(ex -> {
-                    assertInstanceOf(ResponseStatusException.class, ex);
-                    assertEquals(HttpStatus.NOT_FOUND, ((ResponseStatusException) ex).getStatusCode());
-                    assertEquals(ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND,
-                            ((ResponseStatusException) ex).getReason());
+                    assertInstanceOf(RewardBatchNotFound.class, ex);
+                    assertEquals(REWARD_BATCH_NOT_FOUND,
+                            ((RewardBatchNotFound) ex).getCode());
                 })
                 .verify();
     }
@@ -1772,10 +1985,9 @@ class RewardBatchServiceImplTest {
 
         StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1))
                 .expectErrorSatisfies(ex -> {
-                    assertInstanceOf(ResponseStatusException.class, ex);
-                    assertEquals(HttpStatus.BAD_REQUEST, ((ResponseStatusException) ex).getStatusCode());
-                    assertEquals(ExceptionConstants.ExceptionCode.BATCH_NOT_ELABORATED_15_PERCENT,
-                            ((ResponseStatusException) ex).getReason());
+                    assertInstanceOf(BatchNotElaborated15PercentException.class, ex);
+                    assertEquals(BATCH_NOT_ELABORATED_15_PERCENT,
+                            ((BatchNotElaborated15PercentException) ex).getCode());
                 })
                 .verify();
     }
@@ -1793,4 +2005,260 @@ class RewardBatchServiceImplTest {
         verify(rewardBatchRepository, never()).updateStatusAndApprovedAmountCents(any(), any(), any());
 
     }
+
+    @Test
+    void downloadRewardBatch_NotFound() {
+        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                        rewardBatchService.downloadApprovedRewardBatchFile(
+                                MERCHANT_ID,
+                                VALID_ROLE,
+                                INITIATIVE_ID,
+                                REWARD_BATCH_ID_1
+                        )
+                )
+                .expectErrorSatisfies(ex -> {
+                    assertInstanceOf(RewardBatchNotFound.class, ex);
+                    RewardBatchNotFound e = (RewardBatchNotFound) ex;
+                    assertEquals(REWARD_BATCH_NOT_FOUND, e.getCode());
+                })
+                .verify();
+    }
+
+    @Test
+    void downloadRewardBatch_notMerchantAndOperator() {
+        Mono<DownloadRewardBatchResponseDTO> monoResult = rewardBatchService.downloadApprovedRewardBatchFile(
+                null,
+                null,
+                INITIATIVE_ID,
+                REWARD_BATCH_ID_1
+        );
+
+        RewardBatchInvalidRequestException result = assertThrows(RewardBatchInvalidRequestException.class, monoResult::block);
+
+        assertEquals(REWARD_BATCH_INVALID_REQUEST, result.getCode());
+        assertEquals(MERCHANT_OR_OPERATOR_HEADER_MANDATORY, result.getMessage());
+    }
+
+    @Test
+    void downloadRewardBatch_NotApproved() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.EVALUATING)
+                .build();
+
+        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        StepVerifier.create(
+                        rewardBatchService.downloadApprovedRewardBatchFile(
+                                MERCHANT_ID,
+                                VALID_ROLE,
+                                INITIATIVE_ID,
+                                REWARD_BATCH_ID_1
+                        )
+                )
+                .expectErrorSatisfies(ex -> {
+                    assertInstanceOf(RewardBatchNotApprovedException.class, ex);
+                    RewardBatchNotApprovedException e = (RewardBatchNotApprovedException) ex;
+                    assertEquals(REWARD_BATCH_NOT_APPROVED, e.getCode());
+                })
+                .verify();
+    }
+
+    @Test
+    void downloadRewardBatch_Success() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .merchantId(MERCHANT_ID)
+                .status(RewardBatchStatus.APPROVED)
+                .filename("file.csv")
+                .build();
+
+        String blobPath = String.format("initiative/%s/merchant/%s/batch/%s/%s",
+                INITIATIVE_ID, MERCHANT_ID, REWARD_BATCH_ID_1, batch.getFilename());
+
+        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+        when(approvedRewardBatchBlobService.getFileSignedUrl(blobPath))
+                .thenReturn("signed-url");
+
+        StepVerifier.create(
+                        rewardBatchService.downloadApprovedRewardBatchFile(
+                                MERCHANT_ID,
+                                VALID_ROLE,
+                                INITIATIVE_ID,
+                                REWARD_BATCH_ID_1
+                        )
+                )
+                .expectNextMatches(response ->
+                        response.getApprovedBatchUrl().equals("signed-url"))
+                .verifyComplete();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "   "})
+    @NullSource
+    void downloadRewardBatch_InvalidFilename(String invalidFilename) {
+
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.APPROVED)
+                .filename(invalidFilename)
+                .build();
+
+        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        StepVerifier.create(
+                        rewardBatchService.downloadApprovedRewardBatchFile(
+                                MERCHANT_ID,
+                                VALID_ROLE,
+                                INITIATIVE_ID,
+                                REWARD_BATCH_ID_1
+                        )
+                )
+                .expectErrorSatisfies(ex -> {
+                    assertInstanceOf(RewardBatchMissingFilenameException.class, ex);
+                    RewardBatchMissingFilenameException e = (RewardBatchMissingFilenameException) ex;
+                    assertEquals(REWARD_BATCH_MISSING_FILENAME, e.getCode());
+                })
+                .verify();
+    }
+
+    @Test
+    void downloadRewardBatch_NotFound_WhenMerchantIdNull() {
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                        rewardBatchService.downloadApprovedRewardBatchFile(
+                                null,
+                                VALID_ROLE,
+                                INITIATIVE_ID,
+                                REWARD_BATCH_ID_1
+                        )
+                )
+                .expectErrorSatisfies(ex -> {
+                    assertInstanceOf(RewardBatchNotFound.class, ex);
+                    RewardBatchNotFound e = (RewardBatchNotFound) ex;
+                    assertEquals(REWARD_BATCH_NOT_FOUND, e.getCode());
+                })
+                .verify();
+    }
+
+    @Test
+    void downloadRewardBatch_RoleNotAllowed_WhenMerchantIdNull() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.APPROVED)
+                .filename("file.csv")
+                .build();
+
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        StepVerifier.create(
+                        rewardBatchService.downloadApprovedRewardBatchFile(
+                                null,
+                                INVALID_ROLE,
+                                INITIATIVE_ID,
+                                REWARD_BATCH_ID_1
+                        )
+                )
+                .expectError(RoleNotAllowedException.class)
+                .verify();
+    }
+
+    @Test
+    void downloadRewardBatch_NotApproved_WhenMerchantIdNull() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.EVALUATING)
+                .build();
+
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        String validRole = "operator1";
+
+        StepVerifier.create(
+                        rewardBatchService.downloadApprovedRewardBatchFile(
+                                null,
+                                validRole,
+                                INITIATIVE_ID,
+                                REWARD_BATCH_ID_1
+                        )
+                )
+                .expectError(RewardBatchNotApprovedException.class)
+                .verify();
+    }
+
+    @Test
+    void downloadRewardBatch_Success_WhenMerchantIdNull() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.APPROVED)
+                .filename("file.csv")
+                .build();
+
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        String blobPath = String.format(
+                "initiative/%s/merchant/%s/batch/%s/%s",
+                INITIATIVE_ID,
+                null,
+                REWARD_BATCH_ID_1,
+                batch.getFilename()
+        );
+
+        when(approvedRewardBatchBlobService.getFileSignedUrl(blobPath))
+                .thenReturn("signed-url");
+
+        String validRole = "operator2";
+
+        StepVerifier.create(
+                        rewardBatchService.downloadApprovedRewardBatchFile(
+                                null,
+                                validRole,
+                                INITIATIVE_ID,
+                                REWARD_BATCH_ID_1
+                        )
+                )
+                .expectNextMatches(response ->
+                        "signed-url".equals(response.getApprovedBatchUrl())
+                )
+                .verifyComplete();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "   "})
+    @NullSource
+    void downloadRewardBatch_InvalidFilename_WhenMerchantIdNull(String invalidFilename) {
+        RewardBatch batch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .status(RewardBatchStatus.APPROVED)
+                .filename(invalidFilename)
+                .build();
+
+        when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
+                .thenReturn(Mono.just(batch));
+
+        String validRole = "operator1";
+
+        StepVerifier.create(
+                        rewardBatchService.downloadApprovedRewardBatchFile(
+                                null,
+                                validRole,
+                                INITIATIVE_ID,
+                                REWARD_BATCH_ID_1
+                        )
+                )
+                .expectError(RewardBatchMissingFilenameException.class)
+                .verify();
+    }
+
 }
