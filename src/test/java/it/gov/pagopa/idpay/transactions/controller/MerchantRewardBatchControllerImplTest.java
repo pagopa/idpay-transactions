@@ -291,8 +291,9 @@ class MerchantRewardBatchControllerImplTest {
         .expectStatus().isBadRequest()
         .expectBody()
         .consumeWith(response -> {
-          String body = new String(response.getResponseBody());
-          assertTrue(body.contains(ExceptionMessage.MISSING_TRANSACTIONS_FILTERS));
+            assertNotNull(response.getResponseBody());
+            String body = new String(response.getResponseBody());
+            assertTrue(body.contains(ExceptionMessage.MISSING_TRANSACTIONS_FILTERS));
         });
   }
 
@@ -541,7 +542,7 @@ class MerchantRewardBatchControllerImplTest {
                         INITIATIVE_ID, rewardBatchId)
                 .header("x-organization-role", "operator1")
                 .exchange()
-                .expectStatus().isNoContent();
+                .expectStatus().isOk();
 
         verify(rewardBatchService, times(1)).validateRewardBatch("operator1", INITIATIVE_ID, rewardBatchId);
     }
@@ -598,7 +599,7 @@ class MerchantRewardBatchControllerImplTest {
                         INITIATIVE_ID, rewardBatchId)
                 .header("x-organization-role", "operator2")
                 .exchange()
-                .expectStatus().isNoContent();
+                .expectStatus().isOk();
 
         verify(rewardBatchService, times(1)).validateRewardBatch("operator2", INITIATIVE_ID, rewardBatchId);
     }

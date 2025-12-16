@@ -397,6 +397,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     @Override
     public Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatchFile(String merchantId, String organizationRole, String initiativeId, String rewardBatchId) {
 
+        if ((merchantId == null || merchantId.isBlank()) &&
+                (organizationRole == null || organizationRole.isBlank())) {
+            return Mono.error(new RewardBatchInvalidRequestException(MERCHANT_OR_OPERATOR_HEADER_MANDATORY));
+        }
+
         Mono<RewardBatch> query =
                 merchantId == null
                         ? rewardBatchRepository.findById(rewardBatchId)
@@ -719,7 +724,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     }
 
     @Override
-    public Mono<Void> validateRewardBatch(String organizationRole, String initiativeId, String rewardBatchId) {
+    public Mono<RewardBatch> validateRewardBatch(String organizationRole, String initiativeId, String rewardBatchId) {
         return rewardBatchRepository.findById(rewardBatchId)
                 .switchIfEmpty(Mono.error(new RewardBatchNotFound(
                         REWARD_BATCH_NOT_FOUND,
@@ -749,7 +754,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         }
 
                         batch.setAssigneeLevel(RewardBatchAssignee.L2);
-                        return rewardBatchRepository.save(batch).then();
+                        return rewardBatchRepository.save(batch);
                     }
 
                     if (assignee == RewardBatchAssignee.L2) {
@@ -762,7 +767,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         }
 
                         batch.setAssigneeLevel(RewardBatchAssignee.L3);
-                        return rewardBatchRepository.save(batch).then();
+                        return rewardBatchRepository.save(batch);
                     }
 
                     return Mono.error((new InvalidBatchStateForPromotionException(
