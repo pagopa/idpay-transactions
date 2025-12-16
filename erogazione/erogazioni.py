@@ -14,15 +14,14 @@ OUTPUT_JSON_FILE = "risposte_api.json"
 
 def get_bearer_token():
   """Recupera il token Bearer tramite chiamata GET"""
-  params = {
+  payload = {
     'grant_type': 'client_credentials',
     'client_id': CLIENT_ID,
     'client_secret': CLIENT_SECRET,
     'scope': f'{CLIENT_ID}/.default'
   }
-
   try:
-    response = requests.get(TOKEN_URL, params=params)
+    response = requests.post(TOKEN_URL, data=payload)
     response.raise_for_status()
     return response.json().get('access_token')
   except requests.exceptions.RequestException as e:
@@ -71,7 +70,7 @@ def process_csv():
           importo_reale = importo_centesimi / 100
 
           payload = {
-            "requestId": row['id'],
+            "id": row['id'],
             "anagrafica": {
               "partitaIvaCliente": row['partitaIvaCliente'],
               "codiceFiscaleCliente": row['codiceFiscaleCliente'],
@@ -92,9 +91,11 @@ def process_csv():
             }
           }
 
+          print(f"payload {payload}")
+
           headers['Request-Id'] = row['id']
 
-          print(f"Invio pratica {row['idPratica']} (Importo: {importo_reale})...")
+          print(f"Invio pratica {row['id']}:{row['idPratica']} (Importo: {importo_reale})...")
 
           # Chiamata POST
           response = requests.post(url_erogazioni, headers=headers, json=payload)
