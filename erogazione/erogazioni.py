@@ -6,7 +6,7 @@ from datetime import datetime
 # --- CONFIGURAZIONE ---
 CLIENT_ID = "IL_TUO_CLIENT_ID"
 CLIENT_SECRET = "IL_TUO_CLIENT_SECRET"
-BASE_URL = "https://api.invitalia.it/v1"
+BASE_URL = "https://dev-apim-misure.azure-api.net/pagopa/ce/v1"
 TOKEN_URL = "https://login.microsoftonline.com/afd0a75c-8671-4cce-9061-2ca0d92e422f/oauth2/v2.0/token"
 CSV_FILE = "dati.csv"
 OUTPUT_JSON_FILE = "risposte_api.json"
