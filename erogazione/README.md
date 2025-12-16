@@ -76,7 +76,7 @@ merchant
 | join kind=inner rewards_batch on $left._id == $right.merchantId
 | where status == "APPROVED"
 | project id=_id1 ,
-    partitaIvaCliente=vatNumber, 
+    partitaIvaCliente=iff(strlen(vatNumber)==16, "00000000000", vatNumber), 
     codiceFiscaleCliente=fiscalCode, 
     ragioneSocialeIntestatario=businessName, 
     ibanBeneficiario=iban, 
