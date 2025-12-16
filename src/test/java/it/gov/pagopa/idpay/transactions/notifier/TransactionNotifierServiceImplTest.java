@@ -53,8 +53,8 @@ class TransactionNotifierServiceImplTest {
         Message<RewardTransaction> message = service.buildMessage(trx, KEY);
 
         assertThat(message.getPayload()).isEqualTo(trx);
-        assertThat(message.getHeaders().get(KafkaHeaders.KEY)).isEqualTo(KEY);
-        assertThat(message.getHeaders().get("operationType")).isEqualTo("REFUNDED");
+        assertThat(message.getHeaders()).containsEntry(KafkaHeaders.KEY, KEY);
+        assertThat(message.getHeaders()).containsEntry("operationType", "REFUNDED");
     }
 
     @Test
@@ -65,7 +65,7 @@ class TransactionNotifierServiceImplTest {
         Message<RewardTransaction> message = service.buildMessage(trx, KEY);
 
         assertThat(message.getPayload()).isEqualTo(trx);
-        assertThat(message.getHeaders().get(KafkaHeaders.KEY)).isEqualTo(KEY);
+        assertThat(message.getHeaders()).containsEntry(KafkaHeaders.KEY, KEY);
         assertThat(message.getHeaders().containsKey("operationType")).isFalse();
     }
 
