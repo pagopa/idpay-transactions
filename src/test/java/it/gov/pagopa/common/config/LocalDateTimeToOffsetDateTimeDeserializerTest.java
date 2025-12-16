@@ -57,7 +57,7 @@ class LocalDateTimeToOffsetDateTimeDeserializerTest {
 
     @Test
     void zoneIdConstant_shouldBeEuropeRome() {
-        assertEquals(ZoneId.of("Europe/Rome"), LocalDateTimeToOffsetDateTimeDeserializer.ZONEID);
+        assertEquals(LocalDateTimeToOffsetDateTimeDeserializer.ZONEID, ZoneId.of("Europe/Rome"));
     }
 }
 
