@@ -6,7 +6,7 @@ from datetime import datetime
 # --- CONFIGURAZIONE ---
 CLIENT_ID = "IL_TUO_CLIENT_ID"
 CLIENT_SECRET = "IL_TUO_CLIENT_SECRET"
-# URL Token come da specifiche (Source 127)
+# URL Token come da specifiche
 TOKEN_URL = "https://login.microsoftonline.com/afd0a75c-8671-4cce-9061-2ca0d92e422f/oauth2/v2.0/token"
 # URL Base (Sostituire con l'ambiente corretto, es. collaudo o produzione)
 BASE_URL = "https://api.invitalia.it/v1"
@@ -16,7 +16,6 @@ OUTPUT_JSON_FILE = "risposte_api.json"
 
 def get_bearer_token():
   """Recupera il token Bearer tramite chiamata GET"""
-  # Parametri passati in query string per la GET
   params = {
     'grant_type': 'client_credentials',
     'client_id': CLIENT_ID,
@@ -59,7 +58,6 @@ def process_csv():
     'Content-Type': 'application/json'
   }
 
-  # Endpoint aggiornato a "erogazioni"
   url_erogazioni = f"{BASE_URL}/erogazioni"
 
   # Lista per accumulare tutte le risposte
@@ -97,7 +95,6 @@ def process_csv():
             }
           }
 
-          # [cite_start]Request-Id nell'header [cite: 123]
           headers['Request-Id'] = row['id']
 
           print(
