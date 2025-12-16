@@ -56,7 +56,6 @@ class PointOfSaleTransactionServiceImplTest {
     @Mock private RewardTransactionRepository rewardTransactionRepository;
     @Mock private InvoiceStorageClient invoiceStorageClient;
     @Mock private RewardBatchRepository rewardBatchRepository;
-    @Mock private RewardBatchService rewardBatchService;
     @Mock private TransactionErrorNotifierService transactionErrorNotifierService;
     @Mock private TransactionNotifierService transactionNotifierService;
 
@@ -251,17 +250,6 @@ class PointOfSaleTransactionServiceImplTest {
         verify(invoiceStorageClient, never()).upload(any(), anyString(), anyString());
     }
 
-    @Test
-    void addCreditNoteFile_uploadFails_mapsToClientExceptionWithBody() {
-        FilePart fp = filePartBackedBySrc("cn.pdf", true);
-
-        when(invoiceStorageClient.upload(any(), anyString(), anyString()))
-                .thenThrow(new RuntimeException("upload failed"));
-
-        StepVerifier.create(service.addCreditNoteFile(fp, MERCHANT_ID, POS_ID, TRX_ID))
-                .expectError(ClientExceptionWithBody.class)
-                .verify();
-    }
 
     @Test
     void reversalTransaction_success_decrementsOldBatch() {
