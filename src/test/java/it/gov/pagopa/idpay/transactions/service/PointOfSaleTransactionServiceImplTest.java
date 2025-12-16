@@ -265,7 +265,7 @@ class PointOfSaleTransactionServiceImplTest {
 
     @Test
     void reversalTransaction_success_decrementsOldBatch() {
-        FilePart fp = filePartBackedBySrc("credit-note.pdf", false);
+        FilePart fp = filePartBackedBySrc("credit-note.pdf", true);
 
         RewardTransaction trx = baseInvoicedTrx();
         trx.setId(TRX_ID);
@@ -388,7 +388,7 @@ class PointOfSaleTransactionServiceImplTest {
 
     @Test
     void reversalTransaction_notifyFalse_triggersErrorNotifier() {
-        FilePart fp = filePartBackedBySrc("credit-note.pdf", false);
+        FilePart fp = filePartBackedBySrc("credit-note.pdf", true);
 
         RewardTransaction trx = baseInvoicedTrx();
         trx.setId(TRX_ID);
