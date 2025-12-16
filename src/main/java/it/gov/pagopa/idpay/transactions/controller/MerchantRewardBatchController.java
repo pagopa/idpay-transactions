@@ -86,7 +86,7 @@ public interface MerchantRewardBatchController {
   @GetMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/approved/download")
   Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatch(
           @RequestHeader(value = "x-merchant-id", required = false) String merchantId,
-          @RequestHeader("x-organization-role") String organizationRole,
+          @RequestHeader(value = "x-organization-role", required = false) String organizationRole,
           @PathVariable("initiativeId") String initiativeId,
           @PathVariable("rewardBatchId") String rewardBatchId);
 }

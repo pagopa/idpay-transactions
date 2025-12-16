@@ -375,6 +375,11 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     @Override
     public Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatchFile(String merchantId, String organizationRole, String initiativeId, String rewardBatchId) {
 
+        if ((merchantId == null || merchantId.isBlank()) &&
+                (organizationRole == null || organizationRole.isBlank())) {
+            return Mono.error(new RewardBatchInvalidRequestException(MERCHANT_OR_OPERATOR_HEADER_MANDATORY));
+        }
+
         Mono<RewardBatch> query =
                 merchantId == null
                         ? rewardBatchRepository.findById(rewardBatchId)
