@@ -76,12 +76,6 @@ class RewardBatchServiceImplTest {
       .id(REWARD_BATCH_ID_2)
       .build();
   private static final String MERCHANT_ID = "MERCHANT_ID";
-  private static final  RewardBatch REWARD_BATCH_1 = RewardBatch.builder()
-            .id(REWARD_BATCH_ID_1)
-            .build();
-    private static final  RewardBatch REWARD_BATCH_2 = RewardBatch.builder()
-            .id(REWARD_BATCH_ID_2)
-            .build();
 
   private static final List<String> BATCH_IDS = Arrays.asList(REWARD_BATCH_ID_1, REWARD_BATCH_ID_2);
   private static final String CURRENT_MONTH = "2025-12";
