@@ -174,7 +174,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 ExceptionConstants.ExceptionCode.REWARD_BATCH_MONTH_TOO_EARLY));
           }
 
-          return checkPreviousBatchesSent(merchantId, batchMonth, batch.getPosType())
+          return noPreviousBatchesInCreatedStatus(merchantId, batchMonth, batch.getPosType())
               .flatMap(allPreviousSent -> {
                 if (Boolean.FALSE.equals(allPreviousSent)) {
                   log.warn("[SEND_REWARD_BATCHES] Previous batches of type {} not sent yet for merchant {}!",
@@ -191,14 +191,16 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         });
   }
 
-  private Mono<Boolean> checkPreviousBatchesSent(String merchantId, YearMonth currentMonth,
-      PosType posType) {
+  private Mono<Boolean> noPreviousBatchesInCreatedStatus(String merchantId, YearMonth currentMonth, PosType posType
+  ) {
     return rewardBatchRepository.findByMerchantIdAndPosType(merchantId, posType)
         .filter(batch -> {
           YearMonth batchMonth = YearMonth.parse(batch.getMonth());
           return batchMonth.isBefore(currentMonth);
         })
-        .all(batch -> batch.getStatus() == RewardBatchStatus.SENT);
+        .filter(batch -> batch.getStatus() == RewardBatchStatus.CREATED)
+        .hasElements()
+        .map(hasCreated -> !hasCreated);
   }
 
     @Override
