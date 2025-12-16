@@ -186,7 +186,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
-  public Mono<Void> validateRewardBatch(String organizationRole, String initiativeId, String rewardBatchId) {
+  public Mono<RewardBatch> validateRewardBatch(String organizationRole, String initiativeId, String rewardBatchId) {
 
     log.info(
             "[VALIDATE_REWARD_BATCH] Request to validate rewardBatch {} for initiative {} by role {}",

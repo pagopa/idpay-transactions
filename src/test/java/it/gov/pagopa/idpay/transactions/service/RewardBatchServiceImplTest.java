@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.service;
 
 import static it.gov.pagopa.idpay.transactions.enums.PosType.PHYSICAL;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.MERCHANT_OR_OPERATOR_HEADER_MANDATORY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -12,6 +13,7 @@ import com.azure.storage.blob.models.BlockBlobItem;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
+import it.gov.pagopa.idpay.transactions.dto.DownloadRewardBatchResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
@@ -1853,8 +1855,10 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
         when(rewardBatchRepository.save(any())).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        StepVerifier.create(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1))
-                .verifyComplete();
+        RewardBatch result = rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, REWARD_BATCH_ID_1).block();
+
+        assertNotNull(result);
+        assertEquals(batch, result);
 
         verify(rewardBatchRepository, times(1)).save(batch);
         assertEquals(RewardBatchAssignee.L2, batch.getAssigneeLevel());
@@ -1870,8 +1874,10 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(batch));
         when(rewardBatchRepository.save(any())).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        StepVerifier.create(rewardBatchService.validateRewardBatch("operator2", INITIATIVE_ID, REWARD_BATCH_ID_1))
-                .verifyComplete();
+        RewardBatch result = rewardBatchService.validateRewardBatch("operator2", INITIATIVE_ID, REWARD_BATCH_ID_1).block();
+
+        assertNotNull(result);
+        assertEquals(batch, result);
 
         verify(rewardBatchRepository, times(1)).save(batch);
         assertEquals(RewardBatchAssignee.L3, batch.getAssigneeLevel());
@@ -2019,6 +2025,21 @@ class RewardBatchServiceImplTest {
                     assertEquals(REWARD_BATCH_NOT_FOUND, e.getCode());
                 })
                 .verify();
+    }
+
+    @Test
+    void downloadRewardBatch_notMerchantAndOperator() {
+        Mono<DownloadRewardBatchResponseDTO> monoResult = rewardBatchService.downloadApprovedRewardBatchFile(
+                null,
+                null,
+                INITIATIVE_ID,
+                REWARD_BATCH_ID_1
+        );
+
+        RewardBatchInvalidRequestException result = assertThrows(RewardBatchInvalidRequestException.class, monoResult::block);
+
+        assertEquals(REWARD_BATCH_INVALID_REQUEST, result.getCode());
+        assertEquals(MERCHANT_OR_OPERATOR_HEADER_MANDATORY, result.getMessage());
     }
 
     @Test

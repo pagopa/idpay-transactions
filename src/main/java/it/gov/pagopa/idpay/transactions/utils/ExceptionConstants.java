@@ -103,6 +103,7 @@ public final class ExceptionConstants {
         public static final String ERROR_MESSAGE_ROLE_NOT_ALLOWED = "Role not allowed";
         public static final String ERROR_MESSAGE_REWARD_BATCH_NOT_APPROVED = "Reward batch  %s not APPROVED";
         public static final String ERROR_MESSAGE_REWARD_BATCH_MISSING_FILENAME = "Reward batch  %s missing file name";
+        public static final String MERCHANT_OR_OPERATOR_HEADER_MANDATORY = "Merchant or operator information is missing";
 
         public static final String ERROR_MESSAGE_PREVIOUS_BATCH_TO_APPROVE = "Is not possible to approve batch %s because there are previous Batch to approve";
         public static final String ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT = "No reward batches found with status SENT";
