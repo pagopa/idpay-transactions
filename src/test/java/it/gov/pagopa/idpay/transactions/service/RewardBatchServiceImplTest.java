@@ -2645,5 +2645,70 @@ class RewardBatchServiceImplTest {
         })
         .verify();
   }
+
+  @Test
+  void postponeTransaction_destinationBatchNotCreated() {
+    String transactionId = "TX123";
+    LocalDate initiativeEndDate = LocalDate.of(2026, 1, 6);
+
+    RewardTransaction trx = RewardTransaction.builder()
+        .id(transactionId)
+        .merchantId("M1")
+        .rewards(Map.of(INITIATIVE_ID,
+            Reward.builder().accruedRewardCents(100L).build()))
+        .rewardBatchId(REWARD_BATCH_ID_1)
+        .build();
+
+    when(rewardTransactionRepository
+        .findTransactionInBatch("M1", REWARD_BATCH_ID_1, transactionId))
+        .thenReturn(Mono.just(trx));
+
+    RewardBatch currentBatch = RewardBatch.builder()
+        .id(REWARD_BATCH_ID_1)
+        .merchantId("M1")
+        .month("2026-01")
+        .status(RewardBatchStatus.CREATED)
+        .posType(PosType.PHYSICAL)
+        .businessName(BUSINESS_NAME)
+        .build();
+
+    when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
+        .thenReturn(Mono.just(currentBatch));
+
+    RewardBatch nextBatch = RewardBatch.builder()
+        .id(REWARD_BATCH_ID_2)
+        .merchantId("M1")
+        .month("2026-02")
+        .status(RewardBatchStatus.APPROVED)
+        .posType(PosType.PHYSICAL)
+        .businessName(BUSINESS_NAME)
+        .build();
+
+    doReturn(Mono.just(nextBatch))
+        .when(rewardBatchServiceSpy)
+        .findOrCreateBatch("M1", PosType.PHYSICAL, "2026-02", BUSINESS_NAME);
+
+    StepVerifier.create(
+            rewardBatchServiceSpy.postponeTransaction(
+                "M1",
+                INITIATIVE_ID,
+                REWARD_BATCH_ID_1,
+                transactionId,
+                initiativeEndDate
+            ))
+        .expectErrorSatisfies(ex -> {
+          assertInstanceOf(ClientExceptionNoBody.class, ex);
+          ClientExceptionNoBody ce = (ClientExceptionNoBody) ex;
+          assertEquals(ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH, ce.getMessage());
+        })
+        .verify();
+
+    verify(rewardBatchServiceSpy, never())
+        .decrementTotals(anyString(), anyLong());
+    verify(rewardBatchServiceSpy, never())
+        .incrementTotals(anyString(), anyLong());
+    verify(rewardTransactionRepository, never()).save(any());
+  }
+
 }
 

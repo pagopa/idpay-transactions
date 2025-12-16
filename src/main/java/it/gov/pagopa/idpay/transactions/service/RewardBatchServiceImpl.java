@@ -948,18 +948,26 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                           nextBatchMonth.toString(),
                           currentBatch.getBusinessName()
                       )
-                      .flatMap(nextBatch ->
-                          this.decrementTotals(currentBatch.getId(), accruedRewardCents)
-                              .then(this.incrementTotals(nextBatch.getId(), accruedRewardCents))
-                              .then(Mono.defer(() -> {
+                      .flatMap(nextBatch -> {
 
-                                trx.setRewardBatchId(nextBatch.getId());
-                                trx.setRewardBatchInclusionDate(LocalDateTime.now());
-                                trx.setUpdateDate(LocalDateTime.now());
+                        if (nextBatch.getStatus() != RewardBatchStatus.CREATED) {
+                          return Mono.error(new ClientExceptionNoBody(
+                              HttpStatus.BAD_REQUEST,
+                              ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH
+                          ));
+                        }
 
-                                return rewardTransactionRepository.save(trx);
-                              }))
-                      );
+                        return decrementTotals(currentBatch.getId(), accruedRewardCents)
+                            .then(incrementTotals(nextBatch.getId(), accruedRewardCents))
+                            .then(Mono.defer(() -> {
+
+                              trx.setRewardBatchId(nextBatch.getId());
+                              trx.setRewardBatchInclusionDate(LocalDateTime.now());
+                              trx.setUpdateDate(LocalDateTime.now());
+
+                              return rewardTransactionRepository.save(trx);
+                            }));
+                      });
                 });
           })
           .then();
