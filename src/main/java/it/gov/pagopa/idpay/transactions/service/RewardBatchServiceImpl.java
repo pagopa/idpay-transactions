@@ -191,8 +191,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         });
   }
 
-  private Mono<Boolean> noPreviousBatchesInCreatedStatus(String merchantId, YearMonth currentMonth, PosType posType
-  ) {
+  private Mono<Boolean> noPreviousBatchesInCreatedStatus(String merchantId, YearMonth currentMonth, PosType posType) {
     return rewardBatchRepository.findByMerchantIdAndPosType(merchantId, posType)
         .filter(batch -> {
           YearMonth batchMonth = YearMonth.parse(batch.getMonth());
