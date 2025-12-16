@@ -6,10 +6,8 @@ from datetime import datetime
 # --- CONFIGURAZIONE ---
 CLIENT_ID = "IL_TUO_CLIENT_ID"
 CLIENT_SECRET = "IL_TUO_CLIENT_SECRET"
-# URL Token come da specifiche
-TOKEN_URL = "https://login.microsoftonline.com/afd0a75c-8671-4cce-9061-2ca0d92e422f/oauth2/v2.0/token"
-# URL Base (Sostituire con l'ambiente corretto, es. collaudo o produzione)
 BASE_URL = "https://api.invitalia.it/v1"
+TOKEN_URL = "https://login.microsoftonline.com/afd0a75c-8671-4cce-9061-2ca0d92e422f/oauth2/v2.0/token"
 CSV_FILE = "dati.csv"
 OUTPUT_JSON_FILE = "risposte_api.json"
 
@@ -24,7 +22,6 @@ def get_bearer_token():
   }
 
   try:
-    # Modificato in GET come richiesto
     response = requests.get(TOKEN_URL, params=params)
     response.raise_for_status()
     return response.json().get('access_token')
@@ -97,12 +94,10 @@ def process_csv():
 
           headers['Request-Id'] = row['id']
 
-          print(
-            f"Invio pratica {row['idPratica']} (Importo: {importo_reale})...")
+          print(f"Invio pratica {row['idPratica']} (Importo: {importo_reale})...")
 
           # Chiamata POST
-          response = requests.post(url_erogazioni, headers=headers,
-                                   json=payload)
+          response = requests.post(url_erogazioni, headers=headers, json=payload)
 
           # Gestione risposta
           response_data = {

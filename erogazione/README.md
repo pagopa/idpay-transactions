@@ -4,7 +4,7 @@ Questo script Python automatizza l'invio massivo di richieste di erogazione vers
 
 Lo script gestisce automaticamente:
 * **Autenticazione OAuth2**: Recupero del Bearer Token tramite chiamata `GET` (Client Credentials Flow).
-* **Mappatura Dati**: Trasformazione dei campi CSV nel payload JSON corretto (inclusa la rinomina di `codiceFiscaleCliente`).
+* **Mappatura Dati**: Trasformazione dei campi CSV nel payload JSON.
 * **Conversione Valori**:
     * *Importo*: da centesimi (input) a Euro (payload).
     * *Date*: da formato italiano con millisecondi a ISO 8601 (`yyyyMMddTHH:mm:ssZ`).
@@ -23,12 +23,12 @@ pip install requests
 
 ## ⚙️ Configurazione
 
-Prima di eseguire lo script, apri il file `routine.py` e configura le variabili iniziali con le tue credenziali e URL corretti:
+Prima di eseguire lo script, apri il file `erogazioni.py` e configura le variabili iniziali con le tue credenziali e URL corretti:
 
 ```python
 CLIENT_ID = "INSERISCI_QUI_IL_TUO_CLIENT_ID"
 CLIENT_SECRET = "INSERISCI_QUI_IL_TUO_CLIENT_SECRET"
-BASE_URL = "[https://api.invitalia.it/v1](https://api.invitalia.it/v1)"  # Verifica l'URL corretto (es. collaudo o produzione)
+BASE_URL = "https://api.invitalia.it/v1"
 ```
 
 > **⚠️ Attenzione:** Non caricare mai le credenziali reali (`CLIENT_SECRET`) su repository pubblici. Si consiglia di utilizzare variabili d'ambiente o un file `.env` per una maggiore sicurezza.
@@ -64,8 +64,15 @@ Il file deve avere le seguenti caratteristiche:
 
 ### Esempio CSV Raw
 ```csv
-"id","partitaIvaCliente","codiceFiscaleCliente", ... ,"importo", ...
-"6937ebd...","03674840040","03674840040", ... ,"15000", ...
+"id","partitaIvaCliente","codiceFiscaleCliente","ragioneSocialeIntestatario","ibanBeneficiario","intestatarioContoCorrente","importo","autorizzatore","merchantId","cap","indirizzo","localita","provincia","pec","idPratica","dataAmmissione"
+"6937e6036709039f9db614ba","12345678900","12345678900","alfa S.R.L.","IT43F0000000000000000000000","Alberto","10000","Gianluca Fiorillo","42c37b28-e3b1-37ae-8927-236e6e998a43","20100","Corso Garibaldi","Milano","MI","alfa@pec.it","alfa-idPratica","09/12/2025, 09:04:00,040"
+```
+
+### Generazione del File CSV di Esempio
+Per generare il file `dati.csv`, è necessario aggioranre la tabella CosmosDB `selfcare_export`, ed eseguire la seguente query:
+
+```query
+[ ... ]
 ```
 
 ## 🚀 Utilizzo
@@ -74,7 +81,7 @@ Il file deve avere le seguenti caratteristiche:
 2.  Esegui lo script da terminale:
 
 ```bash
-python routine.py
+python erogazioni.py
 ```
 
 Durante l'esecuzione, lo script mostrerà a video il progresso (ID pratica elaborato e status code).
@@ -111,4 +118,4 @@ Al termine dell'esecuzione, viene generato (o sovrascritto) il file `risposte_ap
 
 * **Gestione Token:** Lo script effettua una chiamata `GET` all'endpoint Microsoft configurato (`https://login.microsoftonline.com/...`) per ottenere il token.
 * **Endpoint API:** Le chiamate vengono effettuate in `POST` verso `/erogazioni`.
-* **Esito Positivo:** Lo script considera "successo" qualsiasi status code HTTP compreso tra **200 e 299**.
+* **Esito Positivo:** Lo script considera "successo" qualsiasi status code HTTP 2xx.
