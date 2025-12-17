@@ -1920,6 +1920,7 @@ class RewardBatchServiceImplTest {
   @Test
   void evaluatingRewardBatches() {
     String batchId = "BATCH_ID";
+    Long suspendedAmount = 0L;
     RewardBatch rewardBatch = RewardBatch.builder()
         .id(batchId)
         .initialAmountCents(100L)
@@ -1932,6 +1933,8 @@ class RewardBatchServiceImplTest {
     when(rewardTransactionRepository.rewardTransactionsByBatchId(batchId))
         .thenReturn(Mono.just(voidMock));
 
+    when(rewardTransactionRepository.sumSuspendedAccruedRewardCents(batchId))
+            .thenReturn(Mono.just(suspendedAmount));
     when(rewardBatchRepository.updateStatusAndApprovedAmountCents(batchId,
         RewardBatchStatus.EVALUATING, 100L))
         .thenReturn(Mono.just(rewardBatch));
@@ -1975,6 +1978,7 @@ class RewardBatchServiceImplTest {
   @Test
   void evaluatingRewardBatches_nullList() {
     String batchId = "BATCH_ID_1";
+    Long suspendedAmount = 5L;
     RewardBatch rewardBatch = RewardBatch.builder()
         .id(batchId)
         .initialAmountCents(100L)
@@ -1987,8 +1991,11 @@ class RewardBatchServiceImplTest {
     when(rewardTransactionRepository.rewardTransactionsByBatchId(batchId))
         .thenReturn(Mono.just(voidMock));
 
+    when(rewardTransactionRepository.sumSuspendedAccruedRewardCents(batchId))
+            .thenReturn(Mono.just(suspendedAmount));
+
     when(rewardBatchRepository.updateStatusAndApprovedAmountCents(batchId,
-        RewardBatchStatus.EVALUATING, 100L))
+        RewardBatchStatus.EVALUATING, rewardBatch.getInitialAmountCents()-suspendedAmount))
         .thenReturn(Mono.just(rewardBatch));
 
     Long result = rewardBatchService.evaluatingRewardBatches(null).block();

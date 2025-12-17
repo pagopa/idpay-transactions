@@ -18,10 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
-import org.springframework.data.mongodb.core.aggregation.Aggregation;
-import org.springframework.data.mongodb.core.aggregation.ComparisonOperators;
-import org.springframework.data.mongodb.core.aggregation.ConditionalOperators;
-import org.springframework.data.mongodb.core.aggregation.MatchOperation;
+import org.springframework.data.mongodb.core.aggregation.*;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -350,11 +347,10 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     @Override
-    public Mono<Long> sumSuspendedAccruedRewardCents(String rewardBatchId, List<String> transactionIds, String initiativeId) {
+    public Mono<Long> sumSuspendedAccruedRewardCents(String rewardBatchId) {
 
         MatchOperation match = Aggregation.match(
                 Criteria.where("rewardBatchId").is(rewardBatchId)
-                        .and("id").in(transactionIds)
                         .and("rewardBatchTrxStatus").is(RewardBatchTrxStatus.SUSPENDED)
         );
 
@@ -362,7 +358,6 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                 match,
                 Aggregation.project().andExpression("objectToArray(rewards)").as("rewardsArray"),
                 Aggregation.unwind("rewardsArray"),
-                Aggregation.match(Criteria.where("rewardsArray.k").is(initiativeId)),
                 Aggregation.group().sum("rewardsArray.v.accruedRewardCents").as("total")
         );
 

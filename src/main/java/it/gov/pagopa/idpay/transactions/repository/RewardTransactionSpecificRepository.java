@@ -32,7 +32,7 @@ public interface RewardTransactionSpecificRepository {
 
     Flux<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId);
 
-    Mono<Long> sumSuspendedAccruedRewardCents(String rewardBatchId, List<String> transactionIds, String initiativeId);
+    Mono<Long> sumSuspendedAccruedRewardCents(String rewardBatchId);
 
     Mono<Void> rewardTransactionsByBatchId(String batchId);
 

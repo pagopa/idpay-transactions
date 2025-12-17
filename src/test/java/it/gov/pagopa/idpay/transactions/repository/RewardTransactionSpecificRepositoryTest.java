@@ -887,7 +887,7 @@ class RewardTransactionSpecificRepositoryTest {
         rewardTransactionRepository.save(rt3).block();
 
         Mono<Long> resultMono = rewardTransactionSpecificRepository
-                .sumSuspendedAccruedRewardCents(rewardBatchId, List.of("id1","id2","id3"), initiativeId);
+                .sumSuspendedAccruedRewardCents(rewardBatchId);
 
         Long result = resultMono.block();
         assertNotNull(result);
