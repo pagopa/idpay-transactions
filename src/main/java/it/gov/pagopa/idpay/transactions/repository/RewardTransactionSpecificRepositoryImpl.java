@@ -308,6 +308,8 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     @Override
     public Mono<Void> rewardTransactionsByBatchId(String batchId) {
         Criteria batchCriteria = Criteria.where(Fields.rewardBatchId).is(batchId);
+        Criteria samplingBatchCriteria = Criteria.where(Fields.rewardBatchId).is(batchId)
+                .and(Fields.rewardBatchTrxStatus).ne(RewardBatchTrxStatus.SUSPENDED);
 
         Mono<Long> totalMono = mongoTemplate.updateMulti(
                         Query.query(batchCriteria),
@@ -321,7 +323,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                 .flatMap(total -> {
                     int toVerify = (int) Math.ceil(total * 0.15);
 
-                    Query sampleQuery = Query.query(batchCriteria);
+                    Query sampleQuery = Query.query(samplingBatchCriteria);
                     sampleQuery.with(Sort.by(Sort.Direction.ASC, Fields.samplingKey));
                     sampleQuery.limit(toVerify);
                     sampleQuery.fields().include(Fields.id);
@@ -373,12 +375,13 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
 
     @Override
-    public Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus status, String reason) {
+    public Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus status, String reason, String batchMonth) {
         Criteria criteria = Criteria.where(Fields.id).is(trxId)
                 .and(Fields.rewardBatchId).is(batchId);
 
         Update update = new Update()
-                .set(Fields.rewardBatchTrxStatus, status);
+                .set(Fields.rewardBatchTrxStatus, status)
+                .set(Fields.rewardBatchLastMonthElaborated, batchMonth);
 
         if(reason != null){
             update.set(RewardTransaction.Fields.rewardBatchRejectionReason, reason);
