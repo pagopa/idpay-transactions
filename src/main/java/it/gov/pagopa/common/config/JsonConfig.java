@@ -24,7 +24,7 @@ public class JsonConfig {
     @Bean
     public ObjectMapper objectMapper() {
         ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(configureDateTimeModule());
+    //    mapper.registerModule(configureDateTimeModule());
         mapper.registerModule(new JavaTimeModule());
         mapper.registerModule(new Jdk8Module());
         mapper.registerModule(new ParameterNamesModule(JsonCreator.Mode.DEFAULT));
