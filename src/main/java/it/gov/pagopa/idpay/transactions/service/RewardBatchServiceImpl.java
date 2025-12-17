@@ -888,11 +888,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 csvField(invoiceNumber),
                 csvField(trx.getInvoiceData().getFilename()),
                 csvField(trx.getRewardBatchTrxStatus().getDescription()),
-                csvField(trx.getPosType())
+                csvField(trx.getFranchiseName())
         );
     }
 
-    private static String csvField(String s) {
+    private String csvField(String s) {
         if (s == null) {
             return "";
         }
