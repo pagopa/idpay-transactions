@@ -6,6 +6,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Collections;
 
 public class RewardTransactionKafkaMapper {
 
@@ -45,7 +46,7 @@ public class RewardTransactionKafkaMapper {
                 .status(model.getStatus())
                 .rejectionReasons(model.getRejectionReasons())
                 .initiativeRejectionReasons(model.getInitiativeRejectionReasons())
-                .initiativeId(model.getInitiativeId())
+                .initiatives(Collections.singletonList(model.getInitiativeId()))
                 .initiatives(model.getInitiatives())
                 .rewards(model.getRewards())
 
@@ -66,17 +67,12 @@ public class RewardTransactionKafkaMapper {
                 .creditNoteData(model.getCreditNoteData())
                 .trxCode(model.getTrxCode())
 
-                .rewardBatchId(model.getRewardBatchId())
-                .rewardBatchTrxStatus(model.getRewardBatchTrxStatus())
-                .rewardBatchRejectionReason(model.getRewardBatchRejectionReason())
-                .rewardBatchInclusionDate(toOffset(model.getRewardBatchInclusionDate()))
+
                 .franchiseName(model.getFranchiseName())
                 .pointOfSaleType(model.getPointOfSaleType())
                 .businessName(model.getBusinessName())
-                .invoiceUploadDate(toOffset(model.getInvoiceUploadDate()))
 
-                .samplingKey(model.getSamplingKey())
-                .updateDate(toOffset(model.getUpdateDate()))
+                .updateDate(model.getUpdateDate())
                 .extendedAuthorization(model.getExtendedAuthorization())
                 .voucherAmountCents(model.getVoucherAmountCents())
                 .build();

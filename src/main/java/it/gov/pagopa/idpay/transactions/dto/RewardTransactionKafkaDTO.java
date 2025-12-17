@@ -1,10 +1,11 @@
 package it.gov.pagopa.idpay.transactions.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RefundInfo;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import lombok.*;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -18,10 +19,11 @@ import java.util.Map;
 @EqualsAndHashCode(of = {"id"})
 public class RewardTransactionKafkaDTO {
 
-
+    @JsonAlias("_id")
     private String id;
     private String idTrxAcquirer;
     private String acquirerCode;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private OffsetDateTime trxDate;
     private String hpan;
     private String operationType;
@@ -46,7 +48,6 @@ public class RewardTransactionKafkaDTO {
     private String status;
     private List<String> rejectionReasons;
     private Map<String, List<String>> initiativeRejectionReasons;
-    private String initiativeId;
     private List<String> initiatives;
     private Map<String, Reward> rewards;
 
@@ -56,27 +57,22 @@ public class RewardTransactionKafkaDTO {
 
     private String operationTypeTranscoded;
     private Long effectiveAmountCents;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private OffsetDateTime trxChargeDate;
     private RefundInfo refundInfo;
 
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime elaborationDateTime;
     private String channel;
     private Map<String, String> additionalProperties;
     private InvoiceData invoiceData;
     private InvoiceData creditNoteData;
     private String trxCode;
-
-    private String rewardBatchId;
-    private RewardBatchTrxStatus rewardBatchTrxStatus;
-    private String rewardBatchRejectionReason;
-    private OffsetDateTime rewardBatchInclusionDate;
     private String franchiseName;
     private PosType pointOfSaleType;
     private String businessName;
-    private OffsetDateTime invoiceUploadDate;
+    private LocalDateTime updateDate;
 
-    private int samplingKey;
-    private OffsetDateTime updateDate;
     private Boolean extendedAuthorization;
     private Long voucherAmountCents;
 }
