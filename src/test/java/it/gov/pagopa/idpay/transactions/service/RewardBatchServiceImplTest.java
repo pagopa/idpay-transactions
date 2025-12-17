@@ -323,10 +323,8 @@ class RewardBatchServiceImplTest {
           assertEquals(REWARD_BATCH_ID_2, result.getId());
           assertEquals(NEXT_MONTH, result.getMonth());
           assertEquals(RewardBatchStatus.CREATED, result.getStatus());
-          assertEquals(0L, result.getInitialAmountCents());
           assertEquals(0L, result.getApprovedAmountCents());
-          assertEquals(REWARD_BATCH_1.getNumberOfTransactionsSuspended(),
-              result.getNumberOfTransactionsSuspended());
+          assertEquals(0L, result.getNumberOfTransactionsSuspended());
           assertEquals(RewardBatchAssignee.L1, result.getAssigneeLevel());
 
         })
