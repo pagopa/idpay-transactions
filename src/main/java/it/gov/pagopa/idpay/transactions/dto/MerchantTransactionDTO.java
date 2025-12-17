@@ -8,7 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import org.springframework.format.annotation.DateTimeFormat;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Map;
 
 @Data
@@ -21,15 +21,15 @@ public class MerchantTransactionDTO {
     Long effectiveAmountCents;
     Long rewardAmountCents;
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    LocalDateTime trxDate;
+    OffsetDateTime trxDate;
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     @JsonProperty("updateDate")
-    LocalDateTime elaborationDateTime;
+    OffsetDateTime elaborationDateTime;
     String status;
     String channel;
     String pointOfSaleId;
 
-    LocalDateTime trxChargeDate;
+    OffsetDateTime trxChargeDate;
     Map<String, String> additionalProperties;
     String trxCode;
     Long authorizedAmountCents;

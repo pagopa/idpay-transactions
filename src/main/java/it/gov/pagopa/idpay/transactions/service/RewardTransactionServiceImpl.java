@@ -15,17 +15,14 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 
-import java.io.IOException;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.YearMonth;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.ObjectUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -231,10 +228,10 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
                   .map(batch -> {
                     trx.setRewardBatchId(batch.getId());
                     trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-                    trx.setRewardBatchInclusionDate(LocalDateTime.now());
+                    trx.setRewardBatchInclusionDate(OffsetDateTime.now());
                     trx.setRewardBatchRejectionReason(null);
                     trx.setSamplingKey(computeSamplingKey(trx.getId()));
-                    trx.setUpdateDate(LocalDateTime.now());
+                    trx.setUpdateDate(OffsetDateTime.now());
                     return trx;
                   });
             });

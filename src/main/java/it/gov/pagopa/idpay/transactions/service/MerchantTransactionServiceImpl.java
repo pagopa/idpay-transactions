@@ -18,7 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.*;
 
 @Service
@@ -176,7 +176,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .fiscalCode(transaction.getFiscalCode() != null ? transaction.getFiscalCode() : "-")
                 .effectiveAmountCents(transaction.getAmountCents())
                 .rewardAmountCents(transaction.getRewards().get(initiativeId).getAccruedRewardCents())
-                .trxDate(transaction.getTrxDate() == null ? LocalDateTime.MIN : transaction.getTrxDate())
+                .trxDate(transaction.getTrxDate() == null ? OffsetDateTime.MIN : transaction.getTrxDate())
                 .elaborationDateTime(transaction.getElaborationDateTime())
                 .status(transaction.getStatus())
                 .channel(transaction.getChannel())

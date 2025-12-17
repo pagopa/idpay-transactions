@@ -64,7 +64,7 @@ public class RewardTransactionDTO {
     private RefundInfo refundInfo;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private LocalDateTime elaborationDateTime;
+    private OffsetDateTime elaborationDateTime;
     private String channel;
     private Map<String, String> additionalProperties;
     private InvoiceData invoiceData;
@@ -73,7 +73,7 @@ public class RewardTransactionDTO {
     private String franchiseName;
     private PosType pointOfSaleType;
     private String businessName;
-    private LocalDateTime updateDate;
+    private OffsetDateTime updateDate;
 
     private Boolean extendedAuthorization;
     private Long voucherAmountCents;

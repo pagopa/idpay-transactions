@@ -32,6 +32,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.OffsetDateTime;
 import java.time.YearMonth;
 
 import static it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus.CREATED;
@@ -198,8 +199,8 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                         .filename(file.filename())
                         .docNumber(docNumber)
                         .build());
-                    rewardTransaction.setInvoiceUploadDate(LocalDateTime.now());
-                    rewardTransaction.setUpdateDate(LocalDateTime.now());
+                    rewardTransaction.setInvoiceUploadDate(OffsetDateTime.now());
+                    rewardTransaction.setUpdateDate(OffsetDateTime.now());
 
                     String oldBatchId = rewardTransaction.getRewardBatchId();
                     YearMonth currentMonth = YearMonth.now();
@@ -227,7 +228,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                   accruedRewardCents))
                               .then(Mono.fromRunnable(() -> {
                                 rewardTransaction.setRewardBatchId(newRewardBatch.getId());
-                                rewardTransaction.setUpdateDate(LocalDateTime.now());
+                                rewardTransaction.setUpdateDate(OffsetDateTime.now());
                               }))
                               .then(rewardTransactionRepository.save(rewardTransaction))
                               .then();
@@ -276,7 +277,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                             rt.setSamplingKey(0);
 
                                             rt.setStatus(SyncTrxStatus.REFUNDED.toString());
-                                            rt.setUpdateDate(LocalDateTime.now());
+                                            rt.setUpdateDate(OffsetDateTime.now());
 
                                             rt.setCreditNoteData(InvoiceData.builder()
                                                     .filename(file.filename())

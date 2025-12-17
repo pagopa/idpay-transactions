@@ -44,6 +44,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
@@ -839,7 +840,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
         private String mapTransactionToCsvRow(RewardTransaction trx, String initiativeId) {
             Function<Object, String> safeToString = obj -> obj != null ? obj.toString().replace(";", ",") : "";
-            Function<LocalDateTime, String> safeDateToString = date ->
+            Function<OffsetDateTime, String> safeDateToString = date ->
                     date != null ? date.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
 
             LongFunction<String> centsToEuroString = cents -> {
@@ -962,8 +963,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             .then(Mono.defer(() -> {
 
                               trx.setRewardBatchId(nextBatch.getId());
-                              trx.setRewardBatchInclusionDate(LocalDateTime.now());
-                              trx.setUpdateDate(LocalDateTime.now());
+                              trx.setRewardBatchInclusionDate(OffsetDateTime.now());
+                              trx.setUpdateDate(OffsetDateTime.now());
 
                               return rewardTransactionRepository.save(trx);
                             }));
