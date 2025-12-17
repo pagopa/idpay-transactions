@@ -5,7 +5,9 @@ import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
+import it.gov.pagopa.idpay.transactions.dto.RewardTransactionKafkaDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionKafkaMapper;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
@@ -293,7 +295,8 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                             ? rewardBatchRepository.decrementTotals(oldRewardBatchId, accruedRewardCents).then()
                                                             : Mono.empty();
 
-                                            Mono<Void> sendToQueueMono = sendReversedInvoicedTransactionNotification(rt);
+
+                                            Mono<Void> sendToQueueMono = sendReversedInvoicedTransactionNotification(RewardTransactionKafkaMapper.toDto(rt));
 
                                             return saveTransactionMono
                                                     .then(decrementRewardBatchMono)
@@ -377,7 +380,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 });
     }
 
-    private Mono<Void> sendReversedInvoicedTransactionNotification(RewardTransaction trx) {
+    private Mono<Void> sendReversedInvoicedTransactionNotification(RewardTransactionKafkaDTO trx) {
     return Mono.fromRunnable(() -> {
           log.info(
               "[REVERSAL_INVOICED_TRANSACTION][SEND_NOTIFICATION] Sending Reverse Invoiced Transaction event to Notification: trxId {} - merchantId {}",

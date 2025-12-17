@@ -1,7 +1,7 @@
 package it.gov.pagopa.idpay.transactions.notifier;
 
+import it.gov.pagopa.idpay.transactions.dto.RewardTransactionKafkaDTO;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
-import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.stream.function.StreamBridge;
@@ -36,13 +36,13 @@ public class TransactionNotifierServiceImpl implements TransactionNotifierServic
   }
 
   @Override
-  public boolean notify(RewardTransaction trx, String key) {
+  public boolean notify(RewardTransactionKafkaDTO trx, String key) {
     return streamBridge.send("transactionOutcome-out-0", binder, buildMessage(trx, key));
   }
 
   @Override
-  public Message<RewardTransaction> buildMessage(RewardTransaction trx, String key) {
-    MessageBuilder<RewardTransaction> builder = MessageBuilder.withPayload(trx).setHeader(KafkaHeaders.KEY, key);
+  public Message<RewardTransactionKafkaDTO> buildMessage(RewardTransactionKafkaDTO trx, String key) {
+    MessageBuilder<RewardTransactionKafkaDTO> builder = MessageBuilder.withPayload(trx).setHeader(KafkaHeaders.KEY, key);
     if (SyncTrxStatus.REFUNDED.name().equalsIgnoreCase(trx.getStatus())) {
       builder.setHeader(OPERATION_TYPE_HEADER, OPERATION_TYPE_REFUNDED);
 

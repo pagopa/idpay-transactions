@@ -13,6 +13,7 @@ import com.azure.storage.blob.models.BlockBlobItem;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
+import it.gov.pagopa.idpay.transactions.dto.RewardTransactionKafkaDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -386,7 +387,7 @@ class PointOfSaleTransactionServiceImplTest {
         trx.setStatus(SyncTrxStatus.INVOICED.toString());
 
         @SuppressWarnings("unchecked")
-        Message<RewardTransaction> message = (Message<RewardTransaction>) mock(Message.class);
+        Message<RewardTransactionKafkaDTO> message = (Message<RewardTransactionKafkaDTO>) mock(Message.class);
 
         when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POS_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
