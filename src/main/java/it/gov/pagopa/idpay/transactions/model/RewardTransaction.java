@@ -83,4 +83,6 @@ public class RewardTransaction {
     private LocalDateTime updateDate;
     private Boolean extendedAuthorization;
     private Long voucherAmountCents;
+
+    private String rewardBatchLastMonthElaborated;
 }
