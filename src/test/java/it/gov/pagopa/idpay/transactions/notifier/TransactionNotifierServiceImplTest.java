@@ -1,7 +1,7 @@
 package it.gov.pagopa.idpay.transactions.notifier;
 
+import it.gov.pagopa.idpay.transactions.dto.RewardTransactionKafkaDTO;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
-import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.kafka.support.KafkaHeaders;
@@ -31,7 +31,7 @@ class TransactionNotifierServiceImplTest {
 
     @Test
     void notify_shouldSendMessageAndReturnTrue() {
-        RewardTransaction trx = new RewardTransaction();
+        RewardTransactionKafkaDTO trx = new RewardTransactionKafkaDTO();
         trx.setStatus("AUTHORIZED");
 
         when(streamBridge.send(eq("transactionOutcome-out-0"), eq(BINDER), any(Message.class)))
@@ -47,10 +47,11 @@ class TransactionNotifierServiceImplTest {
 
     @Test
     void buildMessage_shouldAddRefundedHeaderWhenStatusIsRefunded() {
-        RewardTransaction trx = new RewardTransaction();
+        RewardTransactionKafkaDTO trx = new RewardTransactionKafkaDTO();
         trx.setStatus(SyncTrxStatus.REFUNDED.name());
 
-        Message<RewardTransaction> message = service.buildMessage(trx, KEY);
+
+        Message<RewardTransactionKafkaDTO> message = service.buildMessage(trx, KEY);
 
         assertThat(message.getPayload()).isEqualTo(trx);
         assertThat(message.getHeaders()).containsEntry(KafkaHeaders.KEY, KEY);
@@ -59,10 +60,10 @@ class TransactionNotifierServiceImplTest {
 
     @Test
     void buildMessage_shouldNotAddOperationTypeHeaderWhenNotRefunded() {
-        RewardTransaction trx = new RewardTransaction();
+        RewardTransactionKafkaDTO trx = new RewardTransactionKafkaDTO();
         trx.setStatus("AUTHORIZED");
 
-        Message<RewardTransaction> message = service.buildMessage(trx, KEY);
+        Message<RewardTransactionKafkaDTO> message = service.buildMessage(trx, KEY);
 
         assertThat(message.getPayload()).isEqualTo(trx);
         assertThat(message.getHeaders()).containsEntry(KafkaHeaders.KEY, KEY);
