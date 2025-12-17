@@ -104,6 +104,88 @@ class RewardBatchServiceImplTest {
     rewardBatchServiceSpy = spy((RewardBatchServiceImpl) rewardBatchService);
   }
 
+        @Test
+        void addOneMonth_shouldIncrementMonthAndHandleYearRollover() {
+            assertEquals(NEXT_MONTH, rewardBatchServiceSpy.addOneMonth(CURRENT_MONTH));
+            assertEquals("2026-01", rewardBatchServiceSpy.addOneMonth("2025-12"));
+        }
+
+        @Test
+        void addOneMonthToItalian_shouldIncrementItalianMonth() {
+            assertEquals(NEXT_MONTH_NAME, rewardBatchServiceSpy.addOneMonthToItalian(CURRENT_MONTH_NAME));
+            assertEquals("gennaio 2026", rewardBatchServiceSpy.addOneMonthToItalian("dicembre 2025"));
+        }
+
+        @Test
+        void updateAndSaveRewardTransactionsToApprove_shouldUpdateStatusAndSave() {
+            RewardTransaction trx = new RewardTransaction();
+            trx.setId("TRX_1");
+            trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK);
+
+            when(rewardTransactionRepository.findByFilter(eq(REWARD_BATCH_ID_1), eq(INITIATIVE_ID), anyList()))
+                    .thenReturn(Flux.just(trx));
+            when(rewardTransactionRepository.save(any(RewardTransaction.class)))
+                    .thenReturn(Mono.just(trx));
+
+            Mono<Void> result = rewardBatchServiceSpy.updateAndSaveRewardTransactionsToApprove(REWARD_BATCH_ID_1, INITIATIVE_ID);
+
+            StepVerifier.create(result)
+                    .verifyComplete();
+
+            verify(rewardTransactionRepository).save(argThat(t ->
+                    t.getRewardBatchTrxStatus().equals(RewardBatchTrxStatus.APPROVED)
+            ));
+        }
+
+        @Test
+        void updateAndSaveRewardTransactionsSuspended_shouldReturnSumOfCents() {
+            String newBatchId = "NEW_BATCH_ID";
+
+            RewardTransaction trx1 = createTrxWithReward(500L);
+            RewardTransaction trx2 = createTrxWithReward(1500L);
+
+            when(rewardTransactionRepository.findByFilter(eq(REWARD_BATCH_ID_1), eq(INITIATIVE_ID), anyList()))
+                    .thenReturn(Flux.just(trx1, trx2));
+            when(rewardTransactionRepository.save(any(RewardTransaction.class)))
+                    .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+            Mono<Long> result = rewardBatchServiceSpy.updateAndSaveRewardTransactionsSuspended(REWARD_BATCH_ID_1, INITIATIVE_ID, newBatchId);
+
+            StepVerifier.create(result)
+                    .expectNext(2000L)
+                    .verifyComplete();
+
+            verify(rewardTransactionRepository, times(2)).save(argThat(t ->
+                    t.getRewardBatchId().equals(newBatchId)
+            ));
+        }
+
+        @Test
+        void updateAndSaveRewardTransactionsSuspended_shouldReturnZeroIfEmpty() {
+            when(rewardTransactionRepository.findByFilter(anyString(), anyString(), anyList()))
+                    .thenReturn(Flux.empty());
+            Mono<Long> result = rewardBatchServiceSpy.updateAndSaveRewardTransactionsSuspended(REWARD_BATCH_ID_1, INITIATIVE_ID, "NEW_ID");
+
+            StepVerifier.create(result)
+                    .expectNext(0L)
+                    .verifyComplete();
+        }
+
+
+        private RewardTransaction createTrxWithReward(Long cents) {
+            RewardTransaction trx = new RewardTransaction();
+            trx.setId("TRX_" + cents);
+
+            Reward reward = new Reward();
+            reward.setAccruedRewardCents(cents);
+
+            Map<String, Reward> rewardsMap = new HashMap<>();
+            rewardsMap.put(INITIATIVE_ID, reward);
+
+            trx.setRewards(rewardsMap);
+            return trx;
+        }
+
     @Test
     void handleSuspendedTransactions_whenNoSuspended_shouldReturnOriginal() {
         RewardBatch originalBatch = RewardBatch.builder()
