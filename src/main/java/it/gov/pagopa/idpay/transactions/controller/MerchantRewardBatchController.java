@@ -7,9 +7,11 @@ import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
@@ -89,4 +91,16 @@ public interface MerchantRewardBatchController {
           @RequestHeader(value = "x-organization-role", required = false) String organizationRole,
           @PathVariable("initiativeId") String initiativeId,
           @PathVariable("rewardBatchId") String rewardBatchId);
+
+  @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/{transactionId}/postpone")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  Mono<Void> postponeTransaction(
+      @RequestHeader(value = "x-merchant-id", required = false) String merchantId,
+      @PathVariable String initiativeId,
+      @PathVariable String rewardBatchId,
+      @PathVariable String transactionId,
+      @RequestParam("initiativeEndDate")
+      @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+      LocalDate initiativeEndDate
+  );
 }
