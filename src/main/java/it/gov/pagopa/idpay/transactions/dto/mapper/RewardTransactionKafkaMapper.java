@@ -17,6 +17,8 @@ public class RewardTransactionKafkaMapper {
             return null;
         }
 
+        String initiativeId = model.getInitiatives().getFirst();
+
         return RewardTransactionKafkaDTO.builder()
                 .id(model.getId())
                 .idTrxAcquirer(model.getIdTrxAcquirer())
@@ -45,7 +47,7 @@ public class RewardTransactionKafkaMapper {
                 .status(model.getStatus())
                 .rejectionReasons(model.getRejectionReasons())
                 .initiativeRejectionReasons(model.getInitiativeRejectionReasons())
-                .initiativeId(model.getInitiativeId())
+                .initiativeId(initiativeId)
                 .initiatives(model.getInitiatives())
                 .rewards(model.getRewards())
 
