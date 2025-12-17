@@ -6,6 +6,7 @@ import it.gov.pagopa.idpay.transactions.model.RefundInfo;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
@@ -58,7 +59,7 @@ public class RewardTransactionKafkaDTO {
     private OffsetDateTime trxChargeDate;
     private RefundInfo refundInfo;
 
-    private OffsetDateTime elaborationDateTime;
+    private LocalDateTime elaborationDateTime;
     private String channel;
     private Map<String, String> additionalProperties;
     private InvoiceData invoiceData;

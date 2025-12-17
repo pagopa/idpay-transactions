@@ -59,7 +59,7 @@ public class RewardTransactionKafkaMapper {
                 .trxChargeDate(toOffset(model.getTrxChargeDate()))
                 .refundInfo(model.getRefundInfo())
 
-                .elaborationDateTime(toOffset(model.getElaborationDateTime()))
+                .elaborationDateTime(model.getElaborationDateTime())
                 .channel(model.getChannel())
                 .additionalProperties(model.getAdditionalProperties())
                 .invoiceData(model.getInvoiceData())
