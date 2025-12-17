@@ -103,6 +103,40 @@ class RewardBatchServiceImplTest {
     rewardBatchServiceSpy = spy((RewardBatchServiceImpl) rewardBatchService);
   }
 
+    @Test
+    void updateNewBatchCounters_shouldHandleNullFields() {
+        RewardBatch newBatch = RewardBatch.builder()
+                .id("NEW_BATCH_ID")
+                .build();
+
+        Long totalAccrued = 5000L;
+        long countToMove = 10L;
+
+        rewardBatchServiceSpy.updateNewBatchCounters(newBatch, totalAccrued, countToMove);
+
+        Assertions.assertEquals(5000L, newBatch.getInitialAmountCents());
+        Assertions.assertEquals(10L, newBatch.getNumberOfTransactionsSuspended());
+        Assertions.assertEquals(10L, newBatch.getNumberOfTransactions());
+    }
+
+    @Test
+    void updateNewBatchCounters_shouldAccumulateValues() {
+        RewardBatch existingBatch = RewardBatch.builder()
+                .id("EXISTING_BATCH_ID")
+                .initialAmountCents(1000L)
+                .numberOfTransactionsSuspended(5L)
+                .numberOfTransactions(20L)
+                .build();
+
+        Long totalAccrued = 2500L;
+        long countToMove = 3L;
+
+        rewardBatchServiceSpy.updateNewBatchCounters(existingBatch, totalAccrued, countToMove);
+
+        Assertions.assertEquals(3500L, existingBatch.getInitialAmountCents());
+        Assertions.assertEquals(8L, existingBatch.getNumberOfTransactionsSuspended());
+        Assertions.assertEquals(23L, existingBatch.getNumberOfTransactions());
+    }
     private RewardTransaction createMockTransaction(String id, Long effectiveAmount, Long accruedReward, String gtin, String name) {
         RewardTransaction trx = new RewardTransaction();
         trx.setId(id);

@@ -619,7 +619,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         }))
                 .thenReturn(originalBatch);
     }
-    private void updateNewBatchCounters(RewardBatch newBatch, Long totalAccrued, long count) {
+    public void updateNewBatchCounters(RewardBatch newBatch, Long totalAccrued, long count) {
         newBatch.setInitialAmountCents(coalesce(newBatch.getInitialAmountCents()) + totalAccrued);
         newBatch.setNumberOfTransactionsSuspended(coalesce(newBatch.getNumberOfTransactionsSuspended()) + count);
         newBatch.setNumberOfTransactions(coalesce(newBatch.getNumberOfTransactions()) + count);
