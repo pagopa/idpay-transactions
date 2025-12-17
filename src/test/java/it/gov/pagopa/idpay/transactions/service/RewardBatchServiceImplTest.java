@@ -2739,5 +2739,263 @@ class RewardBatchServiceImplTest {
     verify(rewardTransactionRepository, never()).save(any());
   }
 
+  @Test
+  void approveTransaction_whenTransactionSuspendedInPreviousBatch(){
+
+      String initiativeId = "INITIATIVE_ID";
+      RewardBatch actualBatch = RewardBatch.builder().id("BATCH_ID").month("dicembre 2025").build();
+      when(rewardBatchRepository.findByIdAndStatus(actualBatch.getId(), RewardBatchStatus.EVALUATING))
+              .thenReturn(Mono.just(actualBatch));
+
+      Reward reward = Reward.builder().accruedRewardCents(1000L).build();
+      Map<String, Reward> rewardApprovedMap = Map.of(initiativeId, reward);
+      RewardTransaction trxMock = RewardTransaction.builder()
+              .id("trxId")
+              .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
+              .rewardBatchId(actualBatch.getId())
+              .rewards(rewardApprovedMap)
+              .rewardBatchLastMonthElaborated("novembre 2025").build();
+
+      TransactionsRequest request = TransactionsRequest.builder().transactionIds(List.of(trxMock.getId())).build();
+
+
+      when(rewardTransactionRepository.updateStatusAndReturnOld(actualBatch.getId(), trxMock.getId(),
+              RewardBatchTrxStatus.APPROVED, null, actualBatch.getMonth()))
+              .thenReturn(Mono.just(trxMock));
+
+
+      RewardBatch expectedResult = new RewardBatch();
+      when(rewardBatchRepository.updateTotals(
+              actualBatch.getId(),
+              1L,
+              trxMock.getRewards().get(initiativeId).getAccruedRewardCents(),
+              0L,
+              -1L))
+              .thenReturn(Mono.just(expectedResult));
+
+      RewardBatch result = rewardBatchService.approvedTransactions(actualBatch.getId(), request, initiativeId).block();
+
+      Assertions.assertNotNull(result);
+      Assertions.assertEquals(expectedResult, result);
+
+      verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(), any(), any(), any());
+      verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
+  }
+
+    @Test
+    void approveTransaction_whenTransactionSuspendedInActualBatch(){
+
+        String initiativeId = "INITIATIVE_ID";
+        RewardBatch actualBatch = RewardBatch.builder().id("BATCH_ID").month("dicembre 2025").build();
+        when(rewardBatchRepository.findByIdAndStatus(actualBatch.getId(), RewardBatchStatus.EVALUATING))
+                .thenReturn(Mono.just(actualBatch));
+
+        Reward reward = Reward.builder().accruedRewardCents(1000L).build();
+        Map<String, Reward> rewardApprovedMap = Map.of(initiativeId, reward);
+        RewardTransaction trxMock = RewardTransaction.builder()
+                .id("trxId")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
+                .rewardBatchId(actualBatch.getId())
+                .rewards(rewardApprovedMap)
+                .rewardBatchLastMonthElaborated(actualBatch.getMonth()).build();
+
+        TransactionsRequest request = TransactionsRequest.builder().transactionIds(List.of(trxMock.getId())).build();
+
+
+        when(rewardTransactionRepository.updateStatusAndReturnOld(actualBatch.getId(), trxMock.getId(),
+                RewardBatchTrxStatus.APPROVED, null, actualBatch.getMonth()))
+                .thenReturn(Mono.just(trxMock));
+
+
+        RewardBatch expectedResult = new RewardBatch();
+        when(rewardBatchRepository.updateTotals(
+                actualBatch.getId(),
+                0L,
+                trxMock.getRewards().get(initiativeId).getAccruedRewardCents(),
+                0L,
+                -1L))
+                .thenReturn(Mono.just(expectedResult));
+
+        RewardBatch result = rewardBatchService.approvedTransactions(actualBatch.getId(), request, initiativeId).block();
+
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(expectedResult, result);
+
+        verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(), any(), any(), any());
+        verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void rejectTransaction_whenTransactionSuspendedInPreviousBatch(){
+
+        String initiativeId = "INITIATIVE_ID";
+        RewardBatch actualBatch = RewardBatch.builder().id("BATCH_ID").month("dicembre 2025").build();
+        when(rewardBatchRepository.findByIdAndStatus(actualBatch.getId(), RewardBatchStatus.EVALUATING))
+                .thenReturn(Mono.just(actualBatch));
+
+        Reward reward = Reward.builder().accruedRewardCents(1000L).build();
+        Map<String, Reward> rewardApprovedMap = Map.of(initiativeId, reward);
+        RewardTransaction trxMock = RewardTransaction.builder()
+                .id("trxId")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
+                .rewardBatchId(actualBatch.getId())
+                .rewards(rewardApprovedMap)
+                .rewardBatchLastMonthElaborated("novembre 2025").build();
+
+        TransactionsRequest request = TransactionsRequest.builder().transactionIds(List.of(trxMock.getId())).reason("REASON").build();
+
+
+        when(rewardTransactionRepository.updateStatusAndReturnOld(actualBatch.getId(), trxMock.getId(),
+                RewardBatchTrxStatus.REJECTED, request.getReason(), actualBatch.getMonth()))
+                .thenReturn(Mono.just(trxMock));
+
+
+        RewardBatch expectedResult = new RewardBatch();
+        when(rewardBatchRepository.updateTotals(
+                actualBatch.getId(),
+                1L,
+                0L,
+                1L,
+                -1L))
+                .thenReturn(Mono.just(expectedResult));
+
+        RewardBatch result = rewardBatchService.rejectTransactions(actualBatch.getId(), initiativeId, request).block();
+
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(expectedResult, result);
+
+        verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(), any(), any(), any());
+        verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void rejectTransaction_whenTransactionSuspendedInActualBatch(){
+
+        String initiativeId = "INITIATIVE_ID";
+        RewardBatch actualBatch = RewardBatch.builder().id("BATCH_ID").month("dicembre 2025").build();
+        when(rewardBatchRepository.findByIdAndStatus(actualBatch.getId(), RewardBatchStatus.EVALUATING))
+                .thenReturn(Mono.just(actualBatch));
+
+        Reward reward = Reward.builder().accruedRewardCents(1000L).build();
+        Map<String, Reward> rewardApprovedMap = Map.of(initiativeId, reward);
+        RewardTransaction trxMock = RewardTransaction.builder()
+                .id("trxId")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
+                .rewardBatchId(actualBatch.getId())
+                .rewards(rewardApprovedMap)
+                .rewardBatchLastMonthElaborated(actualBatch.getMonth()).build();
+
+        TransactionsRequest request = TransactionsRequest.builder().transactionIds(List.of(trxMock.getId())).reason("REASON").build();
+
+
+        when(rewardTransactionRepository.updateStatusAndReturnOld(actualBatch.getId(), trxMock.getId(),
+                RewardBatchTrxStatus.REJECTED, request.getReason(), actualBatch.getMonth()))
+                .thenReturn(Mono.just(trxMock));
+
+
+        RewardBatch expectedResult = new RewardBatch();
+        when(rewardBatchRepository.updateTotals(
+                actualBatch.getId(),
+                0L,
+                0L,
+                1L,
+                -1L))
+                .thenReturn(Mono.just(expectedResult));
+
+        RewardBatch result = rewardBatchService.rejectTransactions(actualBatch.getId(), initiativeId, request).block();
+
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(expectedResult, result);
+
+        verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(), any(), any(), any());
+        verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void suspendTransaction_whenTransactionSuspendedInPreviousBatch(){
+
+        String initiativeId = "INITIATIVE_ID";
+        RewardBatch actualBatch = RewardBatch.builder().id("BATCH_ID").month("dicembre 2025").build();
+        when(rewardBatchRepository.findByIdAndStatus(actualBatch.getId(), RewardBatchStatus.EVALUATING))
+                .thenReturn(Mono.just(actualBatch));
+
+        Reward reward = Reward.builder().accruedRewardCents(1000L).build();
+        Map<String, Reward> rewardApprovedMap = Map.of(initiativeId, reward);
+        RewardTransaction trxMock = RewardTransaction.builder()
+                .id("trxId")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
+                .rewardBatchId(actualBatch.getId())
+                .rewards(rewardApprovedMap)
+                .rewardBatchLastMonthElaborated("novembre 2025").build();
+
+        TransactionsRequest request = TransactionsRequest.builder().transactionIds(List.of(trxMock.getId())).reason("REASON").build();
+
+
+        when(rewardTransactionRepository.updateStatusAndReturnOld(actualBatch.getId(), trxMock.getId(),
+                RewardBatchTrxStatus.SUSPENDED, request.getReason(), actualBatch.getMonth()))
+                .thenReturn(Mono.just(trxMock));
+
+
+        RewardBatch expectedResult = new RewardBatch();
+        when(rewardBatchRepository.updateTotals(
+                actualBatch.getId(),
+                1L,
+                0L,
+                0L,
+                0L))
+                .thenReturn(Mono.just(expectedResult));
+
+        RewardBatch result = rewardBatchService.suspendTransactions(actualBatch.getId(), initiativeId, request).block();
+
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(expectedResult, result);
+
+        verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(), any(), any(), any());
+        verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void suspendTransaction_whenTransactionSuspendedInActualBatch(){
+
+        String initiativeId = "INITIATIVE_ID";
+        RewardBatch actualBatch = RewardBatch.builder().id("BATCH_ID").month("dicembre 2025").build();
+        when(rewardBatchRepository.findByIdAndStatus(actualBatch.getId(), RewardBatchStatus.EVALUATING))
+                .thenReturn(Mono.just(actualBatch));
+
+        Reward reward = Reward.builder().accruedRewardCents(1000L).build();
+        Map<String, Reward> rewardApprovedMap = Map.of(initiativeId, reward);
+        RewardTransaction trxMock = RewardTransaction.builder()
+                .id("trxId")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
+                .rewardBatchId(actualBatch.getId())
+                .rewards(rewardApprovedMap)
+                .rewardBatchLastMonthElaborated("dicembre 2025").build();
+
+        TransactionsRequest request = TransactionsRequest.builder().transactionIds(List.of(trxMock.getId())).reason("REASON").build();
+
+
+        when(rewardTransactionRepository.updateStatusAndReturnOld(actualBatch.getId(), trxMock.getId(),
+                RewardBatchTrxStatus.SUSPENDED, request.getReason(), actualBatch.getMonth()))
+                .thenReturn(Mono.just(trxMock));
+
+
+        RewardBatch expectedResult = new RewardBatch();
+        when(rewardBatchRepository.updateTotals(
+                actualBatch.getId(),
+                0L,
+                0L,
+                0L,
+                0L))
+                .thenReturn(Mono.just(expectedResult));
+
+        RewardBatch result = rewardBatchService.suspendTransactions(actualBatch.getId(), initiativeId, request).block();
+
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(expectedResult, result);
+
+        verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(), any(), any(), any());
+        verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
+    }
+
 }
 
