@@ -216,7 +216,7 @@ class RewardBatchServiceImplTest {
 
         doReturn(Mono.just(newBatch)).when(rewardBatchServiceSpy).createRewardBatchAndSave(any());
         doReturn(Mono.just(1000L)).when(rewardBatchServiceSpy)
-                .updateAndSaveRewardTransactionsSuspended(eq(REWARD_BATCH_ID_1), eq(INITIATIVE_ID), eq("NEW_BATCH_ID"));
+                .updateAndSaveRewardTransactionsSuspended(REWARD_BATCH_ID_1, INITIATIVE_ID, "NEW_BATCH_ID");
         when(rewardBatchRepository.save(any(RewardBatch.class))).thenReturn(Mono.just(newBatch));
 
         Mono<RewardBatch> result = ReflectionTestUtils.invokeMethod(
@@ -226,7 +226,7 @@ class RewardBatchServiceImplTest {
                 .expectNext(originalBatch)
                 .verifyComplete();
 
-        verify(rewardBatchServiceSpy).updateNewBatchCounters(eq(newBatch), eq(1000L), eq(5L));
+        verify(rewardBatchServiceSpy).updateNewBatchCounters(newBatch, 1000L, 5L);
         verify(rewardBatchRepository).save(newBatch);
     }
 
