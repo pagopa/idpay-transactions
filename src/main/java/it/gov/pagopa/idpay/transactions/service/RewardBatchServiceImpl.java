@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.service;
 import com.azure.core.http.rest.Response;
 import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.models.BlockBlobItem;
+import com.nimbusds.jose.util.Pair;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.dto.DownloadRewardBatchResponseDTO;
@@ -12,6 +13,7 @@ import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
+import it.gov.pagopa.idpay.transactions.dto.batch.TrxSuspendedBatchInfo;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -93,6 +95,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     private static final String REWARD_BATCHES_PATH_STORAGE_FORMAT = "initiative/%s/merchant/%s/batch/%s/";
   private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "%s_%s_%s.csv";
+  private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ITALIAN);
 
   public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService) {
     this.rewardBatchRepository = rewardBatchRepository;
@@ -222,11 +225,14 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(NOT_FOUND,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
                         ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))
-                .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()))
-                .flatMap(trxId -> rewardTransactionRepository
-                        .updateStatusAndReturnOld(rewardBatchId, trxId, RewardBatchTrxStatus.SUSPENDED, request.getReason())
+                .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()).map(trxId -> Pair.of(trxId, batch.getMonth())))
+                .flatMap(trxId2ActualBatchMonth -> rewardTransactionRepository
+                        .updateStatusAndReturnOld(rewardBatchId, trxId2ActualBatchMonth.getLeft(), RewardBatchTrxStatus.SUSPENDED, request.getReason(), trxId2ActualBatchMonth.getRight())
+                        .map(trxOld -> Pair.of(trxOld, trxId2ActualBatchMonth.getRight()))
                 )
-                .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L), (acc, trxOld) -> {
+                .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L), (acc, trxOld2ActualRewardBatch) -> {
+
+                    RewardTransaction trxOld = trxOld2ActualRewardBatch.getLeft();
 
                     if (trxOld == null) {
                         return acc;
@@ -238,7 +244,9 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
                     switch (trxOld.getRewardBatchTrxStatus()) {
 
-                        case RewardBatchTrxStatus.SUSPENDED -> log.info("Skipping  handler  for transaction  {}:  status  is already  SUSPENDED",  trxOld.getId());
+                        case RewardBatchTrxStatus.SUSPENDED ->
+                            suspendedTransactionAlreadySuspended(acc, trxOld2ActualRewardBatch, trxOld);
+
 
                         case RewardBatchTrxStatus.APPROVED -> {
                             acc.incrementTrxSuspended();
@@ -277,18 +285,32 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 );
     }
 
+    private void suspendedTransactionAlreadySuspended(BatchCountersDTO acc, Pair<RewardTransaction, String> trxOld2ActualRewardBatch, RewardTransaction trxOld) {
+        if(trxOld.getRewardBatchLastMonthElaborated() !=  null &&
+                (getYearMonth(trxOld.getRewardBatchLastMonthElaborated()).isBefore(getYearMonth(trxOld2ActualRewardBatch.getRight())))) {
+            log.info("Handler counters for transaction {} with status SUSPENDED", trxOld.getId());
+            acc.incrementTrxElaborated();
+        } else {
+            log.info("Skipping  handler  for transaction  {}:  status  is already  SUSPENDED", trxOld.getId());
+        }
+    }
+
     @Override
     public Mono<RewardBatch> rejectTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request) {
         return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.EVALUATING)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(NOT_FOUND,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
                         ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))
-                .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()))
-                .flatMap(trxId -> rewardTransactionRepository
-                        .updateStatusAndReturnOld(rewardBatchId, trxId, RewardBatchTrxStatus.REJECTED, request.getReason())
+                .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds())
+                        .map(trxId -> Pair.of(trxId, batch.getMonth())))
+                .flatMap(trxId2ActualBatchMont -> rewardTransactionRepository
+                        .updateStatusAndReturnOld(rewardBatchId, trxId2ActualBatchMont.getLeft(), RewardBatchTrxStatus.REJECTED, request.getReason(), trxId2ActualBatchMont.getRight())
+                        .map(trxOld -> Pair.of(trxOld, trxId2ActualBatchMont.getRight()))
                 )
                 .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L),
-                        (acc, trxOld) -> {
+                        (acc, trxOld2ActualRewardBatchMonth) -> {
+
+                    RewardTransaction trxOld = trxOld2ActualRewardBatchMonth.getLeft();
 
                     if (trxOld == null) {
                         return acc;
@@ -324,6 +346,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             case RewardBatchTrxStatus.SUSPENDED -> {
                                 acc.decrementTrxSuspended();
                                 acc.incrementTrxRejected();
+                                checkAndUpdateTrxElaborated(acc, trxOld2ActualRewardBatchMonth, trxOld);
                             }
 
                     }
@@ -341,6 +364,13 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 );
     }
 
+    private void checkAndUpdateTrxElaborated(BatchCountersDTO acc, Pair<RewardTransaction, String> trxOld2ActualRewardBatchMonth, RewardTransaction trxOld) {
+        if(trxOld.getRewardBatchLastMonthElaborated() != null &&
+                (getYearMonth(trxOld.getRewardBatchLastMonthElaborated()).isBefore(getYearMonth(trxOld2ActualRewardBatchMonth.getRight())))) {
+            acc.incrementTrxElaborated();
+        }
+    }
+
 
     @Override
     public Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String initiativeId) {
@@ -348,9 +378,12 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(NOT_FOUND,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
                         ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))
-                .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()))
-                .flatMap(trxId -> rewardTransactionRepository.updateStatusAndReturnOld(rewardBatchId, trxId, RewardBatchTrxStatus.APPROVED, null))
-                .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L), (acc, trxOld) -> {
+                .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds())
+                        .map(trxId -> Pair.of(trxId, batch.getMonth())))
+                .flatMap(trxIdAndMonthElaborated -> rewardTransactionRepository.updateStatusAndReturnOld(rewardBatchId, trxIdAndMonthElaborated.getLeft(), RewardBatchTrxStatus.APPROVED, null, trxIdAndMonthElaborated.getRight())
+                        .map(trxOld -> Pair.of(trxOld, trxIdAndMonthElaborated.getRight())))
+                .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L), (acc, trxOld2ActualBatchMonth) -> {
+                    RewardTransaction trxOld = trxOld2ActualBatchMonth.getLeft();
                     switch (trxOld.getRewardBatchTrxStatus()){
                         case RewardBatchTrxStatus.APPROVED -> log.info("Skipping  handler  for transaction  {}:  status  is already  APPROVED",  trxOld.getId());
                         case RewardBatchTrxStatus.TO_CHECK, RewardBatchTrxStatus.CONSULTABLE -> acc.incrementTrxElaborated();
@@ -359,6 +392,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             if(trxOld.getRewards().get(initiativeId) != null && trxOld.getRewards().get(initiativeId).getAccruedRewardCents() != null) {
                                 acc.incrementTotalApprovedAmountCents(trxOld.getRewards().get(initiativeId).getAccruedRewardCents());
                             }
+                            checkAndUpdateTrxElaborated(acc, trxOld2ActualBatchMonth, trxOld);
                         }
                         case RewardBatchTrxStatus.REJECTED -> {
                             acc.decrementTrxRejected();
@@ -401,8 +435,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             .thenReturn(rewardBatch)
                             .log("[EVALUATING_REWARD_BATCH]Completed evaluation of transactions for reward batch %s".formatted(Utilities.sanitizeString(rewardBatch.getId())));
                 })
-                .flatMap(batch -> rewardBatchRepository.updateStatusAndApprovedAmountCents(batch.getId(), RewardBatchStatus.EVALUATING, batch.getInitialAmountCents())
-                        .log("[EVALUATING_REWARD_BATCH] Reward batch %s moved to status EVALUATING".formatted(Utilities.sanitizeString(batch.getId()))))
+                .flatMap(batch -> rewardTransactionRepository.sumSuspendedAccruedRewardCents(batch.getId())
+                        .map(suspendedAmountCents -> new TrxSuspendedBatchInfo(batch.getId(), suspendedAmountCents, batch.getInitialAmountCents())))
+                .flatMap(suspendedInfo -> rewardBatchRepository.updateStatusAndApprovedAmountCents(suspendedInfo.getRewardBatchId(), RewardBatchStatus.EVALUATING, suspendedInfo.getInitialRewardBatchAmountCents() - suspendedInfo.getSuspendedRewardAmountCents())
+                        .log("[EVALUATING_REWARD_BATCH] Reward batch %s moved to status EVALUATING".formatted(Utilities.sanitizeString(suspendedInfo.getRewardBatchId()))))
                 .count()
                 .doOnSuccess(count ->
                         log.info("[EVALUATING_REWARD_BATCH] Completed evaluation. Total batches processed: {}", count));
@@ -936,6 +972,9 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     }
 
 
+    private YearMonth getYearMonth (String yearMonthString){
+      return YearMonth.parse(yearMonthString.toLowerCase(), BATCH_MONTH_FORMAT);
+    }
 
     @Override
     public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, LocalDate initiativeEndDate) {
