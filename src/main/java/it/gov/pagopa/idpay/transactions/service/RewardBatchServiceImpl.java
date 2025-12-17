@@ -79,14 +79,21 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private static final Set<String> OPERATORS = Set.of(OPERATOR_1, OPERATOR_2, OPERATOR_3);
     private final ApprovedRewardBatchBlobService approvedRewardBatchBlobService;
 
-  private static final String CSV_HEADER = String.join(";",
-            "Data e ora", "Elettrodomestico", "Codice Fiscale Beneficiario", "ID transazione", "Codice sconto",
-            "Totale della spesa", "Sconto applicato",//"Importo autorizzato",
+    private static final String CSV_HEADER = String.join(";",
+            "Data e ora",
+            "Elettrodomestico",
+            "Codice Fiscale Beneficiario",
+            "ID transazione",
+            "Codice sconto",
+            "Totale della spesa",
+            "Sconto applicato", // "Importo autorizzato",
             "Numero fattura",
-            "Fattura", "Stato"
+            "Fattura",
+            "Stato",
+            "Punto vendita"
     );
 
-  private static final String REWARD_BATCHES_PATH_STORAGE_FORMAT = "initiative/%s/merchant/%s/batch/%s/";
+    private static final String REWARD_BATCHES_PATH_STORAGE_FORMAT = "initiative/%s/merchant/%s/batch/%s/";
   private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "%s_%s_%s.csv";
   private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ITALIAN);
 
@@ -883,41 +890,70 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 });
     }
 
-        private String mapTransactionToCsvRow(RewardTransaction trx, String initiativeId) {
-            Function<Object, String> safeToString = obj -> obj != null ? obj.toString().replace(";", ",") : "";
-            Function<LocalDateTime, String> safeDateToString = date ->
-                    date != null ? date.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "";
+    private String mapTransactionToCsvRow(RewardTransaction trx, String initiativeId) {
 
-            LongFunction<String> centsToEuroString = cents -> {
-                NumberFormat numberFormat = NumberFormat.getNumberInstance(Locale.ITALY);
-                numberFormat.setMinimumFractionDigits(2);
-                numberFormat.setMaximumFractionDigits(2);
-                return  numberFormat.format(cents / 100.0);
+        Function<LocalDateTime, String> safeDateToString =
+                date -> date != null
+                        ? date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy hh:mm"))
+                        : "";
 
-            };
+        LongFunction<String> centsToEuroString = cents -> {
+            NumberFormat numberFormat = NumberFormat.getNumberInstance(Locale.ITALY);
+            numberFormat.setMinimumFractionDigits(2);
+            numberFormat.setMaximumFractionDigits(2);
+            return numberFormat.format(cents / 100.0);
+        };
 
-            String productName = trx.getAdditionalProperties().get("productName") != null ? trx.getAdditionalProperties().get("productName") : "";
-            String productGtin = trx.getAdditionalProperties().get("productGtin") != null ? trx.getAdditionalProperties().get("productGtin") : "";
+        String productName = trx.getAdditionalProperties().get("productName") != null
+                ? trx.getAdditionalProperties().get("productName")
+                : "";
+        String productGtin = trx.getAdditionalProperties().get("productGtin") != null
+                ? trx.getAdditionalProperties().get("productGtin")
+                : "";
 
-            String additionalProperties = productName + "\n" + productGtin;
+        String productInfo = productName + "\n" + productGtin;
 
-            String quotedAdditionalProperties = "\"" + additionalProperties + "\"";
+        String invoiceNumber =
+                trx.getInvoiceData() != null && trx.getInvoiceData().getDocNumber() != null
+                        ? trx.getInvoiceData().getDocNumber()
+                        : "";
 
-            return String.join(";",
-                    safeDateToString.apply(trx.getTrxChargeDate()),
-                    safeToString.apply(quotedAdditionalProperties),
-                    safeToString.apply(trx.getFiscalCode()),
-                    safeToString.apply(trx.getId()),
-                    safeToString.apply(trx.getTrxCode()),
-                    trx.getEffectiveAmountCents() != null ? centsToEuroString.apply(trx.getEffectiveAmountCents()) : "",
-                    trx.getRewards().get(initiativeId).getAccruedRewardCents() != null
-                            ? centsToEuroString.apply(trx.getRewards().get(initiativeId).getAccruedRewardCents())
-                            : "",
-                    safeToString.apply(trx.getInvoiceData().getDocNumber()),
-                    safeToString.apply(trx.getInvoiceData().getFilename()),
-                    safeToString.apply(trx.getRewardBatchTrxStatus().getDescription())
-            );
+        return String.join(";",
+                safeDateToString.apply(trx.getTrxChargeDate()),
+                csvField(productInfo),
+                csvField(trx.getFiscalCode()),
+                csvField(trx.getId()),
+                csvField(trx.getTrxCode()),
+                trx.getEffectiveAmountCents() != null
+                        ? csvField(centsToEuroString.apply(trx.getEffectiveAmountCents()))
+                        : "",
+                trx.getRewards().get(initiativeId).getAccruedRewardCents() != null
+                        ? csvField(centsToEuroString.apply(
+                        trx.getRewards().get(initiativeId).getAccruedRewardCents()))
+                        : "",
+                csvField(invoiceNumber),
+                csvField(trx.getInvoiceData().getFilename()),
+                csvField(trx.getRewardBatchTrxStatus().getDescription()),
+                csvField(trx.getFranchiseName())
+        );
+    }
+
+    private String csvField(String s) {
+        if (s == null) {
+            return "";
         }
+
+        String escaped = s.replace("\"", "\"\"");
+
+        boolean mustQuote =
+                escaped.contains(";") ||
+                        escaped.contains(",") ||
+                        escaped.contains("\n") ||
+                        escaped.contains("\r") ||
+                        escaped.contains("\"");
+
+        return mustQuote ? "\"" + escaped + "\"" : escaped;
+    }
 
     public Mono<String> uploadCsvToBlob(String filename, String csvContent) {
 
