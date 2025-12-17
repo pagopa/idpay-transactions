@@ -18,6 +18,7 @@ public class RewardTransactionKafkaMapper {
         }
 
         String initiativeId = model.getInitiatives().getFirst();
+        Long rewardCents = model.getRewards().get(initiativeId).getAccruedRewardCents();
 
         return RewardTransactionKafkaDTO.builder()
                 .id(model.getId())
@@ -32,6 +33,7 @@ public class RewardTransactionKafkaMapper {
 
                 .amountCents(model.getAmountCents())
                 .amountCurrency(model.getAmountCurrency())
+                .rewardCents(rewardCents)
 
                 .mcc(model.getMcc())
                 .acquirerId(model.getAcquirerId())
