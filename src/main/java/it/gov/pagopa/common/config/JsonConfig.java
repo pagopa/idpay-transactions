@@ -44,6 +44,6 @@ public class JsonConfig {
 
     private static SimpleModule configureDateTimeModule() {
         return new JavaTimeModule()
-                .addDeserializer(OffsetDateTime.class, new LocalDateTimeToOffsetDateTimeDeserializer());
+                .addSerializer(OffsetDateTime.class, new OffsetDateTimeToLocalDateTimeSerializer());
     }
 }
