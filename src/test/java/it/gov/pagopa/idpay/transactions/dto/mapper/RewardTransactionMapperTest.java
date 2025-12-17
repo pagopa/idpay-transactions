@@ -46,12 +46,12 @@ class RewardTransactionMapperTest {
         assertCommonFields(resultRefund, refundTrx);
         checkNotNullRewardField(resultRefund.getRewards());
         assertRefundFields(resultRefund,refundTrx);
-        TestUtils.checkNotNullFields(resultRefund, "rejectionReasons", "initiativeRejectionReasons", "additionalProperties", "invoiceData", "creditNoteData", "trxCode", "rewardBatchId", "rewardBatchTrxStatus", "rewardBatchRejectionReason", "rewardBatchInclusionDate", "franchiseName", "pointOfSaleType", "businessName", "invoiceUploadDate", "updateDate", "extendedAuthorization", "voucherAmountCents","initiativeId");
+        TestUtils.checkNotNullFields(resultRefund, "rejectionReasons", "initiativeRejectionReasons", "additionalProperties", "invoiceData", "creditNoteData", "trxCode", "rewardBatchId", "rewardBatchTrxStatus", "rewardBatchRejectionReason", "rewardBatchInclusionDate", "franchiseName", "pointOfSaleType", "businessName", "invoiceUploadDate", "updateDate", "extendedAuthorization", "voucherAmountCents","initiativeId", "rewardBatchLastMonthElaborated");
 
         assertNotNull(resultRejected);
         assertCommonFields(resultRejected, rejectedTrx);
         assertRejectedFields(resultRejected,rejectedTrx);
-        TestUtils.checkNotNullFields(resultRejected, "initiatives","rewards", "operationTypeTranscoded", "effectiveAmountCents","trxChargeDate","refundInfo", "additionalProperties", "invoiceData", "creditNoteData", "trxCode", "rewardBatchId", "rewardBatchTrxStatus", "rewardBatchRejectionReason", "rewardBatchInclusionDate", "franchiseName", "pointOfSaleType", "businessName", "invoiceUploadDate", "updateDate", "extendedAuthorization", "voucherAmountCents","initiativeId");
+        TestUtils.checkNotNullFields(resultRejected, "initiatives","rewards", "operationTypeTranscoded", "effectiveAmountCents","trxChargeDate","refundInfo", "additionalProperties", "invoiceData", "creditNoteData", "trxCode", "rewardBatchId", "rewardBatchTrxStatus", "rewardBatchRejectionReason", "rewardBatchInclusionDate", "franchiseName", "pointOfSaleType", "businessName", "invoiceUploadDate", "updateDate", "extendedAuthorization", "voucherAmountCents","initiativeId", "rewardBatchLastMonthElaborated");
 
 
     }
@@ -68,7 +68,7 @@ class RewardTransactionMapperTest {
         //Then
         assertNotNull(result);
         assertCommonFields(result, rewardTrx);
-        TestUtils.checkNotNullFields(result, "rejectionReasons", "initiativeRejectionReasons", "additionalProperties", "invoiceData", "creditNoteData", "trxCode", "rewardBatchId", "rewardBatchTrxStatus", "rewardBatchRejectionReason", "rewardBatchInclusionDate", "franchiseName", "pointOfSaleType", "businessName", "invoiceUploadDate", "updateDate", "extendedAuthorization", "voucherAmountCents","initiativeId");
+        TestUtils.checkNotNullFields(result, "rejectionReasons", "initiativeRejectionReasons", "additionalProperties", "invoiceData", "creditNoteData", "trxCode", "rewardBatchId", "rewardBatchTrxStatus", "rewardBatchRejectionReason", "rewardBatchInclusionDate", "franchiseName", "pointOfSaleType", "businessName", "invoiceUploadDate", "updateDate", "extendedAuthorization", "voucherAmountCents","initiativeId", "rewardBatchLastMonthElaborated");
 
         String expectedId = rewardTrx.getIdTrxAcquirer()
                 .concat(rewardTrx.getAcquirerCode())
@@ -92,7 +92,7 @@ class RewardTransactionMapperTest {
         assertNotNull(result);
         assertCommonFields(result, rewardTrx);
 
-        TestUtils.checkNotNullFields(result, "rejectionReasons", "initiativeRejectionReasons", "additionalProperties", "invoiceData", "creditNoteData", "trxCode", "rewardBatchId", "rewardBatchTrxStatus", "rewardBatchRejectionReason", "rewardBatchInclusionDate", "franchiseName", "pointOfSaleType", "businessName", "invoiceUploadDate", "updateDate", "extendedAuthorization", "voucherAmountCents","initiativeId");
+        TestUtils.checkNotNullFields(result, "rejectionReasons", "initiativeRejectionReasons", "additionalProperties", "invoiceData", "creditNoteData", "trxCode", "rewardBatchId", "rewardBatchTrxStatus", "rewardBatchRejectionReason", "rewardBatchInclusionDate", "franchiseName", "pointOfSaleType", "businessName", "invoiceUploadDate", "updateDate", "extendedAuthorization", "voucherAmountCents","initiativeId", "rewardBatchLastMonthElaborated");
         checkNotNullRewardField(result.getRewards());
         TestUtils.checkNotNullFields(result.getRefundInfo());
     }
