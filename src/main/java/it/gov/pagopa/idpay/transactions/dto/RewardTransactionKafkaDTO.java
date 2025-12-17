@@ -33,6 +33,7 @@ public class RewardTransactionKafkaDTO {
 
     private Long amountCents;
     private String amountCurrency;
+    private Long rewardCents;
 
     private String mcc;
     private String acquirerId;
