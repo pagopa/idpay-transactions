@@ -6,7 +6,6 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.Collections;
 
 public class RewardTransactionKafkaMapper {
 
@@ -46,7 +45,7 @@ public class RewardTransactionKafkaMapper {
                 .status(model.getStatus())
                 .rejectionReasons(model.getRejectionReasons())
                 .initiativeRejectionReasons(model.getInitiativeRejectionReasons())
-                .initiatives(Collections.singletonList(model.getInitiativeId()))
+                .initiativeId(model.getInitiativeId())
                 .initiatives(model.getInitiatives())
                 .rewards(model.getRewards())
 
