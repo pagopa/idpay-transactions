@@ -88,12 +88,14 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
         ? EnumSet.of(
         RewardBatchStatus.SENT,
         RewardBatchStatus.EVALUATING,
+        RewardBatchStatus.APPROVING,
         RewardBatchStatus.APPROVED
     )
         : EnumSet.of(
             RewardBatchStatus.CREATED,
             RewardBatchStatus.SENT,
             RewardBatchStatus.EVALUATING,
+            RewardBatchStatus.APPROVING,
             RewardBatchStatus.APPROVED
         );
 

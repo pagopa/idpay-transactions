@@ -6,6 +6,10 @@ import com.azure.storage.blob.models.BlockBlobItem;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.dto.DownloadRewardBatchResponseDTO;
+import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
+import it.gov.pagopa.common.web.exception.RewardBatchException;
+import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
@@ -18,7 +22,10 @@ import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
+import java.time.LocalDate;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
@@ -51,6 +58,7 @@ import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.Exceptio
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.*;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT;
 
 @Service
 @Slf4j
@@ -151,34 +159,55 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     return rewardBatchRepository.decrementTotals(batchId, accruedAmountCents);
   }
 
-@Override
-public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
-  return rewardBatchRepository.findById(batchId)
-      .switchIfEmpty(Mono.error(new RewardBatchException(NOT_FOUND,
-          ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)))
-      .flatMap(batch -> {
-        if (!merchantId.equals(batch.getMerchantId())) {
-          log.warn("[SEND_REWARD_BATCHES] Merchant id mismatch !");
-          return Mono.error(new RewardBatchException(NOT_FOUND,
-              ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND));
-        }
-        if (batch.getStatus() != RewardBatchStatus.CREATED) {
-          return Mono.error(new RewardBatchException(BAD_REQUEST,
-              ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST));
-        }
-        YearMonth batchMonth = YearMonth.parse(batch.getMonth());
-        if (!YearMonth.now().isAfter(batchMonth)) {
-          log.warn("[SEND_REWARD_BATCHES] Batch month too early to be sent !");
-          return Mono.error(new RewardBatchException(BAD_REQUEST,
-              ExceptionConstants.ExceptionCode.REWARD_BATCH_MONTH_TOO_EARLY));
-        }
-        batch.setStatus(RewardBatchStatus.SENT);
-        batch.setUpdateDate(LocalDateTime.now());
-        return rewardBatchRepository.save(batch)
-            .then();
-      });
-}
+  @Override
+  public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
+    return rewardBatchRepository.findById(batchId)
+        .switchIfEmpty(Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
+            ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)))
+        .flatMap(batch -> {
+          if (!merchantId.equals(batch.getMerchantId())) {
+            log.warn("[SEND_REWARD_BATCHES] Merchant id mismatch !");
+            return Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
+                ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND));
+          }
+          if (batch.getStatus() != RewardBatchStatus.CREATED) {
+            return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
+                ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST));
+          }
+          YearMonth batchMonth = YearMonth.parse(batch.getMonth());
+          if (!YearMonth.now().isAfter(batchMonth)) {
+            log.warn("[SEND_REWARD_BATCHES] Batch month too early to be sent !");
+            return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
+                ExceptionConstants.ExceptionCode.REWARD_BATCH_MONTH_TOO_EARLY));
+          }
 
+          return noPreviousBatchesInCreatedStatus(merchantId, batchMonth, batch.getPosType())
+              .flatMap(allPreviousSent -> {
+                if (Boolean.FALSE.equals(allPreviousSent)) {
+                  log.warn("[SEND_REWARD_BATCHES] Previous batches of type {} not sent yet for merchant {}!",
+                      batch.getPosType(), Utilities.sanitizeString(merchantId));
+                  return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
+                      ExceptionConstants.ExceptionCode.REWARD_BATCH_PREVIOUS_NOT_SENT));
+                }
+
+                batch.setStatus(RewardBatchStatus.SENT);
+                batch.setUpdateDate(LocalDateTime.now());
+                return rewardBatchRepository.save(batch);
+              })
+              .then();
+        });
+  }
+
+  private Mono<Boolean> noPreviousBatchesInCreatedStatus(String merchantId, YearMonth currentMonth, PosType posType) {
+    return rewardBatchRepository.findByMerchantIdAndPosType(merchantId, posType)
+        .filter(batch -> {
+          YearMonth batchMonth = YearMonth.parse(batch.getMonth());
+          return batchMonth.isBefore(currentMonth);
+        })
+        .filter(batch -> batch.getStatus() == RewardBatchStatus.CREATED)
+        .hasElements()
+        .map(hasCreated -> !hasCreated);
+  }
 
     @Override
     public Mono<RewardBatch> suspendTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request) {
@@ -872,7 +901,79 @@ public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
 
 
 
-    @Data
+    @Override
+    public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, LocalDate initiativeEndDate) {
+
+      return rewardTransactionRepository.findTransactionInBatch(merchantId, rewardBatchId, transactionId)
+          .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
+              HttpStatus.NOT_FOUND,
+              String.format(ExceptionMessage.TRANSACTION_NOT_FOUND, transactionId)
+          )))
+          .flatMap(trx -> {
+
+            long accruedRewardCents = trx.getRewards().get(initiativeId).getAccruedRewardCents();
+
+            return rewardBatchRepository.findById(rewardBatchId)
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.NOT_FOUND,
+                    ExceptionCode.REWARD_BATCH_NOT_FOUND,
+                    String.format(ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH, rewardBatchId)
+                )))
+                .flatMap(currentBatch -> {
+
+                  if (currentBatch.getStatus() != RewardBatchStatus.CREATED) {
+                    return Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.BAD_REQUEST,
+                        ExceptionCode.REWARD_BATCH_INVALID_REQUEST,
+                        ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH
+                    ));
+                  }
+
+                  YearMonth currentBatchMonth = YearMonth.parse(currentBatch.getMonth());
+                  YearMonth nextBatchMonth = currentBatchMonth.plusMonths(1);
+
+                  YearMonth maxAllowedMonth = YearMonth.from(initiativeEndDate).plusMonths(1);
+
+                  if (nextBatchMonth.isAfter(maxAllowedMonth)) {
+                    return Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.BAD_REQUEST,
+                        ExceptionCode.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED,
+                        ExceptionMessage.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED
+                    ));
+                  }
+
+                  return this.findOrCreateBatch(
+                          currentBatch.getMerchantId(),
+                          currentBatch.getPosType(),
+                          nextBatchMonth.toString(),
+                          currentBatch.getBusinessName()
+                      )
+                      .flatMap(nextBatch -> {
+
+                        if (nextBatch.getStatus() != RewardBatchStatus.CREATED) {
+                          return Mono.error(new ClientExceptionNoBody(
+                              HttpStatus.BAD_REQUEST,
+                              ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH
+                          ));
+                        }
+
+                        return decrementTotals(currentBatch.getId(), accruedRewardCents)
+                            .then(incrementTotals(nextBatch.getId(), accruedRewardCents))
+                            .then(Mono.defer(() -> {
+
+                              trx.setRewardBatchId(nextBatch.getId());
+                              trx.setRewardBatchInclusionDate(LocalDateTime.now());
+                              trx.setUpdateDate(LocalDateTime.now());
+
+                              return rewardTransactionRepository.save(trx);
+                            }));
+                      });
+                });
+          })
+          .then();
+    }
+
+  @Data
     public static class TotalAmount {
         private long total;
     }

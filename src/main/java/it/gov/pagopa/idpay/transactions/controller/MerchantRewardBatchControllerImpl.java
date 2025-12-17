@@ -13,6 +13,7 @@ import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
+import java.time.LocalDate;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -196,5 +197,18 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     );
 
     return rewardBatchService.validateRewardBatch(organizationRole, initiativeId, rewardBatchId);
+  }
+
+  @Override
+  public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, LocalDate initiativeEndDate) {
+    log.info(
+        "[POSTPONE_TRANSACTION] Merchant {} requested to postpone transaction {} for rewardBatch {} of initiative {}",
+        Utilities.sanitizeString(merchantId),
+        Utilities.sanitizeString(transactionId),
+        Utilities.sanitizeString(rewardBatchId),
+        Utilities.sanitizeString(initiativeId)
+    );
+
+    return rewardBatchService.postponeTransaction(merchantId, initiativeId, rewardBatchId, transactionId, initiativeEndDate);
   }
 }
