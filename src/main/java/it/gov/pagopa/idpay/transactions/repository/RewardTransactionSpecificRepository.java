@@ -33,15 +33,19 @@ public interface RewardTransactionSpecificRepository {
 
     Flux<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId);
 
-    Mono<Long> sumSuspendedAccruedRewardCents(String rewardBatchId, List<String> transactionIds, String initiativeId);
+    Mono<Long> sumSuspendedAccruedRewardCents(String rewardBatchId);
 
     Mono<Void> rewardTransactionsByBatchId(String batchId);
 
-    Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus status, String reason);
+    Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus status, String reason, String batchMonth);
 
     Flux<RewardTransaction> findInvoicedTransactionsWithoutBatch(int pageSize);
 
     Mono<RewardTransaction> findInvoicedTrxByIdWithoutBatch(String trxId);
 
+
     Flux<FranchisePointOfSaleDTO> findDistinctFranchiseAndPosByRewardBatchId(String rewardBatchId);
+  
+    Mono<RewardTransaction> findTransactionInBatch(String merchantId, String rewardBatchId, String transactionId);
+
 }

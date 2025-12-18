@@ -85,8 +85,18 @@ public interface PointOfSaleTransactionController {
           @RequestPart(value = "docNumber", required = false) String docNumber
   );
 
+
   @GetMapping("/point-of-sales/{rewardBatchId}")
     Mono<List<FranchisePointOfSaleDTO>> getFranchisePointOfSale(
             @PathVariable("rewardBatchId") String rewardBatchId
   );
+    @PostMapping("/transactions/{transactionId}/reversal-invoiced")
+    @ResponseStatus(code = HttpStatus.NO_CONTENT)
+    Mono<Void> reversalTransactionInvoiced(
+            @PathVariable("transactionId") String transactionId,
+            @RequestHeader("x-merchant-id") String merchantId,
+            @RequestHeader("x-point-of-sale-id") String pointOfSaleId,
+            @RequestPart("file") FilePart file,
+            @RequestPart(value = "docNumber", required = false) String docNumber
+    );
 }

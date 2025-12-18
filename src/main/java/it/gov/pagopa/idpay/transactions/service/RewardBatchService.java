@@ -1,8 +1,10 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.idpay.transactions.dto.DownloadRewardBatchResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import java.time.LocalDate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Mono;
@@ -19,13 +21,18 @@ public interface RewardBatchService {
   Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId);
 
   Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds);
+  Mono<String> generateAndSaveCsv(String rewardBatchId, String initiativeId, String merchantId);
 
   Mono<Void> sendRewardBatch(String merchantId, String batchId);
   Mono<RewardBatch> suspendTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request);
 
   Mono<RewardBatch> rejectTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request);
   Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String initiativeId);
-  Mono<Void> validateRewardBatch(String organizationRole, String initiativeId, String rewardBatchId);
+  Mono<RewardBatch> validateRewardBatch(String organizationRole, String initiativeId, String rewardBatchId);
 
   Mono<Long> evaluatingRewardBatches(List<String> rewardBatchesRequest);
+
+  Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatchFile(String merchantId, String organizationRole, String initiativeId, String rewardBatchId);
+
+  Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, LocalDate initiativeEndDate);
 }

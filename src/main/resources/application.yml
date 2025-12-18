@@ -21,6 +21,7 @@ springdoc.swagger-ui.path: "/swagger-ui/index.html"
 blobStorage:
   storageAccountName: ${BLOB_STORAGE_ACCOUNT_NAME:}
   containerReference: ${BLOB_STORAGE_CONTAINER_REFERENCE:}
+  csvContainerReference: ${BLOB_STORAGE_CSV_CONTAINER_REFERENCE:}
   invoiceTokenDurationSeconds: ${INVOICE_STORAGE_SAS_DURATION_SECONDS:60}
 
 spring:
@@ -38,6 +39,10 @@ spring:
       definition: rewardTrxConsumer;errors;consumerCommands
     stream:
       bindings:
+        transactionOutcome-out-0:
+          binder: transaction-outcome
+          content-type: ${KAFKA_CONTENT_TYPE:application/json}
+          destination: ${KAFKA_TRANSACTION_TOPIC:idpay-transaction}
         rewardTrxConsumer-in-0:
           destination: ${KAFKA_TRANSACTION_TOPIC:idpay-transaction}
           group: ${KAFKA_TRANSACTION_GROUP_ID:idpay-trx-consumer}
@@ -53,6 +58,14 @@ spring:
           destination: ${KAFKA_COMMANDS_TOPIC:idpay-commands}
           group: ${KAFKA_NOTIFICATION_GROUP_ID:idpay-commands-transactions-consumer-group}
       binders:
+        transaction-outcome:
+          type: kafka
+          environment:
+            spring.cloud.stream.kafka.binder:
+              brokers: ${KAFKA_TRANSACTIONS_BROKER:${KAFKA_BROKER:}}
+              configuration:
+                sasl.jaas.config: ${KAFKA_TRANSACTION_OUTCOME_SASL_JAAS_CONFIG:}
+                key.serializer: org.apache.kafka.common.serialization.StringSerializer
         kafka-transactions:
           type: kafka
           environment:
@@ -89,6 +102,14 @@ spring:
             metadata.max.age.ms: ${KAFKA_CONFIG_METADATA_MAX_AGE_INTERVAL:179000}
             max.request.size: ${KAFKA_CONFIG_METADATA_MAX_REQUEST_SIZE:1000000}
         bindings:
+          transactionOutcome-out-0:
+            producer:
+              configuration:
+                client.id: transactionOutcome
+                connections.max.idle.ms: ${KAFKA_TRANSACTION_OUTCOME_CONNECTION_MAX_IDLE_TIME:180000}
+                retry.backoff.ms: ${KAFKA_TRANSACTION_OUTCOME_KAFKA_RETRY_MS:${KAFKA_RETRY_MS:10000}}
+                linger.ms: ${KAFKA_TRANSACTION_OUTCOME_LINGER_MS:${KAFKA_LINGER_MS:2}}
+                batch.size: ${KAFKA_TRANSACTION_OUTCOME_BATCH_SIZE:${KAFKA_BATCH_SIZE:16384}}
           rewardTrxConsumer-in-0:
             consumer:
               startOffset: ${KAFKA_TRANSACTION_START_OFFSET:${KAFKA_CONSUMER_CONFIG_START_OFFSET:earliest}}
