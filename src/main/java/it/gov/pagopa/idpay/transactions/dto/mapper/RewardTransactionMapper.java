@@ -61,7 +61,7 @@ public class RewardTransactionMapper {
             rewardTrx.setTrxChargeDate(rewardTrxDto.getTrxChargeDate() != null ? toLocalDateTime(rewardTrxDto.getTrxChargeDate()) : null);
             rewardTrx.setRefundInfo(rewardTrxDto.getRefundInfo());
 
-            rewardTrx.setElaborationDateTime(rewardTrxDto.getElaborationDateTime());
+            rewardTrx.setElaborationDateTime(rewardTrxDto.getElaborationDateTime().toLocalDateTime());
             rewardTrx.setChannel(rewardTrxDto.getChannel());
             rewardTrx.setAdditionalProperties(rewardTrxDto.getAdditionalProperties());
             rewardTrx.setInvoiceData(rewardTrxDto.getInvoiceData());

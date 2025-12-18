@@ -1,7 +1,5 @@
 package it.gov.pagopa.idpay.transactions.test.fakers;
 
-import com.github.javafaker.service.FakeValuesService;
-import com.github.javafaker.service.RandomService;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.model.RefundInfo;
 import it.gov.pagopa.idpay.transactions.model.Reward;
@@ -21,19 +19,11 @@ public class RewardTransactionDTOFaker {
         return bias == null ? randomGenerator : new Random(bias);
     }
 
-    private static int getRandomPositiveNumber(Integer bias) {
-        return Math.abs(getRandom(bias).nextInt());
-    }
 
     private static int getRandomPositiveNumber(Integer bias, int bound) {
         return Math.abs(getRandom(bias).nextInt(bound));
     }
 
-    private static final FakeValuesService fakeValuesServiceGlobal = new FakeValuesService(Locale.ITALIAN, new RandomService(null));
-
-    private static FakeValuesService getFakeValuesService(Integer bias) {
-        return bias == null ? fakeValuesServiceGlobal : new FakeValuesService(Locale.ITALIAN, new RandomService(getRandom(bias)));
-    }
 
     /**
      * It will return an example of {@link RewardTransactionDTO}. Providing a bias, it will return a pseudo-casual object
@@ -88,7 +78,7 @@ public class RewardTransactionDTOFaker {
         out.setStatus("STATUS%d".formatted(bias));
         String initiativeId = "INITIATIVEID%d".formatted(bias);
         out.setInitiatives(List.of(initiativeId));
-        out.setElaborationDateTime(LocalDateTime.now());
+        out.setElaborationDateTime(OffsetDateTime.now());
 
         Map<String, Reward> reward = new HashMap<>();
 
@@ -149,7 +139,7 @@ public class RewardTransactionDTOFaker {
         Map<String, List<String>> initiativeRejectionsReason = new HashMap<>();
         initiativeRejectionsReason.put("initiative", List.of("Error initiative"));
         out.setInitiativeRejectionReasons(initiativeRejectionsReason);
-        out.setElaborationDateTime(LocalDateTime.now());
+        out.setElaborationDateTime(OffsetDateTime.now());
 
         return out;
     }
