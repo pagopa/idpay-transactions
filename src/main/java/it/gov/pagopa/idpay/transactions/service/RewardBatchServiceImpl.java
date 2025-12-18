@@ -627,20 +627,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                     Mono<Void> transactionsUpdate = updateAndSaveRewardTransactionsToApprove(rewardBatchId, initiativeId);
                     return transactionsUpdate.thenReturn(originalBatch);
                 })
-                .flatMap(originalBatch -> {
-                    if (originalBatch.getNumberOfTransactionsSuspended() != null && originalBatch.getNumberOfTransactionsSuspended() > 0) {
-                        Mono<RewardBatch> newBatchMono = createRewardBatchAndSave(originalBatch);
-                        Mono<Void> updateTrxMono = newBatchMono
-                                .flatMap(newBatch ->
-                                        updateAndSaveRewardTransactionsSuspended(rewardBatchId, initiativeId, newBatch.getId())
-                                ).then();
-                        return updateTrxMono.thenReturn(originalBatch);
-
-                    } else {
-                        log.info("numberOfTransactionSuspended = 0 for batch {}", originalBatch.getId());
-                        return Mono.just(originalBatch);
-                    }
-                })
+                .flatMap(batch -> handleSuspendedTransactions(batch, initiativeId))
                 .flatMap(originalBatch -> {
                             originalBatch.setStatus(RewardBatchStatus.APPROVED);
                             originalBatch.setUpdateDate(LocalDateTime.now());
@@ -660,6 +647,31 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 );
     }
 
+    private Mono<RewardBatch> handleSuspendedTransactions(RewardBatch originalBatch, String initiativeId) {
+        if (originalBatch.getNumberOfTransactionsSuspended() == null || originalBatch.getNumberOfTransactionsSuspended() <= 0) {
+            log.info("numberOfTransactionSuspended = 0 for batch {}", originalBatch.getId());
+            return Mono.just(originalBatch);
+        }
+
+        long countToMove = originalBatch.getNumberOfTransactionsSuspended();
+        return createRewardBatchAndSave(originalBatch)
+                .flatMap(newBatch -> updateAndSaveRewardTransactionsSuspended(originalBatch.getId(), initiativeId, newBatch.getId())
+                        .flatMap(totalAccrued -> {
+                            updateNewBatchCounters(newBatch, totalAccrued, countToMove);
+                            return rewardBatchRepository.save(newBatch);
+                        }))
+                .thenReturn(originalBatch);
+    }
+    public void updateNewBatchCounters(RewardBatch newBatch, Long totalAccrued, long count) {
+        newBatch.setInitialAmountCents(coalesce(newBatch.getInitialAmountCents()) + totalAccrued);
+        newBatch.setNumberOfTransactionsSuspended(coalesce(newBatch.getNumberOfTransactionsSuspended()) + count);
+        newBatch.setNumberOfTransactions(coalesce(newBatch.getNumberOfTransactions()) + count);
+    }
+
+
+    private long coalesce(Long value) {
+        return value == null ? 0L : value;
+    }
   Mono<RewardBatch> createRewardBatchAndSave(RewardBatch savedBatch) {
 
       Mono<RewardBatch> existingBatchMono = rewardBatchRepository.findRewardBatchByFilter(
@@ -687,9 +699,9 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .endDate(savedBatch.getEndDate())
                 .approvedAmountCents(0L)
                 .initialAmountCents(0L)
-                .numberOfTransactions(savedBatch.getNumberOfTransactionsSuspended())
+                .numberOfTransactions(0L)
                 .numberOfTransactionsElaborated(0L)
-                .numberOfTransactionsSuspended(savedBatch.getNumberOfTransactionsSuspended())
+                .numberOfTransactionsSuspended(0L)
                 .numberOfTransactionsRejected(0L)
                 .reportPath(savedBatch.getReportPath())
                 .assigneeLevel(RewardBatchAssignee.L1)
@@ -747,30 +759,28 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     }
 
-    public  Mono<Void> updateAndSaveRewardTransactionsSuspended(String oldBatchId, String initiativeId, String newBatchId) {
-        List<RewardBatchTrxStatus> statusList = new ArrayList<>();
-        statusList.add(RewardBatchTrxStatus.SUSPENDED);
+    public Mono<Long> updateAndSaveRewardTransactionsSuspended(String oldBatchId, String initiativeId, String newBatchId) {
+        List<RewardBatchTrxStatus> statusList = List.of(RewardBatchTrxStatus.SUSPENDED);
 
         return rewardTransactionRepository.findByFilter(oldBatchId, initiativeId, statusList)
                 .switchIfEmpty(Flux.defer(() -> {
-                    log.info("No suspended transactions found for the batch {}",  Utilities.sanitizeString(oldBatchId));
+                    log.info("No suspended transactions found for the batch {}", Utilities.sanitizeString(oldBatchId));
                     return Flux.empty();
                 }))
-                .collectList()
-                .doOnNext(list -> {
-                    if (!list.isEmpty()) {
-                        log.info("Found {} transactions SUSPENDED for batch {}",
-                                list.size(),
-                                Utilities.sanitizeString(oldBatchId));
-                    }
-                })
-                .flatMapMany(Flux::fromIterable)
                 .flatMap(rewardTransaction -> {
                     rewardTransaction.setRewardBatchId(newBatchId);
-                    return rewardTransactionRepository.save(rewardTransaction);
-                })
-                .then();
 
+                    Long rewardCents = 0L;
+                    if (rewardTransaction.getRewards() != null &&
+                            rewardTransaction.getRewards().get(initiativeId) != null) {
+                        rewardCents = rewardTransaction.getRewards().get(initiativeId).getAccruedRewardCents();
+                    }
+
+                    return rewardTransactionRepository.save(rewardTransaction)
+                            .thenReturn(rewardCents != null ? rewardCents : 0L);
+                })
+                .reduce(0L, Long::sum)
+                .doOnNext(total -> log.info("Total suspended reward cents for new batch {}: {}", newBatchId, total));
     }
 
     @Override

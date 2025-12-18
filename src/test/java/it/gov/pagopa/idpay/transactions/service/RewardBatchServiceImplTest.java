@@ -50,6 +50,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -103,6 +104,166 @@ class RewardBatchServiceImplTest {
     rewardBatchServiceSpy = spy((RewardBatchServiceImpl) rewardBatchService);
   }
 
+        @Test
+        void addOneMonth_shouldIncrementMonthAndHandleYearRollover() {
+            assertEquals(NEXT_MONTH, rewardBatchServiceSpy.addOneMonth(CURRENT_MONTH));
+            assertEquals("2026-01", rewardBatchServiceSpy.addOneMonth("2025-12"));
+        }
+
+        @Test
+        void addOneMonthToItalian_shouldIncrementItalianMonth() {
+            assertEquals(NEXT_MONTH_NAME, rewardBatchServiceSpy.addOneMonthToItalian(CURRENT_MONTH_NAME));
+            assertEquals("gennaio 2026", rewardBatchServiceSpy.addOneMonthToItalian("dicembre 2025"));
+        }
+
+        @Test
+        void updateAndSaveRewardTransactionsToApprove_shouldUpdateStatusAndSave() {
+            RewardTransaction trx = new RewardTransaction();
+            trx.setId("TRX_1");
+            trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK);
+
+            when(rewardTransactionRepository.findByFilter(eq(REWARD_BATCH_ID_1), eq(INITIATIVE_ID), anyList()))
+                    .thenReturn(Flux.just(trx));
+            when(rewardTransactionRepository.save(any(RewardTransaction.class)))
+                    .thenReturn(Mono.just(trx));
+
+            Mono<Void> result = rewardBatchServiceSpy.updateAndSaveRewardTransactionsToApprove(REWARD_BATCH_ID_1, INITIATIVE_ID);
+
+            StepVerifier.create(result)
+                    .verifyComplete();
+
+            verify(rewardTransactionRepository).save(argThat(t ->
+                    t.getRewardBatchTrxStatus().equals(RewardBatchTrxStatus.APPROVED)
+            ));
+        }
+
+        @Test
+        void updateAndSaveRewardTransactionsSuspended_shouldReturnSumOfCents() {
+            String newBatchId = "NEW_BATCH_ID";
+
+            RewardTransaction trx1 = createTrxWithReward(500L);
+            RewardTransaction trx2 = createTrxWithReward(1500L);
+
+            when(rewardTransactionRepository.findByFilter(eq(REWARD_BATCH_ID_1), eq(INITIATIVE_ID), anyList()))
+                    .thenReturn(Flux.just(trx1, trx2));
+            when(rewardTransactionRepository.save(any(RewardTransaction.class)))
+                    .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+            Mono<Long> result = rewardBatchServiceSpy.updateAndSaveRewardTransactionsSuspended(REWARD_BATCH_ID_1, INITIATIVE_ID, newBatchId);
+
+            StepVerifier.create(result)
+                    .expectNext(2000L)
+                    .verifyComplete();
+
+            verify(rewardTransactionRepository, times(2)).save(argThat(t ->
+                    t.getRewardBatchId().equals(newBatchId)
+            ));
+        }
+
+        @Test
+        void updateAndSaveRewardTransactionsSuspended_shouldReturnZeroIfEmpty() {
+            when(rewardTransactionRepository.findByFilter(anyString(), anyString(), anyList()))
+                    .thenReturn(Flux.empty());
+            Mono<Long> result = rewardBatchServiceSpy.updateAndSaveRewardTransactionsSuspended(REWARD_BATCH_ID_1, INITIATIVE_ID, "NEW_ID");
+
+            StepVerifier.create(result)
+                    .expectNext(0L)
+                    .verifyComplete();
+        }
+
+
+        private RewardTransaction createTrxWithReward(Long cents) {
+            RewardTransaction trx = new RewardTransaction();
+            trx.setId("TRX_" + cents);
+
+            Reward reward = new Reward();
+            reward.setAccruedRewardCents(cents);
+
+            Map<String, Reward> rewardsMap = new HashMap<>();
+            rewardsMap.put(INITIATIVE_ID, reward);
+
+            trx.setRewards(rewardsMap);
+            return trx;
+        }
+
+    @Test
+    void handleSuspendedTransactions_whenNoSuspended_shouldReturnOriginal() {
+        RewardBatch originalBatch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .numberOfTransactionsSuspended(0L)
+                .build();
+        Mono<RewardBatch> result = ReflectionTestUtils.invokeMethod(
+                rewardBatchServiceSpy, "handleSuspendedTransactions", originalBatch, INITIATIVE_ID);
+
+        StepVerifier.create(result)
+                .expectNext(originalBatch)
+                .verifyComplete();
+
+        verify(rewardBatchRepository, never()).save(argThat(b -> !b.getId().equals(REWARD_BATCH_ID_1)));
+    }
+
+    @Test
+    void handleSuspendedTransactions_whenSuspendedExist_shouldCreateNewBatchAndMoveTrx() {
+        RewardBatch originalBatch = RewardBatch.builder()
+                .id(REWARD_BATCH_ID_1)
+                .numberOfTransactionsSuspended(5L)
+                .merchantId(MERCHANT_ID)
+                .build();
+
+        RewardBatch newBatch = RewardBatch.builder()
+                .id("NEW_BATCH_ID")
+                .build();
+
+        doReturn(Mono.just(newBatch)).when(rewardBatchServiceSpy).createRewardBatchAndSave(any());
+        doReturn(Mono.just(1000L)).when(rewardBatchServiceSpy)
+                .updateAndSaveRewardTransactionsSuspended(REWARD_BATCH_ID_1, INITIATIVE_ID, "NEW_BATCH_ID");
+        when(rewardBatchRepository.save(any(RewardBatch.class))).thenReturn(Mono.just(newBatch));
+
+        Mono<RewardBatch> result = ReflectionTestUtils.invokeMethod(
+                rewardBatchServiceSpy, "handleSuspendedTransactions", originalBatch, INITIATIVE_ID);
+
+        StepVerifier.create(result)
+                .expectNext(originalBatch)
+                .verifyComplete();
+
+        verify(rewardBatchServiceSpy).updateNewBatchCounters(newBatch, 1000L, 5L);
+        verify(rewardBatchRepository).save(newBatch);
+    }
+
+    @Test
+    void updateNewBatchCounters_shouldHandleNullFields() {
+        RewardBatch newBatch = RewardBatch.builder()
+                .id("NEW_BATCH_ID")
+                .build();
+
+        Long totalAccrued = 5000L;
+        long countToMove = 10L;
+
+        rewardBatchServiceSpy.updateNewBatchCounters(newBatch, totalAccrued, countToMove);
+
+        Assertions.assertEquals(5000L, newBatch.getInitialAmountCents());
+        Assertions.assertEquals(10L, newBatch.getNumberOfTransactionsSuspended());
+        Assertions.assertEquals(10L, newBatch.getNumberOfTransactions());
+    }
+
+    @Test
+    void updateNewBatchCounters_shouldAccumulateValues() {
+        RewardBatch existingBatch = RewardBatch.builder()
+                .id("EXISTING_BATCH_ID")
+                .initialAmountCents(1000L)
+                .numberOfTransactionsSuspended(5L)
+                .numberOfTransactions(20L)
+                .build();
+
+        Long totalAccrued = 2500L;
+        long countToMove = 3L;
+
+        rewardBatchServiceSpy.updateNewBatchCounters(existingBatch, totalAccrued, countToMove);
+
+        Assertions.assertEquals(3500L, existingBatch.getInitialAmountCents());
+        Assertions.assertEquals(8L, existingBatch.getNumberOfTransactionsSuspended());
+        Assertions.assertEquals(23L, existingBatch.getNumberOfTransactions());
+    }
     private RewardTransaction createMockTransaction(String id, Long effectiveAmount, Long accruedReward, String gtin, String name) {
         RewardTransaction trx = new RewardTransaction();
         trx.setId(id);
@@ -323,10 +484,8 @@ class RewardBatchServiceImplTest {
           assertEquals(REWARD_BATCH_ID_2, result.getId());
           assertEquals(NEXT_MONTH, result.getMonth());
           assertEquals(RewardBatchStatus.CREATED, result.getStatus());
-          assertEquals(0L, result.getInitialAmountCents());
           assertEquals(0L, result.getApprovedAmountCents());
-          assertEquals(REWARD_BATCH_1.getNumberOfTransactionsSuspended(),
-              result.getNumberOfTransactionsSuspended());
+          assertEquals(0L, result.getNumberOfTransactionsSuspended());
           assertEquals(RewardBatchAssignee.L1, result.getAssigneeLevel());
 
         })
