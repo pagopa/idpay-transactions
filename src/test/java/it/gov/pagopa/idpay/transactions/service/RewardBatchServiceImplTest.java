@@ -149,7 +149,7 @@ class RewardBatchServiceImplTest {
             when(rewardTransactionRepository.save(any(RewardTransaction.class)))
                     .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-            Mono<Long> result = rewardBatchServiceSpy.updateAndSaveRewardTransactionsSuspended(REWARD_BATCH_ID_1, INITIATIVE_ID, newBatchId);
+            Mono<Long> result = rewardBatchServiceSpy.updateAndSaveRewardTransactionsSuspended(REWARD_BATCH_ID_1, INITIATIVE_ID, newBatchId, "dicembre 2025");
 
             StepVerifier.create(result)
                     .expectNext(2000L)
@@ -164,7 +164,7 @@ class RewardBatchServiceImplTest {
         void updateAndSaveRewardTransactionsSuspended_shouldReturnZeroIfEmpty() {
             when(rewardTransactionRepository.findByFilter(anyString(), anyString(), anyList()))
                     .thenReturn(Flux.empty());
-            Mono<Long> result = rewardBatchServiceSpy.updateAndSaveRewardTransactionsSuspended(REWARD_BATCH_ID_1, INITIATIVE_ID, "NEW_ID");
+            Mono<Long> result = rewardBatchServiceSpy.updateAndSaveRewardTransactionsSuspended(REWARD_BATCH_ID_1, INITIATIVE_ID, "NEW_ID", "dicembre 2025");
 
             StepVerifier.create(result)
                     .expectNext(0L)
@@ -208,6 +208,7 @@ class RewardBatchServiceImplTest {
                 .id(REWARD_BATCH_ID_1)
                 .numberOfTransactionsSuspended(5L)
                 .merchantId(MERCHANT_ID)
+                .month("novembre 2025")
                 .build();
 
         RewardBatch newBatch = RewardBatch.builder()
@@ -216,7 +217,7 @@ class RewardBatchServiceImplTest {
 
         doReturn(Mono.just(newBatch)).when(rewardBatchServiceSpy).createRewardBatchAndSave(any());
         doReturn(Mono.just(1000L)).when(rewardBatchServiceSpy)
-                .updateAndSaveRewardTransactionsSuspended(REWARD_BATCH_ID_1, INITIATIVE_ID, "NEW_BATCH_ID");
+                .updateAndSaveRewardTransactionsSuspended(REWARD_BATCH_ID_1, INITIATIVE_ID, "NEW_BATCH_ID", originalBatch.getMonth());
         when(rewardBatchRepository.save(any(RewardBatch.class))).thenReturn(Mono.just(newBatch));
 
         Mono<RewardBatch> result = ReflectionTestUtils.invokeMethod(
@@ -594,6 +595,7 @@ class RewardBatchServiceImplTest {
     REWARD_BATCH_1.setStatus(RewardBatchStatus.APPROVING);
     REWARD_BATCH_1.setAssigneeLevel(RewardBatchAssignee.L3);
     REWARD_BATCH_1.setNumberOfTransactionsSuspended(1L);
+    REWARD_BATCH_1.setMonth("dicembre 2025");
     REWARD_BATCH_2.setStatus(RewardBatchStatus.CREATED);
 
             doReturn(Mono.just(FAKE_CSV_FILENAME))
@@ -603,7 +605,7 @@ class RewardBatchServiceImplTest {
             when(rewardBatchRepository.findRewardBatchById(REWARD_BATCH_ID_1)).thenReturn(Mono.just(REWARD_BATCH_1));
             doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsToApprove(anyString(), anyString());
             doReturn(Mono.just(REWARD_BATCH_2)).when(rewardBatchServiceSpy).createRewardBatchAndSave(any(RewardBatch.class));
-            doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsSuspended(anyString(), anyString(), anyString());
+            doReturn(Mono.empty()).when(rewardBatchServiceSpy).updateAndSaveRewardTransactionsSuspended(anyString(), anyString(), anyString(), anyString());
             when(rewardBatchRepository.save(any(RewardBatch.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
 
@@ -620,7 +622,8 @@ class RewardBatchServiceImplTest {
             verify(rewardBatchServiceSpy, times(1)).updateAndSaveRewardTransactionsSuspended(
                     REWARD_BATCH_ID_1,
                     INITIATIVE_ID,
-                    REWARD_BATCH_ID_2
+                    REWARD_BATCH_ID_2,
+                    REWARD_BATCH_1.getMonth()
             );
             verify(rewardBatchRepository, times(2)).save(argThat(batch ->
                     batch.getId().equals(REWARD_BATCH_ID_1) && batch.getStatus().equals(RewardBatchStatus.APPROVED)));

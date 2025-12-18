@@ -655,7 +655,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
         long countToMove = originalBatch.getNumberOfTransactionsSuspended();
         return createRewardBatchAndSave(originalBatch)
-                .flatMap(newBatch -> updateAndSaveRewardTransactionsSuspended(originalBatch.getId(), initiativeId, newBatch.getId())
+                .flatMap(newBatch -> updateAndSaveRewardTransactionsSuspended(originalBatch.getId(), initiativeId, newBatch.getId(), originalBatch.getMonth())
                         .flatMap(totalAccrued -> {
                             updateNewBatchCounters(newBatch, totalAccrued, countToMove);
                             return rewardBatchRepository.save(newBatch);
@@ -759,7 +759,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     }
 
-    public Mono<Long> updateAndSaveRewardTransactionsSuspended(String oldBatchId, String initiativeId, String newBatchId) {
+    public Mono<Long> updateAndSaveRewardTransactionsSuspended(String oldBatchId, String initiativeId, String newBatchId, String oldMonth) {
         List<RewardBatchTrxStatus> statusList = List.of(RewardBatchTrxStatus.SUSPENDED);
 
         return rewardTransactionRepository.findByFilter(oldBatchId, initiativeId, statusList)
@@ -769,6 +769,9 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 }))
                 .flatMap(rewardTransaction -> {
                     rewardTransaction.setRewardBatchId(newBatchId);
+                    if(rewardTransaction.getRewardBatchLastMonthElaborated() == null) {
+                        rewardTransaction.setRewardBatchLastMonthElaborated(oldMonth);
+                    }
 
                     Long rewardCents = 0L;
                     if (rewardTransaction.getRewards() != null &&
