@@ -95,7 +95,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     private static final String REWARD_BATCHES_PATH_STORAGE_FORMAT = "initiative/%s/merchant/%s/batch/%s/";
   private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "%s_%s_%s.csv";
-  private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ITALIAN);
+  private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM", Locale.ITALIAN);
 
   public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService) {
     this.rewardBatchRepository = rewardBatchRepository;

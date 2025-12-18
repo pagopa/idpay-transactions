@@ -1709,7 +1709,7 @@ class RewardBatchServiceImplTest {
   void approvedTransactions() {
     String batchId = "BATCH_ID";
     String initiativeId = "INITIATIVE_ID";
-    String batchMonth = "dicembre 2025";
+    String batchMonth = "2025-12";
 
     TransactionsRequest transactionsRequest = TransactionsRequest.builder()
         .transactionIds(
@@ -2912,7 +2912,7 @@ class RewardBatchServiceImplTest {
   void approveTransaction_whenTransactionSuspendedInPreviousBatch(){
 
       String initiativeId = "INITIATIVE_ID";
-      RewardBatch actualBatch = RewardBatch.builder().id("BATCH_ID").month("dicembre 2025").build();
+      RewardBatch actualBatch = RewardBatch.builder().id("BATCH_ID").month("2025-12").build();
       when(rewardBatchRepository.findByIdAndStatus(actualBatch.getId(), RewardBatchStatus.EVALUATING))
               .thenReturn(Mono.just(actualBatch));
 
@@ -2923,7 +2923,7 @@ class RewardBatchServiceImplTest {
               .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
               .rewardBatchId(actualBatch.getId())
               .rewards(rewardApprovedMap)
-              .rewardBatchLastMonthElaborated("novembre 2025").build();
+              .rewardBatchLastMonthElaborated("2025-11").build();
 
       TransactionsRequest request = TransactionsRequest.builder().transactionIds(List.of(trxMock.getId())).build();
 
@@ -2955,7 +2955,7 @@ class RewardBatchServiceImplTest {
     void approveTransaction_whenTransactionSuspendedInActualBatch(){
 
         String initiativeId = "INITIATIVE_ID";
-        RewardBatch actualBatch = RewardBatch.builder().id("BATCH_ID").month("dicembre 2025").build();
+        RewardBatch actualBatch = RewardBatch.builder().id("BATCH_ID").month("2025-12").build();
         when(rewardBatchRepository.findByIdAndStatus(actualBatch.getId(), RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.just(actualBatch));
 
@@ -2998,7 +2998,7 @@ class RewardBatchServiceImplTest {
     void rejectTransaction_whenTransactionSuspendedInPreviousBatch(){
 
         String initiativeId = "INITIATIVE_ID";
-        RewardBatch actualBatch = RewardBatch.builder().id("BATCH_ID").month("dicembre 2025").build();
+        RewardBatch actualBatch = RewardBatch.builder().id("BATCH_ID").month("2025-12").build();
         when(rewardBatchRepository.findByIdAndStatus(actualBatch.getId(), RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.just(actualBatch));
 
@@ -3009,7 +3009,7 @@ class RewardBatchServiceImplTest {
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
                 .rewardBatchId(actualBatch.getId())
                 .rewards(rewardApprovedMap)
-                .rewardBatchLastMonthElaborated("novembre 2025").build();
+                .rewardBatchLastMonthElaborated("2025-11").build();
 
         TransactionsRequest request = TransactionsRequest.builder().transactionIds(List.of(trxMock.getId())).reason("REASON").build();
 
@@ -3041,7 +3041,7 @@ class RewardBatchServiceImplTest {
     void rejectTransaction_whenTransactionSuspendedInActualBatch(){
 
         String initiativeId = "INITIATIVE_ID";
-        RewardBatch actualBatch = RewardBatch.builder().id("BATCH_ID").month("dicembre 2025").build();
+        RewardBatch actualBatch = RewardBatch.builder().id("BATCH_ID").month("2025-12").build();
         when(rewardBatchRepository.findByIdAndStatus(actualBatch.getId(), RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.just(actualBatch));
 
@@ -3084,7 +3084,7 @@ class RewardBatchServiceImplTest {
     void suspendTransaction_whenTransactionSuspendedInPreviousBatch(){
 
         String initiativeId = "INITIATIVE_ID";
-        RewardBatch actualBatch = RewardBatch.builder().id("BATCH_ID").month("dicembre 2025").build();
+        RewardBatch actualBatch = RewardBatch.builder().id("BATCH_ID").month("2025-12").build();
         when(rewardBatchRepository.findByIdAndStatus(actualBatch.getId(), RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.just(actualBatch));
 
@@ -3095,7 +3095,7 @@ class RewardBatchServiceImplTest {
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
                 .rewardBatchId(actualBatch.getId())
                 .rewards(rewardApprovedMap)
-                .rewardBatchLastMonthElaborated("novembre 2025").build();
+                .rewardBatchLastMonthElaborated("2025-11").build();
 
         TransactionsRequest request = TransactionsRequest.builder().transactionIds(List.of(trxMock.getId())).reason("REASON").build();
 
@@ -3127,7 +3127,7 @@ class RewardBatchServiceImplTest {
     void suspendTransaction_whenTransactionSuspendedInActualBatch(){
 
         String initiativeId = "INITIATIVE_ID";
-        RewardBatch actualBatch = RewardBatch.builder().id("BATCH_ID").month("dicembre 2025").build();
+        RewardBatch actualBatch = RewardBatch.builder().id("BATCH_ID").month("2025-12").build();
         when(rewardBatchRepository.findByIdAndStatus(actualBatch.getId(), RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.just(actualBatch));
 
@@ -3138,7 +3138,7 @@ class RewardBatchServiceImplTest {
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
                 .rewardBatchId(actualBatch.getId())
                 .rewards(rewardApprovedMap)
-                .rewardBatchLastMonthElaborated("dicembre 2025").build();
+                .rewardBatchLastMonthElaborated("2025-12").build();
 
         TransactionsRequest request = TransactionsRequest.builder().transactionIds(List.of(trxMock.getId())).reason("REASON").build();
 
