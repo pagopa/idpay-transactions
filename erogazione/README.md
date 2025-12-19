@@ -97,11 +97,12 @@ merchant
     ragioneSocialeIntestatario=businessName, 
     ibanBeneficiario=iban, 
     intestatarioContoCorrente=ibanHolder,
-    importo=approvedAmountCents,
+    importo=tostring(approvedAmountCents),
     autorizzatore="Gianluca Fiorillo",
     merchantId=_id,
     idPratica=_id1,
     dataAmmissione=updateDate
+
 
 ```
 
