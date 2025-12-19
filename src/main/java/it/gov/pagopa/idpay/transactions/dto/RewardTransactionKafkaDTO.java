@@ -1,14 +1,14 @@
-package it.gov.pagopa.idpay.transactions.model;
+package it.gov.pagopa.idpay.transactions.dto;
 
-import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.RefundInfo;
+import it.gov.pagopa.idpay.transactions.model.Reward;
 import lombok.*;
-import lombok.experimental.FieldNameConstants;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -16,16 +16,15 @@ import java.util.Map;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-@FieldNameConstants
-@EqualsAndHashCode(of = {"id"}, callSuper = false)
-@Document(collection = "transaction")
-public class RewardTransaction {
+@EqualsAndHashCode(of = {"id"})
+public class RewardTransactionKafkaDTO {
 
-    @Id
+    @JsonAlias("_id")
     private String id;
     private String idTrxAcquirer;
     private String acquirerCode;
-    private LocalDateTime trxDate;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    private OffsetDateTime trxDate;
     private String hpan;
     private String operationType;
     private String circuitType;
@@ -34,6 +33,7 @@ public class RewardTransaction {
 
     private Long amountCents;
     private String amountCurrency;
+    private Long rewardCents;
 
     private String mcc;
     private String acquirerId;
@@ -49,9 +49,9 @@ public class RewardTransaction {
     private String status;
     private List<String> rejectionReasons;
     private Map<String, List<String>> initiativeRejectionReasons;
-    private String initiativeId;
     private List<String> initiatives;
-    private Map<String,Reward> rewards;
+    private String initiativeId;
+    private Map<String, Reward> rewards;
 
     private String userId;
     private String maskedPan;
@@ -59,30 +59,22 @@ public class RewardTransaction {
 
     private String operationTypeTranscoded;
     private Long effectiveAmountCents;
-    private LocalDateTime trxChargeDate;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    private OffsetDateTime trxChargeDate;
     private RefundInfo refundInfo;
 
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime elaborationDateTime;
     private String channel;
     private Map<String, String> additionalProperties;
     private InvoiceData invoiceData;
     private InvoiceData creditNoteData;
     private String trxCode;
-
-    private String rewardBatchId;
-    private RewardBatchTrxStatus rewardBatchTrxStatus;
-    private String rewardBatchRejectionReason;
-    private LocalDateTime rewardBatchInclusionDate;
     private String franchiseName;
     private PosType pointOfSaleType;
     private String businessName;
-    private LocalDateTime invoiceUploadDate;
-
-    //key used for randomly select a transaction for evaluation
-    private int samplingKey;
     private LocalDateTime updateDate;
+
     private Boolean extendedAuthorization;
     private Long voucherAmountCents;
-
-    private String rewardBatchLastMonthElaborated;
 }
