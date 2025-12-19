@@ -146,7 +146,7 @@ def process_csv():
       for row in reader:
         try:
           # Recupero dati anagrafici da SelfCare
-          tax_code = row['partitaIvaCliente']
+          tax_code = row['codiceFiscaleCliente']
           institution_data = get_institution_data(tax_code, all_responses_log)
 
           if institution_data is None:
