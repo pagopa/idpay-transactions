@@ -8,8 +8,13 @@ CLIENT_ID = "IL_TUO_CLIENT_ID"
 CLIENT_SECRET = "IL_TUO_CLIENT_SECRET"
 BASE_URL = "https://dev-apim-misure.azure-api.net/pagopa/ce/v1"
 TOKEN_URL = "https://login.microsoftonline.com/afd0a75c-8671-4cce-9061-2ca0d92e422f/oauth2/v2.0/token"
+SELFCARE_URL = "https://api.selfcare.pagopa.it/external/v2/institutions"
+SELFCARE_API_KEY = "SELFCARE-MERCHANT-API-KEY"
 CSV_FILE = "dati.csv"
 OUTPUT_JSON_FILE = "risposte_api.json"
+
+# Cache per le informazioni anagrafiche recuperate da SelfCare
+selfcare_cache = {}
 
 
 def get_bearer_token():
@@ -47,6 +52,81 @@ def format_date(date_str):
     return date_str
 
 
+def get_institution_data(tax_code, all_responses_log):
+  """
+  Recupera i dati anagrafici da SelfCare tramite taxCode.
+  Utilizza una cache interna per evitare chiamate ripetute.
+
+  Ritorna un dizionario con cap, indirizzo, localita, provincia, pec oppure None in caso di errore.
+  """
+  # Controlla se il dato è già in cache
+  if tax_code in selfcare_cache:
+    return selfcare_cache[tax_code]
+
+  headers = {
+    'Ocp-Apim-Subscription-Key': SELFCARE_API_KEY,
+    'Accept': 'application/json'
+  }
+
+  try:
+    response = requests.get(SELFCARE_URL, headers=headers, params={'taxCode': tax_code})
+
+    if response.status_code != 200:
+      print(f"Errore chiamata SelfCare per taxCode {tax_code}: HTTP {response.status_code}")
+      response_data = {
+        "service": "selfcare",
+        "taxCode": tax_code,
+        "status_code": response.status_code,
+        "timestamp": datetime.now().isoformat()
+      }
+      try:
+        response_data["api_response"] = response.json()
+      except json.JSONDecodeError:
+        response_data["api_response"] = response.text
+      all_responses_log.append(response_data)
+      return None
+
+    data = response.json()
+    institutions = data.get('institutions', [])
+
+    if len(institutions) != 1:
+      print(f"Errore: SelfCare ha restituito {len(institutions)} risultati per taxCode {tax_code} (atteso 1)")
+      response_data = {
+        "service": "selfcare",
+        "taxCode": tax_code,
+        "status_code": response.status_code,
+        "timestamp": datetime.now().isoformat(),
+        "error": f"Numero di risultati non valido: {len(institutions)} (atteso 1)",
+        "api_response": data
+      }
+      all_responses_log.append(response_data)
+      return None
+
+    institution = institutions[0]
+    result = {
+      'cap': institution.get('zipCode', ''),
+      'indirizzo': institution.get('address', ''),
+      'localita': institution.get('city', ''),
+      'provincia': institution.get('county', ''),
+      'pec': institution.get('digitalAddress', '')
+    }
+
+    # Salva in cache
+    selfcare_cache[tax_code] = result
+    return result
+
+  except requests.exceptions.RequestException as e:
+    print(f"Errore di rete chiamata SelfCare per taxCode {tax_code}: {e}")
+    response_data = {
+      "service": "selfcare",
+      "taxCode": tax_code,
+      "timestamp": datetime.now().isoformat(),
+      "error": str(e)
+    }
+    all_responses_log.append(response_data)
+    return None
+
+
 def process_csv():
   token = get_bearer_token()
   headers = {
@@ -65,6 +145,14 @@ def process_csv():
 
       for row in reader:
         try:
+          # Recupero dati anagrafici da SelfCare
+          tax_code = row['partitaIvaCliente']
+          institution_data = get_institution_data(tax_code, all_responses_log)
+
+          if institution_data is None:
+            print(f"Salto riga ID {row['id']}: impossibile recuperare dati da SelfCare per taxCode {tax_code}")
+            continue
+
           # Conversione importo: da centesimi (int) a euro (float)
           importo_centesimi = float(row['importo'])
           importo_reale = importo_centesimi / 100
@@ -75,11 +163,11 @@ def process_csv():
               "partitaIvaCliente": row['partitaIvaCliente'],
               "codiceFiscaleCliente": row['codiceFiscaleCliente'],
               "ragioneSocialeIntestatario": row['ragioneSocialeIntestatario'],
-              "pec": row['pec'],
-              "indirizzo": row['indirizzo'],
-              "cap": row['cap'],
-              "localita": row['localita'],
-              "provincia": row['provincia']
+              "pec": institution_data['pec'],
+              "indirizzo": institution_data['indirizzo'],
+              "cap": institution_data['cap'],
+              "localita": institution_data['localita'],
+              "provincia": institution_data['provincia']
             },
             "erogazione": {
               "idPratica": row['idPratica'],
