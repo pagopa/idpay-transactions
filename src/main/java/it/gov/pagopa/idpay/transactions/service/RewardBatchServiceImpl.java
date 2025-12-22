@@ -864,7 +864,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                     String reportFilename = String.format(REWARD_BATCHES_REPORT_NAME_FORMAT,
                             batch.getBusinessName(),
                             batch.getName(),
-                            batch.getPosType()).trim();
+                            batch.getPosType().getDescription());
                     String filename = pathPrefix + reportFilename;
 
                     Flux<RewardTransaction> transactionFlux = rewardTransactionRepository.findByFilter(
