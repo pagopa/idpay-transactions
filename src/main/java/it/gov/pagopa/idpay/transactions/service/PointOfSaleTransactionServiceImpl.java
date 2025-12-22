@@ -26,7 +26,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
@@ -506,7 +505,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
     @Override
     public Mono<List<FranchisePointOfSaleDTO>> getDistinctFranchiseAndPosByRewardBatchId(String rewardBatchId) {
-        log.info("[POINT_OF_SALE_TRANSACTION_SERVICE] - Get point of sale for reward batch id [{}]", rewardBatchId);
+      log.info("[POINT_OF_SALE_TRANSACTION_SERVICE] - Get point of sale for reward batch id [{}]", Utilities.sanitizeString(rewardBatchId));
         return rewardTransactionRepository
                 .findDistinctFranchiseAndPosByRewardBatchId(rewardBatchId)
                 .collectList();

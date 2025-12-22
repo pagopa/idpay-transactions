@@ -1141,99 +1141,57 @@ class RewardTransactionSpecificRepositoryTest {
     @Test
     void findDistinctFranchiseAndPosByRewardBatchId() {
 
-        String rewardBatchId = "BATCH_TEST";
+      String rewardBatchId = "BATCH_TEST";
 
-        RewardTransaction trx1 = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("trx1")
-                .rewardBatchId(rewardBatchId)
-                .franchiseName("FranchiseA")
-                .pointOfSaleId("POS1")
-                .build();
+      RewardTransaction trx1 = RewardTransactionFaker.mockInstanceBuilder(1)
+          .id("trx1")
+          .rewardBatchId(rewardBatchId)
+          .franchiseName("FranchiseA")
+          .pointOfSaleId("POS1")
+          .build();
 
-        RewardTransaction trx2 = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("trx2")
-                .rewardBatchId(rewardBatchId)
-                .franchiseName("FranchiseA")
-                .pointOfSaleId("POS1")
-                .build();
+      RewardTransaction trx2 = RewardTransactionFaker.mockInstanceBuilder(2)
+          .id("trx2")
+          .rewardBatchId(rewardBatchId)
+          .franchiseName("FranchiseA")
+          .pointOfSaleId("POS1")
+          .build();
 
-        RewardTransaction trx3 = RewardTransactionFaker.mockInstanceBuilder(3)
-                .id("trx3")
-                .rewardBatchId(rewardBatchId)
-                .franchiseName("FranchiseA")
-                .pointOfSaleId("POS2")
-                .build();
+      RewardTransaction trx3 = RewardTransactionFaker.mockInstanceBuilder(3)
+          .id("trx3")
+          .rewardBatchId(rewardBatchId)
+          .franchiseName("FranchiseA")
+          .pointOfSaleId("POS2")
+          .build();
 
-        RewardTransaction trx4 = RewardTransactionFaker.mockInstanceBuilder(4)
-                .id("trx4")
-                .rewardBatchId("OTHER_BATCH")
-                .franchiseName("FranchiseA")
-                .pointOfSaleId("POS9")
-                .build();
+      RewardTransaction trx4 = RewardTransactionFaker.mockInstanceBuilder(4)
+          .id("trx4")
+          .rewardBatchId("OTHER_BATCH")
+          .franchiseName("FranchiseA")
+          .pointOfSaleId("POS9")
+          .build();
 
-        rewardTransactionRepository.saveAll(List.of(trx1, trx2, trx3, trx4)).collectList().block();
+      rewardTransactionRepository.saveAll(List.of(trx1, trx2, trx3, trx4)).collectList().block();
 
-        List<FranchisePointOfSaleDTO> result = rewardTransactionSpecificRepository
-                .findDistinctFranchiseAndPosByRewardBatchId(rewardBatchId)
-                .toStream()
-                .toList();
+      List<FranchisePointOfSaleDTO> result = rewardTransactionSpecificRepository
+          .findDistinctFranchiseAndPosByRewardBatchId(rewardBatchId)
+          .toStream()
+          .toList();
 
+      assertEquals(2, result.size());
 
-        assertEquals(2, result.size());
+      assertTrue(result.stream().anyMatch(r ->
+          "FranchiseA".equals(r.getFranchiseName()) &&
+              "POS1".equals(r.getPointOfSaleId())
+      ));
 
-        assertTrue(result.stream().anyMatch(r ->
-                "FranchiseA".equals(r.getFranchiseName()) &&
-                        "POS1".equals(r.getPointOfSaleId())
-        ));
+      assertTrue(result.stream().anyMatch(r ->
+          "FranchiseA".equals(r.getFranchiseName()) &&
+              "POS2".equals(r.getPointOfSaleId())
+      ));
 
-        assertTrue(result.stream().anyMatch(r ->
-                "FranchiseA".equals(r.getFranchiseName()) &&
-                        "POS2".equals(r.getPointOfSaleId())
-        ));
+      rewardTransactionRepository.deleteAll(List.of(trx1, trx2, trx3, trx4)).block();
 
-
-        rewardTransactionRepository.deleteAll(List.of(trx1, trx2, trx3, trx4)).block();
-  
-    void findTransactionInBatch_returnsTransaction_whenAllCriteriaMatch() {
-        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
-            .id("id1")
-            .merchantId(MERCHANT_ID)
-            .rewardBatchId("BATCH1")
-            .build();
-
-        rewardTransactionRepository.save(rt1).block();
-
-        RewardTransaction result =
-            rewardTransactionSpecificRepository
-                .findTransactionInBatch(MERCHANT_ID, "BATCH1", "id1")
-                .block();
-
-        Assertions.assertNotNull(result);
-        Assertions.assertEquals("id1", result.getId());
-        Assertions.assertEquals(MERCHANT_ID, result.getMerchantId());
-        Assertions.assertEquals("BATCH1", result.getRewardBatchId());
-
-        rewardTransactionRepository.deleteById(rt1.getId()).block();
-    }
-
-    @Test
-    void findTransactionInBatch_returnsEmpty_whenMerchantIdDoesNotMatch() {
-        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
-            .id("id1")
-            .merchantId(MERCHANT_ID)
-            .rewardBatchId("BATCH1")
-            .build();
-
-        rewardTransactionRepository.save(rt1).block();
-
-        RewardTransaction result =
-            rewardTransactionSpecificRepository
-                .findTransactionInBatch("OTHER_MERCHANT", "BATCH1", "id1")
-                .block();
-
-        Assertions.assertNull(result);
-
-        rewardTransactionRepository.deleteById(rt1.getId()).block();
     }
 
     @Test
@@ -1275,5 +1233,4 @@ class RewardTransactionSpecificRepositoryTest {
 
         rewardTransactionRepository.deleteById(rt1.getId()).block();
     }
-
 }
