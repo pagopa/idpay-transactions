@@ -335,7 +335,7 @@ class RewardBatchServiceImplTest {
                 any(String.class)
         );
 
-        String expectedReportFilename = "Business_BatchName_PHYSICAL.csv";
+        String expectedReportFilename = "Business_BatchName_Fisico.csv";
 
         StepVerifier.create(
                         rewardBatchServiceSpy.generateAndSaveCsv(
@@ -368,12 +368,12 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Flux.empty());
 
         when(rewardBatchServiceSpy.uploadCsvToBlob(anyString(), anyString()))
-                .thenReturn(Mono.just("Business_BatchName_PHYSICAL.csv"));
+                .thenReturn(Mono.just("Business_BatchName_Fisico.csv"));
 
         StepVerifier.create(
                         rewardBatchServiceSpy.generateAndSaveCsv(
                                 REWARD_BATCH_ID_2, INITIATIVE_ID, MERCHANT_ID))
-                .expectNext("Business_BatchName_PHYSICAL.csv")
+                .expectNext("Business_BatchName_Fisico.csv")
                 .verifyComplete();
 
         verify(rewardTransactionRepository).findByFilter(any(), any(), anyList());
