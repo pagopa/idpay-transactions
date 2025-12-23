@@ -569,7 +569,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                     .doOnNext(rewardBatchId ->
                             log.info("Processing batch {}", rewardBatchId)
                     )
-                    .flatMap(rewardBatchId ->
+                    .concatMap(rewardBatchId ->
                             this.processSingleBatchSafe(rewardBatchId, initiativeId)
                     )
 
@@ -591,7 +591,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             log.info("Processing batch {}",
                                     rewardBatch.getId())
                     )
-                    .flatMap(rewardBatch -> {
+                    .concatMap(rewardBatch -> {
                         String rewardBatchId = rewardBatch.getId();
                         return processSingleBatchSafe(rewardBatchId, initiativeId);
                     })
@@ -637,15 +637,13 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         this.generateAndSaveCsv(rewardBatchId, initiativeId, savedBatch.getMerchantId())
                                 .onErrorResume(e -> {
                                     log.error("Critical error while generating CSV for batch {}", Utilities.sanitizeString(rewardBatchId), e);
-                                    return Mono.empty();
+                                    return Mono.just("ERROR");
                                 })
-                                .flatMap(filename -> {
-                                    savedBatch.setFilename(filename);
-                                    log.info("Updated batch {} with filename: {}", Utilities.sanitizeString(rewardBatchId), filename);
-                                    return rewardBatchRepository.save(savedBatch);
-                                })
+                                .thenReturn(savedBatch)
                 );
     }
+
+
 
     private Mono<RewardBatch> handleSuspendedTransactions(RewardBatch originalBatch, String initiativeId) {
         if (originalBatch.getNumberOfTransactionsSuspended() == null || originalBatch.getNumberOfTransactionsSuspended() <= 0) {
@@ -842,7 +840,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
 
     @Override
-        public Mono<String> generateAndSaveCsv(String rewardBatchId, String initiativeId, String merchantId) {
+    public Mono<String> generateAndSaveCsv(String rewardBatchId, String initiativeId, String merchantId) {
 
             log.info("[GENERATE_AND_SAVE_CSV] Generate CSV for initiative {} and batch {}",
                     Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(rewardBatchId) );
@@ -864,15 +862,16 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                     String reportFilename = String.format(REWARD_BATCHES_REPORT_NAME_FORMAT,
                             batch.getBusinessName(),
                             batch.getName(),
-                            batch.getPosType()).trim();
+                            batch.getPosType().getDescription()).trim();
+
                     String filename = pathPrefix + reportFilename;
 
                     Flux<RewardTransaction> transactionFlux = rewardTransactionRepository.findByFilter(
                             rewardBatchId, initiativeId, List.of(RewardBatchTrxStatus.APPROVED, RewardBatchTrxStatus.REJECTED));
 
                     Flux<String> csvRowsFlux = transactionFlux
-                            .flatMap(transaction -> {
-                                if(transaction.getFiscalCode() == null || transaction.getFiscalCode().isEmpty()){
+                            .concatMap(transaction -> {
+                                if (transaction.getFiscalCode() == null || transaction.getFiscalCode().isEmpty()) {
                                     return userRestClient.retrieveUserInfo(transaction.getUserId())
                                             .map(cf -> {
                                                 transaction.setFiscalCode(cf.getPii());
@@ -888,9 +887,14 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             .collect(StringBuilder::new, (sb, s) -> sb.append(s).append("\n"))
                             .map(StringBuilder::toString)
                             .flatMap(csvContent -> this.uploadCsvToBlob(filename, csvContent))
-                            .doOnTerminate(() -> log.info("CSV generation has been completed for batch: {}", Utilities.sanitizeString(rewardBatchId)))
-                            .map(uploadedKey -> reportFilename);
-                });
+                            .flatMap(uploadedPath -> {
+                                batch.setFilename(reportFilename);
+                                log.info("Updated batch {} with filename: {}", Utilities.sanitizeString(rewardBatchId), reportFilename);
+                                return rewardBatchRepository.save(batch)
+                                        .thenReturn(reportFilename);
+                            });
+                })
+                .doOnTerminate(() -> log.info("CSV generation has been completed for batch: {}", Utilities.sanitizeString(rewardBatchId)));
     }
 
     private String mapTransactionToCsvRow(RewardTransaction trx, String initiativeId) {
