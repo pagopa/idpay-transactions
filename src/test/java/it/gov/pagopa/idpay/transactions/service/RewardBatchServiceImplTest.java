@@ -322,7 +322,6 @@ class RewardBatchServiceImplTest {
 
         @SuppressWarnings("unchecked")
         Response<BlockBlobItem> mockResponseSuccess = Mockito.mock(Response.class);
-        when(mockResponseSuccess.getStatusCode()).thenReturn(HttpStatus.CREATED.value());
         doReturn(Mono.just("Business_BatchName_Fisico.csv"))
                 .when(rewardBatchServiceSpy).uploadCsvToBlob(anyString(), anyString());
 
