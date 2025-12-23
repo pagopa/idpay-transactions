@@ -295,6 +295,7 @@ class RewardBatchServiceImplTest {
 
     @Test
     void testGenerateAndSaveCsv_Success() {
+        String userIdWithNoCF = "USER_ID_2";
         RewardBatch batch = RewardBatch.builder()
                 .id(REWARD_BATCH_ID_1)
                 .merchantId(MERCHANT_ID)
@@ -310,6 +311,7 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction trx1 = createMockTransaction("T001", 10000L, 500L, "8033675155005", "Lavatrice");
         RewardTransaction trx2 = createMockTransaction("T002", 500L, 10L, "1234567890123", "Aspirapolvere");
+        trx2.setUserId(userIdWithNoCF);
         trx2.setFiscalCode(null);
 
         when(rewardTransactionRepository.findByFilter(anyString(), anyString(), anyList()))
@@ -564,7 +566,7 @@ class RewardBatchServiceImplTest {
 
             verify(rewardBatchServiceSpy, times(1)).updateAndSaveRewardTransactionsToApprove(REWARD_BATCH_ID_1, INITIATIVE_ID);
             verify(rewardBatchServiceSpy, never()).createRewardBatchAndSave(any());
-            verify(rewardBatchRepository, times(2)).save(any(RewardBatch.class));
+            verify(rewardBatchRepository, times(1)).save(any(RewardBatch.class));
         }
 
   @Test
