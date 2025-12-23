@@ -5,8 +5,8 @@ import lombok.Getter;
 @Getter
 public enum PosType {
 
-  PHYSICAL("Fisico"),
-  ONLINE("Online");
+  PHYSICAL("FISICO"),
+  ONLINE("ONLINE");
 
   private final String description;
 

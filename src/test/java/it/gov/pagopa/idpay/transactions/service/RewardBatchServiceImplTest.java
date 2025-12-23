@@ -322,10 +322,10 @@ class RewardBatchServiceImplTest {
 
         @SuppressWarnings("unchecked")
         Response<BlockBlobItem> mockResponseSuccess = Mockito.mock(Response.class);
-        doReturn(Mono.just("Business_BatchName_Fisico.csv"))
+        doReturn(Mono.just("Business_BatchName_FISICO.csv"))
                 .when(rewardBatchServiceSpy).uploadCsvToBlob(anyString(), anyString());
 
-        String expectedReportFilename = "Business_BatchName_Fisico.csv";
+        String expectedReportFilename = "Business_BatchName_FISICO.csv";
 
         StepVerifier.create(
                         rewardBatchServiceSpy.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
@@ -355,7 +355,7 @@ class RewardBatchServiceImplTest {
         when(rewardTransactionRepository.findByFilter(any(), any(), anyList()))
                 .thenReturn(Flux.empty());
 
-        String expectedFilename = "Business_BatchName_Fisico.csv";
+        String expectedFilename = "Business_BatchName_FISICO.csv";
         doReturn(Mono.just(expectedFilename))
                 .when(rewardBatchServiceSpy).uploadCsvToBlob(anyString(), anyString());
 
