@@ -1,6 +1,9 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.AssertionsKt.assertNotNull;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.http.MediaType.APPLICATION_PDF_VALUE;
@@ -12,6 +15,7 @@ import com.azure.core.http.rest.Response;
 import com.azure.storage.blob.models.BlockBlobItem;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
+import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionKafkaDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
@@ -27,6 +31,7 @@ import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -43,9 +48,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.messaging.Message;
+import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -59,6 +66,7 @@ class PointOfSaleTransactionServiceImplTest {
     @Mock private RewardBatchRepository rewardBatchRepository;
     @Mock private TransactionErrorNotifierService transactionErrorNotifierService;
     @Mock private TransactionNotifierService transactionNotifierService;
+    @Mock private RewardBatchService rewardBatchService;
 
     @InjectMocks private PointOfSaleTransactionServiceImpl service;
 
@@ -448,4 +456,260 @@ class PointOfSaleTransactionServiceImplTest {
         });
         return fp;
     }
+
+  @Test
+  void getDistinctFranchiseAndPosByRewardBatchId_returnsList() {
+    String rewardBatchId = "BATCH1";
+
+    FranchisePointOfSaleDTO dto1 = new FranchisePointOfSaleDTO();
+    dto1.setFranchiseName("FRANCHISE_1");
+    dto1.setPointOfSaleId("POS_1");
+
+    FranchisePointOfSaleDTO dto2 = new FranchisePointOfSaleDTO();
+    dto2.setFranchiseName("FRANCHISE_2");
+    dto2.setPointOfSaleId("POS_2");
+
+    when(rewardTransactionRepository.findDistinctFranchiseAndPosByRewardBatchId(rewardBatchId))
+        .thenReturn(Flux.just(dto1, dto2));
+
+    StepVerifier.create(service.getDistinctFranchiseAndPosByRewardBatchId(rewardBatchId))
+        .assertNext(list -> {
+          assertEquals(2, list.size());
+          assertEquals("FRANCHISE_1", list.get(0).getFranchiseName());
+          assertEquals("POS_1", list.get(0).getPointOfSaleId());
+          assertEquals("FRANCHISE_2", list.get(1).getFranchiseName());
+          assertEquals("POS_2", list.get(1).getPointOfSaleId());
+        })
+        .verifyComplete();
+
+    verify(rewardTransactionRepository, times(1))
+        .findDistinctFranchiseAndPosByRewardBatchId(rewardBatchId);
+  }
+
+  @Test
+  void getDistinctFranchiseAndPosByRewardBatchId_propagatesError() {
+    String rewardBatchId = "BATCH_ERROR";
+
+    RuntimeException error = new RuntimeException("mongo failure");
+
+    when(rewardTransactionRepository.findDistinctFranchiseAndPosByRewardBatchId(rewardBatchId))
+        .thenReturn(Flux.error(error));
+
+    StepVerifier.create(service.getDistinctFranchiseAndPosByRewardBatchId(rewardBatchId))
+        .expectErrorMatches(e ->
+            e instanceof RuntimeException &&
+                "mongo failure".equals(e.getMessage()))
+        .verify();
+
+    verify(rewardTransactionRepository, times(1))
+        .findDistinctFranchiseAndPosByRewardBatchId(rewardBatchId);
+  }
+
+  @Test
+  void getDistinctFranchiseAndPosByRewardBatchId_returnsEmptyList_whenNoResults() {
+    String rewardBatchId = "BATCH_EMPTY";
+
+    when(rewardTransactionRepository.findDistinctFranchiseAndPosByRewardBatchId(rewardBatchId))
+        .thenReturn(Flux.empty());
+
+    StepVerifier.create(service.getDistinctFranchiseAndPosByRewardBatchId(rewardBatchId))
+        .assertNext(list -> assertTrue(list.isEmpty()))
+        .verifyComplete();
+
+    verify(rewardTransactionRepository, times(1))
+        .findDistinctFranchiseAndPosByRewardBatchId(rewardBatchId);
+  }
+
+  @Test
+  void validateTransactionData_statusNotInvoiced_throwsClientExceptionNoBody() {
+    RewardTransaction trx = new RewardTransaction();
+    trx.setStatus(SyncTrxStatus.REWARDED.name());
+
+    ClientExceptionNoBody ex = assertThrows(
+        ClientExceptionNoBody.class,
+        () -> ReflectionTestUtils.invokeMethod(
+            service,
+            "validateTransactionData",
+            trx,
+            MERCHANT_ID,
+            POS_ID
+        )
+    );
+
+    assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus());
+  }
+
+  @Test
+  void validateTransactionData_merchantIdMismatch_throwsClientExceptionWithBody() {
+    RewardTransaction trx = new RewardTransaction();
+    trx.setStatus(SyncTrxStatus.INVOICED.name());
+    trx.setMerchantId("OTHER_MERCHANT");
+    trx.setPointOfSaleId(POS_ID);
+
+    ClientExceptionWithBody ex = assertThrows(
+        ClientExceptionWithBody.class,
+        () -> ReflectionTestUtils.invokeMethod(
+            service,
+            "validateTransactionData",
+            trx,
+            MERCHANT_ID,
+            POS_ID
+        )
+    );
+
+    assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus());
+    assertTrue(ex.getMessage().contains("merchant"));
+  }
+
+  @Test
+  void validateTransactionData_pointOfSaleMismatch_throwsClientExceptionWithBody() {
+    RewardTransaction trx = new RewardTransaction();
+    trx.setStatus(SyncTrxStatus.INVOICED.name());
+    trx.setMerchantId(MERCHANT_ID);
+    trx.setPointOfSaleId("OTHER_POS");
+
+    ClientExceptionWithBody ex = assertThrows(
+        ClientExceptionWithBody.class,
+        () -> ReflectionTestUtils.invokeMethod(
+            service,
+            "validateTransactionData",
+            trx,
+            MERCHANT_ID,
+            POS_ID
+        )
+    );
+
+    assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus());
+    assertTrue(ex.getMessage().contains("pointOfSaleId"));
+  }
+
+  @Test
+  void validateTransactionData_validData_returnsInvoiceData() {
+    InvoiceData invoiceData = InvoiceData.builder()
+        .filename("invoice.pdf")
+        .build();
+
+    RewardTransaction trx = new RewardTransaction();
+    trx.setStatus(SyncTrxStatus.INVOICED.name());
+    trx.setMerchantId(MERCHANT_ID);
+    trx.setPointOfSaleId(POS_ID);
+    trx.setInvoiceData(invoiceData);
+
+    InvoiceData result = ReflectionTestUtils.invokeMethod(
+        service,
+        "validateTransactionData",
+        trx,
+        MERCHANT_ID,
+        POS_ID
+    );
+
+    assertNotNull(result);
+    assertEquals("invoice.pdf", result.getFilename());
+  }
+
+  @Test
+  void replaceInvoiceFile_ok_deletesOldAndUploadsNew() {
+    FilePart fp = filePartBackedBySrc("new.pdf", true);
+
+    InvoiceData oldInvoice = InvoiceData.builder()
+        .filename("old.pdf")
+        .build();
+
+    @SuppressWarnings("unchecked")
+    Response<BlockBlobItem> uploadResponse =
+        (Response<BlockBlobItem>) mock(Response.class);
+
+    when(invoiceStorageClient.upload(any(), anyString(), any()))
+        .thenReturn(uploadResponse);
+
+    Mono<Void> result = ReflectionTestUtils.invokeMethod(
+        service,
+        "replaceInvoiceFile",
+        fp,
+        oldInvoice,
+        MERCHANT_ID,
+        POS_ID,
+        TRX_ID
+    );
+
+    StepVerifier.create(result)
+        .verifyComplete();
+
+    verify(invoiceStorageClient).deleteFile(
+        "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/old.pdf"
+    );
+
+    verify(invoiceStorageClient).upload(
+        any(InputStream.class),
+        eq("invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/new.pdf"),
+        eq(APPLICATION_PDF_VALUE)
+    );
+  }
+
+  @Test
+  void updateInvoiceTransaction_transactionNotFound_throws() {
+    FilePart fp = mock(FilePart.class);
+    when(fp.filename()).thenReturn("invoice.pdf");
+
+    when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POS_ID, TRX_ID))
+        .thenReturn(Mono.empty());
+
+    StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
+        .expectError(ClientExceptionNoBody.class)
+        .verify();
+
+    verify(rewardTransactionRepository).findTransaction(MERCHANT_ID, POS_ID, TRX_ID);
+  }
+
+  @Test
+  void updateInvoiceTransaction_rewardBatchNotFound_throws() {
+    FilePart fp = mock(FilePart.class);
+    when(fp.filename()).thenReturn("invoice.pdf");
+
+    RewardTransaction trx = new RewardTransaction();
+    trx.setRewardBatchId("B404");
+    trx.setMerchantId(MERCHANT_ID);
+    trx.setPointOfSaleId(POS_ID);
+    trx.setStatus(SyncTrxStatus.INVOICED.name());
+
+    when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POS_ID, TRX_ID))
+        .thenReturn(Mono.just(trx));
+
+    when(rewardBatchRepository.findRewardBatchById("B404")).thenReturn(Mono.empty());
+
+    StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
+        .expectError(ClientExceptionNoBody.class)
+        .verify();
+
+    verify(rewardTransactionRepository).findTransaction(MERCHANT_ID, POS_ID, TRX_ID);
+    verify(rewardBatchRepository).findRewardBatchById("B404");
+  }
+
+  @Test
+  void updateInvoiceTransaction_rewardBatchAlreadySent_throws() {
+    FilePart fp = mock(FilePart.class);
+    when(fp.filename()).thenReturn("invoice.pdf");
+
+    RewardTransaction trx = new RewardTransaction();
+    trx.setRewardBatchId("B1");
+    trx.setMerchantId(MERCHANT_ID);
+    trx.setPointOfSaleId(POS_ID);
+    trx.setStatus(SyncTrxStatus.INVOICED.name());
+
+    RewardBatch batch = new RewardBatch();
+    batch.setId("B1");
+    batch.setStatus(RewardBatchStatus.SENT);
+
+    when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POS_ID, TRX_ID))
+        .thenReturn(Mono.just(trx));
+    when(rewardBatchRepository.findRewardBatchById("B1")).thenReturn(Mono.just(batch));
+
+    StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
+        .expectError(ClientExceptionWithBody.class)
+        .verify();
+
+    verify(rewardTransactionRepository).findTransaction(MERCHANT_ID, POS_ID, TRX_ID);
+    verify(rewardBatchRepository).findRewardBatchById("B1");
+  }
 }
+
