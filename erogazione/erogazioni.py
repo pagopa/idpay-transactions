@@ -193,7 +193,8 @@ def process_csv():
             "csv_id": row['id'],
             "idPratica": row['idPratica'],
             "status_code": response.status_code,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
+            "payload_sent": payload
           }
 
           # Tentativo di parsing JSON della risposta, altrimenti testo semplice
