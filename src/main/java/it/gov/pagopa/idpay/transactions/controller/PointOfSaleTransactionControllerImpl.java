@@ -99,7 +99,11 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
 
     @Override
     public Mono<List<FranchisePointOfSaleDTO>> getFranchisePointOfSale(String rewardBatchId) {
-      log.info("[POINT_OF_SALE_TRANSACTION_CONTROLLER] - Get point of sales by reward batch id {}", Utilities.sanitizeString(rewardBatchId));
+
+      final String sanitizedRewardBatchId = Utilities.sanitizeString(rewardBatchId);
+
+      log.info("[POINT_OF_SALE_TRANSACTION_CONTROLLER] - Get point of sales by reward batch id {}", sanitizedRewardBatchId);
+
       return pointOfSaleTransactionService.getDistinctFranchiseAndPosByRewardBatchId(rewardBatchId);
     }
 
