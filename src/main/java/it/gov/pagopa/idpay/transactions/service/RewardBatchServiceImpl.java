@@ -602,12 +602,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     public Mono<RewardBatch> processSingleBatchSafe(String rewardBatchId, String initiativeId) {
         return this.processSingleBatch(rewardBatchId, initiativeId)
-                .onErrorResume(ClientExceptionWithBody.class, error -> {
-                     log.warn(error.getMessage());
+                .onErrorResume(error -> {
+                    log.error("Failed to process batch {}: {}", rewardBatchId, error.getMessage(), error);
                     return Mono.empty();
                 });
     }
-
     public Mono<RewardBatch> processSingleBatch(String rewardBatchId, String initiativeId) {
         return rewardBatchRepository.findRewardBatchById(rewardBatchId)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
