@@ -104,7 +104,7 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
 
       log.info("[POINT_OF_SALE_TRANSACTION_CONTROLLER] - Get point of sales by reward batch id {}", sanitizedRewardBatchId);
 
-      return pointOfSaleTransactionService.getDistinctFranchiseAndPosByRewardBatchId(rewardBatchId);
+      return pointOfSaleTransactionService.getDistinctFranchiseAndPosByRewardBatchId(sanitizedRewardBatchId);
     }
 
     public Mono<Void> reversalTransactionInvoiced(String transactionId, String merchantId, String pointOfSaleId, FilePart file, String docNumber) {
