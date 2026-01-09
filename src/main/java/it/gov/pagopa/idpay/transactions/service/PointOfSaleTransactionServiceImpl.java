@@ -4,6 +4,7 @@ import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
+import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionKafkaDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
@@ -35,6 +36,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.YearMonth;
+import java.util.List;
 
 import static it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus.CREATED;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
@@ -500,5 +502,13 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
     return rewardTransaction.getInvoiceData();
   }
+
+    @Override
+    public Mono<List<FranchisePointOfSaleDTO>> getDistinctFranchiseAndPosByRewardBatchId(String rewardBatchId) {
+      log.info("[POINT_OF_SALE_TRANSACTION_SERVICE] - Get point of sale for reward batch id [{}]", Utilities.sanitizeString(rewardBatchId));
+        return rewardTransactionRepository
+                .findDistinctFranchiseAndPosByRewardBatchId(rewardBatchId)
+                .collectList();
+    }
 
 }
