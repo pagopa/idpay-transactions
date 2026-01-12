@@ -104,7 +104,7 @@ public interface MerchantRewardBatchController {
       LocalDate initiativeEndDate
   );
 
-  @DeleteMapping("/emptyRewardBatches")
+  @DeleteMapping("/empty-reward-batches")
   @ResponseStatus(code = HttpStatus.OK)
   Mono<Void> cancelEmptyRewardBatches();
 }
