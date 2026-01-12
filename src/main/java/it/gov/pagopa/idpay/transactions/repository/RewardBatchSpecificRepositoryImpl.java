@@ -251,7 +251,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
             .substring(0, 7);
 
     Criteria criteria = new Criteria().andOperator(
-            Criteria.where(RewardBatch.Fields.numberOfTransactions).size(0),
+            Criteria.where(RewardBatch.Fields.numberOfTransactions).is(0),
             Criteria.where(RewardBatch.Fields.month).lt(currentMonth)
     );
 
