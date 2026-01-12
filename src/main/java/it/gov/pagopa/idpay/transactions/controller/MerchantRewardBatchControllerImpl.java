@@ -211,4 +211,10 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
 
     return rewardBatchService.postponeTransaction(merchantId, initiativeId, rewardBatchId, transactionId, initiativeEndDate);
   }
+
+  @Override
+  public Mono<Void> cancelEmptyRewardBatches(){
+    log.info("[CANCEL_EMPTY_BATCHES] Request to delete all empty batches");
+    return rewardBatchService.deleteEmptyRewardBatches();
+  }
 }

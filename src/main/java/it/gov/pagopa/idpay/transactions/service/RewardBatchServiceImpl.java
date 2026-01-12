@@ -1068,4 +1068,24 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     public static class TotalAmount {
         private long total;
     }
+
+    @Override
+    public Mono<Void> deleteEmptyRewardBatches(){
+        return rewardBatchRepository.findPreviousEmptyBatches()
+                .doOnNext(batch ->
+                        log.info(
+                                "[CANCEL_EMPTY_BATCHES] Cancelling batch {} for merchant {}",
+                                batch.getId(),
+                                batch.getMerchantId()
+                        )
+                )
+                .concatMap(batch ->
+                        rewardBatchRepository.deleteById(batch.getId())
+                )
+                .count()
+                .doOnNext(count ->
+                        log.info("[CANCEL_EMPTY_BATCHES] Deleted {} empty batches", count)
+                )
+                .then();
+    }
 }

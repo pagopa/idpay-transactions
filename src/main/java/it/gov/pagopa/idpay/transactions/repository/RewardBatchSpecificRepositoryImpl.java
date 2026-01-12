@@ -241,6 +241,27 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
             RewardBatch.class);
   }
 
+  @Override
+  public Flux<RewardBatch> findPreviousEmptyBatches() {
+
+    String currentMonth = LocalDateTime.now()
+            .toLocalDate()
+            .withDayOfMonth(1)
+            .toString()
+            .substring(0, 7);
+
+    Criteria criteria = new Criteria().andOperator(
+            Criteria.where(RewardBatch.Fields.numberOfTransactions).size(0),
+            Criteria.where(RewardBatch.Fields.month).lt(currentMonth)
+    );
+
+    Query query = Query.query(criteria)
+            .with(Sort.by(Sort.Direction.ASC, RewardBatch.Fields.month));
+
+    return mongoTemplate.find(query, RewardBatch.class);
+  }
+
+
 
   private static Criteria getCriteriaFindRewardBatchById(String rewardBatchId) {
     return Criteria.where("_id").is(rewardBatchId.trim());
