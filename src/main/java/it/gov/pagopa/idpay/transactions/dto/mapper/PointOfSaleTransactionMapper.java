@@ -52,6 +52,7 @@ public class PointOfSaleTransactionMapper {
 
     PointOfSaleTransactionDTO dto = PointOfSaleTransactionDTO.builder()
         .trxId(trx.getId())
+            .trxCode(trx.getTrxCode())
         .effectiveAmountCents(trx.getAmountCents())
         .rewardAmountCents(rewardAmount)
         .authorizedAmountCents(authorizedAmount)
