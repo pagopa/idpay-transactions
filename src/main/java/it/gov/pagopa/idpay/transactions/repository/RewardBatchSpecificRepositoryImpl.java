@@ -18,6 +18,7 @@ import org.springframework.data.mongodb.core.query.Update;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -241,29 +242,29 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
             RewardBatch.class);
   }
 
-  @Override
-  public Flux<RewardBatch> findPreviousEmptyBatches() {
+    @Override
+    public Flux<RewardBatch> findPreviousEmptyBatches() {
 
-    String currentMonth = LocalDateTime.now()
-            .toLocalDate()
-            .withDayOfMonth(1)
-            .toString()
-            .substring(0, 7);
+        String currentMonth = LocalDate.now()
+                .withDayOfMonth(1)
+                .toString()
+                .substring(0, 7);
 
-    Criteria criteria = new Criteria().andOperator(
-            Criteria.where(RewardBatch.Fields.numberOfTransactions).is(0L),
-            Criteria.where(RewardBatch.Fields.month).lt(currentMonth)
-    );
+        Criteria criteria = new Criteria().andOperator(
+                Criteria.where(RewardBatch.Fields.numberOfTransactions).in(0L, 0),
+                Criteria.where(RewardBatch.Fields.month).lt(currentMonth)
+        );
 
-    Query query = Query.query(criteria)
-            .with(Sort.by(Sort.Direction.ASC, RewardBatch.Fields.month));
+        Query query = Query.query(criteria)
+                .with(Sort.by(Sort.Direction.ASC, RewardBatch.Fields.month));
 
-    return mongoTemplate.find(query, RewardBatch.class);
-  }
-
+        return mongoTemplate.find(query, RewardBatch.class);
+    }
 
 
-  private static Criteria getCriteriaFindRewardBatchById(String rewardBatchId) {
+
+
+    private static Criteria getCriteriaFindRewardBatchById(String rewardBatchId) {
     return Criteria.where("_id").is(rewardBatchId.trim());
   }
 
