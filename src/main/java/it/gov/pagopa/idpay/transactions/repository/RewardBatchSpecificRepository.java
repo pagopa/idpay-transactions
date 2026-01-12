@@ -23,4 +23,5 @@ public interface RewardBatchSpecificRepository {
   Flux<RewardBatch> findRewardBatchByMonthBefore(String merchantId, PosType posType, String month);
 
   Mono<RewardBatch> updateStatusAndApprovedAmountCents(String rewardBatchId, RewardBatchStatus rewardBatchStatus, Long approvedAmountCents);
+  Flux<RewardBatch> findPreviousEmptyBatches();
 }
