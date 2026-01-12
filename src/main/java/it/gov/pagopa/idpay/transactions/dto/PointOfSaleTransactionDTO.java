@@ -17,6 +17,7 @@ public class PointOfSaleTransactionDTO {
 
   @JsonProperty("id")
   String trxId;
+  String trxCode;
   String fiscalCode;
   Long effectiveAmountCents;
   Long rewardAmountCents;
