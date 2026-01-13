@@ -35,4 +35,6 @@ public interface RewardBatchService {
   Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatchFile(String merchantId, String organizationRole, String initiativeId, String rewardBatchId);
 
   Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, LocalDate initiativeEndDate);
+
+  Mono<Void> deleteEmptyRewardBatches();
 }
