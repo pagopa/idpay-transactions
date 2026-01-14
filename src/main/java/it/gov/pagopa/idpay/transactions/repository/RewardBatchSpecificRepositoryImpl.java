@@ -72,97 +72,87 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   private Criteria buildCombinedCriteria(String merchantId, String status, String assigneeLevel, String businessName, String month, boolean isOperator) {
     List<Criteria> subCriteria = new ArrayList<>();
 
-    if (StringUtils.isNotBlank(merchantId)) {
-      subCriteria.add(Criteria.where(RewardBatch.Fields.merchantId).is(merchantId));
-    }
-    if (StringUtils.isNotBlank(assigneeLevel)) {
-      subCriteria.add(
-          Criteria.where(RewardBatch.Fields.assigneeLevel)
-              .is(RewardBatchAssignee.valueOf(assigneeLevel))
-      );
+    addIsCriteriaIfNotBlank(subCriteria, RewardBatch.Fields.merchantId, merchantId);
+    addIsCriteriaIfNotBlank(subCriteria, RewardBatch.Fields.businessName, businessName);
+    addIsCriteriaIfNotBlank(subCriteria, RewardBatch.Fields.month, month);
+
+    RewardBatchAssignee level = parseAssigneeLevel(assigneeLevel);
+    if (level != null) {
+      subCriteria.add(Criteria.where(RewardBatch.Fields.assigneeLevel).is(level));
     }
 
-    EnumSet<RewardBatchStatus> allowedStatuses = isOperator
-        ? EnumSet.of(
-        RewardBatchStatus.SENT,
-        RewardBatchStatus.EVALUATING,
-        RewardBatchStatus.APPROVING,
-        RewardBatchStatus.APPROVED,
-        RewardBatchStatus.TO_APPROVE,
-        RewardBatchStatus.TO_WORK
+    EnumSet<RewardBatchStatus> allowedStatuses = getAllowedStatuses(isOperator);
 
-    )
-        : EnumSet.of(
-            RewardBatchStatus.CREATED,
+    if (StringUtils.isBlank(status)) {
+      subCriteria.add(Criteria.where(RewardBatch.Fields.status).in(allowedStatuses));
+    } else {
+      handleStatusLogic(subCriteria, status, level, allowedStatuses);
+    }
+
+    return new Criteria().andOperator(subCriteria.toArray(new Criteria[0]));
+  }
+
+  private void handleStatusLogic(List<Criteria> subCriteria, String statusStr, RewardBatchAssignee level, EnumSet<RewardBatchStatus> allowed) {
+    RewardBatchStatus requestedStatus = RewardBatchStatus.valueOf(statusStr);
+
+    if (!isValidRequest(requestedStatus, level, allowed)) {
+      subCriteria.add(Criteria.where(RewardBatch.Fields.id).in(Collections.emptyList()));
+      return;
+    }
+
+    switch (requestedStatus) {
+      case TO_APPROVE -> {
+        subCriteria.add(Criteria.where(RewardBatch.Fields.status).is(RewardBatchStatus.EVALUATING));
+        if (level == null) {
+          subCriteria.add(Criteria.where(RewardBatch.Fields.assigneeLevel).is(RewardBatchAssignee.L3));
+        }
+      }
+      case TO_WORK -> {
+        subCriteria.add(Criteria.where(RewardBatch.Fields.status).is(RewardBatchStatus.EVALUATING));
+        if (level == null) {
+          subCriteria.add(Criteria.where(RewardBatch.Fields.assigneeLevel).in(Arrays.asList(RewardBatchAssignee.L1, RewardBatchAssignee.L2)));
+        }
+      }
+      default -> subCriteria.add(Criteria.where(RewardBatch.Fields.status).is(requestedStatus));
+    }
+  }
+
+  private boolean isValidRequest(RewardBatchStatus status, RewardBatchAssignee level, EnumSet<RewardBatchStatus> allowed) {
+    boolean isStatusAllowed = allowed.contains(status);
+    boolean isL3ForToApprove = !(status == RewardBatchStatus.TO_APPROVE && level != null && level != RewardBatchAssignee.L3);
+    boolean isNotL3ForToWork = !(status == RewardBatchStatus.TO_WORK && level == RewardBatchAssignee.L3);
+
+    return isStatusAllowed && isL3ForToApprove && isNotL3ForToWork;
+  }
+
+  private EnumSet<RewardBatchStatus> getAllowedStatuses(boolean isOperator) {
+    EnumSet<RewardBatchStatus> statuses = EnumSet.of(
             RewardBatchStatus.SENT,
             RewardBatchStatus.EVALUATING,
             RewardBatchStatus.APPROVING,
             RewardBatchStatus.APPROVED,
             RewardBatchStatus.TO_APPROVE,
             RewardBatchStatus.TO_WORK
-        );
-
-    if (StringUtils.isBlank(status)) {
-      subCriteria.add(
-          Criteria.where(RewardBatch.Fields.status)
-              .in(allowedStatuses)
-      );
-    } else {
-      RewardBatchStatus requestedStatus = RewardBatchStatus.valueOf(status);
-
-      if (!allowedStatuses.contains(requestedStatus)
-              || StringUtils.isNotBlank(assigneeLevel)
-              && (requestedStatus.equals(RewardBatchStatus.TO_APPROVE)
-              && !assigneeLevel.equals(RewardBatchAssignee.L3.toString())
-              || (requestedStatus.equals(RewardBatchStatus.TO_WORK)
-              && assigneeLevel.equals(RewardBatchAssignee.L3.toString())))) {
-        subCriteria.add(
-                Criteria.where(RewardBatch.Fields.id).in(Collections.emptyList())
-        );
-      } else {
-        if (requestedStatus.equals(RewardBatchStatus.TO_APPROVE)) {
-          subCriteria.add(
-                  Criteria.where(RewardBatch.Fields.status)
-                          .is(RewardBatchStatus.EVALUATING)
-          );
-          if (StringUtils.isBlank(assigneeLevel)) {
-            subCriteria.add(
-                    Criteria.where(RewardBatch.Fields.assigneeLevel)
-                            .is(RewardBatchAssignee.L3)
-            );
-          }
-        } else if (requestedStatus.equals(RewardBatchStatus.TO_WORK)) {
-          subCriteria.add(
-                  Criteria.where(RewardBatch.Fields.status)
-                          .is(RewardBatchStatus.EVALUATING)
-          );
-          if (StringUtils.isBlank(assigneeLevel)) {
-            List<RewardBatchAssignee> allowedLevels = Arrays.asList(
-                    RewardBatchAssignee.L1,
-                    RewardBatchAssignee.L2
-            );
-            subCriteria.add(
-                    Criteria.where(RewardBatch.Fields.assigneeLevel)
-                            .in(allowedLevels)
-            );
-          }
-        } else {
-          subCriteria.add(
-                  Criteria.where(RewardBatch.Fields.status)
-                          .is(requestedStatus)
-          );
-        }
-      }
+    );
+    if (!isOperator) {
+      statuses.add(RewardBatchStatus.CREATED);
     }
-    if (StringUtils.isNotBlank(businessName)) {
-      subCriteria.add(Criteria.where(RewardBatch.Fields.businessName).is(businessName));
-    }
-    if (StringUtils.isNotBlank(month)) {
-      subCriteria.add(Criteria.where(RewardBatch.Fields.month).is(month));
-    }
+    return statuses;
+  }
 
-    return new Criteria().andOperator(subCriteria.toArray(new Criteria[0]));
-}
+  private void addIsCriteriaIfNotBlank(List<Criteria> criteriaList, String field, String value) {
+    if (StringUtils.isNotBlank(value)) {
+      criteriaList.add(Criteria.where(field).is(value));
+    }
+  }
+
+  private RewardBatchAssignee parseAssigneeLevel(String level) {
+    try {
+      return StringUtils.isNotBlank(level) ? RewardBatchAssignee.valueOf(level) : null;
+    } catch (IllegalArgumentException e) {
+      return null;
+    }
+  }
 
   @Override
   public Mono<Long> updateTransactionsStatus(String rewardBatchId, List<String> transactionIds, RewardBatchTrxStatus newStatus, String reason) {
