@@ -129,6 +129,83 @@ class RewardBatchSpecificRepositoryImplTest {
             .expectNextCount(1)
             .verifyComplete();
   }
+
+  @Test
+  void findRewardBatchesCombined_OperatorToWorkWithoutLevel() {
+    RewardBatch batchL1 = RewardBatch.builder()
+            .id("BATCH_L1")
+            .merchantId("M1")
+            .status(RewardBatchStatus.EVALUATING)
+            .assigneeLevel(RewardBatchAssignee.L1)
+            .build();
+
+    RewardBatch batchL3 = RewardBatch.builder()
+            .id("BATCH_L3")
+            .merchantId("M1")
+            .status(RewardBatchStatus.EVALUATING)
+            .assigneeLevel(RewardBatchAssignee.L3)
+            .build();
+
+    rewardBatchRepository.saveAll(List.of(batchL1, batchL3)).collectList().block();
+
+    Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchesCombined(
+            "M1", "TO_WORK", null, null, null, true, PageRequest.of(0, 10));
+
+    StepVerifier.create(result)
+            .expectNextMatches(b -> b.getId().equals("BATCH_L1"))
+            .verifyComplete();
+  }
+
+  @Test
+  void findRewardBatchesCombined_ToApproveWithWrongLevel() {
+    RewardBatch batchL3 = RewardBatch.builder()
+            .id("BATCH_APPROVE")
+            .status(RewardBatchStatus.EVALUATING)
+            .assigneeLevel(RewardBatchAssignee.L3)
+            .build();
+    rewardBatchRepository.save(batchL3).block();
+
+    Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchesCombined(
+            null, "TO_APPROVE", "L1", null, null, true, PageRequest.of(0, 10));
+
+    StepVerifier.create(result)
+            .expectNextCount(0)
+            .verifyComplete();
+  }
+
+  @Test
+  void findRewardBatchesCombined_NonOperatorCannotSeeCreatedIfFiltered() {
+    RewardBatch createdBatch = RewardBatch.builder()
+            .id("CREATED_1")
+            .status(RewardBatchStatus.CREATED)
+            .build();
+    rewardBatchRepository.save(createdBatch).block();
+
+    Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchesCombined(
+            null, "CREATED", null, null, null, true, PageRequest.of(0, 10));
+
+    StepVerifier.create(result)
+            .expectNextCount(0)
+            .verifyComplete();
+  }
+
+  @Test
+  void findRewardBatchesCombined_GenericFilters() {
+    RewardBatch b1 = RewardBatch.builder()
+            .id("B1")
+            .merchantId("M1")
+            .businessName("Negozio X")
+            .status(RewardBatchStatus.SENT)
+            .build();
+    rewardBatchRepository.save(b1).block();
+
+    Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchesCombined(
+            "M1", "SENT", null, "Negozio X", null, false, PageRequest.of(0, 10));
+
+    StepVerifier.create(result)
+            .expectNextMatches(b -> b.getBusinessName().equals("Negozio X"))
+            .verifyComplete();
+  }
   @Test
   void findRewardBatchByMerchantId_shouldReturnAllBatches() {
     RewardBatch batch3 = RewardBatch.builder()
