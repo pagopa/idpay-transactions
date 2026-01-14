@@ -20,10 +20,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.List;
+import java.util.*;
 
 public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRepository {
 
@@ -34,15 +31,15 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Flux<RewardBatch> findRewardBatchesCombined(String merchantId, String status, String assigneeLevel, boolean isOperator, Pageable pageable) {
-    Criteria criteria = buildCombinedCriteria(merchantId, status, assigneeLevel, isOperator);
+  public Flux<RewardBatch> findRewardBatchesCombined(String merchantId, String status, String assigneeLevel, String businessName, String month, boolean isOperator, Pageable pageable) {
+    Criteria criteria = buildCombinedCriteria(merchantId, status, assigneeLevel, businessName, month, isOperator);
     Query query = Query.query(criteria).with(getPageableRewardBatch(pageable));
     return mongoTemplate.find(query, RewardBatch.class);
   }
 
   @Override
-  public Mono<Long> getCountCombined(String merchantId, String status, String assigneeLevel, boolean isOperator) {
-    Criteria criteria = buildCombinedCriteria(merchantId, status, assigneeLevel, isOperator);
+  public Mono<Long> getCountCombined(String merchantId, String status, String assigneeLevel, String businessName, String month, boolean isOperator) {
+    Criteria criteria = buildCombinedCriteria(merchantId, status, assigneeLevel, businessName, month, isOperator);
     return mongoTemplate.count(Query.query(criteria), RewardBatch.class);
   }
 
@@ -72,7 +69,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     );
   }
 
-  private Criteria buildCombinedCriteria(String merchantId, String status, String assigneeLevel, boolean isOperator) {
+  private Criteria buildCombinedCriteria(String merchantId, String status, String assigneeLevel, String businessName, String month, boolean isOperator) {
     List<Criteria> subCriteria = new ArrayList<>();
 
     if (StringUtils.isNotBlank(merchantId)) {
@@ -90,14 +87,19 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
         RewardBatchStatus.SENT,
         RewardBatchStatus.EVALUATING,
         RewardBatchStatus.APPROVING,
-        RewardBatchStatus.APPROVED
+        RewardBatchStatus.APPROVED,
+        RewardBatchStatus.TO_APPROVE,
+        RewardBatchStatus.TO_WORK
+
     )
         : EnumSet.of(
             RewardBatchStatus.CREATED,
             RewardBatchStatus.SENT,
             RewardBatchStatus.EVALUATING,
             RewardBatchStatus.APPROVING,
-            RewardBatchStatus.APPROVED
+            RewardBatchStatus.APPROVED,
+            RewardBatchStatus.TO_APPROVE,
+            RewardBatchStatus.TO_WORK
         );
 
     if (StringUtils.isBlank(status)) {
@@ -108,16 +110,55 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     } else {
       RewardBatchStatus requestedStatus = RewardBatchStatus.valueOf(status);
 
-      if (!allowedStatuses.contains(requestedStatus)) {
+      if (!allowedStatuses.contains(requestedStatus)
+              || StringUtils.isNotBlank(assigneeLevel)
+              && (requestedStatus.equals(RewardBatchStatus.TO_APPROVE)
+              && !assigneeLevel.equals(RewardBatchAssignee.L3.toString())
+              || (requestedStatus.equals(RewardBatchStatus.TO_WORK)
+              && assigneeLevel.equals(RewardBatchAssignee.L3.toString())))) {
         subCriteria.add(
-            Criteria.where(RewardBatch.Fields.id).in(Collections.emptyList())
+                Criteria.where(RewardBatch.Fields.id).in(Collections.emptyList())
         );
       } else {
-        subCriteria.add(
-            Criteria.where(RewardBatch.Fields.status)
-                .is(requestedStatus)
-        );
+        if (requestedStatus.equals(RewardBatchStatus.TO_APPROVE)) {
+          subCriteria.add(
+                  Criteria.where(RewardBatch.Fields.status)
+                          .is(RewardBatchStatus.EVALUATING)
+          );
+          if (StringUtils.isBlank(assigneeLevel)) {
+            subCriteria.add(
+                    Criteria.where(RewardBatch.Fields.assigneeLevel)
+                            .is(RewardBatchAssignee.L3)
+            );
+          }
+        } else if (requestedStatus.equals(RewardBatchStatus.TO_WORK)) {
+          subCriteria.add(
+                  Criteria.where(RewardBatch.Fields.status)
+                          .is(RewardBatchStatus.EVALUATING)
+          );
+          if (StringUtils.isBlank(assigneeLevel)) {
+            List<RewardBatchAssignee> allowedLevels = Arrays.asList(
+                    RewardBatchAssignee.L1,
+                    RewardBatchAssignee.L2
+            );
+            subCriteria.add(
+                    Criteria.where(RewardBatch.Fields.assigneeLevel)
+                            .in(allowedLevels)
+            );
+          }
+        } else {
+          subCriteria.add(
+                  Criteria.where(RewardBatch.Fields.status)
+                          .is(requestedStatus)
+          );
+        }
       }
+    }
+    if (StringUtils.isNotBlank(businessName)) {
+      subCriteria.add(Criteria.where(RewardBatch.Fields.businessName).is(businessName));
+    }
+    if (StringUtils.isNotBlank(month)) {
+      subCriteria.add(Criteria.where(RewardBatch.Fields.month).is(month));
     }
 
     return new Criteria().andOperator(subCriteria.toArray(new Criteria[0]));

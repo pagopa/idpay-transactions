@@ -5,5 +5,8 @@ public enum RewardBatchStatus {
   SENT,
   EVALUATING,
   APPROVED,
-  APPROVING
+  APPROVING,
+  TO_APPROVE,
+  TO_WORK
+
 }
