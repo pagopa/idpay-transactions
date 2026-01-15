@@ -36,6 +36,7 @@ public class RewardBatch {
     private LocalDateTime startDate;
     private LocalDateTime endDate;
     private Long approvedAmountCents;
+    private Long suspendedAmountCents;
     private Long initialAmountCents;
     private Long numberOfTransactions;
     private Long numberOfTransactionsElaborated;
