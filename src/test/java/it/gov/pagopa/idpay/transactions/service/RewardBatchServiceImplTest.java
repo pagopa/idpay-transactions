@@ -1957,7 +1957,7 @@ class RewardBatchServiceImplTest {
         2L, //TO_CHECK and CONSULTABLE
         -rewardApproved.getAccruedRewardCents() - rewardToCheck.getAccruedRewardCents()
             - rewardConsultable.getAccruedRewardCents(),
-        0L,
+        -3000L,
         4L,
         -1L))
         .thenReturn(Mono.just(expectedResult));
@@ -2966,7 +2966,7 @@ class RewardBatchServiceImplTest {
                 actualBatch.getId(),
                 0L,
                 trxMock.getRewards().get(initiativeId).getAccruedRewardCents(),
-                0L,
+                -1000L,
                 0L,
                 -1L))
                 .thenReturn(Mono.just(expectedResult));
@@ -3054,7 +3054,7 @@ class RewardBatchServiceImplTest {
                 actualBatch.getId(),
                 0L,
                 0L,
-                0L,
+                -1000L,
                 1L,
                 -1L))
                 .thenReturn(Mono.just(expectedResult));
