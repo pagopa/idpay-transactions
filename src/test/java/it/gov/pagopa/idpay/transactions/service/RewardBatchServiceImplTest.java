@@ -1370,14 +1370,14 @@ class RewardBatchServiceImplTest {
     when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.EVALUATING))
         .thenReturn(Mono.just(batch));
 
-    when(rewardBatchRepository.updateTotals(batchId, 0L, -100L, 0L,0L, 2L))
+    when(rewardBatchRepository.updateTotals(batchId, 0L, -100L, 100L,0L, 2L))
         .thenReturn(Mono.just(batch));
 
     StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
         .expectNext(batch)
         .verifyComplete();
 
-    verify(rewardBatchRepository).updateTotals(batchId, 0L, -100L, 0L, 0L, 2L);
+    verify(rewardBatchRepository).updateTotals(batchId, 0L, -100L, 100L, 0L, 2L);
 
     verify(rewardTransactionRepository).updateStatusAndReturnOld(batchId, "trxNull",
         RewardBatchTrxStatus.SUSPENDED, request.getReason(), batchMonth);
