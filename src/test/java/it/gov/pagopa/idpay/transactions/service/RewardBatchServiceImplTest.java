@@ -1177,7 +1177,7 @@ class RewardBatchServiceImplTest {
     long expectedElaborated = 1L;
     long expectedSuspended = 2L;
     long expectedApprovedAmount = -300L;
-    long suspendedAmountCents = 200L;
+    long suspendedAmountCents = 0L;
     long expectedRejected = 0L;
 
     when(rewardBatchRepository.updateTotals(batchId, expectedElaborated, expectedApprovedAmount,
@@ -1370,14 +1370,14 @@ class RewardBatchServiceImplTest {
     when(rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.EVALUATING))
         .thenReturn(Mono.just(batch));
 
-    when(rewardBatchRepository.updateTotals(batchId, 0L, -100L, 0L, 2L))
+    when(rewardBatchRepository.updateTotals(batchId, 0L, -100L, 0L,0L, 2L))
         .thenReturn(Mono.just(batch));
 
     StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
         .expectNext(batch)
         .verifyComplete();
 
-    verify(rewardBatchRepository).updateTotals(batchId, 0L, -100L, 0L, 2L);
+    verify(rewardBatchRepository).updateTotals(batchId, 0L, -100L, 0L, 0L, 2L);
 
     verify(rewardTransactionRepository).updateStatusAndReturnOld(batchId, "trxNull",
         RewardBatchTrxStatus.SUSPENDED, request.getReason(), batchMonth);
@@ -1415,7 +1415,7 @@ class RewardBatchServiceImplTest {
         .thenReturn(Mono.just(batch));
 
     when(
-        rewardBatchRepository.updateTotals(eq(batchId), anyLong(), anyLong(), anyLong(), anyLong()))
+        rewardBatchRepository.updateTotals(eq(batchId), anyLong(), anyLong(), anyLong(), anyLong(), anyLong()))
         .thenReturn(Mono.just(batch));
 
     StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
@@ -1451,7 +1451,7 @@ class RewardBatchServiceImplTest {
         .thenReturn(Mono.just(batch));
 
     when(
-        rewardBatchRepository.updateTotals(eq(batchId), anyLong(), anyLong(), anyLong(), anyLong()))
+        rewardBatchRepository.updateTotals(eq(batchId), anyLong(), anyLong(), anyLong(), anyLong(), anyLong()))
         .thenReturn(Mono.just(batch));
 
     StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
@@ -1504,7 +1504,7 @@ class RewardBatchServiceImplTest {
         .thenReturn(Mono.just(batch));
 
     when(
-        rewardBatchRepository.updateTotals(eq(batchId), anyLong(), anyLong(), anyLong(), anyLong()))
+        rewardBatchRepository.updateTotals(eq(batchId), anyLong(), anyLong(), anyLong(), anyLong(), anyLong()))
         .thenReturn(Mono.just(batch));
 
     StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
@@ -1541,7 +1541,7 @@ class RewardBatchServiceImplTest {
         .thenReturn(Mono.just(batch));
 
     when(
-        rewardBatchRepository.updateTotals(eq(batchId), anyLong(), anyLong(), anyLong(), anyLong()))
+        rewardBatchRepository.updateTotals(eq(batchId), anyLong(), anyLong(), anyLong(), anyLong(), anyLong()))
         .thenReturn(Mono.just(batch));
 
     StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
@@ -1613,7 +1613,7 @@ class RewardBatchServiceImplTest {
         .thenReturn(Mono.just(batch));
 
     when(
-        rewardBatchRepository.updateTotals(eq(batchId), anyLong(), anyLong(), anyLong(), anyLong()))
+        rewardBatchRepository.updateTotals(eq(batchId), anyLong(), anyLong(), anyLong(), anyLong(), anyLong()))
         .thenReturn(Mono.just(batch));
 
     StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
@@ -1772,6 +1772,7 @@ class RewardBatchServiceImplTest {
         batchId,
         2L, //TO_CHECK and CONSULTABLE
         rewardSuspended.getAccruedRewardCents() + rewardRejected.getAccruedRewardCents(),
+        100L,
         -1L,
         -1L))
         .thenReturn(Mono.just(expectedResult));
@@ -1784,7 +1785,7 @@ class RewardBatchServiceImplTest {
     verify(rewardTransactionRepository, times(5)).updateStatusAndReturnOld(any(), any(), any(),
         any(), any());
     verify(rewardBatchRepository).findByIdAndStatus(any(), any());
-    verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
+    verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong(), anyLong());
   }
 
   @Test
@@ -1805,7 +1806,7 @@ class RewardBatchServiceImplTest {
         any(), any());
     verify(rewardBatchRepository).findByIdAndStatus(any(), any());
     verify(rewardBatchRepository, never()).updateTotals(any(), anyLong(), anyLong(), anyLong(),
-        anyLong());
+        anyLong(), anyLong());
 
   }
 
@@ -1833,7 +1834,7 @@ class RewardBatchServiceImplTest {
     verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(), any(), any(), any());
     verify(rewardBatchRepository).findByIdAndStatus(any(), any());
     verify(rewardBatchRepository, never()).updateTotals(any(), anyLong(), anyLong(), anyLong(),
-        anyLong());
+        anyLong(), anyLong());
   }
 
   @Test
@@ -1861,7 +1862,7 @@ class RewardBatchServiceImplTest {
         RewardBatchTrxStatus.APPROVED, null, batchMonth))
         .thenReturn(Mono.just(trxMock));
 
-    when(rewardBatchRepository.updateTotals(batchId, 1L, 0L, 0, 0))
+    when(rewardBatchRepository.updateTotals(batchId, 1L, 0L, 0L,0, 0))
         .thenReturn(Mono.error(new RuntimeException("DUMMY_EXCEPTION")));
 
     Mono<RewardBatch> resultMono = rewardBatchService.approvedTransactions(batchId,
@@ -1870,7 +1871,7 @@ class RewardBatchServiceImplTest {
 
     verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(), any(), any(), any());
     verify(rewardBatchRepository).findByIdAndStatus(any(), any());
-    verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
+    verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong(), anyLong());
   }
 
   @Test
@@ -1956,6 +1957,7 @@ class RewardBatchServiceImplTest {
         2L, //TO_CHECK and CONSULTABLE
         -rewardApproved.getAccruedRewardCents() - rewardToCheck.getAccruedRewardCents()
             - rewardConsultable.getAccruedRewardCents(),
+        0L,
         4L,
         -1L))
         .thenReturn(Mono.just(expectedResult));
@@ -1968,7 +1970,7 @@ class RewardBatchServiceImplTest {
     verify(rewardTransactionRepository, times(5)).updateStatusAndReturnOld(any(), any(), any(),
         any(), any());
     verify(rewardBatchRepository).findByIdAndStatus(any(), any());
-    verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
+    verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong(), anyLong());
   }
 
   @Test
@@ -1990,7 +1992,7 @@ class RewardBatchServiceImplTest {
         any(), any());
     verify(rewardBatchRepository).findByIdAndStatus(any(), any());
     verify(rewardBatchRepository, never()).updateTotals(any(), anyLong(), anyLong(), anyLong(),
-        anyLong());
+        anyLong(), anyLong());
 
   }
 
@@ -2019,7 +2021,7 @@ class RewardBatchServiceImplTest {
     verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(), any(), any(), any());
     verify(rewardBatchRepository).findByIdAndStatus(any(), any());
     verify(rewardBatchRepository, never()).updateTotals(any(), anyLong(), anyLong(), anyLong(),
-        anyLong());
+        anyLong(), anyLong());
   }
 
   @Test
@@ -2048,7 +2050,7 @@ class RewardBatchServiceImplTest {
         RewardBatchTrxStatus.REJECTED, transactionsRequest.getReason(), batchMonth))
         .thenReturn(Mono.just(trxMock));
 
-    when(rewardBatchRepository.updateTotals(batchId, 1L, 0L, 0, 0))
+    when(rewardBatchRepository.updateTotals(batchId, 1L, 0L, 0L,0, 0))
         .thenReturn(Mono.error(new RuntimeException("DUMMY_EXCEPTION")));
 
     Mono<RewardBatch> resultMono = rewardBatchService.rejectTransactions(batchId, initiativeId,
@@ -2057,7 +2059,7 @@ class RewardBatchServiceImplTest {
 
     verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(), any(), any(), any());
     verify(rewardBatchRepository).findByIdAndStatus(any(), any());
-    verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
+    verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong(), anyLong());
   }
 
 
@@ -2921,6 +2923,7 @@ class RewardBatchServiceImplTest {
               1L,
               trxMock.getRewards().get(initiativeId).getAccruedRewardCents(),
               0L,
+              0L,
               -1L))
               .thenReturn(Mono.just(expectedResult));
 
@@ -2930,7 +2933,7 @@ class RewardBatchServiceImplTest {
       Assertions.assertEquals(expectedResult, result);
 
       verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(), any(), any(), any());
-      verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
+      verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong(), anyLong());
   }
 
     @Test
@@ -2964,6 +2967,7 @@ class RewardBatchServiceImplTest {
                 0L,
                 trxMock.getRewards().get(initiativeId).getAccruedRewardCents(),
                 0L,
+                0L,
                 -1L))
                 .thenReturn(Mono.just(expectedResult));
 
@@ -2973,7 +2977,7 @@ class RewardBatchServiceImplTest {
         Assertions.assertEquals(expectedResult, result);
 
         verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(), any(), any(), any());
-        verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
+        verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong(), anyLong());
     }
 
     @Test
@@ -3006,6 +3010,7 @@ class RewardBatchServiceImplTest {
                 actualBatch.getId(),
                 1L,
                 0L,
+                0L,
                 1L,
                 -1L))
                 .thenReturn(Mono.just(expectedResult));
@@ -3016,7 +3021,7 @@ class RewardBatchServiceImplTest {
         Assertions.assertEquals(expectedResult, result);
 
         verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(), any(), any(), any());
-        verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
+        verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong(), anyLong());
     }
 
     @Test
@@ -3049,6 +3054,7 @@ class RewardBatchServiceImplTest {
                 actualBatch.getId(),
                 0L,
                 0L,
+                0L,
                 1L,
                 -1L))
                 .thenReturn(Mono.just(expectedResult));
@@ -3059,7 +3065,7 @@ class RewardBatchServiceImplTest {
         Assertions.assertEquals(expectedResult, result);
 
         verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(), any(), any(), any());
-        verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
+        verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong(), anyLong());
     }
 
     @Test
@@ -3093,6 +3099,7 @@ class RewardBatchServiceImplTest {
                 1L,
                 0L,
                 0L,
+                0L,
                 0L))
                 .thenReturn(Mono.just(expectedResult));
 
@@ -3102,7 +3109,7 @@ class RewardBatchServiceImplTest {
         Assertions.assertEquals(expectedResult, result);
 
         verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(), any(), any(), any());
-        verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
+        verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong(), anyLong());
     }
 
     @Test
@@ -3136,6 +3143,7 @@ class RewardBatchServiceImplTest {
                 0L,
                 0L,
                 0L,
+                0L,
                 0L))
                 .thenReturn(Mono.just(expectedResult));
 
@@ -3145,7 +3153,7 @@ class RewardBatchServiceImplTest {
         Assertions.assertEquals(expectedResult, result);
 
         verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(), any(), any(), any());
-        verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
+        verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong(), anyLong());
     }
 
     @Test
