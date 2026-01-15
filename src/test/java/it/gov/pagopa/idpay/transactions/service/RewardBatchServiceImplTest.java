@@ -1319,14 +1319,14 @@ class RewardBatchServiceImplTest {
         eq(RewardBatchTrxStatus.SUSPENDED), eq(request.getReason()), eq(batchMonth)))
         .thenReturn(Mono.just(rejectedTx));
 
-    when(rewardBatchRepository.updateTotals(batchId, 0L, 0L, 0L, -1L, 1L))
-        .thenReturn(Mono.just(batch));
+      when(rewardBatchRepository.updateTotals(batchId, 0L, 0L, 100L, -1L, 1L))
+              .thenReturn(Mono.just(batch));
 
-    StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
-        .expectNext(batch)
-        .verifyComplete();
+      StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
+              .expectNext(batch)
+              .verifyComplete();
 
-    verify(rewardBatchRepository).updateTotals(batchId, 0L, 0L, 0L, -1L, 1L);
+      verify(rewardBatchRepository).updateTotals(batchId, 0L, 0L, 100L, -1L, 1L);
   }
 
   @Test
