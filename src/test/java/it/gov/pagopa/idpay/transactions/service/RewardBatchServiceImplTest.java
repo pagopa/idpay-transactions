@@ -1177,10 +1177,11 @@ class RewardBatchServiceImplTest {
     long expectedElaborated = 1L;
     long expectedSuspended = 2L;
     long expectedApprovedAmount = -300L;
+    long suspendedAmountCents = 200L;
     long expectedRejected = 0L;
 
     when(rewardBatchRepository.updateTotals(batchId, expectedElaborated, expectedApprovedAmount,
-        expectedRejected, expectedSuspended))
+        suspendedAmountCents, expectedRejected, expectedSuspended))
         .thenReturn(Mono.just(batch));
 
     StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
@@ -1189,7 +1190,7 @@ class RewardBatchServiceImplTest {
         .verifyComplete();
 
     verify(rewardBatchRepository).updateTotals(batchId, expectedElaborated, expectedApprovedAmount,
-        expectedRejected, expectedSuspended);
+            suspendedAmountCents, expectedRejected, expectedSuspended);
   }
 
   @Test
@@ -1219,14 +1220,14 @@ class RewardBatchServiceImplTest {
         eq(RewardBatchTrxStatus.SUSPENDED), eq(request.getReason()), eq(batchMonth)))
         .thenReturn(Mono.just(oldTx));
 
-    when(rewardBatchRepository.updateTotals(batchId, 0L, 0L, 0L, 0L))
+    when(rewardBatchRepository.updateTotals(batchId, 0L, 0L, 0L, 0L,0L))
         .thenReturn(Mono.just(batch));
 
     StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
         .expectNext(batch)
         .verifyComplete();
 
-    verify(rewardBatchRepository).updateTotals(batchId, 0L, 0L, 0L, 0L);
+    verify(rewardBatchRepository).updateTotals(batchId, 0L, 0L, 0L, 0L, 0L);
   }
 
   @Test
@@ -1256,14 +1257,14 @@ class RewardBatchServiceImplTest {
         eq(RewardBatchTrxStatus.SUSPENDED), eq(request.getReason()), eq(batchMonth)))
         .thenReturn(Mono.just(oldTx));
 
-    when(rewardBatchRepository.updateTotals(batchId, 2L, 0L, 0L, 2L))
+    when(rewardBatchRepository.updateTotals(batchId, 2L, 0L, 0L, 0L, 2L))
         .thenReturn(Mono.just(batch));
 
     StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
         .expectNext(batch)
         .verifyComplete();
 
-    verify(rewardBatchRepository).updateTotals(batchId, 2L, 0L, 0L, 2L);
+    verify(rewardBatchRepository).updateTotals(batchId, 2L, 0L, 0L, 0L, 2L);
   }
 
   @Test
@@ -1288,7 +1289,7 @@ class RewardBatchServiceImplTest {
     verify(rewardTransactionRepository, never()).updateStatusAndReturnOld(any(), any(), any(),
         any(), any());
     verify(rewardBatchRepository, never()).updateTotals(any(), anyLong(), anyLong(), anyLong(),
-        anyLong());
+        anyLong(), anyLong());
   }
 
   @Test
@@ -1318,14 +1319,14 @@ class RewardBatchServiceImplTest {
         eq(RewardBatchTrxStatus.SUSPENDED), eq(request.getReason()), eq(batchMonth)))
         .thenReturn(Mono.just(rejectedTx));
 
-    when(rewardBatchRepository.updateTotals(batchId, 0L, 0L, -1L, 1L))
+    when(rewardBatchRepository.updateTotals(batchId, 0L, 0L, 0L, -1L, 1L))
         .thenReturn(Mono.just(batch));
 
     StepVerifier.create(rewardBatchService.suspendTransactions(batchId, initiativeId, request))
         .expectNext(batch)
         .verifyComplete();
 
-    verify(rewardBatchRepository).updateTotals(batchId, 0L, 0L, -1L, 1L);
+    verify(rewardBatchRepository).updateTotals(batchId, 0L, 0L, 0L, -1L, 1L);
   }
 
   @Test
