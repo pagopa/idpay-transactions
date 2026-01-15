@@ -1377,7 +1377,7 @@ class RewardBatchServiceImplTest {
         .expectNext(batch)
         .verifyComplete();
 
-    verify(rewardBatchRepository).updateTotals(batchId, 0L, -100L, 100L, 0L, 2L);
+    verify(rewardBatchRepository).updateTotals(batchId, 0L, -100L, 0L, 0L, 2L);
 
     verify(rewardTransactionRepository).updateStatusAndReturnOld(batchId, "trxNull",
         RewardBatchTrxStatus.SUSPENDED, request.getReason(), batchMonth);
@@ -3010,7 +3010,7 @@ class RewardBatchServiceImplTest {
                 actualBatch.getId(),
                 1L,
                 0L,
-                0L,
+                -1000L,
                 1L,
                 -1L))
                 .thenReturn(Mono.just(expectedResult));
