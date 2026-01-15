@@ -1177,7 +1177,7 @@ class RewardBatchServiceImplTest {
     long expectedElaborated = 1L;
     long expectedSuspended = 2L;
     long expectedApprovedAmount = -300L;
-    long suspendedAmountCents = 0L;
+    long suspendedAmountCents = 300L;
     long expectedRejected = 0L;
 
     when(rewardBatchRepository.updateTotals(batchId, expectedElaborated, expectedApprovedAmount,
@@ -1377,7 +1377,7 @@ class RewardBatchServiceImplTest {
         .expectNext(batch)
         .verifyComplete();
 
-    verify(rewardBatchRepository).updateTotals(batchId, 0L, -100L, 0L, 0L, 2L);
+    verify(rewardBatchRepository).updateTotals(batchId, 0L, -100L, 100L, 0L, 2L);
 
     verify(rewardTransactionRepository).updateStatusAndReturnOld(batchId, "trxNull",
         RewardBatchTrxStatus.SUSPENDED, request.getReason(), batchMonth);
@@ -1772,7 +1772,7 @@ class RewardBatchServiceImplTest {
         batchId,
         2L, //TO_CHECK and CONSULTABLE
         rewardSuspended.getAccruedRewardCents() + rewardRejected.getAccruedRewardCents(),
-        100L,
+            -3000L,
         -1L,
         -1L))
         .thenReturn(Mono.just(expectedResult));
