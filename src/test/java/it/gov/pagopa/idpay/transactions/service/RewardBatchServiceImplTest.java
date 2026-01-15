@@ -2922,7 +2922,7 @@ class RewardBatchServiceImplTest {
               actualBatch.getId(),
               1L,
               trxMock.getRewards().get(initiativeId).getAccruedRewardCents(),
-              0L,
+              -1000L,
               0L,
               -1L))
               .thenReturn(Mono.just(expectedResult));
