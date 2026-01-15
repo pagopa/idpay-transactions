@@ -5,7 +5,10 @@ import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -18,7 +21,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -269,7 +271,6 @@ class RewardBatchSpecificRepositoryImplTest {
 
   @Test
   void decrementTotals_shouldUpdateFieldsCorrectly() {
-    // Prima incrementiamo per avere valori positivi
     rewardBatchSpecificRepository
         .incrementTotals(batch1.getId(), 1000L)
         .block();
@@ -746,6 +747,182 @@ class RewardBatchSpecificRepositoryImplTest {
     rewardBatchRepository.deleteById(rewardBatch.getId()).block();
 
   }
+
+    @Test
+    void findRewardBatchesCombined_withNullPageable_shouldUseDefaultSortingAndSize() {
+        List<RewardBatch> result = rewardBatchSpecificRepository
+                .findRewardBatchesCombined(MERCHANT, null, null, false, null)
+                .collectList()
+                .block();
+
+        assertNotNull(result);
+        assertEquals(2, result.size());
+    }
+
+    @Test
+    void findRewardBatchesCombined_withUnsortedPageable_shouldUseDefaultMonthSort() {
+        Pageable unsorted = PageRequest.of(0, 10, Sort.unsorted());
+
+        List<RewardBatch> result = rewardBatchSpecificRepository
+                .findRewardBatchesCombined(MERCHANT, null, null, false, unsorted)
+                .collectList()
+                .block();
+
+        assertNotNull(result);
+        assertEquals(2, result.size());
+    }
+
+    @Test
+    void findRewardBatchById_shouldTrimInput() {
+        Mono<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchById("  " + batch1.getId() + "  ");
+
+        StepVerifier.create(result)
+                .expectNextMatches(b -> b.getId().equals(batch1.getId()))
+                .verifyComplete();
+    }
+
+    @Test
+    void findRewardBatchByFilter_withNullBatchId_shouldFilterByMerchantPosTypeMonth() {
+        Mono<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByFilter(
+                null, MERCHANT, PosType.PHYSICAL, "2025-11"
+        );
+
+        StepVerifier.create(result)
+                .expectNextMatches(b ->
+                        b.getMerchantId().equals(MERCHANT)
+                                && b.getPosType() == PosType.PHYSICAL
+                                && b.getMonth().equals("2025-11"))
+                .verifyComplete();
+    }
+
+    @Test
+    void findRewardBatchByFilter_withOnlyMerchant_shouldReturnOneOfMerchantBatches() {
+        Mono<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByFilter(
+                null, MERCHANT, null, null
+        );
+
+        StepVerifier.create(result)
+                .expectNextMatches(b -> MERCHANT.equals(b.getMerchantId()))
+                .verifyComplete();
+    }
+
+    @Test
+    void updateStatusAndApprovedAmountCents_shouldUpdateDocument_usingSpecificRepository() {
+        RewardBatch created = RewardBatch.builder()
+                .id("rb-update-1")
+                .merchantId(MERCHANT)
+                .status(RewardBatchStatus.SENT)
+                .approvedAmountCents(0L)
+                .build();
+
+        rewardBatchRepository.save(created).block();
+
+        RewardBatch updated = rewardBatchSpecificRepository
+                .updateStatusAndApprovedAmountCents(created.getId(), RewardBatchStatus.APPROVED, 1234L)
+                .block();
+
+        assertNotNull(updated);
+        assertEquals(RewardBatchStatus.APPROVED, updated.getStatus());
+        assertEquals(1234L, updated.getApprovedAmountCents());
+        assertNotNull(updated.getUpdateDate());
+    }
+
+    @Test
+    void updateTransactionsStatus_withEmptyList_shouldReturnZeroAndNotFail() {
+        Mono<Long> result = rewardBatchSpecificRepository.updateTransactionsStatus(
+                batch1.getId(),
+                List.of(),
+                RewardBatchTrxStatus.SUSPENDED,
+                "reason-test"
+        );
+
+        StepVerifier.create(result)
+                .expectNext(0L)
+                .verifyComplete();
+    }
+
+    @Test
+    void updateTotals_shouldUpdateMultipleFieldsInOneCall() {
+        rewardBatchSpecificRepository.incrementTotals(batch1.getId(), 1000L).block();
+        RewardBatch before = rewardBatchRepository.findById(batch1.getId()).block();
+        assertNotNull(before);
+
+        RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
+                batch1.getId(),
+                5L,
+                700L,
+                2L,
+                3L
+        ).block();
+
+        assertNotNull(updated);
+        assertEquals(before.getNumberOfTransactionsElaborated() + 5, updated.getNumberOfTransactionsElaborated());
+        assertEquals(before.getNumberOfTransactionsRejected() + 2, updated.getNumberOfTransactionsRejected());
+        assertEquals(before.getNumberOfTransactionsSuspended() + 3, updated.getNumberOfTransactionsSuspended());
+        assertEquals(before.getApprovedAmountCents() + 700, updated.getApprovedAmountCents());
+        assertNotNull(updated.getUpdateDate());
+    }
+
+    @Test
+    void findPreviousEmptyBatches_shouldReturnOnlyEmptyBatchesBeforeCurrentMonth_sortedAsc() {
+        rewardBatchRepository.deleteAll().block();
+
+        String currentMonth = LocalDate.now()
+                .withDayOfMonth(1)
+                .toString()
+                .substring(0, 7);
+
+        RewardBatch oldEmpty1 = RewardBatch.builder()
+                .id("old-empty-1")
+                .merchantId(MERCHANT)
+                .month("2000-01")
+                .numberOfTransactions(0L)
+                .status(RewardBatchStatus.SENT)
+                .assigneeLevel(RewardBatchAssignee.L1)
+                .build();
+
+        RewardBatch oldEmpty2 = RewardBatch.builder()
+                .id("old-empty-2")
+                .merchantId(MERCHANT)
+                .month("2000-02")
+                .numberOfTransactions(0L)
+                .status(RewardBatchStatus.SENT)
+                .assigneeLevel(RewardBatchAssignee.L1)
+                .build();
+
+        RewardBatch oldNotEmpty = RewardBatch.builder()
+                .id("old-not-empty")
+                .merchantId(MERCHANT)
+                .month("2000-03")
+                .numberOfTransactions(1L)
+                .status(RewardBatchStatus.SENT)
+                .assigneeLevel(RewardBatchAssignee.L1)
+                .build();
+
+        RewardBatch currentEmpty = RewardBatch.builder()
+                .id("current-empty")
+                .merchantId(MERCHANT)
+                .month(currentMonth)
+                .numberOfTransactions(0L)
+                .status(RewardBatchStatus.SENT)
+                .assigneeLevel(RewardBatchAssignee.L1)
+                .build();
+
+        rewardBatchRepository.saveAll(List.of(oldEmpty2, oldEmpty1, oldNotEmpty, currentEmpty))
+                .collectList()
+                .block();
+
+        List<RewardBatch> result = rewardBatchSpecificRepository.findPreviousEmptyBatches()
+                .collectList()
+                .block();
+
+        assertNotNull(result);
+        assertEquals(2, result.size());
+        assertEquals("old-empty-1", result.get(0).getId());
+        assertEquals("old-empty-2", result.get(1).getId());
+    }
+
+
 
 }
 

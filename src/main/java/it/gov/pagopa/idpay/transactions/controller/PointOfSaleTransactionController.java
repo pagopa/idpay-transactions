@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import it.gov.pagopa.common.web.dto.ErrorDTO;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
+import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionsListDTO;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -16,6 +17,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 @RequestMapping("/idpay")
 public interface PointOfSaleTransactionController {
@@ -82,6 +85,11 @@ public interface PointOfSaleTransactionController {
           @RequestPart(value = "docNumber", required = false) String docNumber
   );
 
+
+  @GetMapping("/point-of-sales/{rewardBatchId}")
+    Mono<List<FranchisePointOfSaleDTO>> getFranchisePointOfSale(
+            @PathVariable("rewardBatchId") String rewardBatchId
+  );
     @PostMapping("/transactions/{transactionId}/reversal-invoiced")
     @ResponseStatus(code = HttpStatus.NO_CONTENT)
     Mono<Void> reversalTransactionInvoiced(

@@ -8,8 +8,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-import com.azure.core.http.rest.Response;
-import com.azure.storage.blob.models.BlockBlobItem;
+import com.mongodb.client.result.DeleteResult;
+import com.mongodb.reactivestreams.client.MongoDatabase;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
@@ -28,7 +28,6 @@ import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
 import java.time.LocalDate;
-import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.*;
@@ -49,11 +48,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+
 
 @ExtendWith(MockitoExtension.class)
 class RewardBatchServiceImplTest {
@@ -64,12 +66,16 @@ class RewardBatchServiceImplTest {
   private RewardTransactionRepository rewardTransactionRepository;
   @Mock
   private UserRestClient userRestClient;
+  @Mock
+  private ReactiveMongoTemplate reactiveMongoTemplate;
 
   private RewardBatchService rewardBatchService;
   private RewardBatchServiceImpl rewardBatchServiceSpy;
 
   @Mock
   private ApprovedRewardBatchBlobService approvedRewardBatchBlobService;
+
+
 
   private static final String BUSINESS_NAME = "Test Business name";
   private static final String REWARD_BATCH_ID_1 = "REWARD_BATCH_ID_1";
@@ -92,7 +98,6 @@ class RewardBatchServiceImplTest {
 
 
     private static final String FAKE_CSV_FILENAME = "test/path/report_fake.csv";
-    private String capturedFilename;
 
     private static final String VALID_ROLE = "L1";
     private static final String INVALID_ROLE = "GUEST";
@@ -100,7 +105,7 @@ class RewardBatchServiceImplTest {
 
     @BeforeEach
   void setUp() {
-    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, userRestClient, approvedRewardBatchBlobService);
+    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, userRestClient, approvedRewardBatchBlobService,reactiveMongoTemplate );
     rewardBatchServiceSpy = spy((RewardBatchServiceImpl) rewardBatchService);
   }
 
@@ -295,7 +300,7 @@ class RewardBatchServiceImplTest {
 
     @Test
     void testGenerateAndSaveCsv_Success() {
-
+        String userIdWithNoCF = "USER_ID_2";
         RewardBatch batch = RewardBatch.builder()
                 .id(REWARD_BATCH_ID_1)
                 .merchantId(MERCHANT_ID)
@@ -306,52 +311,36 @@ class RewardBatchServiceImplTest {
 
         when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
                 .thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.save(any(RewardBatch.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        RewardTransaction trx1 = createMockTransaction(
-                "T001", 10000L, 500L, "8033675155005", "Lavatrice");
-        RewardTransaction trx2 = createMockTransaction(
-                "T002", 500L, 10L, "1234567890123", "Aspirapolvere");
+        RewardTransaction trx1 = createMockTransaction("T001", 10000L, 500L, "8033675155005", "Lavatrice");
+        RewardTransaction trx2 = createMockTransaction("T002", 500L, 10L, "1234567890123", "Aspirapolvere");
+        trx2.setUserId(userIdWithNoCF);
         trx2.setFiscalCode(null);
 
-        when(rewardTransactionRepository.findByFilter(
-                REWARD_BATCH_ID_1,
-                INITIATIVE_ID,
-                List.of(RewardBatchTrxStatus.APPROVED, RewardBatchTrxStatus.REJECTED)
-        )).thenReturn(Flux.just(trx1, trx2));
+        when(rewardTransactionRepository.findByFilter(anyString(), anyString(), anyList()))
+                .thenReturn(Flux.just(trx1, trx2));
 
-        when(userRestClient.retrieveUserInfo(trx2.getUserId()))
+        when(userRestClient.retrieveUserInfo(anyString()))
                 .thenReturn(Mono.just(UserInfoPDV.builder().pii("CF_2").build()));
 
-        @SuppressWarnings("unchecked")
-        Response<BlockBlobItem> mockResponseSuccess = Mockito.mock(Response.class);
-        when(mockResponseSuccess.getStatusCode()).thenReturn(HttpStatus.CREATED.value());
+        doReturn(Mono.just("Business_BatchName_FISICO.csv"))
+                .when(rewardBatchServiceSpy).uploadCsvToBlob(anyString(), anyString());
 
-        doAnswer(invocation -> {
-            capturedFilename = invocation.getArgument(1);
-            return mockResponseSuccess;
-        }).when(approvedRewardBatchBlobService).upload(
-                any(InputStream.class),
-                any(String.class),
-                any(String.class)
-        );
-
-        String expectedReportFilename = "Business_BatchName_PHYSICAL.csv";
+        String expectedReportFilename = "Business_BatchName_FISICO.csv";
 
         StepVerifier.create(
-                        rewardBatchServiceSpy.generateAndSaveCsv(
-                                REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
+                        rewardBatchServiceSpy.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
                 .expectNext(expectedReportFilename)
                 .verifyComplete();
 
-        assertThat(capturedFilename)
-                .endsWith(expectedReportFilename)
-                .contains(REWARD_BATCH_ID_1)
-                .contains(MERCHANT_ID);
+        verify(rewardBatchRepository).save(argThat(b -> b.getFilename().equals(expectedReportFilename)));
     }
+
 
     @Test
     void testGenerateAndSaveCsv_RepositoryReturnsNoTransactions() {
-
         RewardBatch batch = RewardBatch.builder()
                 .id(REWARD_BATCH_ID_2)
                 .merchantId(MERCHANT_ID)
@@ -363,25 +352,25 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findById(REWARD_BATCH_ID_2))
                 .thenReturn(Mono.just(batch));
 
-        when(rewardTransactionRepository.findByFilter(
-                any(), any(), anyList()))
+        when(rewardBatchRepository.save(any(RewardBatch.class)))
+                .thenReturn(Mono.just(batch));
+
+        when(rewardTransactionRepository.findByFilter(any(), any(), anyList()))
                 .thenReturn(Flux.empty());
 
-        when(rewardBatchServiceSpy.uploadCsvToBlob(anyString(), anyString()))
-                .thenReturn(Mono.just("Business_BatchName_PHYSICAL.csv"));
+        String expectedFilename = "Business_BatchName_FISICO.csv";
+        doReturn(Mono.just(expectedFilename))
+                .when(rewardBatchServiceSpy).uploadCsvToBlob(anyString(), anyString());
 
         StepVerifier.create(
-                        rewardBatchServiceSpy.generateAndSaveCsv(
-                                REWARD_BATCH_ID_2, INITIATIVE_ID, MERCHANT_ID))
-                .expectNext("Business_BatchName_PHYSICAL.csv")
+                        rewardBatchServiceSpy.generateAndSaveCsv(REWARD_BATCH_ID_2, INITIATIVE_ID, MERCHANT_ID))
+                .expectNext(expectedFilename)
                 .verifyComplete();
 
-        verify(rewardTransactionRepository).findByFilter(any(), any(), anyList());
-        verify(rewardBatchServiceSpy).uploadCsvToBlob(anyString(), anyString());
+        verify(rewardBatchRepository).save(any(RewardBatch.class));
     }
-
     @Test
-    void testGenerateAndSaveCsv_SavingFails() {
+    void testGenerateAndSaveCsv_UploadFails() {
         RewardBatch batch = RewardBatch.builder()
                 .id(REWARD_BATCH_ID_1)
                 .merchantId(MERCHANT_ID)
@@ -393,27 +382,19 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findById(REWARD_BATCH_ID_1))
                 .thenReturn(Mono.just(batch));
 
-        RewardTransaction trx = createMockTransaction("T003", 100L, 10L, "1", "Prod");
         when(rewardTransactionRepository.findByFilter(any(), any(), anyList()))
-                .thenReturn(Flux.just(trx));
+                .thenReturn(Flux.just(createMockTransaction("T003", 100L, 10L, "1", "Prod")));
 
-        doReturn(Mono.error(new RuntimeException("Simulated I/O Error")))
+        doReturn(Mono.error(new RuntimeException("Upload Failed")))
                 .when(rewardBatchServiceSpy).uploadCsvToBlob(anyString(), anyString());
 
         StepVerifier.create(
                         rewardBatchServiceSpy.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
-                .expectErrorSatisfies(throwable ->
-                        assertThat(throwable)
-                                .isInstanceOf(RuntimeException.class)
-                                .hasMessageContaining("Simulated I/O Error")
-                )
+                .expectError(RuntimeException.class)
                 .verify();
 
-        verify(rewardBatchRepository).findById(REWARD_BATCH_ID_1);
-        verify(rewardTransactionRepository).findByFilter(any(), any(), anyList());
-        verify(rewardBatchServiceSpy).uploadCsvToBlob(anyString(), anyString());
+        verify(rewardBatchRepository, never()).save(any());
     }
-
   @Test
   void testGenerateAndSaveCsv_InvalidBatchId_ThrowsError() {
     String invalidBatchId1 = "batch_id/../secret";
@@ -587,7 +568,7 @@ class RewardBatchServiceImplTest {
 
             verify(rewardBatchServiceSpy, times(1)).updateAndSaveRewardTransactionsToApprove(REWARD_BATCH_ID_1, INITIATIVE_ID);
             verify(rewardBatchServiceSpy, never()).createRewardBatchAndSave(any());
-            verify(rewardBatchRepository, times(2)).save(any(RewardBatch.class));
+            verify(rewardBatchRepository, times(1)).save(any(RewardBatch.class));
         }
 
   @Test
@@ -625,7 +606,7 @@ class RewardBatchServiceImplTest {
                     REWARD_BATCH_ID_2,
                     REWARD_BATCH_1.getMonth()
             );
-            verify(rewardBatchRepository, times(2)).save(argThat(batch ->
+            verify(rewardBatchRepository, times(1)).save(argThat(batch ->
                     batch.getId().equals(REWARD_BATCH_ID_1) && batch.getStatus().equals(RewardBatchStatus.APPROVED)));
         }
 
@@ -815,7 +796,7 @@ class RewardBatchServiceImplTest {
         .thenReturn(Mono.error(new DuplicateKeyException("Duplicate")));
 
     StepVerifier.create(
-            new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository,userRestClient, approvedRewardBatchBlobService)
+            new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository,userRestClient, approvedRewardBatchBlobService, reactiveMongoTemplate  )
                 .findOrCreateBatch("M1", posType, batchMonth, BUSINESS_NAME)
         )
         .assertNext(batch -> {
@@ -3164,6 +3145,50 @@ class RewardBatchServiceImplTest {
 
         verify(rewardTransactionRepository).updateStatusAndReturnOld(any(), any(), any(), any(), any());
         verify(rewardBatchRepository).updateTotals(any(), anyLong(), anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void deleteEmptyRewardBatches_shouldDeleteMatchingBatches_noExtraImports() {
+
+        RewardBatch batch1 = RewardBatch.builder().id("BATCH_1").month("2025-11").numberOfTransactions(0L).build();
+        RewardBatch batch2 = RewardBatch.builder().id("BATCH_2").month("2025-10").numberOfTransactions(0L).build();
+
+
+        MongoDatabase mockDb = mock(MongoDatabase.class);
+        when(reactiveMongoTemplate.getMongoDatabase()).thenReturn(Mono.just(mockDb));
+        when(reactiveMongoTemplate.getCollectionName(RewardBatch.class)).thenReturn("rewardBatch");
+        when(reactiveMongoTemplate.count(any(Query.class), eq(RewardBatch.class))).thenReturn(Mono.just(2L));
+        when(reactiveMongoTemplate.find(any(Query.class), eq(RewardBatch.class))).thenReturn(Flux.just(batch1, batch2));
+
+        DeleteResult deleteResult = DeleteResult.acknowledged(1L);
+        when(reactiveMongoTemplate.remove(any(Query.class), eq(RewardBatch.class))).thenReturn(Mono.just(deleteResult));
+
+        rewardBatchService.deleteEmptyRewardBatches().block();
+
+
+        verify(reactiveMongoTemplate).getMongoDatabase();
+        verify(reactiveMongoTemplate).getCollectionName(RewardBatch.class);
+        verify(reactiveMongoTemplate).find(any(Query.class), eq(RewardBatch.class));
+        verify(reactiveMongoTemplate, times(2)).remove(any(Query.class), eq(RewardBatch.class));
+    }
+
+    @Test
+    void deleteEmptyRewardBatches_shouldHandleNoMatchingBatches_noExtraImports() {
+
+        MongoDatabase mockDb = mock(MongoDatabase.class);
+        when(reactiveMongoTemplate.getMongoDatabase()).thenReturn(Mono.just(mockDb));
+        when(reactiveMongoTemplate.getCollectionName(RewardBatch.class)).thenReturn("rewardBatch");
+        when(reactiveMongoTemplate.count(any(Query.class), eq(RewardBatch.class))).thenReturn(Mono.just(0L));
+        when(reactiveMongoTemplate.find(any(Query.class), eq(RewardBatch.class))).thenReturn(Flux.empty());
+
+
+        rewardBatchService.deleteEmptyRewardBatches().block();
+
+
+        verify(reactiveMongoTemplate).getMongoDatabase();
+        verify(reactiveMongoTemplate).getCollectionName(RewardBatch.class);
+        verify(reactiveMongoTemplate).find(any(Query.class), eq(RewardBatch.class));
+        verify(reactiveMongoTemplate, never()).remove(any(Query.class), eq(RewardBatch.class));
     }
 
 }

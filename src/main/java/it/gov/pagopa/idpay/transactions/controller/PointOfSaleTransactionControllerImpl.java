@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
+import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionsListDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
@@ -14,6 +15,8 @@ import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 @RestController
 @Slf4j
@@ -95,6 +98,15 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
   }
 
     @Override
+    public Mono<List<FranchisePointOfSaleDTO>> getFranchisePointOfSale(String rewardBatchId) {
+
+      final String sanitizedRewardBatchId = Utilities.sanitizeString(rewardBatchId);
+
+      log.info("[POINT_OF_SALE_TRANSACTION_CONTROLLER] - Get point of sales by reward batch id {}", sanitizedRewardBatchId);
+
+      return pointOfSaleTransactionService.getDistinctFranchiseAndPosByRewardBatchId(sanitizedRewardBatchId);
+    }
+
     public Mono<Void> reversalTransactionInvoiced(String transactionId, String merchantId, String pointOfSaleId, FilePart file, String docNumber) {
 
         final String sanitizedMerchantId = Utilities.sanitizeString(merchantId);

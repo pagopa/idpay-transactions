@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.service;
 import com.azure.core.http.rest.Response;
 import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.models.BlockBlobItem;
+import com.mongodb.client.result.DeleteResult;
 import com.nimbusds.jose.util.Pair;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
@@ -34,6 +35,9 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -70,6 +74,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   private final RewardBatchRepository rewardBatchRepository;
   private final RewardTransactionRepository rewardTransactionRepository;
   private final UserRestClient userRestClient;
+  private final ReactiveMongoTemplate reactiveMongoTemplate;
 
 
     private static final String OPERATOR_1 = "operator1";
@@ -97,11 +102,12 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "%s_%s_%s.csv";
   private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM", Locale.ITALIAN);
 
-  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService) {
+  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService, ReactiveMongoTemplate reactiveMongoTemplate) {
     this.rewardBatchRepository = rewardBatchRepository;
     this.rewardTransactionRepository = rewardTransactionRepository;
       this.userRestClient = userRestClient;
       this.approvedRewardBatchBlobService = approvedRewardBatchBlobService;
+      this.reactiveMongoTemplate = reactiveMongoTemplate;
   }
 
   @Override
@@ -569,7 +575,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                     .doOnNext(rewardBatchId ->
                             log.info("Processing batch {}", rewardBatchId)
                     )
-                    .flatMap(rewardBatchId ->
+                    .concatMap(rewardBatchId ->
                             this.processSingleBatchSafe(rewardBatchId, initiativeId)
                     )
 
@@ -591,7 +597,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             log.info("Processing batch {}",
                                     rewardBatch.getId())
                     )
-                    .flatMap(rewardBatch -> {
+                    .concatMap(rewardBatch -> {
                         String rewardBatchId = rewardBatch.getId();
                         return processSingleBatchSafe(rewardBatchId, initiativeId);
                     })
@@ -602,12 +608,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     public Mono<RewardBatch> processSingleBatchSafe(String rewardBatchId, String initiativeId) {
         return this.processSingleBatch(rewardBatchId, initiativeId)
-                .onErrorResume(ClientExceptionWithBody.class, error -> {
-                     log.warn(error.getMessage());
+                .onErrorResume(error -> {
+                    log.error("Failed to process batch {}: {}", rewardBatchId, error.getMessage(), error);
                     return Mono.empty();
                 });
     }
-
     public Mono<RewardBatch> processSingleBatch(String rewardBatchId, String initiativeId) {
         return rewardBatchRepository.findRewardBatchById(rewardBatchId)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
@@ -637,15 +642,13 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         this.generateAndSaveCsv(rewardBatchId, initiativeId, savedBatch.getMerchantId())
                                 .onErrorResume(e -> {
                                     log.error("Critical error while generating CSV for batch {}", Utilities.sanitizeString(rewardBatchId), e);
-                                    return Mono.empty();
+                                    return Mono.just("ERROR");
                                 })
-                                .flatMap(filename -> {
-                                    savedBatch.setFilename(filename);
-                                    log.info("Updated batch {} with filename: {}", Utilities.sanitizeString(rewardBatchId), filename);
-                                    return rewardBatchRepository.save(savedBatch);
-                                })
+                                .thenReturn(savedBatch)
                 );
     }
+
+
 
     private Mono<RewardBatch> handleSuspendedTransactions(RewardBatch originalBatch, String initiativeId) {
         if (originalBatch.getNumberOfTransactionsSuspended() == null || originalBatch.getNumberOfTransactionsSuspended() <= 0) {
@@ -842,7 +845,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
 
     @Override
-        public Mono<String> generateAndSaveCsv(String rewardBatchId, String initiativeId, String merchantId) {
+    public Mono<String> generateAndSaveCsv(String rewardBatchId, String initiativeId, String merchantId) {
 
             log.info("[GENERATE_AND_SAVE_CSV] Generate CSV for initiative {} and batch {}",
                     Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(rewardBatchId) );
@@ -864,15 +867,16 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                     String reportFilename = String.format(REWARD_BATCHES_REPORT_NAME_FORMAT,
                             batch.getBusinessName(),
                             batch.getName(),
-                            batch.getPosType()).trim();
+                            batch.getPosType().getDescription()).trim();
+
                     String filename = pathPrefix + reportFilename;
 
                     Flux<RewardTransaction> transactionFlux = rewardTransactionRepository.findByFilter(
                             rewardBatchId, initiativeId, List.of(RewardBatchTrxStatus.APPROVED, RewardBatchTrxStatus.REJECTED));
 
                     Flux<String> csvRowsFlux = transactionFlux
-                            .flatMap(transaction -> {
-                                if(transaction.getFiscalCode() == null || transaction.getFiscalCode().isEmpty()){
+                            .concatMap(transaction -> {
+                                if (transaction.getFiscalCode() == null || transaction.getFiscalCode().isEmpty()) {
                                     return userRestClient.retrieveUserInfo(transaction.getUserId())
                                             .map(cf -> {
                                                 transaction.setFiscalCode(cf.getPii());
@@ -888,9 +892,14 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             .collect(StringBuilder::new, (sb, s) -> sb.append(s).append("\n"))
                             .map(StringBuilder::toString)
                             .flatMap(csvContent -> this.uploadCsvToBlob(filename, csvContent))
-                            .doOnTerminate(() -> log.info("CSV generation has been completed for batch: {}", Utilities.sanitizeString(rewardBatchId)))
-                            .map(uploadedKey -> reportFilename);
-                });
+                            .flatMap(uploadedPath -> {
+                                batch.setFilename(reportFilename);
+                                log.info("Updated batch {} with filename: {}", Utilities.sanitizeString(rewardBatchId), reportFilename);
+                                return rewardBatchRepository.save(batch)
+                                        .thenReturn(reportFilename);
+                            });
+                })
+                .doOnTerminate(() -> log.info("CSV generation has been completed for batch: {}", Utilities.sanitizeString(rewardBatchId)));
     }
 
     private String mapTransactionToCsvRow(RewardTransaction trx, String initiativeId) {
@@ -1065,4 +1074,45 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     public static class TotalAmount {
         private long total;
     }
+
+    @Override
+    public Mono<Void> deleteEmptyRewardBatches() {
+
+        String currentMonth = LocalDate.now()
+                .withDayOfMonth(1)
+                .toString()
+                .substring(0, 7);
+
+        Query toDeleteQuery = Query.query(new Criteria().andOperator(
+                Criteria.where(RewardBatch.Fields.numberOfTransactions).in(0L, 0),
+                Criteria.where(RewardBatch.Fields.month).lt(currentMonth)
+        ));
+
+        return reactiveMongoTemplate.getMongoDatabase()
+                .doOnNext(db -> log.info("[CANCEL_EMPTY_BATCHES] DB={}", db.getName()))
+                .then(Mono.fromCallable(() -> reactiveMongoTemplate.getCollectionName(RewardBatch.class))
+                        .doOnNext(c -> log.info("[CANCEL_EMPTY_BATCHES] Collection={}", c))
+                )
+                .then(reactiveMongoTemplate.count(new Query(), RewardBatch.class)
+                        .doOnNext(total -> log.info("[CANCEL_EMPTY_BATCHES] Total docs={}", total))
+                )
+                .then(reactiveMongoTemplate.count(toDeleteQuery, RewardBatch.class)
+                        .doOnNext(match -> log.info("[CANCEL_EMPTY_BATCHES] Matching docs={}", match))
+                )
+                .thenMany(reactiveMongoTemplate.find(toDeleteQuery, RewardBatch.class)
+                        .doOnNext(b -> log.info("[CANCEL_EMPTY_BATCHES] WILL DELETE id={} month={} nTrx={}",
+                                b.getId(), b.getMonth(), b.getNumberOfTransactions()))
+                )
+                .concatMap(b ->
+                        reactiveMongoTemplate.remove(
+                                        Query.query(Criteria.where("_id").is(b.getId())),
+                                        RewardBatch.class
+                                )
+                                .map(DeleteResult::getDeletedCount)
+                )
+                .reduce(0L, Long::sum)
+                .doOnNext(count -> log.info("[CANCEL_EMPTY_BATCHES] Deleted {} empty batches", count))
+                .then();
+    }
+
 }

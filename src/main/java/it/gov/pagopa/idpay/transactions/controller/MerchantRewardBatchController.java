@@ -103,4 +103,8 @@ public interface MerchantRewardBatchController {
       @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
       LocalDate initiativeEndDate
   );
+
+  @DeleteMapping("/empty-reward-batches")
+  @ResponseStatus(code = HttpStatus.OK)
+  Mono<Void> cancelEmptyRewardBatches();
 }
