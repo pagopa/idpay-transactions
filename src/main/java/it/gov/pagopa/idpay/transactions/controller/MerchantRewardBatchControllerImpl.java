@@ -36,7 +36,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
-  public Mono<RewardBatchListDTO> getRewardBatches(String merchantId, String organizationRole, String status, String assigneeLevel, String businessName, String month, String initiativeId, Pageable pageable) {
+  public Mono<RewardBatchListDTO> getRewardBatches(String merchantId, String organizationRole, String status, String assigneeLevel, String month, String initiativeId, Pageable pageable) {
 
     if (merchantId == null && organizationRole == null) {
       throw new ClientExceptionWithBody(
@@ -50,7 +50,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
         merchantId != null ? Utilities.sanitizeString(merchantId) : "null",
         organizationRole != null ? Utilities.sanitizeString(organizationRole) : "null");
 
-    return rewardBatchService.getRewardBatches(merchantId, organizationRole, status, assigneeLevel, businessName, month, pageable)
+    return rewardBatchService.getRewardBatches(merchantId, organizationRole, status, assigneeLevel, month, pageable)
         .flatMap(page ->
             Flux.fromIterable(page.getContent())
                 .flatMapSequential(rewardBatchMapper::toDTO)

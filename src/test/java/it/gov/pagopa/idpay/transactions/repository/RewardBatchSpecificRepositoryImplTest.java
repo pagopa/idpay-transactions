@@ -149,7 +149,7 @@ class RewardBatchSpecificRepositoryImplTest {
     rewardBatchRepository.saveAll(List.of(batchL1, batchL3)).collectList().block();
 
     Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchesCombined(
-            "M1", "TO_WORK", null, null, null, true, PageRequest.of(0, 10));
+            "M1", "TO_WORK", null, null, true, PageRequest.of(0, 10));
 
     StepVerifier.create(result)
             .expectNextMatches(b -> b.getId().equals("BATCH_L1"))
@@ -166,7 +166,7 @@ class RewardBatchSpecificRepositoryImplTest {
     rewardBatchRepository.save(batchL3).block();
 
     Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchesCombined(
-            null, "TO_APPROVE", "L1", null, null, true, PageRequest.of(0, 10));
+            null, "TO_APPROVE", "L1", null, true, PageRequest.of(0, 10));
 
     StepVerifier.create(result)
             .expectNextCount(0)
@@ -182,7 +182,7 @@ class RewardBatchSpecificRepositoryImplTest {
     rewardBatchRepository.save(createdBatch).block();
 
     Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchesCombined(
-            null, "CREATED", null, null, null, true, PageRequest.of(0, 10));
+            null, "CREATED", null, null, true, PageRequest.of(0, 10));
 
     StepVerifier.create(result)
             .expectNextCount(0)
@@ -200,7 +200,7 @@ class RewardBatchSpecificRepositoryImplTest {
     rewardBatchRepository.save(b1).block();
 
     Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchesCombined(
-            "M1", "SENT", null, "Negozio X", null, false, PageRequest.of(0, 10));
+            "M1", "SENT", null, "Negozio X", false, PageRequest.of(0, 10));
 
     StepVerifier.create(result)
             .expectNextMatches(b -> b.getBusinessName().equals("Negozio X"))
@@ -229,7 +229,6 @@ class RewardBatchSpecificRepositoryImplTest {
 
     Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchesCombined(
         MERCHANT,
-        null,
         null,
         null,
         null,
@@ -268,7 +267,6 @@ class RewardBatchSpecificRepositoryImplTest {
         null,
         null,
         null,
-        null,
         false
     );
 
@@ -283,7 +281,6 @@ class RewardBatchSpecificRepositoryImplTest {
 
     Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchesCombined(
         MERCHANT,
-        null,
         null,
         null,
         null,
@@ -306,7 +303,6 @@ class RewardBatchSpecificRepositoryImplTest {
             null,
             null,
             null,
-            null,
             false,
             firstPage
         )
@@ -320,7 +316,6 @@ class RewardBatchSpecificRepositoryImplTest {
     List<RewardBatch> page2 = rewardBatchSpecificRepository
         .findRewardBatchesCombined(
             MERCHANT,
-            null,
             null,
             null,
             null,
@@ -401,7 +396,6 @@ class RewardBatchSpecificRepositoryImplTest {
         RewardBatchStatus.SENT.name(),
         null,
         null,
-        null,
         false,
         pageable
     );
@@ -428,7 +422,6 @@ class RewardBatchSpecificRepositoryImplTest {
         MERCHANT,
         null,
         RewardBatchAssignee.L2.name(),
-        null,
         null,
         false,
         pageable
@@ -459,7 +452,6 @@ class RewardBatchSpecificRepositoryImplTest {
             RewardBatchStatus.EVALUATING.name(),
             null,
             null,
-            null,
             false,
             pageable
         )
@@ -486,7 +478,6 @@ class RewardBatchSpecificRepositoryImplTest {
 
     StepVerifier.create(
             rewardBatchSpecificRepository.findRewardBatchesCombined(
-                null,
                 null,
                 null,
                 null,
@@ -716,11 +707,10 @@ class RewardBatchSpecificRepositoryImplTest {
                     null,
                     null,
                     null,
-                    null,
                     true
                 )
                 .flatMap(count -> rewardBatchSpecificRepository
-                    .findRewardBatchesCombined(null, null, null, null, null, true, PageRequest.of(0, 100))
+                    .findRewardBatchesCombined(null, null, null, null, true, PageRequest.of(0, 100))
                     .count()
                 )
         )
@@ -751,7 +741,7 @@ class RewardBatchSpecificRepositoryImplTest {
 
     StepVerifier.create(
             rewardBatchSpecificRepository
-                .findRewardBatchesCombined(null, null, "L1", null, null, false, pageable)
+                .findRewardBatchesCombined(null, null, "L1", null, false, pageable)
                 .collectList()
         )
         .assertNext(result -> {
@@ -778,7 +768,6 @@ class RewardBatchSpecificRepositoryImplTest {
         .findRewardBatchesCombined(
             null,
             RewardBatchStatus.CREATED.name(),
-            null,
             null,
             null,
             true,
@@ -850,7 +839,7 @@ class RewardBatchSpecificRepositoryImplTest {
     @Test
     void findRewardBatchesCombined_withNullPageable_shouldUseDefaultSortingAndSize() {
         List<RewardBatch> result = rewardBatchSpecificRepository
-                .findRewardBatchesCombined(MERCHANT, null, null, null, null, false, null)
+                .findRewardBatchesCombined(MERCHANT, null, null, null, false, null)
                 .collectList()
                 .block();
 
@@ -863,7 +852,7 @@ class RewardBatchSpecificRepositoryImplTest {
         Pageable unsorted = PageRequest.of(0, 10, Sort.unsorted());
 
         List<RewardBatch> result = rewardBatchSpecificRepository
-                .findRewardBatchesCombined(MERCHANT, null, null, null, null, false, unsorted)
+                .findRewardBatchesCombined(MERCHANT, null, null, null, false, unsorted)
                 .collectList()
                 .block();
 

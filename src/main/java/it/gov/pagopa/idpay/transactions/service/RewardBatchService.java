@@ -14,7 +14,7 @@ import java.util.List;
 public interface RewardBatchService {
 
   Mono<RewardBatch> findOrCreateBatch(String merchantId, PosType posType, String month, String businessName);
-  Mono<Page<RewardBatch>> getRewardBatches(String merchantId, String organizationRole, String status, String assigneeLevel, String businessName, String month, Pageable pageable);
+  Mono<Page<RewardBatch>> getRewardBatches(String merchantId, String organizationRole, String status, String assigneeLevel, String month, Pageable pageable);
   Mono<RewardBatch> incrementTotals(String batchId, long accruedAmountCents);
   Mono<RewardBatch> decrementTotals(String batchId, long accruedAmountCents);
 
