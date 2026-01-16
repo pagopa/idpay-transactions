@@ -194,16 +194,16 @@ class RewardBatchSpecificRepositoryImplTest {
     RewardBatch b1 = RewardBatch.builder()
             .id("B1")
             .merchantId("M1")
-            .businessName("Negozio X")
+            .month("2026-01")
             .status(RewardBatchStatus.SENT)
             .build();
     rewardBatchRepository.save(b1).block();
 
     Flux<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchesCombined(
-            "M1", "SENT", null, "Negozio X", false, PageRequest.of(0, 10));
+            "M1", "SENT", null, "2026-01", false, PageRequest.of(0, 10));
 
     StepVerifier.create(result)
-            .expectNextMatches(b -> b.getBusinessName().equals("Negozio X"))
+            .expectNextMatches(b -> b.getStatus().equals(RewardBatchStatus.SENT))
             .verifyComplete();
   }
   @Test
