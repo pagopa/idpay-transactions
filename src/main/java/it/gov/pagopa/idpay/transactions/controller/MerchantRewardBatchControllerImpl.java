@@ -50,7 +50,8 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
         merchantId != null ? Utilities.sanitizeString(merchantId) : "null",
         organizationRole != null ? Utilities.sanitizeString(organizationRole) : "null");
 
-    return rewardBatchService.getRewardBatches(merchantId, organizationRole, status, assigneeLevel, month, merchantIdFilter, pageable)
+    String validMerchantId = merchantId != null ? merchantId : merchantIdFilter;
+    return rewardBatchService.getRewardBatches(validMerchantId, organizationRole, status, assigneeLevel, month, pageable)
         .flatMap(page ->
             Flux.fromIterable(page.getContent())
                 .flatMapSequential(rewardBatchMapper::toDTO)

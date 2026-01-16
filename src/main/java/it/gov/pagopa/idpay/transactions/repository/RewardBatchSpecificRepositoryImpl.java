@@ -31,15 +31,15 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Flux<RewardBatch> findRewardBatchesCombined(String merchantId, String status, String assigneeLevel, String month, String merchantIdFilter, boolean isOperator, Pageable pageable) {
-    Criteria criteria = buildCombinedCriteria(merchantId, status, assigneeLevel, month, merchantIdFilter, isOperator);
+  public Flux<RewardBatch> findRewardBatchesCombined(String merchantId, String status, String assigneeLevel, String month, boolean isOperator, Pageable pageable) {
+    Criteria criteria = buildCombinedCriteria(merchantId, status, assigneeLevel, month, isOperator);
     Query query = Query.query(criteria).with(getPageableRewardBatch(pageable));
     return mongoTemplate.find(query, RewardBatch.class);
   }
 
   @Override
-  public Mono<Long> getCountCombined(String merchantId, String status, String assigneeLevel, String month, String merchantIdFilter, boolean isOperator) {
-    Criteria criteria = buildCombinedCriteria(merchantId, status, assigneeLevel, month, merchantIdFilter, isOperator);
+  public Mono<Long> getCountCombined(String merchantId, String status, String assigneeLevel, String month, boolean isOperator) {
+    Criteria criteria = buildCombinedCriteria(merchantId, status, assigneeLevel, month, isOperator);
     return mongoTemplate.count(Query.query(criteria), RewardBatch.class);
   }
 
@@ -69,12 +69,11 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     );
   }
 
-  private Criteria buildCombinedCriteria(String merchantId, String status, String assigneeLevel, String month, String merchantIdFilter, boolean isOperator) {
+  private Criteria buildCombinedCriteria(String merchantId, String status, String assigneeLevel, String month, boolean isOperator) {
     List<Criteria> subCriteria = new ArrayList<>();
 
     addIsCriteriaIfNotBlank(subCriteria, RewardBatch.Fields.merchantId, merchantId);
     addIsCriteriaIfNotBlank(subCriteria, RewardBatch.Fields.month, month);
-    addIsCriteriaIfNotBlank(subCriteria, RewardBatch.Fields.merchantId, merchantIdFilter);
 
     RewardBatchAssignee level = parseAssigneeLevel(assigneeLevel);
     if (level != null) {
