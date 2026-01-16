@@ -662,6 +662,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .flatMap(originalBatch -> {
                             originalBatch.setStatus(RewardBatchStatus.APPROVED);
                             originalBatch.setUpdateDate(LocalDateTime.now());
+                            originalBatch.setSuspendedAmountCents(0L);
                             return rewardBatchRepository.save(originalBatch);
                 })
                 .flatMap(savedBatch ->
@@ -695,6 +696,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         newBatch.setInitialAmountCents(coalesce(newBatch.getInitialAmountCents()) + totalAccrued);
         newBatch.setNumberOfTransactionsSuspended(coalesce(newBatch.getNumberOfTransactionsSuspended()) + count);
         newBatch.setNumberOfTransactions(coalesce(newBatch.getNumberOfTransactions()) + count);
+        newBatch.setSuspendedAmountCents(totalAccrued);
     }
 
 
