@@ -206,8 +206,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                       ExceptionConstants.ExceptionCode.REWARD_BATCH_PREVIOUS_NOT_SENT));
                 }
 
+                LocalDateTime dateTimeNow = LocalDateTime.now();
                 batch.setStatus(RewardBatchStatus.SENT);
-                batch.setUpdateDate(LocalDateTime.now());
+                batch.setMerchantSendDate(dateTimeNow);
+                batch.setUpdateDate(dateTimeNow);
                 return rewardBatchRepository.save(batch);
               })
               .then();
