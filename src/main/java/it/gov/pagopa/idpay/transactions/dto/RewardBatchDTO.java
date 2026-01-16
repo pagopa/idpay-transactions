@@ -35,4 +35,6 @@ public class RewardBatchDTO {
   Long numberOfTransactionsElaborated;
   String reportPath;
   String assigneeLevel;
+  @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+  LocalDateTime merchantSendDate;
 }
