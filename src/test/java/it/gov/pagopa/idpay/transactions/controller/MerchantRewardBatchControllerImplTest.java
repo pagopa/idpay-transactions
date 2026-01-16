@@ -177,6 +177,7 @@ class MerchantRewardBatchControllerImplTest {
         isNull(),
         isNull(),
         isNull(),
+        isNull(),
         any(Pageable.class)))
         .thenReturn(Mono.just(page));
 
@@ -204,7 +205,7 @@ class MerchantRewardBatchControllerImplTest {
         });
 
     verify(rewardBatchService, times(1))
-        .getRewardBatches(eq(MERCHANT_ID), isNull(), isNull(), isNull(), isNull(), any(Pageable.class));
+        .getRewardBatches(eq(MERCHANT_ID), isNull(), isNull(), isNull(), isNull(), isNull(), any(Pageable.class));
     verify(rewardBatchMapper, times(1)).toDTO(batch);
   }
 
@@ -231,6 +232,7 @@ class MerchantRewardBatchControllerImplTest {
     when(rewardBatchService.getRewardBatches(
         isNull(),
         eq(organizationRole),
+        isNull(),
         isNull(),
         isNull(),
         isNull(),
@@ -261,7 +263,7 @@ class MerchantRewardBatchControllerImplTest {
         });
 
     verify(rewardBatchService, times(1))
-        .getRewardBatches(isNull(), eq(organizationRole), isNull(), isNull(), isNull(), any(Pageable.class));
+        .getRewardBatches(isNull(), eq(organizationRole), isNull(), isNull(), isNull(), isNull(), any(Pageable.class));
     verify(rewardBatchMapper, times(1)).toDTO(batch);
   }
 

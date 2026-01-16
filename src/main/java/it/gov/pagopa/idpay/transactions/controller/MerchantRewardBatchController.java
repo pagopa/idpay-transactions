@@ -27,6 +27,7 @@ public interface MerchantRewardBatchController {
       @RequestParam(required = false) String status,
       @RequestParam(required = false) String assigneeLevel,
       @RequestParam(required = false) String month,
+      @RequestParam(required = false) String merchantIdFilter,
       @PathVariable("initiativeId") String initiativeId,
       @PageableDefault(sort = "month", direction = Sort.Direction.ASC) Pageable pageable);
 
