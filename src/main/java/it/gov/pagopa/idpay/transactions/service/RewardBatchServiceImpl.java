@@ -662,7 +662,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .flatMap(originalBatch -> {
                             originalBatch.setStatus(RewardBatchStatus.APPROVED);
                             originalBatch.setUpdateDate(LocalDateTime.now());
-                            originalBatch.setSuspendedAmountCents(0L);
                             return rewardBatchRepository.save(originalBatch);
                 })
                 .flatMap(savedBatch ->
