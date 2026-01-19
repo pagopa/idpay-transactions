@@ -519,6 +519,7 @@ class RewardBatchSpecificRepositoryImplTest {
                     0L,
                     0L,
                     0L,
+                    0L,
                     modifiedCount
             )
             .block();
@@ -527,6 +528,7 @@ class RewardBatchSpecificRepositoryImplTest {
     assertEquals(modifiedCount, updated.getNumberOfTransactionsSuspended());
     assertEquals(batch1.getNumberOfTransactionsElaborated(), updated.getNumberOfTransactionsElaborated());
     assertEquals(batch1.getApprovedAmountCents(), updated.getApprovedAmountCents());
+    assertEquals(batch1.getSuspendedAmountCents(), updated.getSuspendedAmountCents());
     assertNotEquals(batch1.getUpdateDate(), updated.getUpdateDate());
   }
 
@@ -537,6 +539,7 @@ class RewardBatchSpecificRepositoryImplTest {
             3L,
             0L,
             0L,
+            0L,
             0L
     ).block();
 
@@ -545,6 +548,7 @@ class RewardBatchSpecificRepositoryImplTest {
     assertEquals(batch1.getNumberOfTransactionsRejected(), updated.getNumberOfTransactionsRejected());
     assertEquals(batch1.getNumberOfTransactionsSuspended(), updated.getNumberOfTransactionsSuspended());
     assertEquals(batch1.getApprovedAmountCents(), updated.getApprovedAmountCents());
+    assertEquals(batch1.getSuspendedAmountCents(), updated.getSuspendedAmountCents());
     assertNotEquals(batch1.getUpdateDate(), updated.getUpdateDate());
   }
 
@@ -552,6 +556,7 @@ class RewardBatchSpecificRepositoryImplTest {
   void updateTotals_shouldUpdateSuspendedTrxNumber() {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             batch1.getId(),
+            0L,
             0L,
             0L,
             0L,
@@ -563,6 +568,7 @@ class RewardBatchSpecificRepositoryImplTest {
     assertEquals(batch1.getNumberOfTransactionsElaborated(), updated.getNumberOfTransactionsElaborated());
     assertEquals(batch1.getNumberOfTransactionsRejected(), updated.getNumberOfTransactionsRejected());
     assertEquals(batch1.getApprovedAmountCents(), updated.getApprovedAmountCents());
+    assertEquals(batch1.getSuspendedAmountCents(), updated.getSuspendedAmountCents());
     assertNotEquals(batch1.getUpdateDate(), updated.getUpdateDate());
   }
 
@@ -570,6 +576,7 @@ class RewardBatchSpecificRepositoryImplTest {
   void updateTotals_shouldUpdateRejectedTrxNumber() {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             batch1.getId(),
+            0L,
             0L,
             0L,
             4L,
@@ -581,6 +588,7 @@ class RewardBatchSpecificRepositoryImplTest {
     assertEquals(batch1.getNumberOfTransactionsSuspended(), updated.getNumberOfTransactionsSuspended());
     assertEquals(batch1.getNumberOfTransactionsElaborated(), updated.getNumberOfTransactionsElaborated());
     assertEquals(batch1.getApprovedAmountCents(), updated.getApprovedAmountCents());
+    assertEquals(batch1.getSuspendedAmountCents(), updated.getSuspendedAmountCents());
     assertNotEquals(batch1.getUpdateDate(), updated.getUpdateDate());
   }
 
@@ -592,6 +600,7 @@ class RewardBatchSpecificRepositoryImplTest {
             0L,
             500L,
             0L,
+            0L,
             0L
     ).block();
 
@@ -600,6 +609,7 @@ class RewardBatchSpecificRepositoryImplTest {
     assertEquals(batch1.getNumberOfTransactionsElaborated(), updated.getNumberOfTransactionsElaborated());
     assertEquals(batch1.getNumberOfTransactionsRejected(), updated.getNumberOfTransactionsRejected());
     assertEquals(batch1.getNumberOfTransactionsSuspended(), updated.getNumberOfTransactionsSuspended());
+    assertEquals(batch1.getSuspendedAmountCents(), updated.getSuspendedAmountCents());
     assertNotEquals(batch1.getUpdateDate(), updated.getUpdateDate());
   }
 
@@ -851,6 +861,7 @@ class RewardBatchSpecificRepositoryImplTest {
                 batch1.getId(),
                 5L,
                 700L,
+                0L,
                 2L,
                 3L
         ).block();
@@ -860,6 +871,7 @@ class RewardBatchSpecificRepositoryImplTest {
         assertEquals(before.getNumberOfTransactionsRejected() + 2, updated.getNumberOfTransactionsRejected());
         assertEquals(before.getNumberOfTransactionsSuspended() + 3, updated.getNumberOfTransactionsSuspended());
         assertEquals(before.getApprovedAmountCents() + 700, updated.getApprovedAmountCents());
+        assertEquals(before.getSuspendedAmountCents(), updated.getSuspendedAmountCents());
         assertNotNull(updated.getUpdateDate());
     }
 
