@@ -877,6 +877,7 @@ class RewardBatchServiceImplTest {
     String organizationRole = null;
     String status = null;
     String assigneeLevel = null;
+    String month = null;
     Pageable pageable = PageRequest.of(0, 2);
 
     RewardBatch rb1 = RewardBatch.builder().id("B1").merchantId(merchantId).name("novembre 2025")
@@ -885,16 +886,16 @@ class RewardBatchServiceImplTest {
         .build();
 
     Mockito.when(
-        rewardBatchRepository.findRewardBatchesCombined(merchantId, status, assigneeLevel, false,
+        rewardBatchRepository.findRewardBatchesCombined(merchantId, status, assigneeLevel, month, false,
             pageable)
     ).thenReturn(Flux.just(rb1, rb2));
 
     Mockito.when(
-        rewardBatchRepository.getCountCombined(merchantId, status, assigneeLevel, false)
+        rewardBatchRepository.getCountCombined(merchantId, status, assigneeLevel, month,false)
     ).thenReturn(Mono.just(5L));
 
     StepVerifier.create(
-            rewardBatchService.getRewardBatches(merchantId, organizationRole, status, assigneeLevel,
+            rewardBatchService.getRewardBatches(merchantId, organizationRole, status, assigneeLevel, month,
                 pageable)
         )
         .assertNext(page -> {
@@ -913,19 +914,20 @@ class RewardBatchServiceImplTest {
     String organizationRole = null;
     String status = null;
     String assigneeLevel = null;
+    String month = null;
     Pageable pageable = PageRequest.of(1, 2);
 
     Mockito.when(
-        rewardBatchRepository.findRewardBatchesCombined(merchantId, status, assigneeLevel, false,
+        rewardBatchRepository.findRewardBatchesCombined(merchantId, status, assigneeLevel, month,false,
             pageable)
     ).thenReturn(Flux.empty());
 
     Mockito.when(
-        rewardBatchRepository.getCountCombined(merchantId, status, assigneeLevel, false)
+        rewardBatchRepository.getCountCombined(merchantId, status, assigneeLevel, month, false)
     ).thenReturn(Mono.just(0L));
 
     StepVerifier.create(
-            rewardBatchService.getRewardBatches(merchantId, organizationRole, status, assigneeLevel,
+            rewardBatchService.getRewardBatches(merchantId, organizationRole, status, assigneeLevel, month,
                 pageable)
         )
         .assertNext(page -> {
@@ -942,6 +944,7 @@ class RewardBatchServiceImplTest {
     String organizationRole = "operator1";
     String status = null;
     String assigneeLevel = null;
+    String month = null;
     Pageable pageable = PageRequest.of(0, 2);
 
     RewardBatch batchA = RewardBatch.builder().id("B1").merchantId("MERCHANT1")
@@ -950,16 +953,16 @@ class RewardBatchServiceImplTest {
         .name("novembre 2025").build();
 
     Mockito.when(
-        rewardBatchRepository.findRewardBatchesCombined(merchantId, status, assigneeLevel, true,
+        rewardBatchRepository.findRewardBatchesCombined(merchantId, status, assigneeLevel, month,  true,
             pageable)
     ).thenReturn(Flux.just(batchA, batchB));
 
     Mockito.when(
-        rewardBatchRepository.getCountCombined(merchantId, status, assigneeLevel, true)
+        rewardBatchRepository.getCountCombined(merchantId, status, assigneeLevel, month, true)
     ).thenReturn(Mono.just(10L));
 
     StepVerifier.create(
-            rewardBatchService.getRewardBatches(merchantId, organizationRole, status, assigneeLevel,
+            rewardBatchService.getRewardBatches(merchantId, organizationRole, status, assigneeLevel, month,
                 pageable)
         )
         .assertNext(page -> {
@@ -970,8 +973,8 @@ class RewardBatchServiceImplTest {
         .verifyComplete();
 
     Mockito.verify(rewardBatchRepository)
-        .findRewardBatchesCombined(merchantId, status, assigneeLevel, true, pageable);
-    Mockito.verify(rewardBatchRepository).getCountCombined(merchantId, status, assigneeLevel, true);
+        .findRewardBatchesCombined(merchantId, status, assigneeLevel, month, true, pageable);
+    Mockito.verify(rewardBatchRepository).getCountCombined(merchantId, status, assigneeLevel, month, true);
   }
 
   @Test
@@ -980,19 +983,20 @@ class RewardBatchServiceImplTest {
     String organizationRole = "operator1";
     String status = null;
     String assigneeLevel = null;
+    String month = null;
     Pageable pageable = PageRequest.of(0, 2);
 
     Mockito.when(
-        rewardBatchRepository.findRewardBatchesCombined(merchantId, status, assigneeLevel, true,
+        rewardBatchRepository.findRewardBatchesCombined(merchantId, status, assigneeLevel, month,true,
             pageable)
     ).thenReturn(Flux.empty());
 
     Mockito.when(
-        rewardBatchRepository.getCountCombined(merchantId, status, assigneeLevel, true)
+        rewardBatchRepository.getCountCombined(merchantId, status, assigneeLevel, month,true)
     ).thenReturn(Mono.just(0L));
 
     StepVerifier.create(
-            rewardBatchService.getRewardBatches(merchantId, organizationRole, status, assigneeLevel,
+            rewardBatchService.getRewardBatches(merchantId, organizationRole, status, assigneeLevel, month,
                 pageable)
         )
         .assertNext(page -> {
