@@ -28,6 +28,7 @@ public class RewardBatchDTO {
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   LocalDateTime endDate;
   Long approvedAmountCents;
+  Long suspendedAmountCents;
   Long initialAmountCents;
   Long numberOfTransactions;
   Long numberOfTransactionsSuspended;
