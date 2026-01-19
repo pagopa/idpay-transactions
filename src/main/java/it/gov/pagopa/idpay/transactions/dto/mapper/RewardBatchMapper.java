@@ -30,6 +30,7 @@ public class RewardBatchMapper {
         .numberOfTransactionsRejected(rewardBatch.getNumberOfTransactionsRejected())
         .reportPath(rewardBatch.getReportPath())
         .assigneeLevel(String.valueOf(rewardBatch.getAssigneeLevel()))
+        .merchantSendDate(rewardBatch.getMerchantSendDate())
         .build();
 
     return Mono.just(dto);

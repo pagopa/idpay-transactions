@@ -47,6 +47,9 @@ public class RewardBatch {
     private Long numberOfTransactionsRejected;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    private LocalDateTime merchantSendDate;
+
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime approvalDate;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
