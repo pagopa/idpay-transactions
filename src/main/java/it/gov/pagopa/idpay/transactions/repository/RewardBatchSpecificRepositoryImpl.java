@@ -183,7 +183,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Mono<RewardBatch> updateTotals(String rewardBatchId, long elaboratedTrxNumber, long updateAmountCents, long rejectedTrxNumber, long suspendedTrxNumber) {
+  public Mono<RewardBatch> updateTotals(String rewardBatchId, long elaboratedTrxNumber, long updateAmountCents, long suspendedAmountCents, long rejectedTrxNumber, long suspendedTrxNumber) {
 
     Update update = new Update();
     if (elaboratedTrxNumber != 0){
@@ -202,7 +202,13 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
       update
               .inc("approvedAmountCents", updateAmountCents);
     }
-          update
+
+    if (suspendedAmountCents != 0){
+      update
+              .inc("suspendedAmountCents", suspendedAmountCents);
+    }
+
+    update
             .currentDate("updateDate");
 
     Query query = Query.query(Criteria.where("_id").is(rewardBatchId));

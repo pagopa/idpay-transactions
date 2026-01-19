@@ -206,8 +206,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                       ExceptionConstants.ExceptionCode.REWARD_BATCH_PREVIOUS_NOT_SENT));
                 }
 
+                LocalDateTime dateTimeNow = LocalDateTime.now();
                 batch.setStatus(RewardBatchStatus.SENT);
-                batch.setUpdateDate(LocalDateTime.now());
+                batch.setMerchantSendDate(dateTimeNow);
+                batch.setUpdateDate(dateTimeNow);
                 return rewardBatchRepository.save(batch);
               })
               .then();
@@ -236,7 +238,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         .updateStatusAndReturnOld(rewardBatchId, trxId2ActualBatchMonth.getLeft(), RewardBatchTrxStatus.SUSPENDED, request.getReason(), trxId2ActualBatchMonth.getRight())
                         .map(trxOld -> Pair.of(trxOld, trxId2ActualBatchMonth.getRight()))
                 )
-                .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L), (acc, trxOld2ActualRewardBatch) -> {
+                .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L, 0L), (acc, trxOld2ActualRewardBatch) -> {
 
                     RewardTransaction trxOld = trxOld2ActualRewardBatch.getLeft();
 
@@ -259,6 +261,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
                             if (accrued != null) {
                                 acc.decrementTotalApprovedAmountCents(accrued);
+                                acc.incrementSuspendedAmountCents(accrued);
                             }
                         }
 
@@ -269,12 +272,16 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
                             if (accrued != null) {
                                 acc.decrementTotalApprovedAmountCents(accrued);
+                                acc.incrementSuspendedAmountCents(accrued);
                             }
                         }
 
                         case RewardBatchTrxStatus.REJECTED -> {
                             acc.decrementTrxRejected();
                             acc.incrementTrxSuspended();
+                            if (accrued != null) {
+                                acc.incrementSuspendedAmountCents(accrued);
+                            }
                         }
                     }
 
@@ -285,6 +292,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                 rewardBatchId,
                                 acc.getTrxElaborated(),
                                 acc.getTotalApprovedAmountCents(),
+                                acc.getSuspendedAmountCents(),
                                 acc.getTrxRejected(),
                                 acc.getTrxSuspended()
                         )
@@ -313,7 +321,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         .updateStatusAndReturnOld(rewardBatchId, trxId2ActualBatchMont.getLeft(), RewardBatchTrxStatus.REJECTED, request.getReason(), trxId2ActualBatchMont.getRight())
                         .map(trxOld -> Pair.of(trxOld, trxId2ActualBatchMont.getRight()))
                 )
-                .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L),
+                .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L, 0L),
                         (acc, trxOld2ActualRewardBatchMonth) -> {
 
                     RewardTransaction trxOld = trxOld2ActualRewardBatchMonth.getLeft();
@@ -352,6 +360,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             case RewardBatchTrxStatus.SUSPENDED -> {
                                 acc.decrementTrxSuspended();
                                 acc.incrementTrxRejected();
+                                if (accrued != null) {
+                                    acc.decrementSuspendedAmountCents(accrued);
+                                }
+
                                 checkAndUpdateTrxElaborated(acc, trxOld2ActualRewardBatchMonth, trxOld);
                             }
 
@@ -364,6 +376,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                 rewardBatchId,
                                 acc.getTrxElaborated(),
                                 acc.getTotalApprovedAmountCents(),
+                                acc.getSuspendedAmountCents(),
                                 acc.getTrxRejected(),
                                 acc.getTrxSuspended()
                         )
@@ -388,18 +401,25 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         .map(trxId -> Pair.of(trxId, batch.getMonth())))
                 .flatMap(trxIdAndMonthElaborated -> rewardTransactionRepository.updateStatusAndReturnOld(rewardBatchId, trxIdAndMonthElaborated.getLeft(), RewardBatchTrxStatus.APPROVED, null, trxIdAndMonthElaborated.getRight())
                         .map(trxOld -> Pair.of(trxOld, trxIdAndMonthElaborated.getRight())))
-                .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L), (acc, trxOld2ActualBatchMonth) -> {
+                .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L, 0L), (acc, trxOld2ActualBatchMonth) -> {
                     RewardTransaction trxOld = trxOld2ActualBatchMonth.getLeft();
                     switch (trxOld.getRewardBatchTrxStatus()){
-                        case RewardBatchTrxStatus.APPROVED -> log.info("Skipping  handler  for transaction  {}:  status  is already  APPROVED",  trxOld.getId());
-                        case RewardBatchTrxStatus.TO_CHECK, RewardBatchTrxStatus.CONSULTABLE -> acc.incrementTrxElaborated();
+
+                        case RewardBatchTrxStatus.APPROVED ->
+                                log.info("Skipping  handler  for transaction  {}:  status  is already  APPROVED",  trxOld.getId());
+
+                        case RewardBatchTrxStatus.TO_CHECK, RewardBatchTrxStatus.CONSULTABLE ->
+                                acc.incrementTrxElaborated();
+
                         case RewardBatchTrxStatus.SUSPENDED -> {
                             acc.decrementTrxSuspended();
                             if(trxOld.getRewards().get(initiativeId) != null && trxOld.getRewards().get(initiativeId).getAccruedRewardCents() != null) {
                                 acc.incrementTotalApprovedAmountCents(trxOld.getRewards().get(initiativeId).getAccruedRewardCents());
+                                acc.decrementSuspendedAmountCents(trxOld.getRewards().get(initiativeId).getAccruedRewardCents());
                             }
                             checkAndUpdateTrxElaborated(acc, trxOld2ActualBatchMonth, trxOld);
                         }
+
                         case RewardBatchTrxStatus.REJECTED -> {
                             acc.decrementTrxRejected();
                             if(trxOld.getRewards().get(initiativeId) != null && trxOld.getRewards().get(initiativeId).getAccruedRewardCents() != null) {
@@ -410,7 +430,15 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                     return acc;
                 })
 
-                .flatMap(acc -> rewardBatchRepository.updateTotals(rewardBatchId, acc.getTrxElaborated(), acc.getTotalApprovedAmountCents(), acc.getTrxRejected(), acc.getTrxSuspended()));
+                .flatMap(acc ->
+                        rewardBatchRepository.updateTotals(
+                                rewardBatchId,
+                                acc.getTrxElaborated(),
+                                acc.getTotalApprovedAmountCents(),
+                                acc.getSuspendedAmountCents(),
+                                acc.getTrxRejected(),
+                                acc.getTrxSuspended())
+                );
     }
     @Scheduled (cron = "${app.transactions.reward-batch.to-evaluating.schedule}")
     void evaluatingRewardBatchStatusScheduler(){
@@ -669,6 +697,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         newBatch.setInitialAmountCents(coalesce(newBatch.getInitialAmountCents()) + totalAccrued);
         newBatch.setNumberOfTransactionsSuspended(coalesce(newBatch.getNumberOfTransactionsSuspended()) + count);
         newBatch.setNumberOfTransactions(coalesce(newBatch.getNumberOfTransactions()) + count);
+        newBatch.setSuspendedAmountCents(totalAccrued);
     }
 
 

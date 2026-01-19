@@ -28,6 +28,7 @@ public class RewardBatchDTO {
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   LocalDateTime endDate;
   Long approvedAmountCents;
+  Long suspendedAmountCents;
   Long initialAmountCents;
   Long numberOfTransactions;
   Long numberOfTransactionsSuspended;
@@ -35,4 +36,6 @@ public class RewardBatchDTO {
   Long numberOfTransactionsElaborated;
   String reportPath;
   String assigneeLevel;
+  @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+  LocalDateTime merchantSendDate;
 }
