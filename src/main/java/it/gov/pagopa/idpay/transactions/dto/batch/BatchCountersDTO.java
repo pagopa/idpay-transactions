@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @Builder
 public class BatchCountersDTO {
     private Long totalApprovedAmountCents;
+    private Long suspendedAmountCents;
     private Long trxElaborated;
     private Long trxSuspended;
     private Long trxRejected;
@@ -22,6 +23,16 @@ public class BatchCountersDTO {
 
     public BatchCountersDTO decrementTotalApprovedAmountCents(Long amountCents){
         this.totalApprovedAmountCents = this.totalApprovedAmountCents - amountCents;
+        return this;
+    }
+
+    public BatchCountersDTO incrementSuspendedAmountCents(Long amountCents){
+        this.suspendedAmountCents = this.suspendedAmountCents + amountCents;
+        return this;
+    }
+
+    public BatchCountersDTO decrementSuspendedAmountCents(Long amountCents){
+        this.suspendedAmountCents = this.suspendedAmountCents - amountCents;
         return this;
     }
 

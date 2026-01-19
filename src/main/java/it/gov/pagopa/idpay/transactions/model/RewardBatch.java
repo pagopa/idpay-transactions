@@ -36,6 +36,7 @@ public class RewardBatch {
     private LocalDateTime startDate;
     private LocalDateTime endDate;
     private Long approvedAmountCents;
+    private Long suspendedAmountCents;
     private Long initialAmountCents;
     private Long numberOfTransactions;
     private Long numberOfTransactionsElaborated;
@@ -44,6 +45,9 @@ public class RewardBatch {
     private RewardBatchAssignee assigneeLevel;
     private Long numberOfTransactionsSuspended;
     private Long numberOfTransactionsRejected;
+
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    private LocalDateTime merchantSendDate;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime approvalDate;
