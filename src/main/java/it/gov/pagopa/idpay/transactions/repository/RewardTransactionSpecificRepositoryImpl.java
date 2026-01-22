@@ -146,6 +146,12 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
       }
     }
 
+    if (StringUtils.isNotBlank(filters.getTrxCode())) {
+      criteria.and(RewardTransaction.Fields.trxCode)
+              .regex(".*" + Pattern.quote(filters.getTrxCode()) + ".*", "i");
+    }
+
+
     return criteria;
   }
 
