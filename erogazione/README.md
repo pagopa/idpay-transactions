@@ -90,7 +90,7 @@ Per generare il file `dati.csv`, è necessario aggiornare la tabella CosmosDB `s
 ```query
 merchant
 | join kind=inner rewards_batch on $left._id == $right.merchantId
-| where status == "APPROVING"
+| where status == "APPROVED"
 | project id=_id1 ,
     partitaIvaCliente=iff(strlen(vatNumber)==16, "00000000000", vatNumber), 
     codiceFiscaleCliente=fiscalCode, 
