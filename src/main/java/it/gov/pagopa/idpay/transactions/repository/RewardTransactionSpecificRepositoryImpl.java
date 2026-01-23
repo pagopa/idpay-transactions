@@ -8,6 +8,7 @@ import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
 import it.gov.pagopa.idpay.transactions.service.RewardBatchServiceImpl;
@@ -394,10 +395,9 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         .defaultIfEmpty(0L);
   }
 
-
   @Override
   public Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId,
-      RewardBatchTrxStatus status, String reason, String batchMonth) {
+      RewardBatchTrxStatus status, String reason, String batchMonth, ChecksError checksError) {
     Criteria criteria = Criteria.where(Fields.id).is(trxId)
         .and(Fields.rewardBatchId).is(batchId);
 
@@ -409,6 +409,12 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
       update.set(RewardTransaction.Fields.rewardBatchRejectionReason, reason);
     } else {
       update.unset(RewardTransaction.Fields.rewardBatchRejectionReason);
+    }
+
+    if (checksError != null) {
+      update.set(RewardTransaction.Fields.checksError, checksError);
+    } else {
+      update.unset(RewardTransaction.Fields.checksError);
     }
 
     return mongoTemplate.findAndModify(
