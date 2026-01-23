@@ -95,6 +95,7 @@ class MerchantTransactionServiceImplTest {
                         null,
                         null,
                         null,
+                        null,
                         paging
                 ).block();
 
@@ -155,6 +156,7 @@ class MerchantTransactionServiceImplTest {
                         null,
                         null,
                         null,
+                        null,
                         paging
                 ).block();
 
@@ -187,6 +189,7 @@ class MerchantTransactionServiceImplTest {
                         null,
                         null,
                         "WRONG_STATUS",
+                        null,
                         null,
                         paging
                 ).block()
@@ -242,6 +245,7 @@ class MerchantTransactionServiceImplTest {
                         "merchant",
                         INITIATIVE_ID,
                         FISCAL_CODE,
+                        null,
                         null,
                         null,
                         null,
@@ -308,6 +312,7 @@ class MerchantTransactionServiceImplTest {
                         null,
                         null,
                         RewardBatchTrxStatus.CONSULTABLE.name(),
+                        null,
                         null,
                         paging
                 ).block();

@@ -295,6 +295,7 @@ class RewardTransactionSpecificRepositoryTest {
                 "CANCELLED",
                 null,
                 null,
+                null,
                 null
         );
 
@@ -327,6 +328,7 @@ class RewardTransactionSpecificRepositoryTest {
                 INITIATIVE_ID,
                 null,
                 "REWARDED",
+                null,
                 null,
                 null,
                 null
@@ -367,6 +369,7 @@ class RewardTransactionSpecificRepositoryTest {
                 INITIATIVE_ID,
                 null,
                 "REWARDED",
+                null,
                 null,
                 null,
                 null
@@ -414,6 +417,7 @@ class RewardTransactionSpecificRepositoryTest {
                 "REWARDED",
                 null,
                 null,
+                null,
                 null
         );
 
@@ -459,6 +463,7 @@ class RewardTransactionSpecificRepositoryTest {
         TrxFiltersDTO filters = new TrxFiltersDTO(
                 MERCHANT_ID,
                 INITIATIVE_ID,
+                null,
                 null,
                 null,
                 null,
@@ -522,6 +527,7 @@ class RewardTransactionSpecificRepositoryTest {
                 "REWARDED",
                 null,
                 null,
+                null,
                 null
         );
 
@@ -563,6 +569,7 @@ class RewardTransactionSpecificRepositoryTest {
                 "REWARDED",
                 null,
                 null,
+                null,
                 null
         );
 
@@ -597,6 +604,7 @@ class RewardTransactionSpecificRepositoryTest {
         TrxFiltersDTO filters = new TrxFiltersDTO(
                 MERCHANT_ID,
                 INITIATIVE_ID,
+                null,
                 null,
                 null,
                 null,
@@ -657,6 +665,7 @@ class RewardTransactionSpecificRepositoryTest {
                 null,
                 batchId,
                 RewardBatchTrxStatus.CONSULTABLE,
+                null,
                 null
         );
 
