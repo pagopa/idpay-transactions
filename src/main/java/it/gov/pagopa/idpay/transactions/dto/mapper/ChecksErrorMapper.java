@@ -23,4 +23,22 @@ public class ChecksErrorMapper {
 
         return ce;
     }
+
+
+    public ChecksErrorDTO toDto(ChecksError checksError) {
+        if (checksError == null) {
+            return null;
+        }
+
+        ChecksErrorDTO out = new ChecksErrorDTO();
+        out.setCfError(checksError.isCfError());
+        out.setProductEligibilityError(checksError.isProductEligibilityError());
+        out.setDisposalRaeeError(checksError.isDisposalRaeeError());
+        out.setPrice(checksError.isPrice());
+        out.setBonus(checksError.isBonus());
+        out.setSellerReference(checksError.isSellerReference());
+        out.setAccountingDocument(checksError.isAccountingDocument());
+
+        return out;
+    }
 }

@@ -87,4 +87,26 @@ class ChecksErrorMapperTest {
         assertTrue(result.isSellerReference());
         assertTrue(result.isAccountingDocument());
     }
+
+    @Test
+    void toDto_allFields() {
+        ChecksError checksError = new ChecksError();
+        checksError.setCfError(true);
+        checksError.setProductEligibilityError(true);
+        checksError.setDisposalRaeeError(true);
+        checksError.setPrice(true);
+        checksError.setBonus(true);
+        checksError.setSellerReference(true);
+        checksError.setAccountingDocument(true);
+
+        ChecksErrorDTO result = mapper.toDto(checksError);
+
+        assertTrue(result.isCfError());
+        assertTrue(result.isProductEligibilityError());
+        assertTrue(result.isDisposalRaeeError());
+        assertTrue(result.isPrice());
+        assertTrue(result.isBonus());
+        assertTrue(result.isSellerReference());
+        assertTrue(result.isAccountingDocument());
+    }
 }
