@@ -28,6 +28,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 
+import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
 import java.time.LocalDate;
@@ -73,6 +74,8 @@ class RewardBatchServiceImplTest {
   private ReactiveMongoTemplate reactiveMongoTemplate;
   @Mock
   private ChecksErrorMapper checksErrorMapper;
+  @Mock
+  private AuditUtilities auditUtilities;
 
   private RewardBatchService rewardBatchService;
   private RewardBatchServiceImpl rewardBatchServiceSpy;
@@ -110,7 +113,7 @@ class RewardBatchServiceImplTest {
 
     @BeforeEach
   void setUp() {
-    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, userRestClient, approvedRewardBatchBlobService,reactiveMongoTemplate, checksErrorMapper);
+    rewardBatchService = new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository, userRestClient, approvedRewardBatchBlobService,reactiveMongoTemplate, checksErrorMapper, auditUtilities);
     rewardBatchServiceSpy = spy((RewardBatchServiceImpl) rewardBatchService);
   }
 
@@ -801,7 +804,7 @@ class RewardBatchServiceImplTest {
         .thenReturn(Mono.error(new DuplicateKeyException("Duplicate")));
 
     StepVerifier.create(
-            new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository,userRestClient, approvedRewardBatchBlobService, reactiveMongoTemplate, checksErrorMapper)
+            new RewardBatchServiceImpl(rewardBatchRepository, rewardTransactionRepository,userRestClient, approvedRewardBatchBlobService, reactiveMongoTemplate, checksErrorMapper, auditUtilities)
                 .findOrCreateBatch("M1", posType, batchMonth, BUSINESS_NAME)
         )
         .assertNext(batch -> {

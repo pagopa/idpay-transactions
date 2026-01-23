@@ -38,4 +38,15 @@ class AuditUtilitiesTest {
                 memoryAppender.getLoggedEvents().get(0).getFormattedMessage()
         );
     }
+
+    @Test
+    void logTransactionsSuspended() {
+        auditUtilities.logTransactionsSuspended(3L, INITIATIVE_ID);
+
+        String expectedLog = ("CEF:0|PagoPa|IDPAY|1.0|7|User interaction|2| event=Transactions dstip=%s msg=Suspended transactions" +
+                " cs1Label=initiativeId cs1=%s cs2Label=numberTransactions cs2=%s")
+                .formatted(AuditLogger.SRCIP, INITIATIVE_ID, 3L);
+
+        Assertions.assertEquals(expectedLog, memoryAppender.getLoggedEvents().get(0).getFormattedMessage());
+    }
 }

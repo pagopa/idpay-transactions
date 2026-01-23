@@ -5,7 +5,6 @@ import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.models.BlockBlobItem;
 import com.mongodb.client.result.DeleteResult;
 import com.nimbusds.jose.util.Pair;
-import it.gov.pagopa.common.utils.AuditLogger;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.dto.ChecksErrorDTO;
@@ -28,6 +27,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
+import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
@@ -81,6 +81,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   private final ReactiveMongoTemplate reactiveMongoTemplate;
   private final ChecksErrorMapper checksErrorMapper;
 
+  private final AuditUtilities auditUtilities;
+
 
     private static final String OPERATOR_1 = "operator1";
     private static final String OPERATOR_2 = "operator2";
@@ -107,13 +109,14 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "%s_%s_%s.csv";
   private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM", Locale.ITALIAN);
 
-  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService, ReactiveMongoTemplate reactiveMongoTemplate, ChecksErrorMapper checksErrorMapper) {
+  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService, ReactiveMongoTemplate reactiveMongoTemplate, ChecksErrorMapper checksErrorMapper, AuditUtilities auditUtilities) {
     this.rewardBatchRepository = rewardBatchRepository;
     this.rewardTransactionRepository = rewardTransactionRepository;
       this.userRestClient = userRestClient;
       this.approvedRewardBatchBlobService = approvedRewardBatchBlobService;
       this.reactiveMongoTemplate = reactiveMongoTemplate;
       this.checksErrorMapper = checksErrorMapper;
+      this.auditUtilities = auditUtilities;
   }
 
   @Override
@@ -301,14 +304,9 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 })
                 .flatMap(acc -> {
 
-                    AuditLogger.logAuditString(
-                            "[SUSPEND_TRANSACTIONS] rewardBatchId={} initiativeId={} transactionsRequested={} suspended={} approvedAmountChange={} suspendedAmount={}",
-                            rewardBatchId,
-                            initiativeId,
-                            String.valueOf(request.getTransactionIds().size()),
-                            String.valueOf(acc.getTrxSuspended()),
-                            String.valueOf(acc.getTotalApprovedAmountCents()),
-                            String.valueOf(acc.getSuspendedAmountCents())
+                    auditUtilities.logTransactionsSuspended(
+                            acc.getTrxSuspended(),
+                            initiativeId
                     );
 
                     return rewardBatchRepository.updateTotals(
