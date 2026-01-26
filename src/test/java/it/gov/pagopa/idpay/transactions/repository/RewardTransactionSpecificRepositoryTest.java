@@ -1242,4 +1242,54 @@ class RewardTransactionSpecificRepositoryTest {
 
         rewardTransactionRepository.deleteById(rt1.getId()).block();
     }
+
+    @Test
+    void findByFilter_withTrxCode_shouldApplyRegexFilter() {
+
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id_trxcode_1")
+                .merchantId(MERCHANT_ID)
+                .initiatives(List.of(INITIATIVE_ID))
+                .userId(USER_ID)
+                .trxCode("ABC123XYZ")
+                .status("REWARDED")
+                .build();
+        rewardTransactionRepository.save(rt1).block();
+
+        rt2 = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("id_trxcode_2")
+                .merchantId(MERCHANT_ID)
+                .initiatives(List.of(INITIATIVE_ID))
+                .userId(USER_ID)
+                .trxCode("OTHER_CODE")
+                .status("REWARDED")
+                .build();
+        rewardTransactionRepository.save(rt2).block();
+
+        Pageable pageable = PageRequest.of(0, 10);
+
+        TrxFiltersDTO filters = new TrxFiltersDTO(
+                MERCHANT_ID,
+                INITIATIVE_ID,
+                USER_ID,
+                "REWARDED",
+                null,
+                null,
+                null,
+                "ABC123" // <-- NON blank → entra nel ramo .regex(...)
+        );
+
+        List<RewardTransaction> result =
+                rewardTransactionSpecificRepository
+                        .findByFilter(filters, USER_ID, false, pageable)
+                        .toStream()
+                        .toList();
+
+        assertEquals(1, result.size());
+        assertEquals(rt1.getId(), result.getFirst().getId());
+
+        rewardTransactionRepository.deleteById(rt1.getId()).block();
+        rewardTransactionRepository.deleteById(rt2.getId()).block();
+    }
+
 }
