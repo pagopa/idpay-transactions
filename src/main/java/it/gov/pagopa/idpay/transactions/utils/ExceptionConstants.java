@@ -31,6 +31,7 @@ public final class ExceptionConstants {
         public static final String BATCH_NOT_ELABORATED_15_PERCENT = "BATCH_NOT_ELABORATED_15_PERCENT";
         public static final String INVALID_BATCH_STATE_FOR_PROMOTION = "INVALID_BATCH_STATE_FOR_PROMOTION";
         public static final String REWARD_BATCH_ALREADY_SENT = "REWARD_BATCH_ALREADY_SENT";
+        public static final String REWARD_BATCH_STATUS_NOT_ALLOWED = "REWARD_BATCH_STATUS_NOT_ALLOWED";
         public static final String REWARD_BATCH_PREVIOUS_NOT_SENT = "REWARD_BATCH_PREVIOUS_NOT_SENT";
     }
 
@@ -47,6 +48,7 @@ public final class ExceptionConstants {
         public static final String ERROR_ON_GET_FILE_URL_REQUEST = "Error occurred while attempting to get file url";
         public static final String MISSING_TRANSACTIONS_FILTERS = "Mandatory filters are missing. Insert one of the following options: 1) organizationRole 2) merchantId";
         public static final String REWARD_BATCH_STATUS_MISMATCH = "Operation not allowed: the batch is no longer in CREATED status";
+        public static final String ERROR_MESSAGE_REWARD_BATCH_STATUS_NOT_ALLOWED = "Operation not allowed: the batch is no longer in CREATED or EVALUATING status";
 
         public static final String REASON_FIELD_IS_MANDATORY = "Reason field is mandatory";
         public static final String ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH = "Reward batch  %s not  found  or  not in  a  valid  state";

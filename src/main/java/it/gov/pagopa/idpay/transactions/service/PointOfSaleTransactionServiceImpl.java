@@ -3,14 +3,12 @@ package it.gov.pagopa.idpay.transactions.service;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
-import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
-import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
-import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
-import it.gov.pagopa.idpay.transactions.dto.RewardTransactionKafkaDTO;
-import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionKafkaMapper;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.notifier.TransactionNotifierService;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
@@ -38,7 +36,7 @@ import java.nio.file.Paths;
 import java.time.YearMonth;
 import java.util.List;
 
-import static it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus.CREATED;
+import static it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus.*;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.GENERIC_ERROR;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.*;
@@ -168,78 +166,130 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
     }
 
-  public Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId,
-      String pointOfSaleId, FilePart file, String docNumber) {
+    public Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId,
+                                               String pointOfSaleId, FilePart file, String docNumber) {
 
-      Utilities.checkFileExtensionOrThrow(file);
+        Utilities.checkFileExtensionOrThrow(file);
 
-      return rewardTransactionRepository.findTransaction(merchantId, pointOfSaleId, transactionId)
-          .switchIfEmpty(Mono.error(
-              new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
-          .flatMap(rewardTransaction -> {
-            String rewardBatchId = rewardTransaction.getRewardBatchId();
-            Mono<Void> batchStatusCheck = Mono.empty();
-            if (rewardBatchId != null) {
-              batchStatusCheck = rewardBatchRepository.findRewardBatchById(rewardBatchId)
-                  .switchIfEmpty(Mono.error(
-                      new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)))
-                  .flatMap(rewardBatch -> {
-                    if (!CREATED.equals(rewardBatch.getStatus())) {
-                      return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
-                          REWARD_BATCH_ALREADY_SENT,
-                          ERROR_MESSAGE_REWARD_BATCH_ALREADY_SENT));
-                    }
-                    return Mono.empty();
-                  });
-            }
+        return rewardTransactionRepository.findTransaction(merchantId, pointOfSaleId, transactionId)
+                .switchIfEmpty(Mono.error(
+                        new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
+                .flatMap(rtFound -> {
 
-            return batchStatusCheck.then(Mono.defer(() -> {
-              InvoiceData oldDocumentData = validateTransactionData(rewardTransaction, merchantId, pointOfSaleId);
+                    String rewardBatchId = rtFound.getRewardBatchId();
 
-              return replaceInvoiceFile(file, oldDocumentData, merchantId, pointOfSaleId, transactionId)
-                  .then(Mono.defer(() -> {
-                    rewardTransaction.setInvoiceData(InvoiceData.builder()
-                        .filename(file.filename())
-                        .docNumber(docNumber)
-                        .build());
-                    rewardTransaction.setInvoiceUploadDate(LocalDateTime.now());
-                    rewardTransaction.setUpdateDate(LocalDateTime.now());
+                    // Se batchId è null -> eccezione
+                    Mono<RewardTransaction> trxMono = (rewardBatchId == null)
+                            ? Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND))
+                            : rewardBatchRepository.findRewardBatchById(rewardBatchId)
+                            .switchIfEmpty(Mono.error(
+                                    new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)))
+                            .flatMap(rewardBatch -> {
 
-                    String oldBatchId = rewardTransaction.getRewardBatchId();
-                    YearMonth currentMonth = YearMonth.now();
-                    PosType posType = rewardTransaction.getPointOfSaleType();
-                    String businessName = rewardTransaction.getBusinessName();
+                                boolean isCreatedBatch = CREATED.equals(rewardBatch.getStatus());
+                                boolean isEvaluatingBatch = EVALUATING.equals(rewardBatch.getStatus());
 
-                    String initiativeId = rewardTransaction.getInitiatives().getFirst();
+                                // 1) !CREATED && !EVALUATING -> errore
+                                if (!isCreatedBatch && !isEvaluatingBatch) {
+                                    return Mono.error(new ClientExceptionWithBody(
+                                            HttpStatus.BAD_REQUEST,
+                                            REWARD_BATCH_STATUS_NOT_ALLOWED,
+                                            ERROR_MESSAGE_REWARD_BATCH_STATUS_NOT_ALLOWED
+                                    ));
+                                }
 
-                    long accruedRewardCents = rewardTransaction.getRewards()
-                        .get(initiativeId)
-                        .getAccruedRewardCents();
+                                // 2) EVALUATING && trx != APPROVED -> suspend + ricarica trx
+                                if (isEvaluatingBatch &&
+                                        !RewardBatchTrxStatus.APPROVED.name().equals(rtFound.getStatus())) {
 
-                    return rewardBatchService.findOrCreateBatch(
-                            merchantId,
-                            posType,
-                            currentMonth.toString(),
-                            businessName
-                        )
-                        .flatMap(newRewardBatch -> {
-                          if (newRewardBatch.getId().equals(oldBatchId)) {
-                            return rewardTransactionRepository.save(rewardTransaction).then();
-                          }
-                          return rewardBatchService.decrementTotals(oldBatchId, accruedRewardCents)
-                              .then(rewardBatchService.incrementTotals(newRewardBatch.getId(),
-                                  accruedRewardCents))
-                              .then(Mono.fromRunnable(() -> {
-                                rewardTransaction.setRewardBatchId(newRewardBatch.getId());
-                                rewardTransaction.setUpdateDate(LocalDateTime.now());
-                              }))
-                              .then(rewardTransactionRepository.save(rewardTransaction))
-                              .then();
-                        });
-                  }));
-            }));
-          });
-  }
+                                    TransactionsRequest tr = new TransactionsRequest(
+                                            List.of(rtFound.getId()),
+                                            "Update invoice file"
+                                    );
+
+                                    return rewardBatchService
+                                            .suspendTransactions(rtFound.getRewardBatchId(), rtFound.getInitiativeId(), tr)
+                                            .then(rewardTransactionRepository.findTransaction(merchantId, pointOfSaleId, transactionId))
+                                            .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
+                                                    HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)));
+                                }
+
+                                return Mono.just(rtFound);
+                            });
+
+                    // 3+4) update fattura + assegnazione batch sulla trx
+                    return trxMono.flatMap(rewardTransaction -> {
+
+                        InvoiceData oldDocumentData =
+                                validateTransactionData(rewardTransaction, merchantId, pointOfSaleId);
+
+                        return replaceInvoiceFile(file, oldDocumentData, merchantId, pointOfSaleId, transactionId)
+                                .then(Mono.defer(() -> {
+
+                                    // 3) update fattura
+                                    rewardTransaction.setInvoiceData(InvoiceData.builder()
+                                            .filename(file.filename())
+                                            .docNumber(docNumber)
+                                            .build());
+                                    rewardTransaction.setInvoiceUploadDate(LocalDateTime.now());
+                                    rewardTransaction.setUpdateDate(LocalDateTime.now());
+
+                                    // 4) assegnazione batch
+                                    String oldBatchId = rewardTransaction.getRewardBatchId();
+                                    YearMonth currentMonth = YearMonth.now();
+                                    PosType posType = rewardTransaction.getPointOfSaleType();
+                                    String businessName = rewardTransaction.getBusinessName();
+
+                                    String initiativeId = rewardTransaction.getInitiatives().getFirst();
+                                    long accruedRewardCents = rewardTransaction.getRewards()
+                                            .get(initiativeId)
+                                            .getAccruedRewardCents();
+
+                                    return rewardBatchRepository.findById(rewardBatchId)
+                                            .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)))
+                                            .flatMap(oldBatch -> {
+
+                                                boolean isEvaluatingBatch = EVALUATING.equals(oldBatch.getStatus());
+
+                                                return rewardBatchService.findOrCreateBatch(
+                                                                merchantId,
+                                                                posType,
+                                                                currentMonth.toString(),
+                                                                businessName
+                                                        )
+                                                        .flatMap(newRewardBatch -> {
+
+                                                            if (newRewardBatch.getId().equals(oldBatchId)) {
+                                                                return rewardTransactionRepository.save(rewardTransaction).then();
+                                                            }
+
+                                                            Mono<Void> moveCounters;
+
+                                                            if (isEvaluatingBatch) {
+                                                                moveCounters = rewardBatchService
+                                                                        .moveSuspendToNewBatch(oldBatchId, newRewardBatch.getId(), accruedRewardCents)
+                                                                        .then();
+                                                            } else {
+                                                                moveCounters = rewardBatchService
+                                                                        .decrementTotals(oldBatchId, accruedRewardCents)
+                                                                        .then(rewardBatchService.incrementTotals(newRewardBatch.getId(), accruedRewardCents))
+                                                                        .then();
+                                                            }
+
+                                                            return moveCounters
+                                                                    .then(Mono.fromRunnable(() -> {
+                                                                        rewardTransaction.setRewardBatchId(newRewardBatch.getId());
+                                                                        rewardTransaction.setUpdateDate(LocalDateTime.now());
+                                                                    }))
+                                                                    .then(rewardTransactionRepository.save(rewardTransaction))
+                                                                    .then();
+                                                        });
+                                            });
+
+                                }));
+                    });
+                });
+    }
 
     public Mono<Void> reversalTransaction(
             String transactionId,
