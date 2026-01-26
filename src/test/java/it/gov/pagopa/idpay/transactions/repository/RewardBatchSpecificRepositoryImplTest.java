@@ -1,13 +1,13 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
+import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -523,10 +523,12 @@ class RewardBatchSpecificRepositoryImplTest {
     RewardTransaction r1 = mongoTemplate.findById("t1", RewardTransaction.class).block();
     RewardTransaction r2 = mongoTemplate.findById("t2", RewardTransaction.class).block();
 
-    assertEquals(RewardBatchTrxStatus.SUSPENDED, r1.getRewardBatchTrxStatus());
+      assertNotNull(r1);
+      assertEquals(RewardBatchTrxStatus.SUSPENDED, r1.getRewardBatchTrxStatus());
     assertEquals("reason-test", r1.getRewardBatchRejectionReason());
 
-    assertEquals(RewardBatchTrxStatus.SUSPENDED, r2.getRewardBatchTrxStatus());
+      assertNotNull(r2);
+      assertEquals(RewardBatchTrxStatus.SUSPENDED, r2.getRewardBatchTrxStatus());
     assertEquals("reason-test", r2.getRewardBatchRejectionReason());
   }
 
@@ -1022,7 +1024,118 @@ class RewardBatchSpecificRepositoryImplTest {
         assertEquals("old-empty-2", result.get(1).getId());
     }
 
+    @Test
+    void moveSuspendToNewBatch_ok_shouldMoveCountersAndAmounts() {
+        long accrued = 150L;
 
+        RewardBatch oldBatch = rewardBatchRepository.findById("batch1").block();
+        RewardBatch newBatch = rewardBatchRepository.findById("batch2").block();
+        assertNotNull(oldBatch);
+        assertNotNull(newBatch);
+
+        oldBatch.setInitialAmountCents(accrued);
+        oldBatch.setSuspendedAmountCents(accrued);
+        oldBatch.setNumberOfTransactions(1L);
+        oldBatch.setNumberOfTransactionsSuspended(1L);
+        oldBatch.setNumberOfTransactionsElaborated(1L);
+
+        newBatch.setInitialAmountCents(0L);
+        newBatch.setSuspendedAmountCents(0L);
+        newBatch.setNumberOfTransactions(0L);
+        newBatch.setNumberOfTransactionsSuspended(0L);
+        newBatch.setNumberOfTransactionsElaborated(0L);
+
+        rewardBatchRepository.saveAll(List.of(oldBatch, newBatch)).collectList().block();
+
+        LocalDateTime oldUpdateBefore = oldBatch.getUpdateDate();
+        LocalDateTime newUpdateBefore = newBatch.getUpdateDate();
+
+        Mono<RewardBatch> result = rewardBatchSpecificRepository
+                .moveSuspendToNewBatch("batch1", "batch2", accrued);
+
+        StepVerifier.create(result)
+                .assertNext(updatedNew -> {
+                    assertEquals("batch2", updatedNew.getId());
+
+                    assertEquals(accrued, updatedNew.getInitialAmountCents());
+                    assertEquals(accrued, updatedNew.getSuspendedAmountCents());
+                    assertEquals(1L, updatedNew.getNumberOfTransactions());
+                    assertEquals(1L, updatedNew.getNumberOfTransactionsSuspended());
+                    assertEquals(1L, updatedNew.getNumberOfTransactionsElaborated());
+
+                    assertNotNull(updatedNew.getUpdateDate());
+                    if (newUpdateBefore != null) {
+                        assertNotEquals(newUpdateBefore, updatedNew.getUpdateDate());
+                    }
+                })
+                .verifyComplete();
+
+        RewardBatch oldAfter = rewardBatchRepository.findById("batch1").block();
+        RewardBatch newAfter = rewardBatchRepository.findById("batch2").block();
+        assertNotNull(oldAfter);
+        assertNotNull(newAfter);
+
+        assertEquals(0, oldAfter.getInitialAmountCents());
+        assertEquals(0, oldAfter.getSuspendedAmountCents());
+        assertEquals(0L, oldAfter.getNumberOfTransactions());
+        assertEquals(0L, oldAfter.getNumberOfTransactionsSuspended());
+        assertEquals(0L, oldAfter.getNumberOfTransactionsElaborated());
+
+        assertNotNull(oldAfter.getUpdateDate());
+        if (oldUpdateBefore != null) {
+            assertNotEquals(oldUpdateBefore, oldAfter.getUpdateDate());
+        }
+    }
+
+    @Test
+    void moveSuspendToNewBatch_oldBatchNotFound_returnsBadRequest() {
+        Mono<RewardBatch> result = rewardBatchSpecificRepository
+                .moveSuspendToNewBatch("NOT_EXISTING", "batch2", 150L);
+
+        StepVerifier.create(result)
+                .expectErrorSatisfies(ex -> {
+                    assertInstanceOf(ClientExceptionNoBody.class, ex);
+                    assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST,
+                            ((ClientExceptionNoBody) ex).getHttpStatus());
+                })
+                .verify();
+    }
+
+
+    @Test
+    void moveSuspendToNewBatch_newBatchNotFound_returnsBadRequest_andOldWasDecremented() {
+        long accrued = 150L;
+
+        RewardBatch oldBatch = rewardBatchRepository.findById("batch1").block();
+        assertNotNull(oldBatch);
+
+        oldBatch.setInitialAmountCents(accrued);
+        oldBatch.setSuspendedAmountCents(accrued);
+        oldBatch.setNumberOfTransactions(1L);
+        oldBatch.setNumberOfTransactionsSuspended(1L);
+        oldBatch.setNumberOfTransactionsElaborated(1L);
+        rewardBatchRepository.save(oldBatch).block();
+
+        Mono<RewardBatch> result = rewardBatchSpecificRepository
+                .moveSuspendToNewBatch("batch1", "NOT_EXISTING", accrued);
+
+        StepVerifier.create(result)
+                .expectErrorSatisfies(ex -> {
+                    assertInstanceOf(ClientExceptionNoBody.class, ex);
+                    assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST,
+                            ((ClientExceptionNoBody) ex).getHttpStatus());
+                })
+                .verify();
+
+        RewardBatch oldAfter = rewardBatchRepository.findById("batch1").block();
+        assertNotNull(oldAfter);
+
+        assertEquals(0L, oldAfter.getInitialAmountCents());
+        assertEquals(0L, oldAfter.getSuspendedAmountCents());
+        assertEquals(0L, oldAfter.getNumberOfTransactions());
+        assertEquals(0L, oldAfter.getNumberOfTransactionsSuspended());
+        assertEquals(0L, oldAfter.getNumberOfTransactionsElaborated());
+    }
 
 }
 
