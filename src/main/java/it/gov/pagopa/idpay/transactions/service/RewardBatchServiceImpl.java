@@ -304,9 +304,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 })
                 .flatMap(acc -> {
 
-                    auditUtilities.logTransactionsSuspended(
-                            acc.getTrxSuspended(),
-                            initiativeId
+                    auditUtilities.logTransactionsStatusChanged(
+                            RewardBatchTrxStatus.SUSPENDED.name(),
+                            initiativeId,
+                            request.getTransactionIds().toString(),
+                            request.getChecksError()
                     );
 
                     return rewardBatchRepository.updateTotals(
