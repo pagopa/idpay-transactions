@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
+import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.service.MerchantTransactionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,16 +45,20 @@ class MerchantTransactionControllerImplTest {
                 .totalPages(1)
                 .build();
 
+        TrxFiltersDTO filters = new TrxFiltersDTO(
+                "test",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
         when(merchantTransactionService.getMerchantTransactions(
-                eq("test"),
                 eq("INITIATIVE_ID"),
-                isNull(),
-                isNull(),
-                isNull(),
-                isNull(),
-                isNull(),
-                isNull(),
-                isNull(),
+                filters,
                 eq(paging)
         )).thenReturn(Mono.just(merchantTransactionsListDTO));
 
@@ -61,12 +66,7 @@ class MerchantTransactionControllerImplTest {
                 "test",
                 "INITIATIVE_ID",
                 null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
+                filters,
                 paging
         );
 
@@ -79,15 +79,8 @@ class MerchantTransactionControllerImplTest {
         assertEquals(1, result.getTotalPages());
 
         verify(merchantTransactionService, times(1)).getMerchantTransactions(
-                eq("test"),
                 eq("INITIATIVE_ID"),
-                isNull(),
-                isNull(),
-                isNull(),
-                isNull(),
-                isNull(),
-                isNull(),
-                isNull(),
+                filters,
                 eq(paging)
         );
         verifyNoMoreInteractions(merchantTransactionService);

@@ -85,17 +85,21 @@ class MerchantTransactionServiceImplTest {
         when(rewardTransactionRepository.getCount(any(), isNull(), isNull(), eq(USER_ID), eq(false)))
                 .thenReturn(Mono.just(1L));
 
+        TrxFiltersDTO filters = new TrxFiltersDTO(
+                MERCHANT_ID,
+                INITIATIVE_ID,
+                FISCAL_CODE,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
         MerchantTransactionsListDTO result =
                 merchantTransactionService.getMerchantTransactions(
-                        MERCHANT_ID,
                         "merchant",
-                        INITIATIVE_ID,
-                        FISCAL_CODE,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
+                        filters,
                         paging
                 ).block();
 
@@ -146,17 +150,21 @@ class MerchantTransactionServiceImplTest {
         when(userRestClient.retrieveUserInfo(USER_ID))
                 .thenReturn(Mono.just(userInfoPDV));
 
+        TrxFiltersDTO filters = new TrxFiltersDTO(
+                MERCHANT_ID,
+                INITIATIVE_ID,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
         MerchantTransactionsListDTO result =
                 merchantTransactionService.getMerchantTransactions(
-                        MERCHANT_ID,
                         "merchant",
-                        INITIATIVE_ID,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
+                        filters,
                         paging
                 ).block();
 
@@ -179,18 +187,22 @@ class MerchantTransactionServiceImplTest {
     void getMerchantTransactions_shouldThrowBadRequestForInvalidBatchStatus() {
         Pageable paging = PageRequest.of(0, 10);
 
+        TrxFiltersDTO filters = new TrxFiltersDTO(
+                MERCHANT_ID,
+                INITIATIVE_ID,
+                null,
+                null,
+                null,
+                RewardBatchTrxStatus.valueOf("WRONG_STATUS"),
+                null,
+                null
+        );
+
         ResponseStatusException ex = assertThrows(
                 ResponseStatusException.class,
                 () -> merchantTransactionService.getMerchantTransactions(
-                        MERCHANT_ID,
                         "merchant",
-                        INITIATIVE_ID,
-                        null,
-                        null,
-                        null,
-                        "WRONG_STATUS",
-                        null,
-                        null,
+                        filters,
                         paging
                 ).block()
         );
@@ -239,17 +251,21 @@ class MerchantTransactionServiceImplTest {
         when(rewardTransactionRepository.getCount(any(), isNull(), isNull(), eq(USER_ID), eq(false)))
                 .thenReturn(Mono.just(1L));
 
+        TrxFiltersDTO filters = new TrxFiltersDTO(
+                MERCHANT_ID,
+                INITIATIVE_ID,
+                FISCAL_CODE,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
         MerchantTransactionsListDTO result =
                 merchantTransactionService.getMerchantTransactions(
-                        MERCHANT_ID,
                         "merchant",
-                        INITIATIVE_ID,
-                        FISCAL_CODE,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
+                        filters,
                         paging
                 ).block();
 
@@ -303,17 +319,21 @@ class MerchantTransactionServiceImplTest {
         when(userRestClient.retrieveUserInfo(USER_ID))
                 .thenReturn(Mono.just(userInfoPDV));
 
+        TrxFiltersDTO filters = new TrxFiltersDTO(
+                MERCHANT_ID,
+                INITIATIVE_ID,
+                null,
+                null,
+                null,
+                RewardBatchTrxStatus.CONSULTABLE,
+                null,
+                null
+        );
+
         MerchantTransactionsListDTO result =
                 merchantTransactionService.getMerchantTransactions(
-                        MERCHANT_ID,
                         "merchant",
-                        INITIATIVE_ID,
-                        null,
-                        null,
-                        null,
-                        RewardBatchTrxStatus.CONSULTABLE.name(),
-                        null,
-                        null,
+                       filters,
                         paging
                 ).block();
 

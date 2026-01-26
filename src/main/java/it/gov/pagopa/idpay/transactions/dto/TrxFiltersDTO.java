@@ -17,7 +17,7 @@ public class TrxFiltersDTO {
     private String fiscalCode;
     private String status;
     private String rewardBatchId;
-    private RewardBatchTrxStatus rewardBatchTrxStatus;
+    private String rewardBatchTrxStatus;
     private String pointOfSaleId;
     private String trxCode;
 }

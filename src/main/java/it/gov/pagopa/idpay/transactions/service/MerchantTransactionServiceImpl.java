@@ -36,15 +36,8 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
     }
 
     @Override
-    public Mono<MerchantTransactionsListDTO> getMerchantTransactions(String merchantId,
-                                                                     String organizationRole,
-                                                                     String initiativeId,
-                                                                     String fiscalCode,
-                                                                     String status,
-                                                                     String rewardBatchId,
-                                                                     String rewardBatchTrxStatus,
-                                                                     String pointOfSaleId,
-                                                                     String trxCode,
+    public Mono<MerchantTransactionsListDTO> getMerchantTransactions(String organizationRole,
+                                                                     TrxFiltersDTO filters,
                                                                      Pageable pageable) {
 
         if (pageable.getSort().isUnsorted()) {
@@ -55,19 +48,6 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
             );
         }
 
-
-        RewardBatchTrxStatus parsedRewardBatchTrxStatus = parseRewardBatchTrxStatus(rewardBatchTrxStatus);
-
-        TrxFiltersDTO filters = new TrxFiltersDTO(
-                merchantId,
-                initiativeId,
-                fiscalCode,
-                status,
-                rewardBatchId,
-                parsedRewardBatchTrxStatus,
-                pointOfSaleId,
-                trxCode
-        );
 
         Pageable finalPageable = pageable;
         return getMerchantTransactionDTOs2Count(filters, organizationRole, pageable)

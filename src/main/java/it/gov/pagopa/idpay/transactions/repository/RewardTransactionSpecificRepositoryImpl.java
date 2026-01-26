@@ -134,7 +134,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
     if (filters.getRewardBatchTrxStatus() != null) {
       if (includeToCheckWithConsultable
-          && filters.getRewardBatchTrxStatus() == RewardBatchTrxStatus.CONSULTABLE) {
+          && filters.getRewardBatchTrxStatus() == RewardBatchTrxStatus.CONSULTABLE.name()) {
 
         criteria.and(Fields.rewardBatchTrxStatus)
             .in(RewardBatchTrxStatus.CONSULTABLE.name(),
@@ -142,7 +142,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
       } else {
         criteria.and(Fields.rewardBatchTrxStatus)
-            .is(filters.getRewardBatchTrxStatus().name());
+            .is(filters.getRewardBatchTrxStatus());
       }
     }
 
