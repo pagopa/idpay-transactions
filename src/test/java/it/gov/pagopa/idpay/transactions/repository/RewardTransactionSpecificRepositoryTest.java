@@ -4,6 +4,7 @@ import it.gov.pagopa.common.reactive.mongo.MongoTest;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
@@ -911,7 +912,7 @@ class RewardTransactionSpecificRepositoryTest {
 
         rewardTransactionRepository.save(trxToSave).block();
 
-        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED, null, batchMonth).block();
+        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED, null, batchMonth, null).block();
         Assertions.assertNotNull(result);
         Assertions.assertEquals(RewardBatchTrxStatus.SUSPENDED, result.getRewardBatchTrxStatus());
 
@@ -938,7 +939,7 @@ class RewardTransactionSpecificRepositoryTest {
 
         rewardTransactionRepository.save(trxToSave).block();
 
-        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED, null, batchMonth).block();
+        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED, null, batchMonth, null).block();
         Assertions.assertNotNull(result);
         Assertions.assertEquals(RewardBatchTrxStatus.SUSPENDED, result.getRewardBatchTrxStatus());
 
@@ -965,7 +966,7 @@ class RewardTransactionSpecificRepositoryTest {
 
         rewardTransactionRepository.save(trxToSave).block();
 
-        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED, null, batchMonth).block();
+        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED, null, batchMonth, null).block();
         Assertions.assertNotNull(result);
 
         RewardTransaction afterUpdate = rewardTransactionRepository.findById(trxSuspendedId).block();
@@ -990,7 +991,7 @@ class RewardTransactionSpecificRepositoryTest {
 
         rewardTransactionRepository.save(trxToSave).block();
 
-        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED, null, batchMonth).block();
+        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.APPROVED, null, batchMonth, null).block();
         Assertions.assertNull(result);
 
         RewardTransaction afterUpdate = rewardTransactionRepository.findById(trxSuspendedId).block();
@@ -1016,7 +1017,7 @@ class RewardTransactionSpecificRepositoryTest {
 
         rewardTransactionRepository.save(trxToSave).block();
 
-        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.REJECTED, reason, batchMonth).block();
+        RewardTransaction result = rewardTransactionRepository.updateStatusAndReturnOld(batchId, trxSuspendedId, RewardBatchTrxStatus.REJECTED, reason, batchMonth, null).block();
         Assertions.assertNotNull(result);
 
         RewardTransaction afterUpdate = rewardTransactionRepository.findById(trxSuspendedId).block();
@@ -1027,6 +1028,86 @@ class RewardTransactionSpecificRepositoryTest {
 
         rewardTransactionRepository.deleteById(trxToSave.getId()).block();
 
+    }
+
+    @Test
+    void updateStatusAndReturnOld_withChecksError() {
+        String trxId = "TRX_CHECKS_ERROR";
+        String batchId = "BATCH_ID";
+        String batchMonth = "dicembre 2025";
+
+        ChecksError checksError = new ChecksError();
+        checksError.setCfError(true);
+
+        RewardTransaction trxToSave = RewardTransaction.builder()
+                .id(trxId)
+                .rewardBatchId(batchId)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
+                .build();
+
+        rewardTransactionRepository.save(trxToSave).block();
+
+        RewardTransaction old =
+                rewardTransactionRepository.updateStatusAndReturnOld(
+                        batchId,
+                        trxId,
+                        RewardBatchTrxStatus.SUSPENDED,
+                        null,
+                        batchMonth,
+                        checksError
+                ).block();
+
+        assertNotNull(old);
+        assertEquals(RewardBatchTrxStatus.TO_CHECK, old.getRewardBatchTrxStatus());
+
+        RewardTransaction updated =
+                rewardTransactionRepository.findById(trxId).block();
+
+        assertNotNull(updated);
+        assertEquals(RewardBatchTrxStatus.SUSPENDED, updated.getRewardBatchTrxStatus());
+        assertNotNull(updated.getChecksError());
+        assertTrue(updated.getChecksError().isCfError());
+
+        rewardTransactionRepository.deleteById(trxId).block();
+    }
+
+    @Test
+    void updateStatusAndReturnOld_transactionNotFound_returnsEmpty() {
+        String trxId = "TRX_NOT_FOUND";
+        String batchId = "BATCH_ID";
+        String wrongBatchId = "WRONG_BATCH_ID";
+        String batchMonth = "dicembre 2025";
+
+        RewardTransaction trxToSave = RewardTransaction.builder()
+                .id(trxId)
+                .rewardBatchId(wrongBatchId)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
+                .build();
+
+        rewardTransactionRepository.save(trxToSave).block();
+
+        Mono<RewardTransaction> result =
+                rewardTransactionRepository.updateStatusAndReturnOld(
+                        batchId,
+                        trxId,
+                        RewardBatchTrxStatus.SUSPENDED,
+                        null,
+                        batchMonth,
+                        null
+                );
+
+        StepVerifier.create(result)
+                .expectComplete()
+                .verify();
+
+        RewardTransaction after =
+                rewardTransactionRepository.findById(trxId).block();
+
+        assertNotNull(after);
+        assertEquals(RewardBatchTrxStatus.APPROVED, after.getRewardBatchTrxStatus());
+        assertNull(after.getRewardBatchLastMonthElaborated());
+
+        rewardTransactionRepository.deleteById(trxId).block();
     }
 
     @Test

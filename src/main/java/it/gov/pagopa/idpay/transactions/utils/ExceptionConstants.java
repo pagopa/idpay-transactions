@@ -34,6 +34,7 @@ public final class ExceptionConstants {
         public static final String REWARD_BATCH_ALREADY_SENT = "REWARD_BATCH_ALREADY_SENT";
         public static final String REWARD_BATCH_STATUS_NOT_ALLOWED = "REWARD_BATCH_STATUS_NOT_ALLOWED";
         public static final String REWARD_BATCH_PREVIOUS_NOT_SENT = "REWARD_BATCH_PREVIOUS_NOT_SENT";
+        public static final String INVALID_CHECKS_ERROR = "INVALID_CHECKS_ERROR";
     }
 
     public static final class ExceptionMessage {
@@ -68,5 +69,7 @@ public final class ExceptionConstants {
         public static final String ERROR_MESSAGE_BATCH_NOT_ELABORATED_15_PERCENT = "At least 15% of transactions must be elaborated";
         public static final String ERROR_MESSAGE_ROLE_NOT_ALLOWED_FOR_L2_PROMOTION = "Operator not allowed to promote from L2";
         public static final String ERROR_MESSAGE_INVALID_BATCH_STATE_FOR_PROMOTION = "Invalid state for batch promotion";
+
+        public static final String ERROR_MESSAGE_INVALID_CHECKS_ERROR = "At least one checksError field must be true";
     }
 }

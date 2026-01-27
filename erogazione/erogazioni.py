@@ -1,12 +1,13 @@
 import csv
 import json
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
 
 # --- CONFIGURAZIONE ---
 CLIENT_ID = "IL_TUO_CLIENT_ID"
 CLIENT_SECRET = "IL_TUO_CLIENT_SECRET"
-BASE_URL = "https://dev-apim-misure.azure-api.net/pagopa/ce/v1"
+#BASE_URL_UAT = "https://dev-apim-misure.azure-api.net/pagopa/ce/v1"
+BASE_URL = "https://prod-apim-misure.azure-api.net/pagopa/ce/v1"
 TOKEN_URL = "https://login.microsoftonline.com/afd0a75c-8671-4cce-9061-2ca0d92e422f/oauth2/v2.0/token"
 SELFCARE_URL = "https://api.selfcare.pagopa.it/external/v2/institutions"
 SELFCARE_API_KEY = "SELFCARE-MERCHANT-API-KEY"
@@ -25,16 +26,18 @@ def get_bearer_token():
     'client_secret': CLIENT_SECRET,
     'scope': f'{CLIENT_ID}/.default'
   }
+  response = None
   try:
     response = requests.post(TOKEN_URL, data=payload)
     response.raise_for_status()
     return response.json().get('access_token')
   except requests.exceptions.RequestException as e:
     print(f"Errore recupero Token: {e}")
-    try:
-      print(response.text)
-    except:
-      pass
+    if response is not None:
+      try:
+        print(response.text)
+      except Exception:
+        pass
     exit(1)
 
 
@@ -139,6 +142,14 @@ def process_csv():
   # Lista per accumulare tutte le risposte
   all_responses_log = []
 
+  # Nome file output univoco con timestamp UTC
+  output_json_file = OUTPUT_JSON_FILE
+  if output_json_file.lower().endswith('.json'):
+    output_json_file = output_json_file[:-5]
+
+  timestamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+  output_json_file = f"{output_json_file}_{timestamp}.json"
+
   try:
     with open(CSV_FILE, mode='r', encoding='utf-8-sig') as f:
       reader = csv.DictReader(f)
@@ -224,10 +235,10 @@ def process_csv():
     return
 
   # Salvataggio unico file JSON finale
-  with open(OUTPUT_JSON_FILE, 'w', encoding='utf-8') as f_out:
+  with open(output_json_file, 'w', encoding='utf-8') as f_out:
     json.dump(all_responses_log, f_out, indent=4, ensure_ascii=False)
 
-  print(f"\nElaborazione completata. Risposte salvate in '{OUTPUT_JSON_FILE}'")
+  print(f"\nElaborazione completata. Risposte salvate in '{output_json_file}'")
 
 
 if __name__ == "__main__":
