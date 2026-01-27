@@ -10,6 +10,7 @@ public final class ExceptionConstants {
         public static final String TOO_MANY_REQUESTS = "TRANSACTIONS_TOO_MANY_REQUEST";
         public static final String GENERIC_ERROR = "TRANSACTIONS_GENERIC_ERROR";
         public static final String TRANSACTIONS_MISSING_MANDATORY_FILTERS = "TRANSACTIONS_MISSING_MANDATORY_FILTERS";
+        public static final String TRANSACTION_STATUS_NOT_ALLOWED = "TRANSACTION_STATUS_NOT_ALLOWED";
         public static final String REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED = "REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED";
         public static final String REWARD_BATCH_NOT_FOUND = "REWARD_BATCH_NOT_FOUND";
         public static final String REWARD_BATCH_NOT_APPROVED = "REWARD_BATCH_NOT_APPROVED";
@@ -44,6 +45,7 @@ public final class ExceptionConstants {
         public static final String TRANSACTION_MISSING_INVOICE = "Invoice missing from transaction for which download was required";
         public static final String TRANSACTION_NOT_FOUND = "Transaction not found for ID: %s";
         public static final String TRANSACTION_NOT_STATUS_INVOICED = "Transaction is not in invoiced status";
+        public static final String TRANSACTION_NOT_STATUS_APPROVED = "Transaction is not in approved status";
         public static final String REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED = "Transaction can be postponed only until the end of the month following the initiative end date";
         public static final String ERROR_ON_GET_FILE_URL_REQUEST = "Error occurred while attempting to get file url";
         public static final String MISSING_TRANSACTIONS_FILTERS = "Mandatory filters are missing. Insert one of the following options: 1) organizationRole 2) merchantId";

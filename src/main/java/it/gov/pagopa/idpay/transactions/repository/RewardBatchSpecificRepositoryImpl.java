@@ -81,7 +81,6 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
                 .inc("numberOfTransactions", -1)
                 .inc("suspendedAmountCents", -accruedAmountCents)
                 .inc("numberOfTransactionsSuspended", -1)
-                .inc("numberOfTransactionsElaborated", -1)
                 .set(RewardBatch.Fields.updateDate, LocalDateTime.now());
 
         Update incNew = new Update()
@@ -89,7 +88,6 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
                 .inc("numberOfTransactions", 1)
                 .inc("suspendedAmountCents", accruedAmountCents)
                 .inc("numberOfTransactionsSuspended", 1)
-                .inc("numberOfTransactionsElaborated", 1)
                 .set(RewardBatch.Fields.updateDate, LocalDateTime.now());
 
         return mongoTemplate.findAndModify(

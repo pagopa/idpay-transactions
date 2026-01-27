@@ -60,6 +60,7 @@ public class PointOfSaleTransactionMapper {
         .trxChargeDate(trx.getTrxChargeDate())
         .elaborationDateTime(trx.getElaborationDateTime())
         .status(trx.getStatus())
+        .rewardBatchTrxStatus(trx.getRewardBatchTrxStatus().toString())
         .channel(trx.getChannel())
         .fiscalCode(fiscalCode)
         .additionalProperties(trx.getAdditionalProperties())

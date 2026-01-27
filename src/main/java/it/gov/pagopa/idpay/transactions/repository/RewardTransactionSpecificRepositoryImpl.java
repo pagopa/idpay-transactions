@@ -214,7 +214,20 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     return mongoTemplate.findOne(Query.query(criteria), RewardTransaction.class);
   }
 
-  private Pageable mapSort(Pageable pageable) {
+    @Override
+    public Mono<RewardTransaction> findTransactionForUpdateInvoice(
+            String merchantId, String pointOfSaleId, String transactionId) {
+
+        Criteria criteria = Criteria
+                .where(Fields.merchantId).is(merchantId)
+                .and(Fields.pointOfSaleId).is(pointOfSaleId)
+                .and(Fields.id).is(transactionId);
+
+        return mongoTemplate.findOne(Query.query(criteria), RewardTransaction.class);
+    }
+
+
+    private Pageable mapSort(Pageable pageable) {
     Pageable basePageable = getPageableTrx(pageable);
 
     Sort mappedSort = Sort.by(
