@@ -75,6 +75,7 @@ public class RewardTransactionMapper {
             }
             rewardTrx.setExtendedAuthorization(rewardTrxDto.getExtendedAuthorization());
             rewardTrx.setVoucherAmountCents(rewardTrxDto.getVoucherAmountCents());
+            rewardTrx.setChecksError(rewardTrxDto.getChecksError());
 
         }
 

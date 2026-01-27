@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import it.gov.pagopa.common.utils.TestUtils;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
+import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionDTOFaker;
@@ -31,44 +32,54 @@ class RewardTransactionMapperTest {
 
     @Test
     void mapFromDTOTransaction() {
-        //Given
         RewardTransactionMapper rewardTransactionMapper = new RewardTransactionMapper();
 
         RewardTransactionDTO refundTrx = RewardTransactionDTOFaker.mockInstanceRefund(1);
         RewardTransactionDTO rejectedTrx = RewardTransactionDTOFaker.mockInstanceRejected(2);
 
-        //When
+        if (refundTrx.getChecksError() == null) refundTrx.setChecksError(new ChecksError());
+        if (rejectedTrx.getChecksError() == null) rejectedTrx.setChecksError(new ChecksError());
+
         RewardTransaction resultRefund = rewardTransactionMapper.mapFromDTO(refundTrx);
         RewardTransaction resultRejected = rewardTransactionMapper.mapFromDTO(rejectedTrx);
 
-        //Then
         assertNotNull(resultRefund);
         assertCommonFields(resultRefund, refundTrx);
         checkNotNullRewardField(resultRefund.getRewards());
-        assertRefundFields(resultRefund,refundTrx);
-        TestUtils.checkNotNullFields(resultRefund, "rejectionReasons", "initiativeRejectionReasons", "additionalProperties", "invoiceData", "creditNoteData", "trxCode", "rewardBatchId", "rewardBatchTrxStatus", "rewardBatchRejectionReason", "rewardBatchInclusionDate", "franchiseName", "pointOfSaleType", "businessName", "invoiceUploadDate", "updateDate", "extendedAuthorization", "voucherAmountCents","initiativeId", "rewardBatchLastMonthElaborated");
+        assertRefundFields(resultRefund, refundTrx);
+        TestUtils.checkNotNullFields(resultRefund, "rejectionReasons", "initiativeRejectionReasons", "checksError",
+                "additionalProperties", "invoiceData", "creditNoteData", "trxCode", "rewardBatchId",
+                "rewardBatchTrxStatus", "rewardBatchRejectionReason", "rewardBatchInclusionDate",
+                "franchiseName", "pointOfSaleType", "businessName", "invoiceUploadDate", "updateDate",
+                "extendedAuthorization", "voucherAmountCents","initiativeId", "rewardBatchLastMonthElaborated");
 
         assertNotNull(resultRejected);
         assertCommonFields(resultRejected, rejectedTrx);
-        assertRejectedFields(resultRejected,rejectedTrx);
-        TestUtils.checkNotNullFields(resultRejected, "initiatives","rewards", "operationTypeTranscoded", "effectiveAmountCents","trxChargeDate","refundInfo", "additionalProperties", "invoiceData", "creditNoteData", "trxCode", "rewardBatchId", "rewardBatchTrxStatus", "rewardBatchRejectionReason", "rewardBatchInclusionDate", "franchiseName", "pointOfSaleType", "businessName", "invoiceUploadDate", "updateDate", "extendedAuthorization", "voucherAmountCents","initiativeId", "rewardBatchLastMonthElaborated");
-
-
+        assertRejectedFields(resultRejected, rejectedTrx);
+        TestUtils.checkNotNullFields(resultRejected, "initiatives","rewards", "operationTypeTranscoded",
+                "effectiveAmountCents","trxChargeDate","refundInfo", "checksError", "additionalProperties",
+                "invoiceData", "creditNoteData", "trxCode", "rewardBatchId", "rewardBatchTrxStatus",
+                "rewardBatchRejectionReason", "rewardBatchInclusionDate", "franchiseName", "pointOfSaleType",
+                "businessName", "invoiceUploadDate", "updateDate", "extendedAuthorization",
+                "voucherAmountCents","initiativeId", "rewardBatchLastMonthElaborated");
     }
 
     @Test
-    void mapFromDTOTransactionWithoutId(){
-        //Given
+    void mapFromDTOTransactionWithoutId() {
         RewardTransactionMapper rewardTransactionMapper = new RewardTransactionMapper();
 
         RewardTransactionDTO rewardTrx = RewardTransactionDTOFaker.mockInstanceRefund(1);
-        // When
+        if (rewardTrx.getChecksError() == null) rewardTrx.setChecksError(new ChecksError());
+
         RewardTransaction result = rewardTransactionMapper.mapFromDTO(rewardTrx);
 
-        //Then
         assertNotNull(result);
         assertCommonFields(result, rewardTrx);
-        TestUtils.checkNotNullFields(result, "rejectionReasons", "initiativeRejectionReasons", "additionalProperties", "invoiceData", "creditNoteData", "trxCode", "rewardBatchId", "rewardBatchTrxStatus", "rewardBatchRejectionReason", "rewardBatchInclusionDate", "franchiseName", "pointOfSaleType", "businessName", "invoiceUploadDate", "updateDate", "extendedAuthorization", "voucherAmountCents","initiativeId", "rewardBatchLastMonthElaborated");
+        TestUtils.checkNotNullFields(result, "rejectionReasons", "initiativeRejectionReasons", "checksError",
+                "additionalProperties", "invoiceData", "creditNoteData", "trxCode", "rewardBatchId",
+                "rewardBatchTrxStatus", "rewardBatchRejectionReason", "rewardBatchInclusionDate",
+                "franchiseName", "pointOfSaleType", "businessName", "invoiceUploadDate", "updateDate",
+                "extendedAuthorization", "voucherAmountCents","initiativeId", "rewardBatchLastMonthElaborated");
 
         String expectedId = rewardTrx.getIdTrxAcquirer()
                 .concat(rewardTrx.getAcquirerCode())
@@ -81,19 +92,20 @@ class RewardTransactionMapperTest {
 
     @Test
     void mapFromDTOTransactionWithRefund() {
-        //Given
         RewardTransactionMapper rewardTransactionMapper = new RewardTransactionMapper();
         RewardTransactionDTO rewardTrx = RewardTransactionDTOFaker.mockInstanceRefund(1);
+        if (rewardTrx.getChecksError() == null) rewardTrx.setChecksError(new ChecksError());
 
-        //When
         RewardTransaction result = rewardTransactionMapper.mapFromDTO(rewardTrx);
 
-        //Then
         assertNotNull(result);
         assertCommonFields(result, rewardTrx);
-
-        TestUtils.checkNotNullFields(result, "rejectionReasons", "initiativeRejectionReasons", "additionalProperties", "invoiceData", "creditNoteData", "trxCode", "rewardBatchId", "rewardBatchTrxStatus", "rewardBatchRejectionReason", "rewardBatchInclusionDate", "franchiseName", "pointOfSaleType", "businessName", "invoiceUploadDate", "updateDate", "extendedAuthorization", "voucherAmountCents","initiativeId", "rewardBatchLastMonthElaborated");
         checkNotNullRewardField(result.getRewards());
+        TestUtils.checkNotNullFields(result, "rejectionReasons", "initiativeRejectionReasons", "checksError",
+                "additionalProperties", "invoiceData", "creditNoteData", "trxCode", "rewardBatchId",
+                "rewardBatchTrxStatus", "rewardBatchRejectionReason", "rewardBatchInclusionDate",
+                "franchiseName", "pointOfSaleType", "businessName", "invoiceUploadDate", "updateDate",
+                "extendedAuthorization", "voucherAmountCents","initiativeId", "rewardBatchLastMonthElaborated");
         TestUtils.checkNotNullFields(result.getRefundInfo());
     }
 
