@@ -8,7 +8,6 @@ import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionKafkaMapper;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
-import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.notifier.TransactionNotifierService;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
@@ -34,7 +33,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 
 import static it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus.*;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
@@ -53,6 +54,8 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
   private final RewardBatchRepository rewardBatchRepository;
   private final TransactionErrorNotifierService transactionErrorNotifierService;
   private final TransactionNotifierService transactionNotifierService;
+
+    private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM", Locale.ITALIAN);
 
   protected PointOfSaleTransactionServiceImpl(
           UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository, InvoiceStorageClient invoiceStorageClient, RewardBatchService rewardBatchService,
@@ -274,8 +277,17 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
                                                         return moveCounters
                                                                 .then(Mono.fromRunnable(() -> {
+
                                                                     suspendedTrx.setRewardBatchId(newBatch.getId());
                                                                     suspendedTrx.setUpdateDate(LocalDateTime.now());
+
+                                                                    if (!CREATED.equals(oldBatch.getStatus())) {
+                                                                        updateLastMonthElaboratedOnBatchMove(
+                                                                                suspendedTrx,
+                                                                                oldBatch.getMonth(),
+                                                                                newBatch.getMonth()
+                                                                        );
+                                                                    }
                                                                 }))
                                                                 .then(rewardTransactionRepository.save(suspendedTrx))
                                                                 .then();
@@ -285,6 +297,18 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                             });
                 });
     }
+
+    private YearMonth getYearMonth (String yearMonthString){
+        return YearMonth.parse(yearMonthString.toLowerCase(), BATCH_MONTH_FORMAT);
+    }
+
+    private void updateLastMonthElaboratedOnBatchMove(RewardTransaction trx, String oldBatchMonth, String newBatchMonth) {
+        if (trx.getRewardBatchLastMonthElaborated() == null
+                || getYearMonth(trx.getRewardBatchLastMonthElaborated()).isBefore(getYearMonth(newBatchMonth))) {
+            trx.setRewardBatchLastMonthElaborated(oldBatchMonth);
+        }
+    }
+
 
     public Mono<Void> reversalTransaction(
             String transactionId,
