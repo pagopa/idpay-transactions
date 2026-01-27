@@ -64,7 +64,8 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 status,
                 rewardBatchId,
                 parsedRewardBatchTrxStatus,
-                pointOfSaleId
+                pointOfSaleId,
+                null
         );
 
         Pageable finalPageable = pageable;

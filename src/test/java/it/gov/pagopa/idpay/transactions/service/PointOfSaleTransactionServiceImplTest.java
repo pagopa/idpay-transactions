@@ -119,7 +119,7 @@ class PointOfSaleTransactionServiceImplTest {
                 .thenReturn(Mono.just(1L));
 
         StepVerifier.create(service.getPointOfSaleTransactions(
-                        MERCHANT_ID, INITIATIVE_ID, POS_ID, "", FISCAL_CODE, STATUS, pageable))
+                        MERCHANT_ID, INITIATIVE_ID, POS_ID, "", FISCAL_CODE, STATUS, null, pageable))
                 .assertNext(page -> assertEquals(1, page.getTotalElements()))
                 .verifyComplete();
     }
@@ -146,7 +146,7 @@ class PointOfSaleTransactionServiceImplTest {
                 .thenReturn(Mono.just(1L));
 
         StepVerifier.create(service.getPointOfSaleTransactions(
-                        MERCHANT_ID, INITIATIVE_ID, POS_ID, null, null, STATUS, pageable))
+                        MERCHANT_ID, INITIATIVE_ID, POS_ID, null, null, STATUS, null, pageable))
                 .assertNext(page -> assertEquals(1, page.getTotalElements()))
                 .verifyComplete();
 

@@ -77,6 +77,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                                     String productGtin,
                                                                     String fiscalCode,
                                                                     String status,
+                                                                    String trxCode,
                                                                     Pageable pageable) {
 
         TrxFiltersDTO filters = new TrxFiltersDTO(
@@ -86,7 +87,8 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 status,
                 null,
                 null,
-                null
+                null,
+                trxCode
         );
 
         if (StringUtils.isNotBlank(fiscalCode)) {

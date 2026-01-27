@@ -12,7 +12,14 @@ import java.util.List;
 
 public interface PointOfSaleTransactionService {
 
-  Mono<Page<RewardTransaction>> getPointOfSaleTransactions(String merchantId, String initiativeId, String pointOfSaleId, String productGtin, String fiscalCode, String status, Pageable pageable);
+  Mono<Page<RewardTransaction>> getPointOfSaleTransactions(String merchantId,
+                                                           String initiativeId,
+                                                           String pointOfSaleId,
+                                                           String productGtin,
+                                                           String fiscalCode,
+                                                           String status,
+                                                           String trxCode,
+                                                           Pageable pageable);
 
   Mono<DownloadInvoiceResponseDTO> downloadTransactionInvoice(String merchantId, String pointOfSaleId, String transactionId);
 

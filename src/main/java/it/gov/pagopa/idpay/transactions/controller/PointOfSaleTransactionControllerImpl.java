@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.codec.multipart.FilePart;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -31,8 +32,17 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
     this.mapper = mapper;
   }
 
+  @GetMapping("/initiatives/{initiativeId}/point-of-sales/{pointOfSaleId}/transactions/processed")
   @Override
-  public Mono<PointOfSaleTransactionsListDTO> getPointOfSaleTransactions(String merchantId, String tokenPointOfSaleId, String initiativeId, String pointOfSaleId, String productGtin, String fiscalCode, String status, Pageable pageable) {
+  public Mono<PointOfSaleTransactionsListDTO> getPointOfSaleTransactions(String merchantId,
+                                                                         String tokenPointOfSaleId,
+                                                                         String initiativeId,
+                                                                         String pointOfSaleId,
+                                                                         String productGtin,
+                                                                         String fiscalCode,
+                                                                         String status,
+                                                                         String trxCode,
+                                                                         Pageable pageable) {
     log.info("[GET_POINT-OF-SALE_TRANSACTIONS] Point Of Sale {} requested to retrieve transactions", Utilities.sanitizeString(pointOfSaleId));
 
     if (tokenPointOfSaleId != null && (!Utilities.sanitizeString(tokenPointOfSaleId)
@@ -47,7 +57,7 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
       ));
     }
 
-    return pointOfSaleTransactionService.getPointOfSaleTransactions(merchantId, initiativeId, pointOfSaleId, productGtin, fiscalCode, status, pageable)
+    return pointOfSaleTransactionService.getPointOfSaleTransactions(merchantId, initiativeId, pointOfSaleId, productGtin, fiscalCode, status, trxCode, pageable)
         .flatMap(page ->
             Flux.fromIterable(page.getContent())
                 .flatMapSequential(trx -> mapper.toDTO(trx, initiativeId, fiscalCode))

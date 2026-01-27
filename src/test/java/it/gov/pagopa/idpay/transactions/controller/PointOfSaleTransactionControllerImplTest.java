@@ -74,6 +74,7 @@ class PointOfSaleTransactionControllerImplTest {
         isNull(),
         isNull(),
         isNull(),
+        isNull(),
         any(Pageable.class)))
         .thenReturn(Mono.just(page));
 

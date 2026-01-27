@@ -133,6 +133,11 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
       criteria.and(Fields.rewardBatchId).is(filters.getRewardBatchId());
     }
 
+    if (filters.getTrxCode() != null) {
+      criteria.and(Fields.rewardBatchId)
+              .regex(".*" + Pattern.quote(filters.getTrxCode()) + ".*", "i");
+    }
+
     if (filters.getRewardBatchTrxStatus() != null) {
       if (includeToCheckWithConsultable
           && filters.getRewardBatchTrxStatus() == RewardBatchTrxStatus.CONSULTABLE) {
