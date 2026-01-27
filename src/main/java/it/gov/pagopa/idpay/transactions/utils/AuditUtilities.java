@@ -59,34 +59,4 @@ public class AuditUtilities {
         return activeChecks;
     }
     //endregion
-
-    //region suspended
-    public void logTransactionsStatusChanged(String status, String initiativeId, String transactionIds, ChecksErrorDTO trueChecksError) {
-        String checks = String.join(",", extractTrueChecks(trueChecksError));
-
-        AuditLogger.logAuditString(
-                CEF_PATTERN_STATUS_CHANGE, status.toLowerCase(Locale.ROOT) + " transactions", initiativeId, status, transactionIds, checks
-        );
-    }
-    //endregion
-
-    //region utils
-    private List<String> extractTrueChecks(ChecksErrorDTO dto) {
-        if (dto == null) {
-            return List.of();
-        }
-
-        List<String> activeChecks = new ArrayList<>();
-
-        if (dto.isCfError()) activeChecks.add("cfError");
-        if (dto.isProductEligibilityError()) activeChecks.add("productEligibilityError");
-        if (dto.isDisposalRaeeError()) activeChecks.add("disposalRaeeError");
-        if (dto.isPrice()) activeChecks.add("price");
-        if (dto.isBonus()) activeChecks.add("bonus");
-        if (dto.isSellerReference()) activeChecks.add("sellerReference");
-        if (dto.isAccountingDocument()) activeChecks.add("accountingDocument");
-
-        return activeChecks;
-    }
-    //endregion
 }
