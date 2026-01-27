@@ -3287,19 +3287,19 @@ class RewardBatchServiceImplTest {
         Assertions.assertDoesNotThrow(() -> rewardBatchServiceSpy.validChecksError(dto3));
 
         ChecksErrorDTO dto4 = new ChecksErrorDTO();
-        dto4.setPrice(true);
+        dto4.setPriceError(true);
         Assertions.assertDoesNotThrow(() -> rewardBatchServiceSpy.validChecksError(dto4));
 
         ChecksErrorDTO dto5 = new ChecksErrorDTO();
-        dto5.setBonus(true);
+        dto5.setBonusError(true);
         Assertions.assertDoesNotThrow(() -> rewardBatchServiceSpy.validChecksError(dto5));
 
         ChecksErrorDTO dto6 = new ChecksErrorDTO();
-        dto6.setSellerReference(true);
+        dto6.setSellerReferenceError(true);
         Assertions.assertDoesNotThrow(() -> rewardBatchServiceSpy.validChecksError(dto6));
 
         ChecksErrorDTO dto7 = new ChecksErrorDTO();
-        dto7.setAccountingDocument(true);
+        dto7.setAccountingDocumentError(true);
         Assertions.assertDoesNotThrow(() -> rewardBatchServiceSpy.validChecksError(dto7));
     }
 
@@ -3309,10 +3309,10 @@ class RewardBatchServiceImplTest {
         dto.setCfError(false);
         dto.setProductEligibilityError(false);
         dto.setDisposalRaeeError(false);
-        dto.setPrice(false);
-        dto.setBonus(false);
-        dto.setSellerReference(false);
-        dto.setAccountingDocument(false);
+        dto.setPriceError(false);
+        dto.setBonusError(false);
+        dto.setSellerReferenceError(false);
+        dto.setAccountingDocumentError(false);
 
         InvalidChecksErrorException ex = Assertions.assertThrows(
                 InvalidChecksErrorException.class,

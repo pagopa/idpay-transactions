@@ -46,10 +46,10 @@ class AuditUtilitiesTest {
         dto.setCfError(false);
         dto.setProductEligibilityError(false);
         dto.setDisposalRaeeError(false);
-        dto.setPrice(false);
-        dto.setBonus(false);
-        dto.setSellerReference(false);
-        dto.setAccountingDocument(false);
+        dto.setPriceError(false);
+        dto.setBonusError(false);
+        dto.setSellerReferenceError(false);
+        dto.setAccountingDocumentError(false);
 
         auditUtilities.logTransactionsStatusChanged("SUSPENDED", INITIATIVE_ID, "trx1,trx2", dto);
 
@@ -66,10 +66,10 @@ class AuditUtilitiesTest {
         dto.setCfError(true);
         dto.setProductEligibilityError(false);
         dto.setDisposalRaeeError(true);
-        dto.setPrice(false);
-        dto.setBonus(true);
-        dto.setSellerReference(false);
-        dto.setAccountingDocument(false);
+        dto.setPriceError(false);
+        dto.setBonusError(true);
+        dto.setSellerReferenceError(false);
+        dto.setAccountingDocumentError(false);
 
         auditUtilities.logTransactionsStatusChanged("SUSPENDED", INITIATIVE_ID, "trx42", dto);
 
@@ -86,10 +86,10 @@ class AuditUtilitiesTest {
         dto.setCfError(true);
         dto.setProductEligibilityError(true);
         dto.setDisposalRaeeError(true);
-        dto.setPrice(true);
-        dto.setBonus(true);
-        dto.setSellerReference(true);
-        dto.setAccountingDocument(true);
+        dto.setPriceError(true);
+        dto.setBonusError(true);
+        dto.setSellerReferenceError(true);
+        dto.setAccountingDocumentError(true);
 
         auditUtilities.logTransactionsStatusChanged("SUSPENDED", INITIATIVE_ID, "trx42", dto);
 

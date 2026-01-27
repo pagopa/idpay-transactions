@@ -51,10 +51,10 @@ public class AuditUtilities {
         if (dto.isCfError()) activeChecks.add("cfError");
         if (dto.isProductEligibilityError()) activeChecks.add("productEligibilityError");
         if (dto.isDisposalRaeeError()) activeChecks.add("disposalRaeeError");
-        if (dto.isPrice()) activeChecks.add("price");
-        if (dto.isBonus()) activeChecks.add("bonus");
-        if (dto.isSellerReference()) activeChecks.add("sellerReference");
-        if (dto.isAccountingDocument()) activeChecks.add("accountingDocument");
+        if (dto.isPriceError()) activeChecks.add("price");
+        if (dto.isBonusError()) activeChecks.add("bonus");
+        if (dto.isSellerReferenceError()) activeChecks.add("sellerReference");
+        if (dto.isAccountingDocumentError()) activeChecks.add("accountingDocument");
 
         return activeChecks;
     }
