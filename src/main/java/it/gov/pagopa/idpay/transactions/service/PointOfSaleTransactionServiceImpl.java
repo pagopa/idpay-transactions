@@ -230,10 +230,11 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                 return Mono.just(savedTrx);
                                             }
 
-                                            TransactionsRequest req = new TransactionsRequest(
-                                                    List.of(savedTrx.getId()),
-                                                    savedTrx.getRejectionReasons().toString()
-                                            );
+                                            TransactionsRequest req = TransactionsRequest.builder()
+                                                    .transactionIds(List.of(savedTrx.getId()))
+                                                    .reason(savedTrx.getRejectionReasons() != null ? savedTrx.getRejectionReasons().toString() : null)
+                                                    .build();
+
 
                                             return rewardBatchService
                                                     .suspendTransactions(oldBatchId, savedTrx.getInitiativeId(), req)
