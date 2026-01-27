@@ -232,7 +232,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
                                             TransactionsRequest req = new TransactionsRequest(
                                                     List.of(savedTrx.getId()),
-                                                    "Update invoice file"
+                                                    savedTrx.getRejectionReasons().toString()
                                             );
 
                                             return rewardBatchService
@@ -269,7 +269,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                                     .then(rewardBatchService.incrementTotals(newBatch.getId(), accruedRewardCents))
                                                                     .then();
                                                         } else {
-                                                            //EVALUATING: contatori "suspend" + elabprated tra lotti
+                                                            //EVALUATING: contatori "suspend" + elaborated tra lotti
                                                             moveCounters = rewardBatchService
                                                                     .moveSuspendToNewBatch(oldBatchId, newBatch.getId(), accruedRewardCents)
                                                                     .then();
