@@ -85,12 +85,12 @@ I seguenti campi vengono recuperati automaticamente tramite API SelfCare usando 
 ```
 
 ### Generazione del File CSV di Esempio
-Per generare il file `dati.csv`, è necessario aggiornare la tabella CosmosDB `selfcare_export`, ed eseguire la seguente query:
+Per generare il file `dati.csv` è necessario eseguire la seguente query (opt. aggiunta nella where del filtro month == "yyyy-MM"):
 
 ```query
 merchant
 | join kind=inner rewards_batch on $left._id == $right.merchantId
-| where status == "APPROVING"
+| where status == "APPROVED"
 | project id=_id1 ,
     partitaIvaCliente=iff(strlen(vatNumber)==16, "00000000000", vatNumber), 
     codiceFiscaleCliente=fiscalCode, 
