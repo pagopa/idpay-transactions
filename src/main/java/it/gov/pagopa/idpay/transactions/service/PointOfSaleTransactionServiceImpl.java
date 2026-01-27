@@ -184,7 +184,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     return rewardBatchRepository.findRewardBatchById(oldBatchId)
                             .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)))
                             .flatMap(oldBatch -> {
-                                if (!EVALUATING.equals(oldBatch.getStatus())) {
+                                if (!EVALUATING.equals(oldBatch.getStatus()) && !CREATED.equals(oldBatch.getStatus())) {
                                     return Mono.error(new ClientExceptionWithBody(
                                             HttpStatus.BAD_REQUEST,
                                             REWARD_BATCH_STATUS_NOT_ALLOWED,
