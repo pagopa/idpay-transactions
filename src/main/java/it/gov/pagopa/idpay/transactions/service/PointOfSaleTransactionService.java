@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
+import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,9 +17,7 @@ public interface PointOfSaleTransactionService {
                                                            String initiativeId,
                                                            String pointOfSaleId,
                                                            String productGtin,
-                                                           String fiscalCode,
-                                                           String status,
-                                                           String trxCode,
+                                                           TrxFiltersDTO filters,
                                                            Pageable pageable);
 
   Mono<DownloadInvoiceResponseDTO> downloadTransactionInvoice(String merchantId, String pointOfSaleId, String transactionId);

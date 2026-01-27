@@ -4,6 +4,7 @@ import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionsListDTO;
+import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
@@ -55,7 +56,12 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
       ));
     }
 
-    return pointOfSaleTransactionService.getPointOfSaleTransactions(merchantId, initiativeId, pointOfSaleId, productGtin, fiscalCode, status, trxCode, pageable)
+    TrxFiltersDTO filters = new TrxFiltersDTO();
+    filters.setFiscalCode(fiscalCode);
+    filters.setStatus(status);
+    filters.setTrxCode(trxCode);
+
+    return pointOfSaleTransactionService.getPointOfSaleTransactions(merchantId, initiativeId, pointOfSaleId, productGtin, filters, pageable)
         .flatMap(page ->
             Flux.fromIterable(page.getContent())
                 .flatMapSequential(trx -> mapper.toDTO(trx, initiativeId, fiscalCode))
