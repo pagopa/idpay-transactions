@@ -12,7 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.codec.multipart.FilePart;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -32,7 +31,6 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
     this.mapper = mapper;
   }
 
-  @GetMapping("/initiatives/{initiativeId}/point-of-sales/{pointOfSaleId}/transactions/processed")
   @Override
   public Mono<PointOfSaleTransactionsListDTO> getPointOfSaleTransactions(String merchantId,
                                                                          String tokenPointOfSaleId,
