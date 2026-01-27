@@ -532,9 +532,9 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
   private InvoiceData validateTransactionData(RewardTransaction rewardTransaction, String merchantId, String pointOfSaleId) {
 
-    if (!SyncTrxStatus.INVOICED.name().equalsIgnoreCase(rewardTransaction.getStatus())) {
-      throw new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE);
-    }
+//    if (!SyncTrxStatus.INVOICED.name().equalsIgnoreCase(rewardTransaction.getStatus())) {
+//      throw new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE);
+//    }
 
     if (!rewardTransaction.getMerchantId().equals(merchantId)) {
       throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
