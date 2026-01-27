@@ -85,4 +85,6 @@ public class RewardTransaction {
     private Long voucherAmountCents;
 
     private String rewardBatchLastMonthElaborated;
+
+    private ChecksError checksError;
 }
