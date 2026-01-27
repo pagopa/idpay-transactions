@@ -1323,4 +1323,48 @@ class RewardTransactionSpecificRepositoryTest {
 
         rewardTransactionRepository.deleteById(rt1.getId()).block();
     }
+
+    @Test
+    void findByFilter_withTrxCode_shouldMatchRewardBatchIdByRegex() {
+
+        String batchId = "BATCH_ABC_123";
+
+        rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id_trx_code")
+                .merchantId(MERCHANT_ID)
+                .status("INVOICED")
+                .rewardBatchId(batchId)
+                .initiatives(List.of(INITIATIVE_ID))
+                .userId(USER_ID)
+                .build();
+
+        rewardTransactionRepository.save(rt1).block();
+
+        TrxFiltersDTO filters = new TrxFiltersDTO(
+                MERCHANT_ID,
+                INITIATIVE_ID,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "ABC"
+        );
+
+        Pageable pageable = PageRequest.of(0, 10);
+
+        List<RewardTransaction> result =
+                rewardTransactionSpecificRepository.findByFilter(
+                        filters,
+                        USER_ID,
+                        false,
+                        pageable
+                ).toStream().toList();
+
+        assertEquals(1, result.size());
+        assertEquals(batchId, result.getFirst().getRewardBatchId());
+
+        rewardTransactionRepository.deleteById(rt1.getId()).block();
+    }
+
 }
