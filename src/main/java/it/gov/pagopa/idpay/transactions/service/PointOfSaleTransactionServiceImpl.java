@@ -258,9 +258,21 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                             // batch già corretto, salvo solo eventuali updateDate già fatto
                                                             return rewardTransactionRepository.save(suspendedTrx).then();
                                                         }
+                                                        Mono<Void> moveCounters;
 
-                                                        return rewardBatchService
-                                                                .moveSuspendToNewBatch(oldBatchId, newBatch.getId(), accruedRewardCents)
+                                                        if (CREATED.equals(oldBatch.getStatus())) {
+                                                            //LEGACY: solo contatori base
+                                                            moveCounters = rewardBatchService.decrementTotals(oldBatchId, accruedRewardCents)
+                                                                    .then(rewardBatchService.incrementTotals(newBatch.getId(), accruedRewardCents))
+                                                                    .then();
+                                                        } else {
+                                                            //EVALUATING: contatori "suspend" + elabprated tra lotti
+                                                            moveCounters = rewardBatchService
+                                                                    .moveSuspendToNewBatch(oldBatchId, newBatch.getId(), accruedRewardCents)
+                                                                    .then();
+                                                        }
+
+                                                        return moveCounters
                                                                 .then(Mono.fromRunnable(() -> {
                                                                     suspendedTrx.setRewardBatchId(newBatch.getId());
                                                                     suspendedTrx.setUpdateDate(LocalDateTime.now());
