@@ -28,20 +28,20 @@ class ChecksErrorMapperTest {
         dto.setCfError(false);
         dto.setProductEligibilityError(false);
         dto.setDisposalRaeeError(false);
-        dto.setPrice(false);
-        dto.setBonus(false);
-        dto.setSellerReference(false);
-        dto.setAccountingDocument(false);
+        dto.setPriceError(false);
+        dto.setBonusError(false);
+        dto.setSellerReferenceError(false);
+        dto.setAccountingDocumentError(false);
 
         ChecksError result = mapper.toModel(dto);
 
         assertFalse(result.isCfError());
         assertFalse(result.isProductEligibilityError());
         assertFalse(result.isDisposalRaeeError());
-        assertFalse(result.isPrice());
-        assertFalse(result.isBonus());
-        assertFalse(result.isSellerReference());
-        assertFalse(result.isAccountingDocument());
+        assertFalse(result.isPriceError());
+        assertFalse(result.isBonusError());
+        assertFalse(result.isSellerReferenceError());
+        assertFalse(result.isAccountingDocumentError());
     }
 
     @Test
@@ -50,20 +50,20 @@ class ChecksErrorMapperTest {
         dto.setCfError(true);
         dto.setProductEligibilityError(false);
         dto.setDisposalRaeeError(true);
-        dto.setPrice(false);
-        dto.setBonus(true);
-        dto.setSellerReference(false);
-        dto.setAccountingDocument(true);
+        dto.setPriceError(false);
+        dto.setBonusError(true);
+        dto.setSellerReferenceError(false);
+        dto.setAccountingDocumentError(true);
 
         ChecksError result = mapper.toModel(dto);
 
         assertTrue(result.isCfError());
         assertFalse(result.isProductEligibilityError());
         assertTrue(result.isDisposalRaeeError());
-        assertFalse(result.isPrice());
-        assertTrue(result.isBonus());
-        assertFalse(result.isSellerReference());
-        assertTrue(result.isAccountingDocument());
+        assertFalse(result.isPriceError());
+        assertTrue(result.isBonusError());
+        assertFalse(result.isSellerReferenceError());
+        assertTrue(result.isAccountingDocumentError());
     }
 
     @Test
@@ -72,19 +72,19 @@ class ChecksErrorMapperTest {
         dto.setCfError(true);
         dto.setProductEligibilityError(true);
         dto.setDisposalRaeeError(true);
-        dto.setPrice(true);
-        dto.setBonus(true);
-        dto.setSellerReference(true);
-        dto.setAccountingDocument(true);
+        dto.setPriceError(true);
+        dto.setBonusError(true);
+        dto.setSellerReferenceError(true);
+        dto.setAccountingDocumentError(true);
 
         ChecksError result = mapper.toModel(dto);
 
         assertTrue(result.isCfError());
         assertTrue(result.isProductEligibilityError());
         assertTrue(result.isDisposalRaeeError());
-        assertTrue(result.isPrice());
-        assertTrue(result.isBonus());
-        assertTrue(result.isSellerReference());
-        assertTrue(result.isAccountingDocument());
+        assertTrue(result.isPriceError());
+        assertTrue(result.isBonusError());
+        assertTrue(result.isSellerReferenceError());
+        assertTrue(result.isAccountingDocumentError());
     }
 }

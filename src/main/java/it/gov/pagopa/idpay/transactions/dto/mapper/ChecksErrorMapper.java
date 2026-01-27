@@ -16,10 +16,10 @@ public class ChecksErrorMapper {
         ce.setCfError(dto.isCfError());
         ce.setProductEligibilityError(dto.isProductEligibilityError());
         ce.setDisposalRaeeError(dto.isDisposalRaeeError());
-        ce.setPrice(dto.isPrice());
-        ce.setBonus(dto.isBonus());
-        ce.setSellerReference(dto.isSellerReference());
-        ce.setAccountingDocument(dto.isAccountingDocument());
+        ce.setPriceError(dto.isPriceError());
+        ce.setBonusError(dto.isBonusError());
+        ce.setSellerReferenceError(dto.isSellerReferenceError());
+        ce.setAccountingDocumentError(dto.isAccountingDocumentError());
 
         return ce;
     }
