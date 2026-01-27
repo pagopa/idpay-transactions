@@ -219,6 +219,10 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                         }))
                                         // 4) DOPO update fattura -> sospendi (se non già sospesa)
                                         .flatMap(savedTrx -> {
+                                            //Se CREATED non sospendere
+                                            if (CREATED.equals(oldBatch.getStatus())) {
+                                                return Mono.just(savedTrx);
+                                            }
                                             if (savedTrx.getRewardBatchTrxStatus() == RewardBatchTrxStatus.SUSPENDED) {
                                                 return Mono.just(savedTrx);
                                             }
@@ -269,7 +273,6 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                             });
                 });
     }
-
 
     public Mono<Void> reversalTransaction(
             String transactionId,
