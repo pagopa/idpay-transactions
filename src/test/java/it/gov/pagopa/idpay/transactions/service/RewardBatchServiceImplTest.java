@@ -52,7 +52,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class RewardBatchServiceImplUpdatedTest {
+class RewardBatchServiceImplTest {
 
     @Mock private RewardBatchRepository rewardBatchRepository;
     @Mock private RewardTransactionRepository rewardTransactionRepository;
@@ -87,8 +87,6 @@ class RewardBatchServiceImplUpdatedTest {
         );
         serviceSpy = spy(service);
     }
-
-    // -------- findOrCreateBatch / createBatch / buildBatchName / isOperator / getRewardBatches
 
     @Test
     void findOrCreateBatch_returnsExisting() {
@@ -173,7 +171,7 @@ class RewardBatchServiceImplUpdatedTest {
         assertFalse((boolean) m.invoke(service, (String) null));
         assertFalse((boolean) m.invoke(service, "guest"));
         assertTrue((boolean) m.invoke(service, "operator1"));
-        assertTrue((boolean) m.invoke(service, "OPERATOR2")); // toLowerCase path
+        assertTrue((boolean) m.invoke(service, "OPERATOR2"));
     }
 
     @Test
@@ -183,7 +181,6 @@ class RewardBatchServiceImplUpdatedTest {
         RewardBatch b1 = RewardBatch.builder().id("B1").merchantId("M1").build();
         RewardBatch b2 = RewardBatch.builder().id("B2").merchantId("M2").build();
 
-        // operator = true
         when(rewardBatchRepository.findRewardBatchesCombined(null, null, null, null, true, pageable))
                 .thenReturn(Flux.just(b1, b2));
         when(rewardBatchRepository.getCountCombined(null, null, null, null, true))
@@ -196,7 +193,6 @@ class RewardBatchServiceImplUpdatedTest {
                 })
                 .verifyComplete();
 
-        // operator = false
         when(rewardBatchRepository.findRewardBatchesCombined("M1", null, null, null, false, pageable))
                 .thenReturn(Flux.just(b1));
         when(rewardBatchRepository.getCountCombined("M1", null, null, null, false))
@@ -210,7 +206,6 @@ class RewardBatchServiceImplUpdatedTest {
                 .verifyComplete();
     }
 
-    // -------- incrementTotals / decrementTotals / moveSuspendToNewBatch
 
     @Test
     void incrementDecrementMoveSuspend_callsRepository() {
@@ -224,8 +219,6 @@ class RewardBatchServiceImplUpdatedTest {
         StepVerifier.create(service.decrementTotals(BATCH_ID, 10L)).expectNext(rb).verifyComplete();
         StepVerifier.create(service.moveSuspendToNewBatch("OLD", "NEW", 99L)).expectNext(rb).verifyComplete();
     }
-
-    // -------- sendRewardBatch / noPreviousBatchesInCreatedStatus
 
     @Test
     void sendRewardBatch_batchNotFound() {
@@ -330,7 +323,6 @@ class RewardBatchServiceImplUpdatedTest {
         verify(rewardBatchRepository).save(argThat(b -> b.getStatus() == RewardBatchStatus.SENT && b.getMerchantSendDate() != null));
     }
 
-    // -------- validChecksError
 
     @Test
     void validChecksError_null_ok() {
@@ -359,7 +351,6 @@ class RewardBatchServiceImplUpdatedTest {
         assertDoesNotThrow(() -> serviceSpy.validChecksError(dto));
     }
 
-    // -------- suspendTransactions (covers switch branches + already suspended logic)
 
     @Test
     void suspendTransactions_batchNotFoundOrInvalidState() {
@@ -398,7 +389,6 @@ class RewardBatchServiceImplUpdatedTest {
         when(rewardBatchRepository.findByIdAndStatus(BATCH_ID, RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.just(batch));
 
-        // SUSPENDED already suspended and lastMonth before -> increment elaborated
         RewardTransaction trxSuspPrev = RewardTransaction.builder()
                 .id("SUSP_PREV")
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
@@ -406,35 +396,30 @@ class RewardBatchServiceImplUpdatedTest {
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
                 .build();
 
-        // APPROVED -> increment suspended; amounts moved
         RewardTransaction trxApproved = RewardTransaction.builder()
                 .id("APP")
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(200L).build()))
                 .build();
 
-        // TO_CHECK -> elaborated++ and suspended++
         RewardTransaction trxToCheck = RewardTransaction.builder()
                 .id("TO_CHECK")
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(300L).build()))
                 .build();
 
-        // CONSULTABLE -> elaborated++ and suspended++
         RewardTransaction trxConsultable = RewardTransaction.builder()
                 .id("CONS")
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(400L).build()))
                 .build();
 
-        // REJECTED -> rejected-- and suspended++
         RewardTransaction trxRejected = RewardTransaction.builder()
                 .id("REJ")
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(500L).build()))
                 .build();
 
-        // missing initiative reward -> accrued null
         RewardTransaction trxNullAccrued = RewardTransaction.builder()
                 .id("NULL_ACC")
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
@@ -503,8 +488,6 @@ class RewardBatchServiceImplUpdatedTest {
                 .verifyComplete();
     }
 
-    // -------- rejectTransactions (covers REJECTED skip, APPROVED, TO_CHECK/CONSULTABLE, SUSPENDED with month check)
-
     @Test
     void rejectTransactions_allBranches() {
         String batchMonth = "2025-12";
@@ -568,8 +551,6 @@ class RewardBatchServiceImplUpdatedTest {
                 .expectNext(updated)
                 .verifyComplete();
     }
-
-    // -------- approvedTransactions (covers APPROVED skip, TO_CHECK/CONSULTABLE elaborated, SUSPENDED + month check, REJECTED)
 
     @Test
     void approvedTransactions_allBranches() {
@@ -646,8 +627,6 @@ class RewardBatchServiceImplUpdatedTest {
                 .verify();
     }
 
-    // -------- evaluatingRewardBatches + scheduler
-
     @Test
     void evaluatingRewardBatches_nullList_processesAllSent() {
         RewardBatch sent = RewardBatch.builder().id("S1").status(RewardBatchStatus.SENT).initialAmountCents(100L).build();
@@ -676,17 +655,14 @@ class RewardBatchServiceImplUpdatedTest {
 
     @Test
     void evaluatingRewardBatchStatusScheduler_handlesRewardBatchNotFoundError() {
-        // Force scheduler to hit onErrorResume(RewardBatchNotFound.class,...)
         doReturn(Mono.error(new RewardBatchNotFound(REWARD_BATCH_NOT_FOUND, "x")))
                 .when(serviceSpy).evaluatingRewardBatches(null);
 
-        // invoke package-private method directly (same package)
         serviceSpy.evaluatingRewardBatchStatusScheduler();
 
         verify(serviceSpy).evaluatingRewardBatches(null);
     }
 
-    // -------- downloadApprovedRewardBatchFile
 
     @Test
     void downloadApprovedRewardBatchFile_invalidRequest_missingHeaders() {
@@ -765,7 +741,6 @@ class RewardBatchServiceImplUpdatedTest {
                 .verifyComplete();
     }
 
-    // -------- rewardBatchConfirmation
 
     @Test
     void rewardBatchConfirmation_notFound() {
@@ -823,8 +798,6 @@ class RewardBatchServiceImplUpdatedTest {
                 .verifyComplete();
     }
 
-    // -------- rewardBatchConfirmationBatch + processSingleBatchSafe
-
     @Test
     void rewardBatchConfirmationBatch_withIds_processesEach() {
         doReturn(Mono.just(RewardBatch.builder().id(BATCH_ID).build()))
@@ -865,8 +838,6 @@ class RewardBatchServiceImplUpdatedTest {
         StepVerifier.create(serviceSpy.processSingleBatchSafe(BATCH_ID, INITIATIVE_ID))
                 .verifyComplete();
     }
-
-    // -------- processSingleBatch / handleSuspendedTransactions / createRewardBatchAndSave / updateNewBatchCounters / coalesce
 
     @Test
     void processSingleBatch_notFound() {
@@ -941,14 +912,13 @@ class RewardBatchServiceImplUpdatedTest {
         doReturn(Mono.just(300L)).when(serviceSpy).updateAndSaveRewardTransactionsSuspended(eq(BATCH_ID), eq(INITIATIVE_ID), eq(BATCH_ID_2), eq("2025-12"));
         when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        // force generateAndSaveCsv to fail -> onErrorResume -> "ERROR"
         doReturn(Mono.error(new RuntimeException("csv fail"))).when(serviceSpy).generateAndSaveCsv(eq(BATCH_ID), eq(INITIATIVE_ID), anyString());
 
         StepVerifier.create(serviceSpy.processSingleBatch(BATCH_ID, INITIATIVE_ID))
                 .assertNext(saved -> assertEquals(RewardBatchStatus.APPROVED, saved.getStatus()))
                 .verifyComplete();
 
-        verify(rewardBatchRepository).save(argThat(b -> BATCH_ID_2.equals(b.getId()) && b.getSuspendedAmountCents() != null)); // new batch saved
+        verify(rewardBatchRepository).save(argThat(b -> BATCH_ID_2.equals(b.getId()) && b.getSuspendedAmountCents() != null));
     }
 
     @Test
@@ -973,12 +943,11 @@ class RewardBatchServiceImplUpdatedTest {
         assertEquals(3L, newBatch.getNumberOfTransactions());
         assertEquals(500L, newBatch.getSuspendedAmountCents());
 
-        // accumulate
         service.updateNewBatchCounters(newBatch, 200L, 2L);
         assertEquals(700L, newBatch.getInitialAmountCents());
         assertEquals(5L, newBatch.getNumberOfTransactionsSuspended());
         assertEquals(5L, newBatch.getNumberOfTransactions());
-        assertEquals(200L, newBatch.getSuspendedAmountCents()); // last set wins by design
+        assertEquals(200L, newBatch.getSuspendedAmountCents());
     }
 
     @Test
@@ -1086,8 +1055,8 @@ class RewardBatchServiceImplUpdatedTest {
                 .id("T2")
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
                 .rewardBatchId(BATCH_ID)
-                .rewardBatchLastMonthElaborated("2025-11") // already set
-                .rewards(null) // null rewards path => 0
+                .rewardBatchLastMonthElaborated("2025-11")
+                .rewards(null)
                 .build();
 
         when(rewardTransactionRepository.findByFilter(eq(BATCH_ID), eq(INITIATIVE_ID), anyList()))
@@ -1103,8 +1072,6 @@ class RewardBatchServiceImplUpdatedTest {
         assertEquals(BATCH_ID_2, t2.getRewardBatchId());
         assertEquals("2025-11", t2.getRewardBatchLastMonthElaborated());
     }
-
-    // -------- validateRewardBatch
 
     @Test
     void validateRewardBatch_notFound() {
@@ -1194,8 +1161,6 @@ class RewardBatchServiceImplUpdatedTest {
                 .expectError(InvalidBatchStateForPromotionException.class)
                 .verify();
     }
-
-    // -------- generateAndSaveCsv + csvField + mapTransactionToCsvRow + uploadCsvToBlob
 
     @Test
     void generateAndSaveCsv_invalidBatchId_fastFail() {
@@ -1318,10 +1283,10 @@ class RewardBatchServiceImplUpdatedTest {
     void mapTransactionToCsvRow_private_handlesNullsAndFormatting() {
         RewardTransaction trx = RewardTransaction.builder()
                 .id("T1")
-                .trxChargeDate(null) // safe date -> ""
+                .trxChargeDate(null)
                 .fiscalCode("CF")
                 .trxCode("CODE")
-                .effectiveAmountCents(null) // empty
+                .effectiveAmountCents(null)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(null).build()))
                 .additionalProperties(Map.of("productName", "Prod;X", "productGtin", "GTIN"))
@@ -1332,7 +1297,7 @@ class RewardBatchServiceImplUpdatedTest {
         String row = ReflectionTestUtils.invokeMethod(service, "mapTransactionToCsvRow", trx, INITIATIVE_ID);
         assertNotNull(row);
         assertTrue(row.contains("T1"));
-        assertTrue(row.contains("\"Prod;X")); // quoted because ';'
+        assertTrue(row.contains("\"Prod;X"));
     }
 
     @Test
@@ -1367,7 +1332,6 @@ class RewardBatchServiceImplUpdatedTest {
                 .verify();
     }
 
-    // -------- postponeTransaction
 
     @Test
     void postponeTransaction_transactionNotFound() {
@@ -1434,7 +1398,6 @@ class RewardBatchServiceImplUpdatedTest {
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
                 .build();
 
-        // current month far after maxAllowedMonth
         RewardBatch current = RewardBatch.builder()
                 .id(BATCH_ID)
                 .merchantId(MERCHANT_ID)
@@ -1479,7 +1442,7 @@ class RewardBatchServiceImplUpdatedTest {
                 .businessName(BUSINESS_NAME)
                 .posType(PHYSICAL)
                 .month("2026-02")
-                .status(RewardBatchStatus.APPROVED) // not CREATED
+                .status(RewardBatchStatus.APPROVED)
                 .build();
 
         when(rewardTransactionRepository.findTransactionInBatch(MERCHANT_ID, BATCH_ID, "T1"))
@@ -1542,8 +1505,6 @@ class RewardBatchServiceImplUpdatedTest {
         assertNotNull(trx.getUpdateDate());
     }
 
-    // -------- deleteEmptyRewardBatches
-
     @Test
     void deleteEmptyRewardBatches_deletesMatching() {
         RewardBatch b1 = RewardBatch.builder().id("D1").month("2025-10").numberOfTransactions(0L).build();
@@ -1556,8 +1517,8 @@ class RewardBatchServiceImplUpdatedTest {
         when(reactiveMongoTemplate.getCollectionName(RewardBatch.class)).thenReturn("rewardBatch");
 
         when(reactiveMongoTemplate.count(any(Query.class), eq(RewardBatch.class)))
-                .thenReturn(Mono.just(10L))     // total docs count(new Query())
-                .thenReturn(Mono.just(2L));     // matching count(toDeleteQuery)
+                .thenReturn(Mono.just(10L))
+                .thenReturn(Mono.just(2L));
 
         when(reactiveMongoTemplate.find(any(Query.class), eq(RewardBatch.class)))
                 .thenReturn(Flux.just(b1, b2));
