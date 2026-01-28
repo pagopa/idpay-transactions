@@ -36,5 +36,6 @@ public class MerchantTransactionDTO {
     InvoiceData invoiceData;
     RewardBatchTrxStatus rewardBatchTrxStatus;
     String rewardBatchRejectionReason;
+    ChecksErrorDTO checksError;
     String franchiseName;
 }

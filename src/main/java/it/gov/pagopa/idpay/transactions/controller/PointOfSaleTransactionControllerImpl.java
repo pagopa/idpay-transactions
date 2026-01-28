@@ -4,6 +4,7 @@ import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionsListDTO;
+import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
@@ -32,7 +33,15 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
   }
 
   @Override
-  public Mono<PointOfSaleTransactionsListDTO> getPointOfSaleTransactions(String merchantId, String tokenPointOfSaleId, String initiativeId, String pointOfSaleId, String productGtin, String fiscalCode, String status, Pageable pageable) {
+  public Mono<PointOfSaleTransactionsListDTO> getPointOfSaleTransactions(String merchantId,
+                                                                         String tokenPointOfSaleId,
+                                                                         String initiativeId,
+                                                                         String pointOfSaleId,
+                                                                         String productGtin,
+                                                                         String fiscalCode,
+                                                                         String status,
+                                                                         String trxCode,
+                                                                         Pageable pageable) {
     log.info("[GET_POINT-OF-SALE_TRANSACTIONS] Point Of Sale {} requested to retrieve transactions", Utilities.sanitizeString(pointOfSaleId));
 
     if (tokenPointOfSaleId != null && (!Utilities.sanitizeString(tokenPointOfSaleId)
@@ -47,7 +56,12 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
       ));
     }
 
-    return pointOfSaleTransactionService.getPointOfSaleTransactions(merchantId, initiativeId, pointOfSaleId, productGtin, fiscalCode, status, pageable)
+    TrxFiltersDTO filters = new TrxFiltersDTO();
+    filters.setFiscalCode(fiscalCode);
+    filters.setStatus(status);
+    filters.setTrxCode(trxCode);
+
+    return pointOfSaleTransactionService.getPointOfSaleTransactions(merchantId, initiativeId, pointOfSaleId, productGtin, filters, pageable)
         .flatMap(page ->
             Flux.fromIterable(page.getContent())
                 .flatMapSequential(trx -> mapper.toDTO(trx, initiativeId, fiscalCode))

@@ -11,6 +11,7 @@ import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionsListDTO;
+import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
@@ -67,13 +68,13 @@ class PointOfSaleTransactionControllerImplTest {
     PointOfSaleTransactionDTO dto = PointOfSaleTransactionDTOFaker
         .mockInstance(trx, INITIATIVE_ID, FISCAL_CODE);
 
+
     when(pointOfSaleTransactionService.getPointOfSaleTransactions(
         eq(MERCHANT_ID),
         eq(INITIATIVE_ID),
         eq(POINT_OF_SALE_ID),
         isNull(),
-        isNull(),
-        isNull(),
+        any(TrxFiltersDTO.class),
         any(Pageable.class)))
         .thenReturn(Mono.just(page));
 
