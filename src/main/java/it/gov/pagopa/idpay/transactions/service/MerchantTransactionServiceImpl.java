@@ -7,6 +7,7 @@ import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
@@ -25,14 +26,16 @@ import java.util.*;
 public class MerchantTransactionServiceImpl implements MerchantTransactionService {
     private final UserRestClient userRestClient;
     private final RewardTransactionRepository rewardTransactionRepository;
+    private final ChecksErrorMapper checksErrorMapper;
 
     private static final Set<String> OPERATORS =
             Set.of("operator1", "operator2", "operator3");
 
     protected MerchantTransactionServiceImpl(
-            UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository) {
+            UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository, ChecksErrorMapper checksErrorMapper) {
         this.userRestClient = userRestClient;
         this.rewardTransactionRepository = rewardTransactionRepository;
+        this.checksErrorMapper = checksErrorMapper;
     }
 
     @Override
@@ -190,6 +193,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .rewardBatchTrxStatus(exposed)
                 .pointOfSaleId(transaction.getPointOfSaleId() == null ? "-" : transaction.getPointOfSaleId())
                 .rewardBatchRejectionReason(transaction.getRewardBatchRejectionReason() == null ? "-" : transaction.getRewardBatchRejectionReason())
+                .checksError(checksErrorMapper.toDto(transaction.getChecksError()))
                 .franchiseName(transaction.getFranchiseName() == null ? "-" : transaction.getFranchiseName())
                 .build();
 
