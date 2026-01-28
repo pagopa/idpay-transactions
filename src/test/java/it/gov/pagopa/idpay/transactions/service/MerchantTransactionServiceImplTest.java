@@ -6,7 +6,9 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.counters.RewardCounters;
@@ -37,9 +39,10 @@ import static org.mockito.Mockito.*;
 class MerchantTransactionServiceImplTest {
 
     @Mock
-    private RewardTransactionRepository rewardTransactionRepository;
+    private RewardTransactionRepository rewardTransactionRepositoryMock;
     @Mock
-    private UserRestClient userRestClient;
+    private UserRestClient userRestClientMock;
+    private final ChecksErrorMapper checksErrorMapper = new ChecksErrorMapper();
 
     private MerchantTransactionService merchantTransactionService;
 
@@ -51,7 +54,7 @@ class MerchantTransactionServiceImplTest {
     @BeforeEach
     void setUp() {
         merchantTransactionService =
-                new MerchantTransactionServiceImpl(userRestClient, rewardTransactionRepository);
+                new MerchantTransactionServiceImpl(userRestClientMock, rewardTransactionRepositoryMock, checksErrorMapper);
     }
 
     @Test
@@ -76,13 +79,13 @@ class MerchantTransactionServiceImplTest {
 
         FiscalCodeInfoPDV fiscalCodeInfo = new FiscalCodeInfoPDV(USER_ID);
 
-        when(userRestClient.retrieveFiscalCodeInfo(anyString()))
+        when(userRestClientMock.retrieveFiscalCodeInfo(anyString()))
                 .thenReturn(Mono.just(fiscalCodeInfo));
 
-        when(rewardTransactionRepository.findByFilter(any(), eq(USER_ID), eq(false), eq(paging)))
+        when(rewardTransactionRepositoryMock.findByFilter(any(), eq(USER_ID), eq(false), eq(paging)))
                 .thenReturn(Flux.just(rt1));
 
-        when(rewardTransactionRepository.getCount(any(), isNull(), isNull(), eq(USER_ID), eq(false)))
+        when(rewardTransactionRepositoryMock.getCount(any(), isNull(), isNull(), eq(USER_ID), eq(false)))
                 .thenReturn(Mono.just(1L));
 
         MerchantTransactionsListDTO result =
@@ -91,6 +94,7 @@ class MerchantTransactionServiceImplTest {
                         "merchant",
                         INITIATIVE_ID,
                         FISCAL_CODE,
+                        null,
                         null,
                         null,
                         null,
@@ -107,11 +111,11 @@ class MerchantTransactionServiceImplTest {
         MerchantTransactionDTO dto = content.getFirst();
         assertMerchantTransactionMatches(rt1, dto, FISCAL_CODE);
 
-        verify(userRestClient).retrieveFiscalCodeInfo(FISCAL_CODE);
-        verify(userRestClient, never()).retrieveUserInfo(anyString());
-        verify(rewardTransactionRepository).findByFilter(any(), eq(USER_ID), eq(false), eq(paging));
-        verify(rewardTransactionRepository).getCount(any(), isNull(), isNull(), eq(USER_ID), eq(false));
-        verifyNoMoreInteractions(rewardTransactionRepository);
+        verify(userRestClientMock).retrieveFiscalCodeInfo(FISCAL_CODE);
+        verify(userRestClientMock, never()).retrieveUserInfo(anyString());
+        verify(rewardTransactionRepositoryMock).findByFilter(any(), eq(USER_ID), eq(false), eq(paging));
+        verify(rewardTransactionRepositoryMock).getCount(any(), isNull(), isNull(), eq(USER_ID), eq(false));
+        verifyNoMoreInteractions(rewardTransactionRepositoryMock);
     }
 
     @Test
@@ -136,13 +140,13 @@ class MerchantTransactionServiceImplTest {
 
         UserInfoPDV userInfoPDV = new UserInfoPDV(FISCAL_CODE);
 
-        when(rewardTransactionRepository.findByFilter(any(), isNull(), eq(false), eq(paging)))
+        when(rewardTransactionRepositoryMock.findByFilter(any(), isNull(), eq(false), eq(paging)))
                 .thenReturn(Flux.just(rt1));
 
-        when(rewardTransactionRepository.getCount(any(), isNull(), isNull(), isNull(), eq(false)))
+        when(rewardTransactionRepositoryMock.getCount(any(), isNull(), isNull(), isNull(), eq(false)))
                 .thenReturn(Mono.just(1L));
 
-        when(userRestClient.retrieveUserInfo(USER_ID))
+        when(userRestClientMock.retrieveUserInfo(USER_ID))
                 .thenReturn(Mono.just(userInfoPDV));
 
         MerchantTransactionsListDTO result =
@@ -150,6 +154,7 @@ class MerchantTransactionServiceImplTest {
                         MERCHANT_ID,
                         "merchant",
                         INITIATIVE_ID,
+                        null,
                         null,
                         null,
                         null,
@@ -167,10 +172,10 @@ class MerchantTransactionServiceImplTest {
         MerchantTransactionDTO dto = content.getFirst();
         assertMerchantTransactionMatches(rt1, dto, FISCAL_CODE);
 
-        verify(rewardTransactionRepository).findByFilter(any(), isNull(), eq(false), eq(paging));
-        verify(rewardTransactionRepository).getCount(any(), isNull(), isNull(), isNull(), eq(false));
-        verify(userRestClient).retrieveUserInfo(USER_ID);
-        verify(userRestClient, never()).retrieveFiscalCodeInfo(anyString());
+        verify(rewardTransactionRepositoryMock).findByFilter(any(), isNull(), eq(false), eq(paging));
+        verify(rewardTransactionRepositoryMock).getCount(any(), isNull(), isNull(), isNull(), eq(false));
+        verify(userRestClientMock).retrieveUserInfo(USER_ID);
+        verify(userRestClientMock, never()).retrieveFiscalCodeInfo(anyString());
     }
 
     @Test
@@ -188,6 +193,7 @@ class MerchantTransactionServiceImplTest {
                         null,
                         "WRONG_STATUS",
                         null,
+                        null,
                         paging
                 ).block()
         );
@@ -198,7 +204,7 @@ class MerchantTransactionServiceImplTest {
                 ex.getMessage()
         );
 
-        verifyNoInteractions(rewardTransactionRepository, userRestClient);
+        verifyNoInteractions(rewardTransactionRepositoryMock, userRestClientMock);
     }
 
     /**
@@ -227,13 +233,13 @@ class MerchantTransactionServiceImplTest {
 
         FiscalCodeInfoPDV fiscalCodeInfo = new FiscalCodeInfoPDV(USER_ID);
 
-        when(userRestClient.retrieveFiscalCodeInfo(FISCAL_CODE))
+        when(userRestClientMock.retrieveFiscalCodeInfo(FISCAL_CODE))
                 .thenReturn(Mono.just(fiscalCodeInfo));
 
-        when(rewardTransactionRepository.findByFilter(any(), eq(USER_ID), eq(false), eq(paging)))
+        when(rewardTransactionRepositoryMock.findByFilter(any(), eq(USER_ID), eq(false), eq(paging)))
                 .thenReturn(Flux.just(rt1));
 
-        when(rewardTransactionRepository.getCount(any(), isNull(), isNull(), eq(USER_ID), eq(false)))
+        when(rewardTransactionRepositoryMock.getCount(any(), isNull(), isNull(), eq(USER_ID), eq(false)))
                 .thenReturn(Mono.just(1L));
 
         MerchantTransactionsListDTO result =
@@ -242,6 +248,7 @@ class MerchantTransactionServiceImplTest {
                         "merchant",
                         INITIATIVE_ID,
                         FISCAL_CODE,
+                        null,
                         null,
                         null,
                         null,
@@ -290,13 +297,13 @@ class MerchantTransactionServiceImplTest {
 
         UserInfoPDV userInfoPDV = new UserInfoPDV(FISCAL_CODE);
 
-        when(rewardTransactionRepository.findByFilter(any(), isNull(), eq(true), eq(paging)))
+        when(rewardTransactionRepositoryMock.findByFilter(any(), isNull(), eq(true), eq(paging)))
                 .thenReturn(Flux.just(rt1));
 
-        when(rewardTransactionRepository.getCount(any(), isNull(), isNull(), isNull(), eq(true)))
+        when(rewardTransactionRepositoryMock.getCount(any(), isNull(), isNull(), isNull(), eq(true)))
                 .thenReturn(Mono.just(1L));
 
-        when(userRestClient.retrieveUserInfo(USER_ID))
+        when(userRestClientMock.retrieveUserInfo(USER_ID))
                 .thenReturn(Mono.just(userInfoPDV));
 
         MerchantTransactionsListDTO result =
@@ -309,6 +316,7 @@ class MerchantTransactionServiceImplTest {
                         null,
                         RewardBatchTrxStatus.CONSULTABLE.name(),
                         null,
+                        null,
                         paging
                 ).block();
 
@@ -317,7 +325,7 @@ class MerchantTransactionServiceImplTest {
         ArgumentCaptor<TrxFiltersDTO> filtersCaptor = ArgumentCaptor.forClass(TrxFiltersDTO.class);
         ArgumentCaptor<Boolean> includeCaptor = ArgumentCaptor.forClass(Boolean.class);
 
-        verify(rewardTransactionRepository).findByFilter(
+        verify(rewardTransactionRepositoryMock).findByFilter(
                 filtersCaptor.capture(),
                 isNull(),
                 includeCaptor.capture(),
@@ -331,6 +339,70 @@ class MerchantTransactionServiceImplTest {
         Boolean includeFlag = includeCaptor.getValue();
         assertNotNull(includeFlag);
         assertTrue(includeFlag, "Per i non-operator con filtro CONSULTABLE il flag includeToCheckWithConsultable deve essere true");
+    }
+
+    @Test
+    void getMerchantTransactionList_withChecksError() {
+        LocalDateTime now = LocalDateTime.now();
+
+        ChecksError checksError = new ChecksError(true,true,true,true,true,true,true);
+
+        RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .userId(USER_ID)
+                .amountCents(5000L)
+                .status("REWARDED")
+                .elaborationDateTime(now)
+                .rewards(getReward())
+                .trxDate(now)
+                .checksError(checksError)
+                .build();
+
+        Pageable paging = PageRequest.of(
+                0,
+                10,
+                Sort.by(RewardTransaction.Fields.elaborationDateTime).descending()
+        );
+
+        UserInfoPDV userInfoPDV = new UserInfoPDV(FISCAL_CODE);
+
+        when(rewardTransactionRepositoryMock.findByFilter(any(), isNull(), eq(false), eq(paging)))
+                .thenReturn(Flux.just(rt1));
+
+        when(rewardTransactionRepositoryMock.getCount(any(), isNull(), isNull(), isNull(), eq(false)))
+                .thenReturn(Mono.just(1L));
+
+        when(userRestClientMock.retrieveUserInfo(USER_ID))
+                .thenReturn(Mono.just(userInfoPDV));
+
+        MerchantTransactionsListDTO result =
+                merchantTransactionService.getMerchantTransactions(
+                        MERCHANT_ID,
+                        "merchant",
+                        INITIATIVE_ID,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        paging
+                ).block();
+
+        assertFirstPage(result);
+
+        List<MerchantTransactionDTO> content = Objects.requireNonNull(result).getContent();
+        assertNotNull(content);
+        assertFalse(content.isEmpty());
+
+        MerchantTransactionDTO dto = content.getFirst();
+        assertMerchantTransactionMatches(rt1, dto, FISCAL_CODE);
+        assertNotNull(dto.getChecksError());
+
+        verify(rewardTransactionRepositoryMock).findByFilter(any(), isNull(), eq(false), eq(paging));
+        verify(rewardTransactionRepositoryMock).getCount(any(), isNull(), isNull(), isNull(), eq(false));
+        verify(userRestClientMock).retrieveUserInfo(USER_ID);
+        verify(userRestClientMock, never()).retrieveFiscalCodeInfo(anyString());
     }
 
     @Test

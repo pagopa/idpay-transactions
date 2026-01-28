@@ -118,8 +118,12 @@ class PointOfSaleTransactionServiceImplTest {
                 eq(false)))
                 .thenReturn(Mono.just(1L));
 
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setFiscalCode(FISCAL_CODE);
+        filters.setStatus(STATUS);
+
         StepVerifier.create(service.getPointOfSaleTransactions(
-                        MERCHANT_ID, INITIATIVE_ID, POS_ID, "", FISCAL_CODE, STATUS, pageable))
+                        MERCHANT_ID, INITIATIVE_ID, POS_ID, "", filters, pageable))
                 .assertNext(page -> assertEquals(1, page.getTotalElements()))
                 .verifyComplete();
     }
@@ -145,8 +149,11 @@ class PointOfSaleTransactionServiceImplTest {
                 eq(false)))
                 .thenReturn(Mono.just(1L));
 
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setStatus(STATUS);
+
         StepVerifier.create(service.getPointOfSaleTransactions(
-                        MERCHANT_ID, INITIATIVE_ID, POS_ID, null, null, STATUS, pageable))
+                        MERCHANT_ID, INITIATIVE_ID, POS_ID, null, filters, pageable))
                 .assertNext(page -> assertEquals(1, page.getTotalElements()))
                 .verifyComplete();
 
