@@ -7,6 +7,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class ChecksErrorMapper {
 
+    private static final ChecksErrorDTO NOT_CHECKED_ERROR_DTO = new ChecksErrorDTO(false, false, false, false, false, false, false);
+
     public ChecksError toModel(ChecksErrorDTO dto) {
         if (dto == null) {
             return null;
@@ -22,5 +24,23 @@ public class ChecksErrorMapper {
         ce.setAccountingDocumentError(dto.isAccountingDocumentError());
 
         return ce;
+    }
+
+
+    public ChecksErrorDTO toDto(ChecksError checksError) {
+        if (checksError == null) {
+            return NOT_CHECKED_ERROR_DTO;
+        }
+
+        ChecksErrorDTO out = new ChecksErrorDTO();
+        out.setCfError(checksError.isCfError());
+        out.setProductEligibilityError(checksError.isProductEligibilityError());
+        out.setDisposalRaeeError(checksError.isDisposalRaeeError());
+        out.setPriceError(checksError.isPriceError());
+        out.setBonusError(checksError.isBonusError());
+        out.setSellerReferenceError(checksError.isSellerReferenceError());
+        out.setAccountingDocumentError(checksError.isAccountingDocumentError());
+
+        return out;
     }
 }
