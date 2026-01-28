@@ -15,6 +15,7 @@ public interface MerchantTransactionService {
                                                               String rewardBatchId,
                                                               String rewardBatchTrxStatus,
                                                               String pointOfSaleId,
+                                                              String trxCode,
                                                               Pageable pageable);
 
     Mono<List<String>> getProcessedTransactionStatuses(

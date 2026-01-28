@@ -47,6 +47,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                                                                      String rewardBatchId,
                                                                      String rewardBatchTrxStatus,
                                                                      String pointOfSaleId,
+                                                                     String trxCode,
                                                                      Pageable pageable) {
 
         if (pageable.getSort().isUnsorted()) {
@@ -56,7 +57,6 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                     Sort.by(Sort.Direction.DESC, "rewardBatchTrxStatus")
             );
         }
-
 
         RewardBatchTrxStatus parsedRewardBatchTrxStatus = parseRewardBatchTrxStatus(rewardBatchTrxStatus);
 
@@ -68,7 +68,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 rewardBatchId,
                 parsedRewardBatchTrxStatus,
                 pointOfSaleId,
-                null
+                trxCode
         );
 
         Pageable finalPageable = pageable;

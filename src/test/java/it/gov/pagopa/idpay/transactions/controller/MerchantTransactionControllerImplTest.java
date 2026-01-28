@@ -53,12 +53,14 @@ class MerchantTransactionControllerImplTest {
                 isNull(),
                 isNull(),
                 isNull(),
+                isNull(),
                 eq(paging)
         )).thenReturn(Mono.just(merchantTransactionsListDTO));
 
         Mono<MerchantTransactionsListDTO> resultMono = merchantTransactionController.getMerchantTransactions(
                 "test",
                 "INITIATIVE_ID",
+                null,
                 null,
                 null,
                 null,
@@ -79,6 +81,7 @@ class MerchantTransactionControllerImplTest {
         verify(merchantTransactionService, times(1)).getMerchantTransactions(
                 eq("test"),
                 eq("INITIATIVE_ID"),
+                isNull(),
                 isNull(),
                 isNull(),
                 isNull(),
