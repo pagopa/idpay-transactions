@@ -36,6 +36,7 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 import static it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus.*;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
@@ -495,7 +496,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
           try (InputStream is = Files.newInputStream(tempPath)) {
             String contentType = file.headers().getContentType() != null
-                ? file.headers().getContentType().toString()
+                ? Objects.requireNonNull(file.headers().getContentType()).toString()
                 : null;
             invoiceStorageClient.upload(is, blobPath, contentType);
           }
@@ -527,7 +528,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
                     try (InputStream is = Files.newInputStream(tempPath)) {
                         String contentType = file.headers().getContentType() != null
-                                ? file.headers().getContentType().toString()
+                                ? Objects.requireNonNull(file.headers().getContentType()).toString()
                                 : null;
                         invoiceStorageClient.upload(is, blobPath, contentType);
                     }

@@ -34,6 +34,13 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     this.mongoTemplate = mongoTemplate;
   }
 
+  public final static String INITIAL_AMOUNT_CENTS = "initialAmountCents";
+  public final static String NUMBER_OF_TRANSACTIONS = "numberOfTransactions";
+  public final static String SUSPENDED_AMOUNT_CENTS = "suspendedAmountCents";
+  public final static String NUMBER_OF_TRANSACTIONS_SUSPENDED = "numberOfTransactionsSuspended";
+  public final static String NUMBER_OF_TRANSACTIONS_ELABORATED = "numberOfTransactionsElaborated";
+  
+  
   @Override
   public Flux<RewardBatch> findRewardBatchesCombined(String merchantId, String status, String assigneeLevel, String month, boolean isOperator, Pageable pageable) {
     Criteria criteria = buildCombinedCriteria(merchantId, status, assigneeLevel, month, isOperator);
@@ -52,8 +59,8 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     return mongoTemplate.findAndModify(
         Query.query(Criteria.where("_id").is(batchId)),
         new Update()
-            .inc("initialAmountCents", accruedAmountCents)
-            .inc("numberOfTransactions", 1)
+            .inc(INITIAL_AMOUNT_CENTS, accruedAmountCents)
+            .inc(NUMBER_OF_TRANSACTIONS, 1)
             .set(RewardBatch.Fields.updateDate, LocalDateTime.now()),
         FindAndModifyOptions.options().returnNew(true),
         RewardBatch.class
@@ -65,8 +72,8 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     return mongoTemplate.findAndModify(
         Query.query(Criteria.where("_id").is(batchId)),
         new Update()
-            .inc("initialAmountCents", -accruedAmountCents)
-            .inc("numberOfTransactions", -1)
+            .inc(INITIAL_AMOUNT_CENTS, -accruedAmountCents)
+            .inc(NUMBER_OF_TRANSACTIONS, -1)
             .set(RewardBatch.Fields.updateDate, LocalDateTime.now()),
         FindAndModifyOptions.options().returnNew(true),
         RewardBatch.class
@@ -77,19 +84,19 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     public Mono<RewardBatch> moveSuspendToNewBatch(String oldBatchId, String newBatchId, long accruedAmountCents) {
 
         Update decOld = new Update()
-                .inc("initialAmountCents", -accruedAmountCents)
-                .inc("numberOfTransactions", -1)
-                .inc("suspendedAmountCents", -accruedAmountCents)
-                .inc("numberOfTransactionsSuspended", -1)
-                .inc("numberOfTransactionsElaborated", -1)
+                .inc(INITIAL_AMOUNT_CENTS, -accruedAmountCents)
+                .inc(NUMBER_OF_TRANSACTIONS, -1)
+                .inc(SUSPENDED_AMOUNT_CENTS, -accruedAmountCents)
+                .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, -1)
+                .inc(NUMBER_OF_TRANSACTIONS_ELABORATED, -1)
                 .set(RewardBatch.Fields.updateDate, LocalDateTime.now());
 
         Update incNew = new Update()
-                .inc("initialAmountCents", accruedAmountCents)
-                .inc("numberOfTransactions", 1)
-                .inc("suspendedAmountCents", accruedAmountCents)
-                .inc("numberOfTransactionsSuspended", 1)
-                .inc("numberOfTransactionsElaborated", 1)
+                .inc(INITIAL_AMOUNT_CENTS, accruedAmountCents)
+                .inc(NUMBER_OF_TRANSACTIONS, 1)
+                .inc(SUSPENDED_AMOUNT_CENTS, accruedAmountCents)
+                .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, 1)
+                .inc(NUMBER_OF_TRANSACTIONS_ELABORATED, 1)
                 .set(RewardBatch.Fields.updateDate, LocalDateTime.now());
 
         return mongoTemplate.findAndModify(
@@ -228,7 +235,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     Update update = new Update();
     if (elaboratedTrxNumber != 0){
       update
-              .inc("numberOfTransactionsElaborated", elaboratedTrxNumber);
+              .inc(NUMBER_OF_TRANSACTIONS_ELABORATED, elaboratedTrxNumber);
     }
     if (rejectedTrxNumber != 0){
       update
@@ -236,7 +243,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     }
     if (suspendedTrxNumber != 0){
       update
-              .inc("numberOfTransactionsSuspended", suspendedTrxNumber);
+              .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, suspendedTrxNumber);
     }
     if (updateAmountCents != 0){
       update
@@ -245,7 +252,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
 
     if (suspendedAmountCents != 0){
       update
-              .inc("suspendedAmountCents", suspendedAmountCents);
+              .inc(SUSPENDED_AMOUNT_CENTS, suspendedAmountCents);
     }
 
     update
