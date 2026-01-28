@@ -1336,6 +1336,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .rewardBatchId(batchId)
                 .initiatives(List.of(INITIATIVE_ID))
                 .userId(USER_ID)
+                .trxCode("BATCH_ABC_123")
                 .build();
 
         rewardTransactionRepository.save(rt1).block();
