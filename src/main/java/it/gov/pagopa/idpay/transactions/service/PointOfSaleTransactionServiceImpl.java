@@ -75,22 +75,15 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                                     String initiativeId,
                                                                     String pointOfSaleId,
                                                                     String productGtin,
-                                                                    String fiscalCode,
-                                                                    String status,
+                                                                    TrxFiltersDTO filters,
                                                                     Pageable pageable) {
 
-        TrxFiltersDTO filters = new TrxFiltersDTO(
-                merchantId,
-                initiativeId,
-                null,
-                status,
-                null,
-                null,
-                null
-        );
+        filters.setMerchantId(merchantId);
+        filters.setInitiativeId(initiativeId);
 
-        if (StringUtils.isNotBlank(fiscalCode)) {
-            return userRestClient.retrieveFiscalCodeInfo(fiscalCode)
+
+        if (StringUtils.isNotBlank(filters.getFiscalCode())) {
+            return userRestClient.retrieveFiscalCodeInfo(filters.getFiscalCode())
                     .map(FiscalCodeInfoPDV::getToken)
                     .flatMap(userId ->
                             getTransactions(filters, pointOfSaleId, userId, productGtin, pageable));
