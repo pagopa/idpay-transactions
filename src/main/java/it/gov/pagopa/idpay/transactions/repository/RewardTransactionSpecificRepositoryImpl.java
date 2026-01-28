@@ -134,7 +134,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     }
 
     if (filters.getTrxCode() != null) {
-      criteria.and(Fields.rewardBatchId).is(filters.getTrxCode())
+      criteria.and(Fields.trxCode)
               .regex(".*" + Pattern.quote(filters.getTrxCode()) + ".*", "i");
     }
 
