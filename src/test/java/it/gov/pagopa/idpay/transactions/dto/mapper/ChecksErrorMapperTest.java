@@ -109,4 +109,18 @@ class ChecksErrorMapperTest {
         assertTrue(result.isSellerReferenceError());
         assertTrue(result.isAccountingDocumentError());
     }
+
+    @Test
+    void toDto_nullEntity() {
+
+        ChecksErrorDTO result = mapper.toDto(null);
+
+        assertFalse(result.isCfError());
+        assertFalse(result.isProductEligibilityError());
+        assertFalse(result.isDisposalRaeeError());
+        assertFalse(result.isPriceError());
+        assertFalse(result.isBonusError());
+        assertFalse(result.isSellerReferenceError());
+        assertFalse(result.isAccountingDocumentError());
+    }
 }
