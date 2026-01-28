@@ -352,6 +352,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     @Override
     public Mono<RewardBatch> rejectTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request) {
+        validChecksError(request.getChecksError());
+
+        ChecksError checksErrorModel = checksErrorMapper.toModel(request.getChecksError());
+
         return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.EVALUATING)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(NOT_FOUND,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
@@ -359,7 +363,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds())
                         .map(trxId -> Pair.of(trxId, batch.getMonth())))
                 .flatMap(trxId2ActualBatchMont -> rewardTransactionRepository
-                        .updateStatusAndReturnOld(rewardBatchId, trxId2ActualBatchMont.getLeft(), RewardBatchTrxStatus.REJECTED, request.getReason(), trxId2ActualBatchMont.getRight(), null)
+                        .updateStatusAndReturnOld(rewardBatchId, trxId2ActualBatchMont.getLeft(), RewardBatchTrxStatus.REJECTED, request.getReason(), trxId2ActualBatchMont.getRight(), checksErrorModel)
                         .map(trxOld -> Pair.of(trxOld, trxId2ActualBatchMont.getRight()))
                 )
                 .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L, 0L),
@@ -412,16 +416,24 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
                     return acc;
                 })
-                .flatMap(acc ->
-                        rewardBatchRepository.updateTotals(
-                                rewardBatchId,
-                                acc.getTrxElaborated(),
-                                acc.getTotalApprovedAmountCents(),
-                                acc.getSuspendedAmountCents(),
-                                acc.getTrxRejected(),
-                                acc.getTrxSuspended()
-                        )
-                );
+                .flatMap(acc -> {
+
+                    auditUtilities.logTransactionsStatusChanged(
+                            RewardBatchTrxStatus.REJECTED.name(),
+                            initiativeId,
+                            request.getTransactionIds().toString(),
+                            request.getChecksError()
+                    );
+
+                    return rewardBatchRepository.updateTotals(
+                            rewardBatchId,
+                            acc.getTrxElaborated(),
+                            acc.getTotalApprovedAmountCents(),
+                            acc.getSuspendedAmountCents(),
+                            acc.getTrxRejected(),
+                            acc.getTrxSuspended()
+                    );
+                });
     }
 
     private void checkAndUpdateTrxElaborated(BatchCountersDTO acc, Pair<RewardTransaction, String> trxOld2ActualRewardBatchMonth, RewardTransaction trxOld) {
