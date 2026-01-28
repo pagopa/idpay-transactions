@@ -62,17 +62,6 @@ class PointOfSaleTransactionMapperTest {
         return reward;
     }
 
-    private static RewardTransaction baseTrx(String id, long amountCents, String status) {
-        return RewardTransaction.builder()
-                .id(id)
-                .userId(USER_ID)
-                .amountCents(amountCents)
-                .status(status)
-                .rewardBatchTrxStatus(REWARD_BATCH_TRX_STATUS)
-                .elaborationDateTime(LocalDateTime.now())
-                .build();
-    }
-
     @Test
     void toDTO_withFiscalCode_shouldNotCallUserRestClient() {
         RewardTransaction trx = RewardTransaction.builder()

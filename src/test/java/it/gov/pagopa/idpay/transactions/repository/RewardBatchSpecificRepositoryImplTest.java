@@ -33,6 +33,10 @@ import static org.junit.jupiter.api.Assertions.*;
 class RewardBatchSpecificRepositoryImplTest {
 
     public static final String MERCHANT = "merchantA";
+    public static final Long ZERO_LONG = 0L;
+    public static final Long ONEHUNDRED_LONG = 100L;
+    public static final Long ONE_LONG = 1L;
+
   public static final PosType POS_TYPE = PosType.PHYSICAL;
     @Autowired
     protected RewardBatchRepository rewardBatchRepository;
@@ -61,12 +65,12 @@ class RewardBatchSpecificRepositoryImplTest {
         .name("novembre 2025")
         .startDate(LocalDateTime.of(2025, 11, 1, 0, 0))
         .endDate(LocalDateTime.of(2025, 11, 30, 23, 59))
-        .initialAmountCents(0L)
-        .approvedAmountCents(0L)
-        .numberOfTransactions(0L)
-        .numberOfTransactionsElaborated(0L)
-        .numberOfTransactionsRejected(0L)
-        .numberOfTransactionsSuspended(0L)
+        .initialAmountCents(ZERO_LONG)
+        .approvedAmountCents(ZERO_LONG)
+        .numberOfTransactions(ZERO_LONG)
+        .numberOfTransactionsElaborated(ZERO_LONG)
+        .numberOfTransactionsRejected(ZERO_LONG)
+        .numberOfTransactionsSuspended(ZERO_LONG)
         .reportPath(null)
         .build();
 
@@ -82,11 +86,11 @@ class RewardBatchSpecificRepositoryImplTest {
         .name("novembre 2025")
         .startDate(LocalDateTime.of(2025, 11, 1, 0, 0))
         .endDate(LocalDateTime.of(2025, 11, 30, 23, 59))
-        .initialAmountCents(0L)
-        .numberOfTransactions(0L)
-        .numberOfTransactionsElaborated(0L)
-        .numberOfTransactionsRejected(0L)
-        .numberOfTransactionsSuspended(0L)
+        .initialAmountCents(ZERO_LONG)
+        .numberOfTransactions(ZERO_LONG)
+        .numberOfTransactionsElaborated(ZERO_LONG)
+        .numberOfTransactionsRejected(ZERO_LONG)
+        .numberOfTransactionsSuspended(ZERO_LONG)
         .reportPath(null)
         .build();
 
@@ -567,7 +571,7 @@ class RewardBatchSpecificRepositoryImplTest {
     );
 
     StepVerifier.create(result)
-            .expectNext(0L)
+            .expectNext(ZERO_LONG)
             .verifyComplete();
   }
 
@@ -604,10 +608,10 @@ class RewardBatchSpecificRepositoryImplTest {
     RewardBatch updated = rewardBatchSpecificRepository
             .updateTotals(
                     batch1.getId(),
-                    0L,
-                    0L,
-                    0L,
-                    0L,
+                    ZERO_LONG,
+                    ZERO_LONG,
+                    ZERO_LONG,
+                    ZERO_LONG,
                     modifiedCount
             )
             .block();
@@ -625,10 +629,10 @@ class RewardBatchSpecificRepositoryImplTest {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             batch1.getId(),
             3L,
-            0L,
-            0L,
-            0L,
-            0L
+            ZERO_LONG,
+            ZERO_LONG,
+            ZERO_LONG,
+            ZERO_LONG
     ).block();
 
     assertNotNull(updated);
@@ -644,10 +648,10 @@ class RewardBatchSpecificRepositoryImplTest {
   void updateTotals_shouldUpdateSuspendedTrxNumber() {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             batch1.getId(),
-            0L,
-            0L,
-            0L,
-            0L,
+            ZERO_LONG,
+            ZERO_LONG,
+            ZERO_LONG,
+            ZERO_LONG,
             2L
     ).block();
 
@@ -664,11 +668,11 @@ class RewardBatchSpecificRepositoryImplTest {
   void updateTotals_shouldUpdateRejectedTrxNumber() {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             batch1.getId(),
-            0L,
-            0L,
-            0L,
+            ZERO_LONG,
+            ZERO_LONG,
+            ZERO_LONG,
             4L,
-            0L
+            ZERO_LONG
     ).block();
 
     assertNotNull(updated);
@@ -685,11 +689,11 @@ class RewardBatchSpecificRepositoryImplTest {
   void updateTotals_shouldUpdateApprovedAmount() {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             batch1.getId(),
-            0L,
+            ZERO_LONG,
             500L,
-            0L,
-            0L,
-            0L
+            ZERO_LONG,
+            ZERO_LONG,
+            ZERO_LONG
     ).block();
 
     assertNotNull(updated);
@@ -726,7 +730,7 @@ class RewardBatchSpecificRepositoryImplTest {
                     .count()
                 )
         )
-        .expectNext(1L)
+        .expectNext(ONE_LONG)
         .verifyComplete();
   }
 
@@ -829,8 +833,8 @@ class RewardBatchSpecificRepositoryImplTest {
     RewardBatch rewardBatch = RewardBatch.builder()
             .id("UPDATE_ID_1".trim())
             .status(RewardBatchStatus.SENT)
-            .initialAmountCents(100L)
-            .approvedAmountCents(0L)
+            .initialAmountCents(ONEHUNDRED_LONG)
+            .approvedAmountCents(ZERO_LONG)
             .build();
 
 
@@ -912,7 +916,7 @@ class RewardBatchSpecificRepositoryImplTest {
                 .id("rb-update-1")
                 .merchantId(MERCHANT)
                 .status(RewardBatchStatus.SENT)
-                .approvedAmountCents(0L)
+                .approvedAmountCents(ZERO_LONG)
                 .build();
 
         rewardBatchRepository.save(created).block();
@@ -937,7 +941,7 @@ class RewardBatchSpecificRepositoryImplTest {
         );
 
         StepVerifier.create(result)
-                .expectNext(0L)
+                .expectNext(ZERO_LONG)
                 .verifyComplete();
     }
 
@@ -951,7 +955,7 @@ class RewardBatchSpecificRepositoryImplTest {
                 batch1.getId(),
                 5L,
                 700L,
-                0L,
+                ZERO_LONG,
                 2L,
                 3L
         ).block();
@@ -978,7 +982,7 @@ class RewardBatchSpecificRepositoryImplTest {
                 .id("old-empty-1")
                 .merchantId(MERCHANT)
                 .month("2000-01")
-                .numberOfTransactions(0L)
+                .numberOfTransactions(ZERO_LONG)
                 .status(RewardBatchStatus.SENT)
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .build();
@@ -987,7 +991,7 @@ class RewardBatchSpecificRepositoryImplTest {
                 .id("old-empty-2")
                 .merchantId(MERCHANT)
                 .month("2000-02")
-                .numberOfTransactions(0L)
+                .numberOfTransactions(ZERO_LONG)
                 .status(RewardBatchStatus.SENT)
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .build();
@@ -996,7 +1000,7 @@ class RewardBatchSpecificRepositoryImplTest {
                 .id("old-not-empty")
                 .merchantId(MERCHANT)
                 .month("2000-03")
-                .numberOfTransactions(1L)
+                .numberOfTransactions(ONE_LONG)
                 .status(RewardBatchStatus.SENT)
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .build();
@@ -1005,7 +1009,7 @@ class RewardBatchSpecificRepositoryImplTest {
                 .id("current-empty")
                 .merchantId(MERCHANT)
                 .month(currentMonth)
-                .numberOfTransactions(0L)
+                .numberOfTransactions(ZERO_LONG)
                 .status(RewardBatchStatus.SENT)
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .build();
@@ -1035,15 +1039,15 @@ class RewardBatchSpecificRepositoryImplTest {
 
         oldBatch.setInitialAmountCents(accrued);
         oldBatch.setSuspendedAmountCents(accrued);
-        oldBatch.setNumberOfTransactions(1L);
-        oldBatch.setNumberOfTransactionsSuspended(1L);
-        oldBatch.setNumberOfTransactionsElaborated(1L);
+        oldBatch.setNumberOfTransactions(ONE_LONG);
+        oldBatch.setNumberOfTransactionsSuspended(ONE_LONG);
+        oldBatch.setNumberOfTransactionsElaborated(ONE_LONG);
 
-        newBatch.setInitialAmountCents(0L);
-        newBatch.setSuspendedAmountCents(0L);
-        newBatch.setNumberOfTransactions(0L);
-        newBatch.setNumberOfTransactionsSuspended(0L);
-        newBatch.setNumberOfTransactionsElaborated(0L);
+        newBatch.setInitialAmountCents(ZERO_LONG);
+        newBatch.setSuspendedAmountCents(ZERO_LONG);
+        newBatch.setNumberOfTransactions(ZERO_LONG);
+        newBatch.setNumberOfTransactionsSuspended(ZERO_LONG);
+        newBatch.setNumberOfTransactionsElaborated(ZERO_LONG);
 
         rewardBatchRepository.saveAll(List.of(oldBatch, newBatch)).collectList().block();
 
@@ -1059,9 +1063,9 @@ class RewardBatchSpecificRepositoryImplTest {
 
                     assertEquals(accrued, updatedNew.getInitialAmountCents());
                     assertEquals(accrued, updatedNew.getSuspendedAmountCents());
-                    assertEquals(1L, updatedNew.getNumberOfTransactions());
-                    assertEquals(1L, updatedNew.getNumberOfTransactionsSuspended());
-                    assertEquals(1L, updatedNew.getNumberOfTransactionsElaborated());
+                    assertEquals(ONE_LONG, updatedNew.getNumberOfTransactions());
+                    assertEquals(ONE_LONG, updatedNew.getNumberOfTransactionsSuspended());
+                    assertEquals(ONE_LONG, updatedNew.getNumberOfTransactionsElaborated());
 
                     assertNotNull(updatedNew.getUpdateDate());
                     if (newUpdateBefore != null) {
@@ -1077,9 +1081,9 @@ class RewardBatchSpecificRepositoryImplTest {
 
         assertEquals(0, oldAfter.getInitialAmountCents());
         assertEquals(0, oldAfter.getSuspendedAmountCents());
-        assertEquals(0L, oldAfter.getNumberOfTransactions());
-        assertEquals(0L, oldAfter.getNumberOfTransactionsSuspended());
-        assertEquals(0L, oldAfter.getNumberOfTransactionsElaborated());
+        assertEquals(ZERO_LONG, oldAfter.getNumberOfTransactions());
+        assertEquals(ZERO_LONG, oldAfter.getNumberOfTransactionsSuspended());
+        assertEquals(ZERO_LONG, oldAfter.getNumberOfTransactionsElaborated());
 
         assertNotNull(oldAfter.getUpdateDate());
         if (oldUpdateBefore != null) {
@@ -1111,9 +1115,9 @@ class RewardBatchSpecificRepositoryImplTest {
 
         oldBatch.setInitialAmountCents(accrued);
         oldBatch.setSuspendedAmountCents(accrued);
-        oldBatch.setNumberOfTransactions(1L);
-        oldBatch.setNumberOfTransactionsSuspended(1L);
-        oldBatch.setNumberOfTransactionsElaborated(1L);
+        oldBatch.setNumberOfTransactions(ONE_LONG);
+        oldBatch.setNumberOfTransactionsSuspended(ONE_LONG);
+        oldBatch.setNumberOfTransactionsElaborated(ONE_LONG);
         rewardBatchRepository.save(oldBatch).block();
 
         Mono<RewardBatch> result = rewardBatchSpecificRepository
@@ -1130,11 +1134,11 @@ class RewardBatchSpecificRepositoryImplTest {
         RewardBatch oldAfter = rewardBatchRepository.findById("batch1").block();
         assertNotNull(oldAfter);
 
-        assertEquals(0L, oldAfter.getInitialAmountCents());
-        assertEquals(0L, oldAfter.getSuspendedAmountCents());
-        assertEquals(0L, oldAfter.getNumberOfTransactions());
-        assertEquals(0L, oldAfter.getNumberOfTransactionsSuspended());
-        assertEquals(0L, oldAfter.getNumberOfTransactionsElaborated());
+        assertEquals(ZERO_LONG, oldAfter.getInitialAmountCents());
+        assertEquals(ZERO_LONG, oldAfter.getSuspendedAmountCents());
+        assertEquals(ZERO_LONG, oldAfter.getNumberOfTransactions());
+        assertEquals(ZERO_LONG, oldAfter.getNumberOfTransactionsSuspended());
+        assertEquals(ZERO_LONG, oldAfter.getNumberOfTransactionsElaborated());
     }
 
 }
