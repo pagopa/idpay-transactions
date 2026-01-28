@@ -58,7 +58,6 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
             );
         }
 
-
         RewardBatchTrxStatus parsedRewardBatchTrxStatus = parseRewardBatchTrxStatus(rewardBatchTrxStatus);
 
         TrxFiltersDTO filters = new TrxFiltersDTO(
