@@ -20,10 +20,19 @@ public class MerchantTransactionControllerImpl implements MerchantTransactionCon
 
 
     @Override
-    public Mono<MerchantTransactionsListDTO> getMerchantTransactions(String merchantId, String organizationRole, String initiativeId, String fiscalCode, String status, String rewardBatchId, String rewardBatchTrxStatus, String pointOfSaleId, Pageable pageable) {
+    public Mono<MerchantTransactionsListDTO> getMerchantTransactions(String merchantId,
+                                                                     String organizationRole,
+                                                                     String initiativeId,
+                                                                     String fiscalCode,
+                                                                     String status,
+                                                                     String rewardBatchId,
+                                                                     String rewardBatchTrxStatus,
+                                                                     String pointOfSaleId,
+                                                                     String trxCode,
+                                                                     Pageable pageable) {
 
       log.info("[GET_MERCHANT_TRANSACTIONS] Merchant {} requested to retrieve transactions", Utilities.sanitizeString(merchantId));
-        return merchantTransactionService.getMerchantTransactions(merchantId, organizationRole, initiativeId, fiscalCode, status, rewardBatchId, rewardBatchTrxStatus, pointOfSaleId, pageable);
+        return merchantTransactionService.getMerchantTransactions(merchantId, organizationRole, initiativeId, fiscalCode, status, rewardBatchId, rewardBatchTrxStatus, pointOfSaleId, trxCode, pageable);
     }
 
     @Override
