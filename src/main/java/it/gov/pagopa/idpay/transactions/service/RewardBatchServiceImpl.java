@@ -181,9 +181,15 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     return rewardBatchRepository.incrementTotals(batchId, accruedAmountCents);
   }
 
+  @Override
   public Mono<RewardBatch> decrementTotals(String batchId, long accruedAmountCents) {
     return rewardBatchRepository.decrementTotals(batchId, accruedAmountCents);
   }
+
+    @Override
+    public Mono<RewardBatch> moveSuspendToNewBatch(String oldBatchId, String newBatchId, long accruedAmountCents) {
+      return rewardBatchRepository.moveSuspendToNewBatch(oldBatchId, newBatchId, accruedAmountCents);
+    }
 
   @Override
   public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
@@ -350,7 +356,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         }
     }
 
-    @Override
+       @Override
     public Mono<RewardBatch> rejectTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request) {
         validChecksError(request.getChecksError());
 

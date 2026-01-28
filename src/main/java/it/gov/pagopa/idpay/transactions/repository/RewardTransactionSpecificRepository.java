@@ -32,6 +32,8 @@ public interface RewardTransactionSpecificRepository {
      */
     Mono<RewardTransaction> findTransaction(String merchantId, String pointOfSaleId, String transactionId);
 
+    Mono<RewardTransaction> findTransactionForUpdateInvoice(String merchantId, String pointOfSaleId, String transactionId);
+
     Flux<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId);
 
     Mono<Long> sumSuspendedAccruedRewardCents(String rewardBatchId);

@@ -30,6 +30,7 @@ public class PointOfSaleTransactionDTO {
   @JsonProperty("updateDate")
   LocalDateTime elaborationDateTime;
   String status;
+  String rewardBatchTrxStatus;
   String channel;
   Map<String, String> additionalProperties;
   InvoiceFile invoiceFile;
