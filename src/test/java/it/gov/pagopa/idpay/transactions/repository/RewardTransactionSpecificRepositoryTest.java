@@ -15,8 +15,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.annotation.DirtiesContext;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.time.LocalDateTime;
@@ -44,7 +42,6 @@ class RewardTransactionSpecificRepositoryTest {
 
     @BeforeEach
     void cleanBefore() {
-        // safety: clean collection if previous tests left data
         rewardTransactionRepository.deleteAll().block();
     }
 
@@ -52,8 +49,6 @@ class RewardTransactionSpecificRepositoryTest {
     void cleanAfter() {
         rewardTransactionRepository.deleteAll().block();
     }
-
-    // ---- getPageableTrx / getPageable branches through public methods ----
 
     @Test
     void findByFilterTrx_withNullPageable_shouldUseDefaultSortAndNotFail() {
@@ -70,12 +65,16 @@ class RewardTransactionSpecificRepositoryTest {
         rewardTransactionRepository.save(trx).block();
 
         TrxFiltersDTO filters = new TrxFiltersDTO(
-                MERCHANT_ID, INITIATIVE_ID, null,
+                MERCHANT_ID,
+                INITIATIVE_ID,
+                null,
                 SyncTrxStatus.REWARDED.name(),
-                null, null, null
+                null,
+                null,
+                null,
+                null
         );
 
-        // pageable = null => getPageableTrx default (page 0 size 10 sort trxChargeDate desc)
         List<RewardTransaction> out = rewardTransactionSpecificRepository
                 .findByFilterTrx(filters, POS_ID, USER_ID, null, false, null)
                 .toStream()
@@ -97,12 +96,16 @@ class RewardTransactionSpecificRepositoryTest {
         rewardTransactionRepository.save(trx).block();
 
         TrxFiltersDTO filters = new TrxFiltersDTO(
-                MERCHANT_ID, INITIATIVE_ID, null,
+                MERCHANT_ID,
+                INITIATIVE_ID,
+                null,
                 SyncTrxStatus.INVOICED.name(),
-                null, null, null
+                null,
+                null,
+                null,
+                null
         );
 
-        // pageable null => getPageable -> Pageable.unpaged()
         List<RewardTransaction> out = rewardTransactionSpecificRepository
                 .findByFilter(filters, USER_ID, false, null)
                 .toStream()
@@ -111,8 +114,6 @@ class RewardTransactionSpecificRepositoryTest {
         assertEquals(1, out.size());
         assertEquals("t1", out.getFirst().getId());
     }
-
-    // ---- getCriteria default status branch (status blank => in CANCELLED/REWARDED/REFUNDED/INVOICED) ----
 
     @Test
     void findByFilterTrx_whenFiltersStatusBlank_shouldApplyDefaultStatuses() {
@@ -139,16 +140,21 @@ class RewardTransactionSpecificRepositoryTest {
                 .merchantId(MERCHANT_ID)
                 .userId(USER_ID)
                 .pointOfSaleId(POS_ID)
-                .status("CREATED") // should NOT be included by default
+                .status("CREATED")
                 .initiatives(List.of(INITIATIVE_ID))
                 .build();
 
         rewardTransactionRepository.saveAll(List.of(invoiced, cancelled, other)).collectList().block();
 
         TrxFiltersDTO filters = new TrxFiltersDTO(
-                MERCHANT_ID, INITIATIVE_ID, null,
-                null, // status blank => default IN list
-                null, null, null
+                MERCHANT_ID,
+                INITIATIVE_ID,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
         );
 
         Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "_id"));
@@ -164,7 +170,6 @@ class RewardTransactionSpecificRepositoryTest {
         assertFalse(ids.contains("oth"));
     }
 
-    // ---- rewardBatchId / rewardBatchTrxStatus branch where status != CONSULTABLE ----
 
     @Test
     void findByFilter_withRewardBatchId_andRewardBatchTrxStatusNotConsultable_shouldFilterExact() {
@@ -191,10 +196,13 @@ class RewardTransactionSpecificRepositoryTest {
         rewardTransactionRepository.saveAll(List.of(approved, toCheckSameBatch)).collectList().block();
 
         TrxFiltersDTO filters = new TrxFiltersDTO(
-                MERCHANT_ID, INITIATIVE_ID, null,
+                MERCHANT_ID,
+                INITIATIVE_ID,
+                null,
                 SyncTrxStatus.INVOICED.name(),
                 BATCH_ID,
-                RewardBatchTrxStatus.APPROVED, // != CONSULTABLE => exact match regardless include flag
+                RewardBatchTrxStatus.APPROVED,
+                null,
                 null
         );
 
@@ -206,8 +214,6 @@ class RewardTransactionSpecificRepositoryTest {
         assertEquals(1, res.size());
         assertEquals("app", res.getFirst().getId());
     }
-
-    // ---- productGtin regex filter + pointOfSaleId filter ----
 
     @Test
     void findByFilterTrx_withProductGtinRegex_shouldMatchCaseInsensitiveSubstring() {
@@ -234,9 +240,14 @@ class RewardTransactionSpecificRepositoryTest {
         rewardTransactionRepository.saveAll(List.of(t1, t2)).collectList().block();
 
         TrxFiltersDTO filters = new TrxFiltersDTO(
-                MERCHANT_ID, INITIATIVE_ID, null,
+                MERCHANT_ID,
+                INITIATIVE_ID,
+                null,
                 SyncTrxStatus.REWARDED.name(),
-                null, null, null
+                null,
+                null,
+                null,
+                null
         );
 
         List<String> ids = rewardTransactionSpecificRepository
@@ -248,8 +259,6 @@ class RewardTransactionSpecificRepositoryTest {
 
         assertEquals(List.of("t1"), ids);
     }
-
-    // ---- mapSort productName -> additionalProperties.productName (no aggregation path) ----
 
     @Test
     void findByFilterTrx_sortByProductName_shouldNotCrashAndReturnData() {
@@ -278,12 +287,16 @@ class RewardTransactionSpecificRepositoryTest {
         rewardTransactionRepository.saveAll(List.of(t1, t2)).collectList().block();
 
         TrxFiltersDTO filters = new TrxFiltersDTO(
-                MERCHANT_ID, INITIATIVE_ID, null,
+                MERCHANT_ID,
+                INITIATIVE_ID,
+                null,
                 SyncTrxStatus.REWARDED.name(),
-                null, null, null
+                null,
+                null,
+                null,
+                null
         );
 
-        // Not sorting by "status" => aggregation = null => mongoTemplate.find path
         Pageable sortByProductName = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "productName"));
 
         List<String> ids = rewardTransactionSpecificRepository
@@ -292,18 +305,10 @@ class RewardTransactionSpecificRepositoryTest {
                 .toStream()
                 .toList();
 
-        // We don't assert exact order because field is in additionalProperties and might differ by mapper,
-        // but we do assert both returned to cover mapping path.
         assertEquals(2, ids.size());
         assertTrue(ids.contains("t1"));
         assertTrue(ids.contains("t2"));
     }
-
-    // ---- buildStatusAggregation / getSortDirection default branch (no orderFor("status")) ----
-    // This hits buildAggregation() with status sorting; direction default happens only if orderFor(property) is null.
-    // We can't make Pageable have "status" sort but missing orderFor("status"). So we hit getSortDirection default
-    // by calling it indirectly is hard. In practice, your existing test already covers ASC + DESC.
-    // What we can cover instead is status aggregation with ASC again (kept) and ensure it returns ranked order.
 
     @Test
     void findByFilterTrx_statusAggregation_shouldRankStatuses() {
@@ -312,7 +317,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .merchantId(MERCHANT_ID)
                 .userId(USER_ID)
                 .pointOfSaleId(POS_ID)
-                .status(SyncTrxStatus.CANCELLED.name()) // rank 1
+                .status(SyncTrxStatus.CANCELLED.name())
                 .initiatives(List.of(INITIATIVE_ID))
                 .build();
 
@@ -321,7 +326,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .merchantId(MERCHANT_ID)
                 .userId(USER_ID)
                 .pointOfSaleId(POS_ID)
-                .status(SyncTrxStatus.INVOICED.name()) // rank 2
+                .status(SyncTrxStatus.INVOICED.name())
                 .initiatives(List.of(INITIATIVE_ID))
                 .build();
 
@@ -330,7 +335,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .merchantId(MERCHANT_ID)
                 .userId(USER_ID)
                 .pointOfSaleId(POS_ID)
-                .status(SyncTrxStatus.REWARDED.name()) // rank 3
+                .status(SyncTrxStatus.REWARDED.name())
                 .initiatives(List.of(INITIATIVE_ID))
                 .build();
 
@@ -339,16 +344,21 @@ class RewardTransactionSpecificRepositoryTest {
                 .merchantId(MERCHANT_ID)
                 .userId(USER_ID)
                 .pointOfSaleId(POS_ID)
-                .status(SyncTrxStatus.REFUNDED.name()) // rank 4
+                .status(SyncTrxStatus.REFUNDED.name())
                 .initiatives(List.of(INITIATIVE_ID))
                 .build();
 
         rewardTransactionRepository.saveAll(List.of(rf, r, i, c)).collectList().block();
 
         TrxFiltersDTO filters = new TrxFiltersDTO(
-                MERCHANT_ID, INITIATIVE_ID, null,
+                MERCHANT_ID,
+                INITIATIVE_ID,
                 null,
-                null, null, null
+                null,
+                null,
+                null,
+                null,
+                null
         );
 
         Pageable sortByStatus = PageRequest.of(0, 10, Sort.by("status"));
@@ -361,8 +371,6 @@ class RewardTransactionSpecificRepositoryTest {
 
         assertEquals(List.of("c", "i", "r", "rf"), ids);
     }
-
-    // ---- rewardTransactionsByBatchId branches: total == 0 / idsToVerify empty ----
 
     @Test
     void rewardTransactionsByBatchId_whenNoTransactions_shouldComplete() {
@@ -378,7 +386,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .id("s1")
                 .rewardBatchId(batchId)
                 .status(SyncTrxStatus.INVOICED.name())
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED) // excluded from sampling query
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
                 .samplingKey(1)
                 .build();
 
@@ -392,8 +400,6 @@ class RewardTransactionSpecificRepositoryTest {
 
         rewardTransactionRepository.saveAll(List.of(s1, s2)).collectList().block();
 
-        // total>0 -> updateMulti set status REWARDED
-        // toVerify computed, but sampleQuery excludes SUSPENDED => idsToVerify empty => no TO_CHECK updates
         rewardTransactionSpecificRepository.rewardTransactionsByBatchId(batchId).block();
 
         RewardTransaction after1 = rewardTransactionRepository.findById("s1").block();
@@ -407,8 +413,6 @@ class RewardTransactionSpecificRepositoryTest {
         assertEquals(RewardBatchTrxStatus.SUSPENDED, after2.getRewardBatchTrxStatus());
     }
 
-    // ---- sumSuspendedAccruedRewardCents defaultIfEmpty branch ----
-
     @Test
     void sumSuspendedAccruedRewardCents_whenNoMatches_shouldReturnZero() {
         Long sum = rewardTransactionSpecificRepository.sumSuspendedAccruedRewardCents("NO_BATCH").block();
@@ -416,15 +420,13 @@ class RewardTransactionSpecificRepositoryTest {
         assertEquals(0L, sum);
     }
 
-    // ---- findTransactionForUpdateInvoice (missing in current tests) ----
-
     @Test
     void findTransactionForUpdateInvoice_shouldReturnTransactionRegardlessStatus() {
         RewardTransaction trx = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("t1")
                 .merchantId(MERCHANT_ID)
                 .pointOfSaleId(POS_ID)
-                .status("CREATED") // not in REWARDED/REFUNDED/INVOICED, but method should still find
+                .status("CREATED")
                 .build();
         rewardTransactionRepository.save(trx).block();
 
@@ -435,8 +437,6 @@ class RewardTransactionSpecificRepositoryTest {
         assertNotNull(found);
         assertEquals("t1", found.getId());
     }
-
-    // ---- findInvoicedTransactionsWithoutBatch pagination ----
 
     @Test
     void findInvoicedTransactionsWithoutBatch_shouldRespectPageSize() {
@@ -458,7 +458,6 @@ class RewardTransactionSpecificRepositoryTest {
         assertEquals(2, page2.size());
     }
 
-    // ---- findTransactionInBatch positive ----
 
     @Test
     void findTransactionInBatch_shouldReturnMatching() {
@@ -499,20 +498,16 @@ class RewardTransactionSpecificRepositoryTest {
         RewardTransaction after = rewardTransactionRepository.findById("t1").block();
         assertNotNull(after);
 
-        // initiatives
         assertFalse(after.getInitiatives().contains(INITIATIVE_ID));
         assertTrue(after.getInitiatives().contains("OTHER"));
 
-        // rewards
         assertNotNull(after.getRewards());
         assertFalse(after.getRewards().containsKey(INITIATIVE_ID));
         assertTrue(after.getRewards().containsKey("OTHER"));
 
-        // rejection reasons
         assertNotNull(after.getInitiativeRejectionReasons());
         assertFalse(after.getInitiativeRejectionReasons().containsKey(INITIATIVE_ID));
         assertTrue(after.getInitiativeRejectionReasons().containsKey("OTHER"));
         assertEquals(List.of("R2"), after.getInitiativeRejectionReasons().get("OTHER"));
     }
-
 }

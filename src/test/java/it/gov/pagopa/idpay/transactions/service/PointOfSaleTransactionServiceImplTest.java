@@ -11,7 +11,6 @@ import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
-import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionKafkaDTO;
@@ -41,10 +40,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
@@ -100,8 +99,10 @@ class PointOfSaleTransactionServiceImplTest {
         when(userRestClient.retrieveFiscalCodeInfo(FISCAL_CODE))
                 .thenReturn(Mono.just(new FiscalCodeInfoPDV(USER_ID)));
 
+        ArgumentCaptor<TrxFiltersDTO> filtersCaptor = ArgumentCaptor.forClass(TrxFiltersDTO.class);
+
         when(rewardTransactionRepository.findByFilterTrx(
-                any(TrxFiltersDTO.class),
+                filtersCaptor.capture(),
                 eq(POS_ID),
                 eq(USER_ID),
                 eq(""),
@@ -117,17 +118,34 @@ class PointOfSaleTransactionServiceImplTest {
                 eq(false)))
                 .thenReturn(Mono.just(1L));
 
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setFiscalCode(FISCAL_CODE);
+        filters.setStatus(STATUS);
+        filters.setMerchantId(MERCHANT_ID);
+        filters.setInitiativeId(INITIATIVE_ID);
+        filters.setPointOfSaleId(POS_ID);
+
         StepVerifier.create(
                         service.getPointOfSaleTransactions(
-                                MERCHANT_ID, INITIATIVE_ID, POS_ID, "", FISCAL_CODE, STATUS, pageable))
-                .assertNext(
-                        page -> {
-                            assertEquals(1, page.getTotalElements());
-                            assertEquals(1, page.getContent().size());
-                        })
+                                MERCHANT_ID,
+                                INITIATIVE_ID,
+                                POS_ID,
+                                "",
+                                filters,
+                                pageable))
+                .assertNext(page -> {
+                    assertEquals(1, page.getTotalElements());
+                    assertEquals(1, page.getContent().size());
+                })
                 .verifyComplete();
 
         verify(userRestClient).retrieveFiscalCodeInfo(FISCAL_CODE);
+
+        TrxFiltersDTO passedFilters = filtersCaptor.getValue();
+        assertNotNull(passedFilters);
+        assertEquals(FISCAL_CODE, passedFilters.getFiscalCode());
+        assertEquals(STATUS, passedFilters.getStatus());
+
     }
 
     @Test
@@ -151,9 +169,21 @@ class PointOfSaleTransactionServiceImplTest {
                 eq(false)))
                 .thenReturn(Mono.just(1L));
 
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+
+        filters.setStatus(STATUS);
+        filters.setMerchantId(MERCHANT_ID);
+        filters.setInitiativeId(INITIATIVE_ID);
+        filters.setPointOfSaleId(POS_ID);
+
         StepVerifier.create(
                         service.getPointOfSaleTransactions(
-                                MERCHANT_ID, INITIATIVE_ID, POS_ID, null, null, STATUS, pageable))
+                                MERCHANT_ID,
+                                INITIATIVE_ID,
+                                POS_ID,
+                                null,
+                                filters,
+                                pageable))
                 .assertNext(page -> assertEquals(1, page.getTotalElements()))
                 .verifyComplete();
 
