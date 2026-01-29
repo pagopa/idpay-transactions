@@ -47,7 +47,7 @@ public class RewardTransactionKafkaDTO {
     private String posType;
     private String par;
     private String status;
-    private List<String> rejectionReasons;
+    private List<ReasonDTO> rejectionReasons;
     private Map<String, List<String>> initiativeRejectionReasons;
     private List<String> initiatives;
     private String initiativeId;
