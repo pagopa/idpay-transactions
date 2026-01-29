@@ -61,7 +61,7 @@ public class PointOfSaleTransactionMapper {
         .elaborationDateTime(trx.getElaborationDateTime())
         .status(trx.getStatus())
             .rewardBatchTrxStatus(
-                    trx.getRewardBatchTrxStatus() != null ? trx.getRewardBatchTrxStatus().name() : null
+                    trx.getRewardBatchTrxStatus() != null ? trx.getRewardBatchTrxStatus().name() : "-"
             )
         .channel(trx.getChannel())
         .fiscalCode(fiscalCode)
