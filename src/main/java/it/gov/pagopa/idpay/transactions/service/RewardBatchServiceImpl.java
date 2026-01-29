@@ -338,7 +338,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         dto.isPriceError() ||
                         dto.isBonusError() ||
                         dto.isSellerReferenceError() ||
-                        dto.isAccountingDocumentError();
+                        dto.isAccountingDocumentError() ||
+                        dto.isGenericError();
 
         if (!anyTrue) {
             throw new InvalidChecksErrorException(ERROR_MESSAGE_INVALID_CHECKS_ERROR);

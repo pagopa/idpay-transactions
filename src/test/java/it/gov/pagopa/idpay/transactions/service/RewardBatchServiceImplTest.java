@@ -741,7 +741,6 @@ class RewardBatchServiceImplTest {
                 .verifyComplete();
     }
 
-
     @Test
     void rewardBatchConfirmation_notFound() {
         when(rewardBatchRepository.findRewardBatchById(BATCH_ID)).thenReturn(Mono.empty());

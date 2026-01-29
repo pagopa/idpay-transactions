@@ -54,6 +54,7 @@ class ChecksErrorMapperTest {
         dto.setBonusError(true);
         dto.setSellerReferenceError(false);
         dto.setAccountingDocumentError(true);
+        dto.setGenericError(true);
 
         ChecksError result = mapper.toModel(dto);
 
@@ -64,6 +65,7 @@ class ChecksErrorMapperTest {
         assertTrue(result.isBonusError());
         assertFalse(result.isSellerReferenceError());
         assertTrue(result.isAccountingDocumentError());
+        assertTrue(result.isGenericError());
     }
 
     @Test
