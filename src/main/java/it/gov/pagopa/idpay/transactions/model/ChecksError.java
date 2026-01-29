@@ -16,4 +16,5 @@ public class ChecksError {
     private boolean bonusError;
     private boolean sellerReferenceError;
     private boolean accountingDocumentError;
+    private boolean genericError;
 }

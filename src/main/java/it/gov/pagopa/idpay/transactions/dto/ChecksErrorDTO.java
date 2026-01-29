@@ -16,4 +16,5 @@ public class ChecksErrorDTO {
     private boolean bonusError;
     private boolean sellerReferenceError;
     private boolean accountingDocumentError;
+    private boolean genericError;
 }
