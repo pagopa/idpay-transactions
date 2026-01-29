@@ -5,6 +5,7 @@ import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_
 
 import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
+import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
@@ -419,7 +420,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
   @Override
   public Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId,
-      RewardBatchTrxStatus status, String reason, String batchMonth, ChecksError checksError) {
+              RewardBatchTrxStatus status, List<ReasonDTO> reasons, String batchMonth, ChecksError checksError) {
     Criteria criteria = Criteria.where(Fields.id).is(trxId)
         .and(Fields.rewardBatchId).is(batchId);
 
@@ -427,8 +428,8 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         .set(Fields.rewardBatchTrxStatus, status)
         .set(Fields.rewardBatchLastMonthElaborated, batchMonth);
 
-    if (reason != null) {
-      update.set(RewardTransaction.Fields.rewardBatchRejectionReason, reason);
+    if (reasons != null) {
+      update.set(RewardTransaction.Fields.rewardBatchRejectionReason, reasons);
     } else {
       update.unset(RewardTransaction.Fields.rewardBatchRejectionReason);
     }
