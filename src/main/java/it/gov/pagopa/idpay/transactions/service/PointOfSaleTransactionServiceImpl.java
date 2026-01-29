@@ -270,7 +270,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
         TransactionsRequest req = TransactionsRequest.builder()
                 .transactionIds(List.of(savedTrx.getId()))
-                .reason(savedTrx.getRejectionReasons() != null ? savedTrx.getRejectionReasons().toString() : null)
+                .reasons(savedTrx.getRejectionReasons() != null ? savedTrx.getRejectionReasons() : null)
                 .build();
 
         return rewardBatchService
