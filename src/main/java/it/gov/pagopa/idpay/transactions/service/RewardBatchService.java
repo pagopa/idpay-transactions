@@ -17,7 +17,7 @@ public interface RewardBatchService {
   Mono<Page<RewardBatch>> getRewardBatches(String merchantId, String organizationRole, String status, String assigneeLevel, String month, Pageable pageable);
   Mono<RewardBatch> incrementTotals(String batchId, long accruedAmountCents);
   Mono<RewardBatch> decrementTotals(String batchId, long accruedAmountCents);
-
+  Mono<RewardBatch>  moveSuspendToNewBatch(String oldBatchId, String newBatchId, long accruedAmountCents);
   Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId);
 
   Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds);
