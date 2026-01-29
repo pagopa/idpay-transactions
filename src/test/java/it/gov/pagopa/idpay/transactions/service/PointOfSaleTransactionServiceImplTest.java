@@ -208,8 +208,7 @@ class PointOfSaleTransactionServiceImplTest {
 
         verify(invoiceStorageClient)
                 .getFileSignedUrl(
-                        eq(
-                                "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/invoice.pdf"));
+                        "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/invoice.pdf");
     }
 
     @Test
@@ -230,8 +229,7 @@ class PointOfSaleTransactionServiceImplTest {
 
         verify(invoiceStorageClient)
                 .getFileSignedUrl(
-                        eq(
-                                "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/invoice.pdf"));
+                                "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/invoice.pdf");
     }
 
     @Test
@@ -252,8 +250,7 @@ class PointOfSaleTransactionServiceImplTest {
 
         verify(invoiceStorageClient)
                 .getFileSignedUrl(
-                        eq(
-                                "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/creditNote/cn.pdf"));
+                        "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/creditNote/cn.pdf");
     }
 
     @Test
@@ -630,6 +627,7 @@ class PointOfSaleTransactionServiceImplTest {
                 ReflectionTestUtils.invokeMethod(
                         service, "replaceInvoiceFile", fp, oldInvoice, MERCHANT_ID, POS_ID, TRX_ID);
 
+        assertNotNull(result);
         StepVerifier.create(result).verifyComplete();
 
         verify(invoiceStorageClient)
@@ -952,7 +950,7 @@ class PointOfSaleTransactionServiceImplTest {
         trx.setStatus(SyncTrxStatus.INVOICED.name());
         trx.setRewardBatchId("OLD");
         trx.setInvoiceData(InvoiceData.builder().filename("old.pdf").build());
-        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED); // <-- già sospesa
+        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED);
         trx.setInitiatives(List.of(INITIATIVE_ID));
         trx.setBusinessName("Biz");
         trx.setPointOfSaleType(PosType.PHYSICAL);
@@ -1191,9 +1189,7 @@ class PointOfSaleTransactionServiceImplTest {
 
         RewardTransaction suspended = cloneTrx(trx);
         suspended.setRewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED);
-        suspended.setRewardBatchLastMonthElaborated("2024-01"); // pre-esistente o valorizzato a valle
-        // 1a chiamata: prima del suspend
-        // 2a chiamata: dopo il suspend (refetch)
+        suspended.setRewardBatchLastMonthElaborated("2024-01");
         when(rewardTransactionRepository.findTransactionForUpdateInvoice(MERCHANT_ID, POS_ID, TRX_ID))
                 .thenReturn(Mono.just(trx))
                 .thenReturn(Mono.just(suspended));

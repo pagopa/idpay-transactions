@@ -34,11 +34,11 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     this.mongoTemplate = mongoTemplate;
   }
 
-  public final static String INITIAL_AMOUNT_CENTS = "initialAmountCents";
-  public final static String NUMBER_OF_TRANSACTIONS = "numberOfTransactions";
-  public final static String SUSPENDED_AMOUNT_CENTS = "suspendedAmountCents";
-  public final static String NUMBER_OF_TRANSACTIONS_SUSPENDED = "numberOfTransactionsSuspended";
-  public final static String NUMBER_OF_TRANSACTIONS_ELABORATED = "numberOfTransactionsElaborated";
+  public static final String INITIAL_AMOUNT_CENTS = "initialAmountCents";
+  public static final String NUMBER_OF_TRANSACTIONS = "numberOfTransactions";
+  public static final String SUSPENDED_AMOUNT_CENTS = "suspendedAmountCents";
+  public static final String NUMBER_OF_TRANSACTIONS_SUSPENDED = "numberOfTransactionsSuspended";
+  public static final String NUMBER_OF_TRANSACTIONS_ELABORATED = "numberOfTransactionsElaborated";
   
   
   @Override
