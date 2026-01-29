@@ -345,7 +345,7 @@ class MerchantTransactionServiceImplTest {
     void getMerchantTransactionList_withChecksError() {
         LocalDateTime now = LocalDateTime.now();
 
-        ChecksError checksError = new ChecksError(true,true,true,true,true,true,true);
+        ChecksError checksError = new ChecksError(true,true,true,true,true,true,true, true);
 
         RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")

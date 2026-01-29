@@ -351,6 +351,77 @@ class RewardBatchServiceImplTest {
         assertDoesNotThrow(() -> serviceSpy.validChecksError(dto));
     }
 
+    @Test
+    void validChecksError_nullDto_doesNothing() {
+        assertDoesNotThrow(() -> service.validChecksError(null));
+    }
+
+    @Test
+    void validChecksError_allFalse_throwsException() {
+        ChecksErrorDTO dto = new ChecksErrorDTO();
+
+        InvalidChecksErrorException ex =
+                assertThrows(InvalidChecksErrorException.class,
+                        () -> service.validChecksError(dto));
+
+        assertEquals(ERROR_MESSAGE_INVALID_CHECKS_ERROR, ex.getMessage());
+    }
+
+    @Test
+    void validChecksError_productEligibilityError_true_doesNotThrow() {
+        ChecksErrorDTO dto = new ChecksErrorDTO();
+        dto.setProductEligibilityError(true);
+
+        assertDoesNotThrow(() -> service.validChecksError(dto));
+    }
+
+    @Test
+    void validChecksError_disposalRaeeError_true_doesNotThrow() {
+        ChecksErrorDTO dto = new ChecksErrorDTO();
+        dto.setDisposalRaeeError(true);
+
+        assertDoesNotThrow(() -> service.validChecksError(dto));
+    }
+
+    @Test
+    void validChecksError_priceError_true_doesNotThrow() {
+        ChecksErrorDTO dto = new ChecksErrorDTO();
+        dto.setPriceError(true);
+
+        assertDoesNotThrow(() -> service.validChecksError(dto));
+    }
+
+    @Test
+    void validChecksError_bonusError_true_doesNotThrow() {
+        ChecksErrorDTO dto = new ChecksErrorDTO();
+        dto.setBonusError(true);
+
+        assertDoesNotThrow(() -> service.validChecksError(dto));
+    }
+
+    @Test
+    void validChecksError_sellerReferenceError_true_doesNotThrow() {
+        ChecksErrorDTO dto = new ChecksErrorDTO();
+        dto.setSellerReferenceError(true);
+
+        assertDoesNotThrow(() -> service.validChecksError(dto));
+    }
+
+    @Test
+    void validChecksError_accountingDocumentError_true_doesNotThrow() {
+        ChecksErrorDTO dto = new ChecksErrorDTO();
+        dto.setAccountingDocumentError(true);
+
+        assertDoesNotThrow(() -> service.validChecksError(dto));
+    }
+
+    @Test
+    void validChecksError_genericError_true_doesNotThrow() {
+        ChecksErrorDTO dto = new ChecksErrorDTO();
+        dto.setGenericError(true);
+
+        assertDoesNotThrow(() -> service.validChecksError(dto));
+    }
 
     @Test
     void suspendTransactions_batchNotFoundOrInvalidState() {
