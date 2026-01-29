@@ -9,6 +9,7 @@ public enum RewardBatchTrxStatus {
   SUSPENDED("Da controllare"),
   APPROVED("Approvata"),
   REJECTED("Esclusa");
+  //UNDEFINED("Indefinito"); //status tecnico per cred. deboli per il null
 
   private final String description;
 

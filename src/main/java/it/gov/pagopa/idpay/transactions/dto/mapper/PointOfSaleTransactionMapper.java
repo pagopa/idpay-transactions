@@ -4,6 +4,7 @@ import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceFile;
 import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionDTO;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.apache.commons.lang3.StringUtils;
@@ -60,9 +61,9 @@ public class PointOfSaleTransactionMapper {
         .trxChargeDate(trx.getTrxChargeDate())
         .elaborationDateTime(trx.getElaborationDateTime())
         .status(trx.getStatus())
-            .rewardBatchTrxStatus(
-                    trx.getRewardBatchTrxStatus() != null ? trx.getRewardBatchTrxStatus().name() : "-"
-            )
+        .rewardBatchTrxStatus(
+                trx.getRewardBatchTrxStatus() != null ? trx.getRewardBatchTrxStatus().name() : null
+        )
         .channel(trx.getChannel())
         .fiscalCode(fiscalCode)
         .additionalProperties(trx.getAdditionalProperties())

@@ -165,7 +165,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     }
 
     public Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId,
-                                               String pointOfSaleId, FilePart file, String docNumber) {
+                                                String pointOfSaleId, FilePart file, String docNumber) {
 
         Utilities.checkFileExtensionOrThrow(file);
 
