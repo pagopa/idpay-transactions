@@ -90,11 +90,12 @@ Per generare il file `dati.csv` è necessario eseguire la seguente query (opt. a
 ```query
 merchant
 | join kind=inner rewards_batch on $left._id == $right.merchantId
-| where status == "APPROVED"
+| where status == "APPROVED" and approvedAmountCents > 0
 | project id=_id1 ,
     partitaIvaCliente=iff(strlen(vatNumber)==16, "00000000000", vatNumber), 
     codiceFiscaleCliente=fiscalCode, 
-    ragioneSocialeIntestatario=businessName, 
+// Tagliamo a 140 caratteri per compatibilità con le api di erogazione
+    ragioneSocialeIntestatario = substring(businessName, 0, 140),
     ibanBeneficiario=iban, 
     intestatarioContoCorrente=ibanHolder,
     importo=tostring(approvedAmountCents),
