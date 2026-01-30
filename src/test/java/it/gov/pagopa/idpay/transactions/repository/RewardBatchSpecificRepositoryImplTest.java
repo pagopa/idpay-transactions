@@ -530,11 +530,11 @@ class RewardBatchSpecificRepositoryImplTest {
 
       assertNotNull(r1);
       assertEquals(RewardBatchTrxStatus.SUSPENDED, r1.getRewardBatchTrxStatus());
-    assertEquals("reason-test", r1.getRewardBatchRejectionReason());
+    assertEquals(List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "reason-test")), r1.getRewardBatchRejectionReason());
 
       assertNotNull(r2);
       assertEquals(RewardBatchTrxStatus.SUSPENDED, r2.getRewardBatchTrxStatus());
-    assertEquals("reason-test", r2.getRewardBatchRejectionReason());
+    assertEquals(List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "reason-test")), r2.getRewardBatchRejectionReason());
   }
 
   @Test
