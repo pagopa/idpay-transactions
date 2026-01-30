@@ -17,7 +17,7 @@ public class TransactionsRequest {
     @NotEmpty
     private List<String> transactionIds;
 
-    private String reason;
+    private List<ReasonDTO> reasons;
 
     private ChecksErrorDTO checksError;
 }

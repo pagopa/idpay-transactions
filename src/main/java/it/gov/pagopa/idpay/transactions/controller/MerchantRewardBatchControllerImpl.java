@@ -100,8 +100,8 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   public Mono<RewardBatchDTO> suspendTransactions(String initiativeId, String rewardBatchId, TransactionsRequest request) {
 
     List<String> transactionIds = request.getTransactionIds() != null ? request.getTransactionIds() : List.of();
-    String reason = request.getReason();
-    if(request.getReason() == null || request.getReason().isEmpty()){
+    List<ReasonDTO> reasons = request.getReasons();
+    if(request.getReasons() == null || request.getReasons().isEmpty()){
       throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
               ExceptionCode.REASON_FIELD_IS_MANDATORY,
               ExceptionConstants.ExceptionMessage.REASON_FIELD_IS_MANDATORY);
@@ -112,7 +112,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
             transactionIds.size(),
             Utilities.sanitizeString(rewardBatchId),
             Utilities.sanitizeString(initiativeId),
-            Utilities.sanitizeString(reason)
+            Utilities.sanitizeString(reasons.toString())
     );
 
     return rewardBatchService.suspendTransactions(rewardBatchId, initiativeId, request)
@@ -124,9 +124,9 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   public Mono<RewardBatchDTO> rejectTransactions(String initiativeId, String rewardBatchId, TransactionsRequest request) {
 
     List<String> transactionIds = request.getTransactionIds() != null ? request.getTransactionIds() : List.of();
-    String reason = request.getReason();
+    List<ReasonDTO> reasons = request.getReasons();
 
-    if(request.getReason() == null || request.getReason().isEmpty()){
+    if(request.getReasons() == null || request.getReasons().isEmpty()){
       throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
               ExceptionCode.REASON_FIELD_IS_MANDATORY,
               ExceptionConstants.ExceptionMessage.REASON_FIELD_IS_MANDATORY);
@@ -137,7 +137,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
             transactionIds.size(),
             Utilities.sanitizeString(rewardBatchId),
             Utilities.sanitizeString(initiativeId),
-            Utilities.sanitizeString(reason)
+            Utilities.sanitizeString(reasons.toString())
     );
 
     return rewardBatchService.rejectTransactions(rewardBatchId, initiativeId, request)

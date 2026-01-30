@@ -38,6 +38,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus.*;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
@@ -268,9 +269,18 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
             return Mono.just(savedTrx);
         }
 
+        List<String> reasonsList = savedTrx.getRejectionReasons();
+        List<ReasonDTO> reasonDTOs = null;
+        if(reasonsList != null){
+            reasonDTOs = reasonsList.stream()
+                    .map(reason -> new ReasonDTO(LocalDateTime.now(), reason))
+                    .toList();
+        }
+
+
         TransactionsRequest req = TransactionsRequest.builder()
                 .transactionIds(List.of(savedTrx.getId()))
-                .reason(savedTrx.getRejectionReasons() != null ? savedTrx.getRejectionReasons().toString() : null)
+                .reasons(reasonDTOs)
                 .build();
 
         return rewardBatchService
