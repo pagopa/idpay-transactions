@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
+import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -519,7 +520,7 @@ class RewardBatchSpecificRepositoryImplTest {
 
     Long updated = rewardBatchSpecificRepository
             .updateTransactionsStatus(batch1.getId(), ids,
-                    RewardBatchTrxStatus.SUSPENDED, "reason-test")
+                    RewardBatchTrxStatus.SUSPENDED, List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "reason-test")))
             .block();
 
     assertEquals(2L, updated);
@@ -551,7 +552,7 @@ class RewardBatchSpecificRepositoryImplTest {
     Mono<Long> result = rewardBatchSpecificRepository.updateTransactionsStatus(
             batch1.getId(), ids,
             RewardBatchTrxStatus.SUSPENDED,
-            "reason-test"
+            List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "reason-test"))
     );
 
     StepVerifier.create(result)
@@ -567,7 +568,7 @@ class RewardBatchSpecificRepositoryImplTest {
             batch1.getId(),
             null,
             RewardBatchTrxStatus.SUSPENDED,
-            "reason-test"
+            List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "reason-test"))
     );
 
     StepVerifier.create(result)
@@ -591,7 +592,7 @@ class RewardBatchSpecificRepositoryImplTest {
             batch1.getId(),
             transactionIds,
             RewardBatchTrxStatus.SUSPENDED,
-            "reason-test"
+            List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "reason-test"))
     );
 
     StepVerifier.create(result)
@@ -937,7 +938,7 @@ class RewardBatchSpecificRepositoryImplTest {
                 batch1.getId(),
                 List.of(),
                 RewardBatchTrxStatus.SUSPENDED,
-                "reason-test"
+                List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "reason-test"))
         );
 
         StepVerifier.create(result)
