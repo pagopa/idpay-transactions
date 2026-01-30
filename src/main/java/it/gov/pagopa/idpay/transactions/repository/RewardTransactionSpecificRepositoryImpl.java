@@ -8,6 +8,7 @@ import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
 import it.gov.pagopa.idpay.transactions.service.RewardBatchServiceImpl;
@@ -132,6 +133,11 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
       criteria.and(Fields.rewardBatchId).is(filters.getRewardBatchId());
     }
 
+    if (filters.getTrxCode() != null) {
+      criteria.and(Fields.trxCode)
+              .regex(".*" + Pattern.quote(filters.getTrxCode()) + ".*", "i");
+    }
+
     if (filters.getRewardBatchTrxStatus() != null) {
       if (includeToCheckWithConsultable
           && filters.getRewardBatchTrxStatus() == RewardBatchTrxStatus.CONSULTABLE) {
@@ -214,7 +220,20 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     return mongoTemplate.findOne(Query.query(criteria), RewardTransaction.class);
   }
 
-  private Pageable mapSort(Pageable pageable) {
+    @Override
+    public Mono<RewardTransaction> findTransactionForUpdateInvoice(
+            String merchantId, String pointOfSaleId, String transactionId) {
+
+        Criteria criteria = Criteria
+                .where(Fields.merchantId).is(merchantId)
+                .and(Fields.pointOfSaleId).is(pointOfSaleId)
+                .and(Fields.id).is(transactionId);
+
+        return mongoTemplate.findOne(Query.query(criteria), RewardTransaction.class);
+    }
+
+
+    private Pageable mapSort(Pageable pageable) {
     Pageable basePageable = getPageableTrx(pageable);
 
     Sort mappedSort = Sort.by(
@@ -394,10 +413,9 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         .defaultIfEmpty(0L);
   }
 
-
   @Override
   public Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId,
-      RewardBatchTrxStatus status, String reason, String batchMonth) {
+      RewardBatchTrxStatus status, String reason, String batchMonth, ChecksError checksError) {
     Criteria criteria = Criteria.where(Fields.id).is(trxId)
         .and(Fields.rewardBatchId).is(batchId);
 
@@ -409,6 +427,12 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
       update.set(RewardTransaction.Fields.rewardBatchRejectionReason, reason);
     } else {
       update.unset(RewardTransaction.Fields.rewardBatchRejectionReason);
+    }
+
+    if (checksError != null) {
+      update.set(RewardTransaction.Fields.checksError, checksError);
+    } else {
+      update.unset(RewardTransaction.Fields.checksError);
     }
 
     return mongoTemplate.findAndModify(

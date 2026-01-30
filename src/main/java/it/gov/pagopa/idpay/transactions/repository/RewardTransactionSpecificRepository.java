@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.repository;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
@@ -31,13 +32,15 @@ public interface RewardTransactionSpecificRepository {
      */
     Mono<RewardTransaction> findTransaction(String merchantId, String pointOfSaleId, String transactionId);
 
+    Mono<RewardTransaction> findTransactionForUpdateInvoice(String merchantId, String pointOfSaleId, String transactionId);
+
     Flux<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId);
 
     Mono<Long> sumSuspendedAccruedRewardCents(String rewardBatchId);
 
     Mono<Void> rewardTransactionsByBatchId(String batchId);
 
-    Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus status, String reason, String batchMonth);
+    Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus status, String reason, String batchMonth, ChecksError checksError);
 
     Flux<RewardTransaction> findInvoicedTransactionsWithoutBatch(int pageSize);
 
