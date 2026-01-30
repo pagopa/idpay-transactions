@@ -451,7 +451,7 @@ class RewardBatchServiceImplTest {
 
         TransactionsRequest req = TransactionsRequest.builder()
                 .transactionIds(List.of("SUSP_PREV", "APP", "TO_CHECK", "CONS", "REJ", "NULL_ACC"))
-                .reasons(List.of(new ReasonDTO(LocalDateTime.now(), "REASON")))
+                .reasons(List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "REASON")))
                 .checksError(checks)
                 .build();
 
@@ -498,17 +498,17 @@ class RewardBatchServiceImplTest {
                 .rewards(Map.of("OTHER", Reward.builder().accruedRewardCents(999L).build()))
                 .build();
 
-        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "SUSP_PREV", RewardBatchTrxStatus.SUSPENDED, List.of(new ReasonDTO(LocalDateTime.now(), "REASON")), batchMonth, model))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "SUSP_PREV", RewardBatchTrxStatus.SUSPENDED, List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "REASON")), batchMonth, model))
                 .thenReturn(Mono.just(trxSuspPrev));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "APP", RewardBatchTrxStatus.SUSPENDED, List.of(new ReasonDTO(LocalDateTime.now(), "REASON")), batchMonth, model))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "APP", RewardBatchTrxStatus.SUSPENDED, List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "REASON")), batchMonth, model))
                 .thenReturn(Mono.just(trxApproved));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "TO_CHECK", RewardBatchTrxStatus.SUSPENDED, List.of(new ReasonDTO(LocalDateTime.now(), "REASON")), batchMonth, model))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "TO_CHECK", RewardBatchTrxStatus.SUSPENDED, List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "REASON")), batchMonth, model))
                 .thenReturn(Mono.just(trxToCheck));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "CONS", RewardBatchTrxStatus.SUSPENDED, List.of(new ReasonDTO(LocalDateTime.now(), "REASON")), batchMonth, model))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "CONS", RewardBatchTrxStatus.SUSPENDED, List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "REASON")), batchMonth, model))
                 .thenReturn(Mono.just(trxConsultable));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "REJ", RewardBatchTrxStatus.SUSPENDED, List.of(new ReasonDTO(LocalDateTime.now(), "REASON")), batchMonth, model))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "REJ", RewardBatchTrxStatus.SUSPENDED, List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "REASON")), batchMonth, model))
                 .thenReturn(Mono.just(trxRejected));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "NULL_ACC", RewardBatchTrxStatus.SUSPENDED, List.of(new ReasonDTO(LocalDateTime.now(), "REASON")), batchMonth, model))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "NULL_ACC", RewardBatchTrxStatus.SUSPENDED, List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "REASON")), batchMonth, model))
                 .thenReturn(Mono.just(trxNullAccrued));
 
         RewardBatch updated = RewardBatch.builder().id(BATCH_ID).build();
@@ -533,7 +533,7 @@ class RewardBatchServiceImplTest {
 
         TransactionsRequest req = TransactionsRequest.builder()
                 .transactionIds(List.of("SUSP_SAME"))
-                .reasons(List.of(new ReasonDTO(LocalDateTime.now(), "R")))
+                .reasons(List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "R")))
                 .checksError(checks)
                 .build();
 
@@ -549,7 +549,7 @@ class RewardBatchServiceImplTest {
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
                 .build();
 
-        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "SUSP_SAME", RewardBatchTrxStatus.SUSPENDED, List.of(new ReasonDTO(LocalDateTime.now(), "R")), batchMonth, model))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "SUSP_SAME", RewardBatchTrxStatus.SUSPENDED, List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "R")), batchMonth, model))
                 .thenReturn(Mono.just(trxSuspSame));
 
         when(rewardBatchRepository.updateTotals(eq(BATCH_ID), anyLong(), anyLong(), anyLong(), anyLong(), anyLong()))
@@ -567,7 +567,7 @@ class RewardBatchServiceImplTest {
 
         TransactionsRequest req = TransactionsRequest.builder()
                 .transactionIds(List.of("ALREADY_REJ", "APP", "TO_CHECK", "CONS", "SUSP_PREV"))
-                .reasons(List.of(new ReasonDTO(LocalDateTime.now(), "WHY")))
+                .reasons(List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "WHY")))
                 .build();
 
         when(rewardBatchRepository.findByIdAndStatus(BATCH_ID, RewardBatchStatus.EVALUATING))
@@ -604,15 +604,15 @@ class RewardBatchServiceImplTest {
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(50L).build()))
                 .build();
 
-        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "ALREADY_REJ", RewardBatchTrxStatus.REJECTED, List.of(new ReasonDTO(LocalDateTime.now(), "WHY")), batchMonth, null))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "ALREADY_REJ", RewardBatchTrxStatus.REJECTED, List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "WHY")), batchMonth, null))
                 .thenReturn(Mono.just(alreadyRejected));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "APP", RewardBatchTrxStatus.REJECTED, List.of(new ReasonDTO(LocalDateTime.now(), "WHY")), batchMonth, null))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "APP", RewardBatchTrxStatus.REJECTED, List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "WHY")), batchMonth, null))
                 .thenReturn(Mono.just(approved));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "TO_CHECK", RewardBatchTrxStatus.REJECTED, List.of(new ReasonDTO(LocalDateTime.now(), "WHY")), batchMonth, null))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "TO_CHECK", RewardBatchTrxStatus.REJECTED, List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "WHY")), batchMonth, null))
                 .thenReturn(Mono.just(toCheck));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "CONS", RewardBatchTrxStatus.REJECTED, List.of(new ReasonDTO(LocalDateTime.now(), "WHY")), batchMonth, null))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "CONS", RewardBatchTrxStatus.REJECTED, List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "WHY")), batchMonth, null))
                 .thenReturn(Mono.just(consultable));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "SUSP_PREV", RewardBatchTrxStatus.REJECTED, List.of(new ReasonDTO(LocalDateTime.now(), "WHY")), batchMonth, null))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "SUSP_PREV", RewardBatchTrxStatus.REJECTED, List.of(new ReasonDTO(LocalDateTime.of(2026, 1, 30, 0, 0), "WHY")), batchMonth, null))
                 .thenReturn(Mono.just(suspendedPrev));
 
         RewardBatch updated = RewardBatch.builder().id(BATCH_ID).build();
