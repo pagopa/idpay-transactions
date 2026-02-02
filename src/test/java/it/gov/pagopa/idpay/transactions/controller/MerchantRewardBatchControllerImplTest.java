@@ -366,6 +366,30 @@ class MerchantRewardBatchControllerImplTest {
                 .suspendTransactions(rewardBatchId, INITIATIVE_ID, request);
         verifyNoInteractions(rewardBatchMapper);
     }
+
+    @Test
+    void suspendTransactions_ko_reasonsMissing() {
+        String rewardBatchId = "BATCH1";
+
+        TransactionsRequest request = TransactionsRequest.builder()
+                .transactionIds(List.of("trx1"))
+                .reasons(null)
+                .build();
+
+        webClient.post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/suspended",
+                        INITIATIVE_ID, rewardBatchId)
+                .header("x-merchant-id", MERCHANT_ID)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.code").isEqualTo(ExceptionConstants.ExceptionCode.REASON_FIELD_IS_MANDATORY);
+
+        verifyNoInteractions(rewardBatchService);
+    }
+
+
     @Test
     void rewardBatchConfirmation_Success() {
         String rewardBatchId = "BATCH1";
@@ -496,6 +520,28 @@ class MerchantRewardBatchControllerImplTest {
         verify(rewardBatchService, times(1))
                 .rejectTransactions(any(), any(), any());
         verify(rewardBatchMapper, times(1)).toDTO(batch);
+    }
+
+    @Test
+    void rejectTransactions_ko_reasonsMissing() {
+        String rewardBatchId = "BATCH1";
+
+        TransactionsRequest request = TransactionsRequest.builder()
+                .transactionIds(List.of("trx1"))
+                .reasons(null)
+                .build();
+
+        webClient.post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/rejected",
+                        INITIATIVE_ID, rewardBatchId)
+                .header("x-merchant-id", MERCHANT_ID)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.code").isEqualTo(ExceptionConstants.ExceptionCode.REASON_FIELD_IS_MANDATORY);
+
+        verifyNoInteractions(rewardBatchService);
     }
 
     @Test
