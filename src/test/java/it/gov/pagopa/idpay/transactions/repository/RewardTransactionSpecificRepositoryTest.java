@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
+import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
@@ -50,6 +51,52 @@ class RewardTransactionSpecificRepositoryTest {
         rewardTransactionRepository.deleteAll().block();
     }
 
+    @Test
+    void updateStatusAndReturnOld_success() {
+        String trxId = "TRX_ID_UPDATE";
+        String batchMonth = "2024-01";
+        RewardTransaction trx = RewardTransactionFaker.mockInstance(1);
+        trx.setId(trxId);
+        trx.setRewardBatchId(BATCH_ID);
+        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
+        rewardTransactionRepository.save(trx).block();
+
+        List<ReasonDTO> reasons = List.of(new ReasonDTO(LocalDateTime.now(), "REJECTION_REASON"));
+
+        StepVerifier.create(rewardTransactionSpecificRepository.updateStatusAndReturnOld(
+                        BATCH_ID, trxId, RewardBatchTrxStatus.REJECTED, reasons, batchMonth, null))
+                .assertNext(oldTrx -> {
+                    assertEquals(RewardBatchTrxStatus.CONSULTABLE, oldTrx.getRewardBatchTrxStatus());
+                    assertEquals(trxId, oldTrx.getId());
+                })
+                .verifyComplete();
+
+        RewardTransaction updatedTrx = rewardTransactionRepository.findById(trxId).block();
+        assertNotNull(updatedTrx);
+        assertEquals(RewardBatchTrxStatus.REJECTED, updatedTrx.getRewardBatchTrxStatus());
+        assertEquals(batchMonth, updatedTrx.getRewardBatchLastMonthElaborated());
+        assertNotNull(updatedTrx.getRewardBatchRejectionReason());
+        assertEquals("REJECTION_REASON", updatedTrx.getRewardBatchRejectionReason().getFirst().getReason());
+
+        StepVerifier.create(rewardTransactionSpecificRepository.updateStatusAndReturnOld(
+                        BATCH_ID, trxId, RewardBatchTrxStatus.SUSPENDED, null, batchMonth, null))
+                .expectNextCount(1)
+                .verifyComplete();
+
+        RewardTransaction unsetTrx = rewardTransactionRepository.findById(trxId).block();
+        assertNotNull(unsetTrx);
+        assertEquals(RewardBatchTrxStatus.SUSPENDED, unsetTrx.getRewardBatchTrxStatus());
+        assertNull(unsetTrx.getRewardBatchRejectionReason());
+    }
+
+    @Test
+    void updateStatusAndReturnOld_notFound() {
+        StepVerifier.create(rewardTransactionSpecificRepository.updateStatusAndReturnOld(
+                        "NON_EXISTENT_BATCH", "NON_EXISTENT_ID",
+                        RewardBatchTrxStatus.REJECTED, null, "2024-01", null))
+                .expectNextCount(0)
+                .verifyComplete();
+    }
     @Test
     void findByFilterTrx_withNullPageable_shouldUseDefaultSortAndNotFail() {
         RewardTransaction trx = RewardTransactionFaker.mockInstanceBuilder(1)
