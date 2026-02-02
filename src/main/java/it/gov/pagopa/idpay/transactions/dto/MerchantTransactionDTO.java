@@ -9,6 +9,7 @@ import lombok.Data;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -35,7 +36,7 @@ public class MerchantTransactionDTO {
     Long authorizedAmountCents;
     InvoiceData invoiceData;
     RewardBatchTrxStatus rewardBatchTrxStatus;
-    String rewardBatchRejectionReason;
+    List<ReasonDTO> rewardBatchRejectionReason;
     ChecksErrorDTO checksError;
     String franchiseName;
 }

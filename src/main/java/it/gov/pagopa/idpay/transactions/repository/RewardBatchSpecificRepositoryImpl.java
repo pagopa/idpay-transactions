@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.repository;
 
 import com.nimbusds.oauth2.sdk.util.StringUtils;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
+import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -201,7 +202,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Mono<Long> updateTransactionsStatus(String rewardBatchId, List<String> transactionIds, RewardBatchTrxStatus newStatus, String reason) {
+  public Mono<Long> updateTransactionsStatus(String rewardBatchId, List<String> transactionIds, RewardBatchTrxStatus newStatus, List<ReasonDTO> reasons) {
 
     List<String> ids = transactionIds != null ? transactionIds : List.of();
 
@@ -214,7 +215,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
 
               Update update = new Update()
                       .set("rewardBatchTrxStatus", newStatus)
-                      .set("rewardBatchRejectionReason", reason);
+                      .set("rewardBatchRejectionReason", reasons);
 
               return mongoTemplate.findAndModify(q, update, RewardTransaction.class)
                       .map(rt -> 1L)

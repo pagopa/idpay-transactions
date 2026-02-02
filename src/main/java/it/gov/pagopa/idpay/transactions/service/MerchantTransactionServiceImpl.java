@@ -3,10 +3,7 @@ package it.gov.pagopa.idpay.transactions.service;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
-import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
-import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionDTO;
-import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
-import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
@@ -192,7 +189,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .invoiceData(transaction.getInvoiceData() != null ? transaction.getInvoiceData() : new InvoiceData())
                 .rewardBatchTrxStatus(exposed)
                 .pointOfSaleId(transaction.getPointOfSaleId() == null ? "-" : transaction.getPointOfSaleId())
-                .rewardBatchRejectionReason(transaction.getRewardBatchRejectionReason() == null ? "-" : transaction.getRewardBatchRejectionReason())
+                .rewardBatchRejectionReason(transaction.getRewardBatchRejectionReason() == null ? new ArrayList<ReasonDTO>() : transaction.getRewardBatchRejectionReason())
                 .checksError(checksErrorMapper.toDto(transaction.getChecksError()))
                 .franchiseName(transaction.getFranchiseName() == null ? "-" : transaction.getFranchiseName())
                 .build();

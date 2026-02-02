@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.model;
 
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
+import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import lombok.*;
@@ -71,7 +72,7 @@ public class RewardTransaction {
 
     private String rewardBatchId;
     private RewardBatchTrxStatus rewardBatchTrxStatus;
-    private String rewardBatchRejectionReason;
+    private List<ReasonDTO> rewardBatchRejectionReason;
     private LocalDateTime rewardBatchInclusionDate;
     private String franchiseName;
     private PosType pointOfSaleType;
