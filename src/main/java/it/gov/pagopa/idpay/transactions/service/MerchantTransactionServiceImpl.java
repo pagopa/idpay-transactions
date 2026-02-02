@@ -189,7 +189,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .invoiceData(transaction.getInvoiceData() != null ? transaction.getInvoiceData() : new InvoiceData())
                 .rewardBatchTrxStatus(exposed)
                 .pointOfSaleId(transaction.getPointOfSaleId() == null ? "-" : transaction.getPointOfSaleId())
-                .rewardBatchRejectionReason(transaction.getRewardBatchRejectionReason() == null ? new ArrayList<ReasonDTO>() : transaction.getRewardBatchRejectionReason())
+                .rewardBatchRejectionReason(sortedReasons(transaction.getRewardBatchRejectionReason()))
                 .checksError(checksErrorMapper.toDto(transaction.getChecksError()))
                 .franchiseName(transaction.getFranchiseName() == null ? "-" : transaction.getFranchiseName())
                 .build();
@@ -203,6 +203,14 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                     .doOnNext(out::setFiscalCode)
                     .then(Mono.just(out));
         }
+    }
+
+    private List<ReasonDTO> sortedReasons(List<ReasonDTO> rewardBatchRejectionReason) {
+        return Optional.ofNullable(rewardBatchRejectionReason)
+                .orElse(List.of())
+                .stream()
+                .sorted(Comparator.comparing(ReasonDTO::getDate).reversed())
+                .toList();
     }
 
     private RewardBatchTrxStatus parseRewardBatchTrxStatus(String rewardBatchTrxStatus) {
