@@ -424,7 +424,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         .set(Fields.rewardBatchTrxStatus, status)
         .set(Fields.rewardBatchLastMonthElaborated, batchMonth);
 
-    if (reasons != null) {
+    if (reasons != null && !reasons.isEmpty()) {
       update.set(RewardTransaction.Fields.rewardBatchRejectionReason, reasons);
     } else {
       update.unset(RewardTransaction.Fields.rewardBatchRejectionReason);
