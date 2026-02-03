@@ -41,7 +41,7 @@ public interface RewardTransactionSpecificRepository {
 
     Mono<Void> rewardTransactionsByBatchId(String batchId);
 
-    Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus status, List<ReasonDTO> reasons, String batchMonth, ChecksError checksError);
+    Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus status, ReasonDTO reasons, String batchMonth, ChecksError checksError);
 
     Flux<RewardTransaction> findInvoicedTransactionsWithoutBatch(int pageSize);
 
