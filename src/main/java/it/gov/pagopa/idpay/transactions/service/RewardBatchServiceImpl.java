@@ -371,8 +371,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                 log.info(
                                         "[REJECT_TRANSACTION] Transaction {} rejected. batchId: {}, initiativeId: {}",
                                         trxOld.getId(),
-                                        rewardBatchId,
-                                        initiativeId
+                                        Utilities.sanitizeString(rewardBatchId),
+                                        Utilities.sanitizeString(initiativeId)
                                 );
                             }
                             return Pair.of(trxOld, trxId2ActualBatchMont.getRight());
