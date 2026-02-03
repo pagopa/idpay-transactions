@@ -5,6 +5,7 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
+import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
@@ -342,10 +343,8 @@ class MerchantTransactionServiceImplTest {
     }
 
     @Test
-    void getMerchantTransactionList_withChecksError() {
+    void getMerchantTransactionList_withoutChecksErrorAndReason() {
         LocalDateTime now = LocalDateTime.now();
-
-        ChecksError checksError = new ChecksError(true,true,true,true,true,true,true, true);
 
         RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
@@ -355,7 +354,6 @@ class MerchantTransactionServiceImplTest {
                 .elaborationDateTime(now)
                 .rewards(getReward())
                 .trxDate(now)
-                .checksError(checksError)
                 .build();
 
         Pageable paging = PageRequest.of(
@@ -398,6 +396,83 @@ class MerchantTransactionServiceImplTest {
         MerchantTransactionDTO dto = content.getFirst();
         assertMerchantTransactionMatches(rt1, dto, FISCAL_CODE);
         assertNotNull(dto.getChecksError());
+        assertNotNull(dto.getRewardBatchRejectionReason());
+        assertTrue(dto.getRewardBatchRejectionReason().isEmpty());
+
+        verify(rewardTransactionRepositoryMock).findByFilter(any(), isNull(), eq(false), eq(paging));
+        verify(rewardTransactionRepositoryMock).getCount(any(), isNull(), isNull(), isNull(), eq(false));
+        verify(userRestClientMock).retrieveUserInfo(USER_ID);
+        verify(userRestClientMock, never()).retrieveFiscalCodeInfo(anyString());
+    }
+
+    @Test
+    void getMerchantTransactionList_withChecksErrorAndReasons() {
+        LocalDateTime now = LocalDateTime.now();
+
+        ChecksError checksError = new ChecksError(true,true,true,true,true,true,true, true);
+
+        ReasonDTO reason1 = new ReasonDTO();
+        reason1.setDate(now.minusDays(5));
+        reason1.setReason("Days 5");
+
+        ReasonDTO reason2 = new ReasonDTO();
+        reason2.setDate(now.minusDays(3));
+        reason2.setReason("Days 3");
+
+        RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .userId(USER_ID)
+                .amountCents(5000L)
+                .status("REWARDED")
+                .elaborationDateTime(now)
+                .rewards(getReward())
+                .trxDate(now)
+                .checksError(checksError)
+                .rewardBatchRejectionReason(List.of(reason1, reason2))
+                .build();
+
+        Pageable paging = PageRequest.of(
+                0,
+                10,
+                Sort.by(RewardTransaction.Fields.elaborationDateTime).descending()
+        );
+
+        UserInfoPDV userInfoPDV = new UserInfoPDV(FISCAL_CODE);
+
+        when(rewardTransactionRepositoryMock.findByFilter(any(), isNull(), eq(false), eq(paging)))
+                .thenReturn(Flux.just(rt1));
+
+        when(rewardTransactionRepositoryMock.getCount(any(), isNull(), isNull(), isNull(), eq(false)))
+                .thenReturn(Mono.just(1L));
+
+        when(userRestClientMock.retrieveUserInfo(USER_ID))
+                .thenReturn(Mono.just(userInfoPDV));
+
+        MerchantTransactionsListDTO result =
+                merchantTransactionService.getMerchantTransactions(
+                        MERCHANT_ID,
+                        "merchant",
+                        INITIATIVE_ID,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        paging
+                ).block();
+
+        assertFirstPage(result);
+
+        List<MerchantTransactionDTO> content = Objects.requireNonNull(result).getContent();
+        assertNotNull(content);
+        assertFalse(content.isEmpty());
+
+        MerchantTransactionDTO dto = content.getFirst();
+        assertMerchantTransactionMatches(rt1, dto, FISCAL_CODE);
+        assertNotNull(dto.getChecksError());
+        assertNotNull(dto.getRewardBatchRejectionReason());
+        assertEquals(List.of(reason2, reason1), dto.getRewardBatchRejectionReason());
 
         verify(rewardTransactionRepositoryMock).findByFilter(any(), isNull(), eq(false), eq(paging));
         verify(rewardTransactionRepositoryMock).getCount(any(), isNull(), isNull(), isNull(), eq(false));

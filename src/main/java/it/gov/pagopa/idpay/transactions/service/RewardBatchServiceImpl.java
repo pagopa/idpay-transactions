@@ -256,7 +256,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()).map(trxId -> Pair.of(trxId, batch.getMonth())))
                 .flatMap(trxId2ActualBatchMonth -> rewardTransactionRepository
-                        .updateStatusAndReturnOld(rewardBatchId, trxId2ActualBatchMonth.getLeft(), RewardBatchTrxStatus.SUSPENDED, request.getReason(), trxId2ActualBatchMonth.getRight(), checksErrorModel)
+                        .updateStatusAndReturnOld(rewardBatchId, trxId2ActualBatchMonth.getLeft(), RewardBatchTrxStatus.SUSPENDED, request.getReasons(), trxId2ActualBatchMonth.getRight(), checksErrorModel)
                         .map(trxOld -> Pair.of(trxOld, trxId2ActualBatchMonth.getRight()))
                 )
                 .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L, 0L), (acc, trxOld2ActualRewardBatch) -> {
@@ -370,7 +370,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds())
                         .map(trxId -> Pair.of(trxId, batch.getMonth())))
                 .flatMap(trxId2ActualBatchMont -> rewardTransactionRepository
-                        .updateStatusAndReturnOld(rewardBatchId, trxId2ActualBatchMont.getLeft(), RewardBatchTrxStatus.REJECTED, request.getReason(), trxId2ActualBatchMont.getRight(), checksErrorModel)
+                        .updateStatusAndReturnOld(rewardBatchId, trxId2ActualBatchMont.getLeft(), RewardBatchTrxStatus.REJECTED, request.getReasons(), trxId2ActualBatchMont.getRight(), checksErrorModel)
                         .map(trxOld -> Pair.of(trxOld, trxId2ActualBatchMont.getRight()))
                 )
                 .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L, 0L),

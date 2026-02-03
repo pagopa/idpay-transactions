@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
+import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
@@ -40,7 +41,7 @@ public interface RewardTransactionSpecificRepository {
 
     Mono<Void> rewardTransactionsByBatchId(String batchId);
 
-    Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus status, String reason, String batchMonth, ChecksError checksError);
+    Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus status, List<ReasonDTO> reasons, String batchMonth, ChecksError checksError);
 
     Flux<RewardTransaction> findInvoicedTransactionsWithoutBatch(int pageSize);
 
