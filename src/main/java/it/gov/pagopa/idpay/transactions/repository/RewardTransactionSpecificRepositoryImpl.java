@@ -9,6 +9,7 @@ import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
+import it.gov.pagopa.idpay.transactions.exception.OptimisticLockConflictException;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
@@ -23,6 +24,7 @@ import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.*;
 import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Field;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import reactor.core.publisher.Flux;
@@ -415,41 +417,64 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
   }
 
   @Override
-  public Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId,
-              RewardBatchTrxStatus status, List<ReasonDTO> reasons, String batchMonth, ChecksError checksError) {
-    Criteria criteria = Criteria.where(Fields.id).is(trxId)
-        .and(Fields.rewardBatchId).is(batchId);
+  public Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus newStatus,
+                                                          ReasonDTO reasons, String batchMonth, ChecksError checksError) {
 
-    Update update = new Update()
-        .set(Fields.rewardBatchTrxStatus, status)
-        .set(Fields.rewardBatchLastMonthElaborated, batchMonth);
+    Criteria base = Criteria.where(Fields.id).is(trxId)
+            .and(Fields.rewardBatchId).is(batchId);
 
-    if (reasons != null && !reasons.isEmpty()) {
-      update.set(RewardTransaction.Fields.rewardBatchRejectionReason, reasons);
-    } else {
-      update.unset(RewardTransaction.Fields.rewardBatchRejectionReason);
-    }
+    Query findQuery = Query.query(base);
+    findQuery.fields().include(Fields.rewardBatchTrxStatus);
+    return Mono.defer(() ->
 
-    if (checksError != null) {
-      update.set(RewardTransaction.Fields.checksError, checksError);
-    } else {
-      update.unset(RewardTransaction.Fields.checksError);
-    }
+                    mongoTemplate.findOne(
+                                    findQuery,
+                                    RewardTransaction.class
+                            )
+                            .flatMap(current -> {
+                              if (current == null) {
+                                log.info("Transaction not found for id {} and reward batch {}", trxId, batchId);
+                                return Mono.empty();
+                              }
 
-    return mongoTemplate.findAndModify(
-        Query.query(criteria),
-        update,
-        FindAndModifyOptions.options()
-            .returnNew(false)
-            .upsert(false),
-        RewardTransaction.class
-    ).flatMap(trx -> {
-      if (trx == null) {
-        log.info("Transaction not found for id {} and reward batch {}", trxId, batchId);
-        return Mono.empty();
-      }
-      return Mono.just(trx);
-    });
+                              RewardBatchTrxStatus currentStatus = current.getRewardBatchTrxStatus();
+
+                              Update update = new Update()
+                                      .set(Fields.rewardBatchTrxStatus, newStatus)
+                                      .set(Fields.rewardBatchLastMonthElaborated, batchMonth);
+
+                              if (checksError != null) {
+                                update.set(RewardTransaction.Fields.checksError, checksError);
+                              } else {
+                                update.unset(RewardTransaction.Fields.checksError);
+                              }
+
+
+                              if (reasons == null) {
+                                update.unset(RewardTransaction.Fields.rewardBatchRejectionReason);
+                              } else {
+                                if (currentStatus != null && currentStatus.equals(newStatus)) {
+                                  update.push(RewardTransaction.Fields.rewardBatchRejectionReason).value(reasons);
+                                } else {
+                                  update.set(RewardTransaction.Fields.rewardBatchRejectionReason, List.of(reasons));
+                                }
+                              }
+
+
+                              Criteria cond = Criteria.where(Fields.id).is(trxId)
+                                      .and(Fields.rewardBatchId).is(batchId)
+                                      .and(Fields.rewardBatchTrxStatus).is(currentStatus);
+
+                              return mongoTemplate.findAndModify(
+                                      Query.query(cond),
+                                      update,
+                                      FindAndModifyOptions.options()
+                                              .returnNew(false)
+                                              .upsert(false),
+                                      RewardTransaction.class
+                              );
+                            })
+            );
   }
 
   @Override

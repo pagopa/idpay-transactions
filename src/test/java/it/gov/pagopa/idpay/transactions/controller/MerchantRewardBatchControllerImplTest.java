@@ -35,7 +35,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -309,7 +308,7 @@ class MerchantRewardBatchControllerImplTest {
         String rewardBatchId = "BATCH1";
         TransactionsRequest request = new TransactionsRequest();
         request.setTransactionIds(List.of("trx1", "trx2"));
-        request.setReasons(List.of(new ReasonDTO(LocalDateTime.now(), "Test reason")));
+        request.setReason("Test reason");
 
         RewardBatch batch = RewardBatch.builder()
                 .id(rewardBatchId)
@@ -348,7 +347,7 @@ class MerchantRewardBatchControllerImplTest {
         String rewardBatchId = "BATCH2";
         TransactionsRequest request = new TransactionsRequest();
         request.setTransactionIds(List.of("trx1"));
-        request.setReasons(List.of(new ReasonDTO(LocalDateTime.now(), "Test reason")));
+        request.setReason("Test reason");
 
         when(rewardBatchService.suspendTransactions(rewardBatchId, INITIATIVE_ID, request))
                 .thenReturn(Mono.error(new IllegalStateException("Cannot suspend transactions on an APPROVED batch")));
@@ -373,7 +372,7 @@ class MerchantRewardBatchControllerImplTest {
 
         TransactionsRequest request = TransactionsRequest.builder()
                 .transactionIds(List.of("trx1"))
-                .reasons(null)
+                .reason(null)
                 .build();
 
         webClient.post()
@@ -489,7 +488,7 @@ class MerchantRewardBatchControllerImplTest {
         String rewardBatchId = "BATCH";
         TransactionsRequest request = new TransactionsRequest();
         request.setTransactionIds(List.of("trx1", "trx2"));
-        request.setReasons(List.of(new ReasonDTO(LocalDateTime.now(), "Test reason")));
+        request.setReason("Test reason");
 
         RewardBatch batch = RewardBatch.builder()
                 .id(rewardBatchId)
@@ -528,7 +527,7 @@ class MerchantRewardBatchControllerImplTest {
 
         TransactionsRequest request = TransactionsRequest.builder()
                 .transactionIds(List.of("trx1"))
-                .reasons(null)
+                .reason(null)
                 .build();
 
         webClient.post()
