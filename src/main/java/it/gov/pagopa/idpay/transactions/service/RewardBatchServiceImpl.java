@@ -9,6 +9,11 @@ import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.dto.ChecksErrorDTO;
 import it.gov.pagopa.idpay.transactions.dto.DownloadRewardBatchResponseDTO;
+import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
+import it.gov.pagopa.common.web.exception.RewardBatchException;
+import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
+import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.dto.batch.TrxSuspendedBatchInfo;
@@ -244,6 +249,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         validChecksError(request.getChecksError());
 
         ChecksError checksErrorModel = checksErrorMapper.toModel(request.getChecksError());
+        ReasonDTO reason = generateReasonDto(request);
 
         return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.EVALUATING)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(NOT_FOUND,
@@ -251,7 +257,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()).map(trxId -> Pair.of(trxId, batch.getMonth())))
                 .flatMap(trxId2ActualBatchMonth -> rewardTransactionRepository
-                        .updateStatusAndReturnOld(rewardBatchId, trxId2ActualBatchMonth.getLeft(), RewardBatchTrxStatus.SUSPENDED, request.getReasons(), trxId2ActualBatchMonth.getRight(), checksErrorModel)
+                        .updateStatusAndReturnOld(rewardBatchId, trxId2ActualBatchMonth.getLeft(), RewardBatchTrxStatus.SUSPENDED, reason, trxId2ActualBatchMonth.getRight(), checksErrorModel)
                         .map(trxOld -> Pair.of(trxOld, trxId2ActualBatchMonth.getRight()))
                 )
                 .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L, 0L), (acc, trxOld2ActualRewardBatch) -> {
@@ -323,6 +329,12 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 });
     }
 
+    private static ReasonDTO generateReasonDto(TransactionsRequest request) {
+        LocalDateTime now = LocalDateTime.now();
+        ReasonDTO reason = new ReasonDTO(now, request.getReason());
+        return reason;
+    }
+
     void validChecksError(ChecksErrorDTO dto) {
         if (dto == null) return;
 
@@ -357,8 +369,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         validChecksError(request.getChecksError());
 
         ChecksError checksErrorModel = checksErrorMapper.toModel(request.getChecksError());
+        ReasonDTO reason = generateReasonDto(request);
 
-        return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.EVALUATING)
+
+           return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.EVALUATING)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(NOT_FOUND,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
                         ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))

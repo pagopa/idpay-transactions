@@ -141,10 +141,7 @@ class PointOfSaleTransactionServiceImplTest {
                 .verifyComplete();
 
         TransactionsRequest capturedReq = reqCaptor.getValue();
-        assertNotNull(capturedReq.getReasons());
-        assertEquals(2, capturedReq.getReasons().size());
-        assertEquals("REASON1", capturedReq.getReasons().getFirst().getReason());
-        assertNotNull(capturedReq.getReasons().getFirst().getDate());
+        assertNotNull(capturedReq.getReason());
     }
     @Test
     void getPointOfSaleTransactions_withFiscalCode_resolvesUserAndReturnsPage() {

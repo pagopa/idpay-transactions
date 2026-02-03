@@ -61,7 +61,7 @@ class RewardTransactionSpecificRepositoryTest {
         trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
         rewardTransactionRepository.save(trx).block();
 
-        List<ReasonDTO> reasons = List.of(new ReasonDTO(LocalDateTime.now(), "REJECTION_REASON"));
+        ReasonDTO reasons = new ReasonDTO(LocalDateTime.now(), "REJECTION_REASON");
 
         StepVerifier.create(rewardTransactionSpecificRepository.updateStatusAndReturnOld(
                         BATCH_ID, trxId, RewardBatchTrxStatus.REJECTED, reasons, batchMonth, null))
