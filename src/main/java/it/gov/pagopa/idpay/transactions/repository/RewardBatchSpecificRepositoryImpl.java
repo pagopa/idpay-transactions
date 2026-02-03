@@ -2,13 +2,10 @@ package it.gov.pagopa.idpay.transactions.repository;
 
 import com.nimbusds.oauth2.sdk.util.StringUtils;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
-import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
-import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -199,35 +196,6 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     } catch (IllegalArgumentException e) {
       return null;
     }
-  }
-
-  @Override
-  public Mono<Long> updateTransactionsStatus(String rewardBatchId, List<String> transactionIds, RewardBatchTrxStatus newStatus, List<ReasonDTO> reasons) {
-
-    List<String> ids = transactionIds != null ? transactionIds : List.of();
-
-    return Flux.fromIterable(ids)
-            .flatMap(id -> {
-              Query q = new Query(
-                      Criteria.where("rewardBatchId").is(rewardBatchId)
-                              .and("id").is(id)
-              );
-
-              Update update = new Update()
-                      .set("rewardBatchTrxStatus", newStatus)
-                      .set("rewardBatchRejectionReason", reasons);
-
-              return mongoTemplate.findAndModify(q, update, RewardTransaction.class)
-                      .map(rt -> 1L)
-                      .defaultIfEmpty(0L);
-            })
-            .reduce(0L, Long::sum)
-            .map(updatedCount -> {
-              if (!ids.isEmpty() && !updatedCount.equals((long) ids.size())) {
-                throw new IllegalStateException("Not all transactions were updated");
-              }
-              return updatedCount;
-            });
   }
 
   @Override
