@@ -331,8 +331,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     private static ReasonDTO generateReasonDto(TransactionsRequest request) {
         LocalDateTime now = LocalDateTime.now();
-        ReasonDTO reason = new ReasonDTO(now, request.getReason());
-        return reason;
+        return new ReasonDTO(now, request.getReason());
     }
 
     void validChecksError(ChecksErrorDTO dto) {
@@ -379,7 +378,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds())
                         .map(trxId -> Pair.of(trxId, batch.getMonth())))
                 .flatMap(trxId2ActualBatchMont -> rewardTransactionRepository
-                        .updateStatusAndReturnOld(rewardBatchId, trxId2ActualBatchMont.getLeft(), RewardBatchTrxStatus.REJECTED, request.getReasons(), trxId2ActualBatchMont.getRight(), checksErrorModel)
+                        .updateStatusAndReturnOld(rewardBatchId, trxId2ActualBatchMont.getLeft(), RewardBatchTrxStatus.REJECTED, reason, trxId2ActualBatchMont.getRight(), checksErrorModel)
                         .map(trxOld -> {
                             if (trxOld != null) {
                                 log.info(
