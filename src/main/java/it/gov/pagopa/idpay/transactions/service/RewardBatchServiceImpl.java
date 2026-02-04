@@ -33,16 +33,15 @@ import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
-import java.time.LocalDate;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -54,6 +53,7 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.NumberFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -69,7 +69,6 @@ import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.Exceptio
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.*;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT;
 
 @Service
 @Slf4j
@@ -332,8 +331,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     private static ReasonDTO generateReasonDto(TransactionsRequest request) {
         LocalDateTime now = LocalDateTime.now();
-        ReasonDTO reason = new ReasonDTO(now, request.getReason());
-        return reason;
+        return new ReasonDTO(now, request.getReason());
     }
 
     void validChecksError(ChecksErrorDTO dto) {
@@ -381,7 +379,17 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         .map(trxId -> Pair.of(trxId, batch.getMonth())))
                 .flatMap(trxId2ActualBatchMont -> rewardTransactionRepository
                         .updateStatusAndReturnOld(rewardBatchId, trxId2ActualBatchMont.getLeft(), RewardBatchTrxStatus.REJECTED, reason, trxId2ActualBatchMont.getRight(), checksErrorModel)
-                        .map(trxOld -> Pair.of(trxOld, trxId2ActualBatchMont.getRight()))
+                        .map(trxOld -> {
+                            if (trxOld != null) {
+                                log.info(
+                                        "[REJECT_TRANSACTION] Transaction {} rejected. batchId: {}, initiativeId: {}",
+                                        trxOld.getId(),
+                                        Utilities.sanitizeString(rewardBatchId),
+                                        Utilities.sanitizeString(initiativeId)
+                                );
+                            }
+                            return Pair.of(trxOld, trxId2ActualBatchMont.getRight());
+                        })
                 )
                 .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L, 0L),
                         (acc, trxOld2ActualRewardBatchMonth) -> {
