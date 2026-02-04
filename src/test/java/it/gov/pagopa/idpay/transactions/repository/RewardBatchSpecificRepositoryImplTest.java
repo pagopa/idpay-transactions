@@ -1,19 +1,11 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
+import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
-import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
-
-import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,10 +13,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -33,6 +31,10 @@ import static org.junit.jupiter.api.Assertions.*;
 class RewardBatchSpecificRepositoryImplTest {
 
     public static final String MERCHANT = "merchantA";
+    public static final Long ZERO_LONG = 0L;
+    public static final Long ONEHUNDRED_LONG = 100L;
+    public static final Long ONE_LONG = 1L;
+
   public static final PosType POS_TYPE = PosType.PHYSICAL;
     @Autowired
     protected RewardBatchRepository rewardBatchRepository;
@@ -61,12 +63,12 @@ class RewardBatchSpecificRepositoryImplTest {
         .name("novembre 2025")
         .startDate(LocalDateTime.of(2025, 11, 1, 0, 0))
         .endDate(LocalDateTime.of(2025, 11, 30, 23, 59))
-        .initialAmountCents(0L)
-        .approvedAmountCents(0L)
-        .numberOfTransactions(0L)
-        .numberOfTransactionsElaborated(0L)
-        .numberOfTransactionsRejected(0L)
-        .numberOfTransactionsSuspended(0L)
+        .initialAmountCents(ZERO_LONG)
+        .approvedAmountCents(ZERO_LONG)
+        .numberOfTransactions(ZERO_LONG)
+        .numberOfTransactionsElaborated(ZERO_LONG)
+        .numberOfTransactionsRejected(ZERO_LONG)
+        .numberOfTransactionsSuspended(ZERO_LONG)
         .reportPath(null)
         .build();
 
@@ -82,11 +84,11 @@ class RewardBatchSpecificRepositoryImplTest {
         .name("novembre 2025")
         .startDate(LocalDateTime.of(2025, 11, 1, 0, 0))
         .endDate(LocalDateTime.of(2025, 11, 30, 23, 59))
-        .initialAmountCents(0L)
-        .numberOfTransactions(0L)
-        .numberOfTransactionsElaborated(0L)
-        .numberOfTransactionsRejected(0L)
-        .numberOfTransactionsSuspended(0L)
+        .initialAmountCents(ZERO_LONG)
+        .numberOfTransactions(ZERO_LONG)
+        .numberOfTransactionsElaborated(ZERO_LONG)
+        .numberOfTransactionsRejected(ZERO_LONG)
+        .numberOfTransactionsSuspended(ZERO_LONG)
         .reportPath(null)
         .build();
 
@@ -494,118 +496,16 @@ class RewardBatchSpecificRepositoryImplTest {
   }
 
   @Test
-  void testUpdateTransactionsStatus_success() {
-    rewardBatchRepository.save(batch1).block();
-
-    RewardTransaction t1 = RewardTransaction.builder()
-            .id("t1")
-            .rewardBatchId(batch1.getId())
-            .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
-            .build();
-
-    RewardTransaction t2 = RewardTransaction.builder()
-            .id("t2")
-            .rewardBatchId(batch1.getId())
-            .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
-            .build();
-
-    mongoTemplate.insertAll(List.of(t1, t2)).collectList().block();
-
-    List<String> ids = List.of("t1", "t2");
-
-    Long updated = rewardBatchSpecificRepository
-            .updateTransactionsStatus(batch1.getId(), ids,
-                    RewardBatchTrxStatus.SUSPENDED, "reason-test")
-            .block();
-
-    assertEquals(2L, updated);
-
-    RewardTransaction r1 = mongoTemplate.findById("t1", RewardTransaction.class).block();
-    RewardTransaction r2 = mongoTemplate.findById("t2", RewardTransaction.class).block();
-
-    assertEquals(RewardBatchTrxStatus.SUSPENDED, r1.getRewardBatchTrxStatus());
-    assertEquals("reason-test", r1.getRewardBatchRejectionReason());
-
-    assertEquals(RewardBatchTrxStatus.SUSPENDED, r2.getRewardBatchTrxStatus());
-    assertEquals("reason-test", r2.getRewardBatchRejectionReason());
-  }
-
-  @Test
-  void testUpdateTransactionsStatus_partialFail() {
-    RewardTransaction t1 = RewardTransaction.builder()
-            .id("t1-partial")
-            .rewardBatchId(batch1.getId())
-            .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
-            .build();
-
-    mongoTemplate.insert(t1).block();
-
-    List<String> ids = List.of("t1-partial", "t2-partial");
-
-    Mono<Long> result = rewardBatchSpecificRepository.updateTransactionsStatus(
-            batch1.getId(), ids,
-            RewardBatchTrxStatus.SUSPENDED,
-            "reason-test"
-    );
-
-    StepVerifier.create(result)
-            .expectErrorMatches(err ->
-                    err instanceof IllegalStateException &&
-                            err.getMessage().contains("Not all transactions were updated"))
-            .verify();
-  }
-
-  @Test
-  void testUpdateTransactionsStatus_nullTransactionIds_returnsZero() {
-    Mono<Long> result = rewardBatchSpecificRepository.updateTransactionsStatus(
-            batch1.getId(),
-            null,
-            RewardBatchTrxStatus.SUSPENDED,
-            "reason-test"
-    );
-
-    StepVerifier.create(result)
-            .expectNext(0L)
-            .verifyComplete();
-  }
-
-  @Test
-  void testUpdateTransactionsStatus_partialUpdate_throwsException() {
-    RewardTransaction existingTransaction = RewardTransaction.builder()
-            .id("existing-trx")
-            .rewardBatchId(batch1.getId())
-            .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
-            .build();
-
-    mongoTemplate.insert(existingTransaction).block();
-
-    List<String> transactionIds = List.of("existing-trx", "missing-trx");
-
-    Mono<Long> result = rewardBatchSpecificRepository.updateTransactionsStatus(
-            batch1.getId(),
-            transactionIds,
-            RewardBatchTrxStatus.SUSPENDED,
-            "reason-test"
-    );
-
-    StepVerifier.create(result)
-            .expectErrorMatches(err ->
-                    err instanceof IllegalStateException &&
-                            err.getMessage().contains("Not all transactions were updated"))
-            .verify();
-  }
-
-  @Test
   void testUpdateTotals() {
     long modifiedCount = 2L;
 
     RewardBatch updated = rewardBatchSpecificRepository
             .updateTotals(
                     batch1.getId(),
-                    0L,
-                    0L,
-                    0L,
-                    0L,
+                    ZERO_LONG,
+                    ZERO_LONG,
+                    ZERO_LONG,
+                    ZERO_LONG,
                     modifiedCount
             )
             .block();
@@ -623,10 +523,10 @@ class RewardBatchSpecificRepositoryImplTest {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             batch1.getId(),
             3L,
-            0L,
-            0L,
-            0L,
-            0L
+            ZERO_LONG,
+            ZERO_LONG,
+            ZERO_LONG,
+            ZERO_LONG
     ).block();
 
     assertNotNull(updated);
@@ -642,10 +542,10 @@ class RewardBatchSpecificRepositoryImplTest {
   void updateTotals_shouldUpdateSuspendedTrxNumber() {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             batch1.getId(),
-            0L,
-            0L,
-            0L,
-            0L,
+            ZERO_LONG,
+            ZERO_LONG,
+            ZERO_LONG,
+            ZERO_LONG,
             2L
     ).block();
 
@@ -662,11 +562,11 @@ class RewardBatchSpecificRepositoryImplTest {
   void updateTotals_shouldUpdateRejectedTrxNumber() {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             batch1.getId(),
-            0L,
-            0L,
-            0L,
+            ZERO_LONG,
+            ZERO_LONG,
+            ZERO_LONG,
             4L,
-            0L
+            ZERO_LONG
     ).block();
 
     assertNotNull(updated);
@@ -683,11 +583,11 @@ class RewardBatchSpecificRepositoryImplTest {
   void updateTotals_shouldUpdateApprovedAmount() {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             batch1.getId(),
-            0L,
+            ZERO_LONG,
             500L,
-            0L,
-            0L,
-            0L
+            ZERO_LONG,
+            ZERO_LONG,
+            ZERO_LONG
     ).block();
 
     assertNotNull(updated);
@@ -724,7 +624,7 @@ class RewardBatchSpecificRepositoryImplTest {
                     .count()
                 )
         )
-        .expectNext(1L)
+        .expectNext(ONE_LONG)
         .verifyComplete();
   }
 
@@ -827,8 +727,8 @@ class RewardBatchSpecificRepositoryImplTest {
     RewardBatch rewardBatch = RewardBatch.builder()
             .id("UPDATE_ID_1".trim())
             .status(RewardBatchStatus.SENT)
-            .initialAmountCents(100L)
-            .approvedAmountCents(0L)
+            .initialAmountCents(ONEHUNDRED_LONG)
+            .approvedAmountCents(ZERO_LONG)
             .build();
 
 
@@ -910,7 +810,7 @@ class RewardBatchSpecificRepositoryImplTest {
                 .id("rb-update-1")
                 .merchantId(MERCHANT)
                 .status(RewardBatchStatus.SENT)
-                .approvedAmountCents(0L)
+                .approvedAmountCents(ZERO_LONG)
                 .build();
 
         rewardBatchRepository.save(created).block();
@@ -925,19 +825,6 @@ class RewardBatchSpecificRepositoryImplTest {
         assertNotNull(updated.getUpdateDate());
     }
 
-    @Test
-    void updateTransactionsStatus_withEmptyList_shouldReturnZeroAndNotFail() {
-        Mono<Long> result = rewardBatchSpecificRepository.updateTransactionsStatus(
-                batch1.getId(),
-                List.of(),
-                RewardBatchTrxStatus.SUSPENDED,
-                "reason-test"
-        );
-
-        StepVerifier.create(result)
-                .expectNext(0L)
-                .verifyComplete();
-    }
 
     @Test
     void updateTotals_shouldUpdateMultipleFieldsInOneCall() {
@@ -949,7 +836,7 @@ class RewardBatchSpecificRepositoryImplTest {
                 batch1.getId(),
                 5L,
                 700L,
-                0L,
+                ZERO_LONG,
                 2L,
                 3L
         ).block();
@@ -976,7 +863,7 @@ class RewardBatchSpecificRepositoryImplTest {
                 .id("old-empty-1")
                 .merchantId(MERCHANT)
                 .month("2000-01")
-                .numberOfTransactions(0L)
+                .numberOfTransactions(ZERO_LONG)
                 .status(RewardBatchStatus.SENT)
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .build();
@@ -985,7 +872,7 @@ class RewardBatchSpecificRepositoryImplTest {
                 .id("old-empty-2")
                 .merchantId(MERCHANT)
                 .month("2000-02")
-                .numberOfTransactions(0L)
+                .numberOfTransactions(ZERO_LONG)
                 .status(RewardBatchStatus.SENT)
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .build();
@@ -994,7 +881,7 @@ class RewardBatchSpecificRepositoryImplTest {
                 .id("old-not-empty")
                 .merchantId(MERCHANT)
                 .month("2000-03")
-                .numberOfTransactions(1L)
+                .numberOfTransactions(ONE_LONG)
                 .status(RewardBatchStatus.SENT)
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .build();
@@ -1003,7 +890,7 @@ class RewardBatchSpecificRepositoryImplTest {
                 .id("current-empty")
                 .merchantId(MERCHANT)
                 .month(currentMonth)
-                .numberOfTransactions(0L)
+                .numberOfTransactions(ZERO_LONG)
                 .status(RewardBatchStatus.SENT)
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .build();
@@ -1022,7 +909,118 @@ class RewardBatchSpecificRepositoryImplTest {
         assertEquals("old-empty-2", result.get(1).getId());
     }
 
+    @Test
+    void moveSuspendToNewBatch_ok_shouldMoveCountersAndAmounts() {
+        long accrued = 150L;
 
+        RewardBatch oldBatch = rewardBatchRepository.findById("batch1").block();
+        RewardBatch newBatch = rewardBatchRepository.findById("batch2").block();
+        assertNotNull(oldBatch);
+        assertNotNull(newBatch);
+
+        oldBatch.setInitialAmountCents(accrued);
+        oldBatch.setSuspendedAmountCents(accrued);
+        oldBatch.setNumberOfTransactions(ONE_LONG);
+        oldBatch.setNumberOfTransactionsSuspended(ONE_LONG);
+        oldBatch.setNumberOfTransactionsElaborated(ONE_LONG);
+
+        newBatch.setInitialAmountCents(ZERO_LONG);
+        newBatch.setSuspendedAmountCents(ZERO_LONG);
+        newBatch.setNumberOfTransactions(ZERO_LONG);
+        newBatch.setNumberOfTransactionsSuspended(ZERO_LONG);
+        newBatch.setNumberOfTransactionsElaborated(ZERO_LONG);
+
+        rewardBatchRepository.saveAll(List.of(oldBatch, newBatch)).collectList().block();
+
+        LocalDateTime oldUpdateBefore = oldBatch.getUpdateDate();
+        LocalDateTime newUpdateBefore = newBatch.getUpdateDate();
+
+        Mono<RewardBatch> result = rewardBatchSpecificRepository
+                .moveSuspendToNewBatch("batch1", "batch2", accrued);
+
+        StepVerifier.create(result)
+                .assertNext(updatedNew -> {
+                    assertEquals("batch2", updatedNew.getId());
+
+                    assertEquals(accrued, updatedNew.getInitialAmountCents());
+                    assertEquals(accrued, updatedNew.getSuspendedAmountCents());
+                    assertEquals(ONE_LONG, updatedNew.getNumberOfTransactions());
+                    assertEquals(ONE_LONG, updatedNew.getNumberOfTransactionsSuspended());
+                    assertEquals(ONE_LONG, updatedNew.getNumberOfTransactionsElaborated());
+
+                    assertNotNull(updatedNew.getUpdateDate());
+                    if (newUpdateBefore != null) {
+                        assertNotEquals(newUpdateBefore, updatedNew.getUpdateDate());
+                    }
+                })
+                .verifyComplete();
+
+        RewardBatch oldAfter = rewardBatchRepository.findById("batch1").block();
+        RewardBatch newAfter = rewardBatchRepository.findById("batch2").block();
+        assertNotNull(oldAfter);
+        assertNotNull(newAfter);
+
+        assertEquals(0, oldAfter.getInitialAmountCents());
+        assertEquals(0, oldAfter.getSuspendedAmountCents());
+        assertEquals(ZERO_LONG, oldAfter.getNumberOfTransactions());
+        assertEquals(ZERO_LONG, oldAfter.getNumberOfTransactionsSuspended());
+        assertEquals(ZERO_LONG, oldAfter.getNumberOfTransactionsElaborated());
+
+        assertNotNull(oldAfter.getUpdateDate());
+        if (oldUpdateBefore != null) {
+            assertNotEquals(oldUpdateBefore, oldAfter.getUpdateDate());
+        }
+    }
+
+    @Test
+    void moveSuspendToNewBatch_oldBatchNotFound_returnsBadRequest() {
+        Mono<RewardBatch> result = rewardBatchSpecificRepository
+                .moveSuspendToNewBatch("NOT_EXISTING", "batch2", 150L);
+
+        StepVerifier.create(result)
+                .expectErrorSatisfies(ex -> {
+                    assertInstanceOf(ClientExceptionNoBody.class, ex);
+                    assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST,
+                            ((ClientExceptionNoBody) ex).getHttpStatus());
+                })
+                .verify();
+    }
+
+
+    @Test
+    void moveSuspendToNewBatch_newBatchNotFound_returnsBadRequest_andOldWasDecremented() {
+        long accrued = 150L;
+
+        RewardBatch oldBatch = rewardBatchRepository.findById("batch1").block();
+        assertNotNull(oldBatch);
+
+        oldBatch.setInitialAmountCents(accrued);
+        oldBatch.setSuspendedAmountCents(accrued);
+        oldBatch.setNumberOfTransactions(ONE_LONG);
+        oldBatch.setNumberOfTransactionsSuspended(ONE_LONG);
+        oldBatch.setNumberOfTransactionsElaborated(ONE_LONG);
+        rewardBatchRepository.save(oldBatch).block();
+
+        Mono<RewardBatch> result = rewardBatchSpecificRepository
+                .moveSuspendToNewBatch("batch1", "NOT_EXISTING", accrued);
+
+        StepVerifier.create(result)
+                .expectErrorSatisfies(ex -> {
+                    assertInstanceOf(ClientExceptionNoBody.class, ex);
+                    assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST,
+                            ((ClientExceptionNoBody) ex).getHttpStatus());
+                })
+                .verify();
+
+        RewardBatch oldAfter = rewardBatchRepository.findById("batch1").block();
+        assertNotNull(oldAfter);
+
+        assertEquals(ZERO_LONG, oldAfter.getInitialAmountCents());
+        assertEquals(ZERO_LONG, oldAfter.getSuspendedAmountCents());
+        assertEquals(ZERO_LONG, oldAfter.getNumberOfTransactions());
+        assertEquals(ZERO_LONG, oldAfter.getNumberOfTransactionsSuspended());
+        assertEquals(ZERO_LONG, oldAfter.getNumberOfTransactionsElaborated());
+    }
 
 }
 

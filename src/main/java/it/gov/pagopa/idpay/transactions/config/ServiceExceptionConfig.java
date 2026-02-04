@@ -26,6 +26,7 @@ public class ServiceExceptionConfig {
         exceptionMap.put(BatchNotElaborated15PercentException.class, HttpStatus.BAD_REQUEST);
         exceptionMap.put(InvalidBatchStateForPromotionException.class, HttpStatus.BAD_REQUEST);
         exceptionMap.put(RewardBatchInvalidRequestException.class, HttpStatus.BAD_REQUEST);
+        exceptionMap.put(InvalidChecksErrorException.class, HttpStatus.BAD_REQUEST);
 
         return exceptionMap;
     }

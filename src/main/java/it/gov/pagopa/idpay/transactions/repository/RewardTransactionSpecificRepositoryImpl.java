@@ -5,9 +5,11 @@ import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_
 
 import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
+import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
 import it.gov.pagopa.idpay.transactions.service.RewardBatchServiceImpl;
@@ -132,6 +134,11 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
       criteria.and(Fields.rewardBatchId).is(filters.getRewardBatchId());
     }
 
+    if (filters.getTrxCode() != null) {
+      criteria.and(Fields.trxCode)
+              .regex(".*" + Pattern.quote(filters.getTrxCode()) + ".*", "i");
+    }
+
     if (filters.getRewardBatchTrxStatus() != null) {
       if (includeToCheckWithConsultable
           && filters.getRewardBatchTrxStatus() == RewardBatchTrxStatus.CONSULTABLE) {
@@ -214,7 +221,20 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     return mongoTemplate.findOne(Query.query(criteria), RewardTransaction.class);
   }
 
-  private Pageable mapSort(Pageable pageable) {
+    @Override
+    public Mono<RewardTransaction> findTransactionForUpdateInvoice(
+            String merchantId, String pointOfSaleId, String transactionId) {
+
+        Criteria criteria = Criteria
+                .where(Fields.merchantId).is(merchantId)
+                .and(Fields.pointOfSaleId).is(pointOfSaleId)
+                .and(Fields.id).is(transactionId);
+
+        return mongoTemplate.findOne(Query.query(criteria), RewardTransaction.class);
+    }
+
+
+    private Pageable mapSort(Pageable pageable) {
     Pageable basePageable = getPageableTrx(pageable);
 
     Sort mappedSort = Sort.by(
@@ -394,37 +414,65 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         .defaultIfEmpty(0L);
   }
 
-
   @Override
-  public Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId,
-      RewardBatchTrxStatus status, String reason, String batchMonth) {
-    Criteria criteria = Criteria.where(Fields.id).is(trxId)
-        .and(Fields.rewardBatchId).is(batchId);
+  public Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus newStatus,
+                                                          ReasonDTO reasons, String batchMonth, ChecksError checksError) {
 
-    Update update = new Update()
-        .set(Fields.rewardBatchTrxStatus, status)
-        .set(Fields.rewardBatchLastMonthElaborated, batchMonth);
+    Criteria base = Criteria.where(Fields.id).is(trxId)
+            .and(Fields.rewardBatchId).is(batchId);
 
-    if (reason != null) {
-      update.set(RewardTransaction.Fields.rewardBatchRejectionReason, reason);
-    } else {
-      update.unset(RewardTransaction.Fields.rewardBatchRejectionReason);
-    }
+    Query findQuery = Query.query(base);
+    findQuery.fields().include(Fields.rewardBatchTrxStatus);
+    return Mono.defer(() ->
 
-    return mongoTemplate.findAndModify(
-        Query.query(criteria),
-        update,
-        FindAndModifyOptions.options()
-            .returnNew(false)
-            .upsert(false),
-        RewardTransaction.class
-    ).flatMap(trx -> {
-      if (trx == null) {
-        log.info("Transaction not found for id {} and reward batch {}", trxId, batchId);
-        return Mono.empty();
-      }
-      return Mono.just(trx);
-    });
+                    mongoTemplate.findOne(
+                                    findQuery,
+                                    RewardTransaction.class
+                            )
+                            .flatMap(current -> {
+                              if (current == null) {
+                                log.info("Transaction not found for id {} and reward batch {}", trxId, batchId);
+                                return Mono.empty();
+                              }
+
+                              RewardBatchTrxStatus currentStatus = current.getRewardBatchTrxStatus();
+
+                              Update update = new Update()
+                                      .set(Fields.rewardBatchTrxStatus, newStatus)
+                                      .set(Fields.rewardBatchLastMonthElaborated, batchMonth);
+
+                              if (checksError != null) {
+                                update.set(RewardTransaction.Fields.checksError, checksError);
+                              } else {
+                                update.unset(RewardTransaction.Fields.checksError);
+                              }
+
+
+                              if (reasons == null) {
+                                update.unset(RewardTransaction.Fields.rewardBatchRejectionReason);
+                              } else {
+                                if (currentStatus != null && currentStatus.equals(newStatus)) {
+                                  update.push(RewardTransaction.Fields.rewardBatchRejectionReason).value(reasons);
+                                } else {
+                                  update.set(RewardTransaction.Fields.rewardBatchRejectionReason, List.of(reasons));
+                                }
+                              }
+
+
+                              Criteria cond = Criteria.where(Fields.id).is(trxId)
+                                      .and(Fields.rewardBatchId).is(batchId)
+                                      .and(Fields.rewardBatchTrxStatus).is(currentStatus);
+
+                              return mongoTemplate.findAndModify(
+                                      Query.query(cond),
+                                      update,
+                                      FindAndModifyOptions.options()
+                                              .returnNew(false)
+                                              .upsert(false),
+                                      RewardTransaction.class
+                              );
+                            })
+            );
   }
 
   @Override
