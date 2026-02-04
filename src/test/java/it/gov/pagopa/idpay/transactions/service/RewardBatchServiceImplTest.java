@@ -1563,13 +1563,25 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(current));
 
         doReturn(Mono.just(next)).when(serviceSpy).findOrCreateBatch(MERCHANT_ID, PHYSICAL, "2026-02", BUSINESS_NAME);
-        doReturn(Mono.just(current)).when(serviceSpy).decrementTotalAmountCents(BATCH_ID, 100L);
-        doReturn(Mono.just(next)).when(serviceSpy).incrementTotalAmountCents(BATCH_ID_2, 100L);
 
         when(rewardTransactionRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(rewardBatchRepository.moveTrxToNewBatch(
+                eq(BATCH_ID),
+                eq(BATCH_ID_2),
+                eq(100L),
+                anyBoolean()
+        )).thenReturn(Mono.empty());
+
 
         StepVerifier.create(serviceSpy.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", LocalDate.of(2026, 1, 6)))
                 .verifyComplete();
+        verify(rewardBatchRepository).moveTrxToNewBatch(
+                BATCH_ID,
+                BATCH_ID_2,
+                100L,
+                false
+        );
+
 
         assertEquals(BATCH_ID_2, trx.getRewardBatchId());
         assertNotNull(trx.getRewardBatchInclusionDate());
