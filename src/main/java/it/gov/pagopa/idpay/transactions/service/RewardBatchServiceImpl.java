@@ -178,13 +178,13 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   }
 
   @Override
-  public Mono<RewardBatch> incrementTotals(String batchId, long accruedAmountCents) {
-    return rewardBatchRepository.incrementTotals(batchId, accruedAmountCents);
+  public Mono<RewardBatch> incrementTotalAmountCents(String batchId, long accruedAmountCents) {
+    return rewardBatchRepository.incrementTotalAmountCents(batchId, accruedAmountCents);
   }
 
   @Override
-  public Mono<RewardBatch> decrementTotals(String batchId, long accruedAmountCents) {
-    return rewardBatchRepository.decrementTotals(batchId, accruedAmountCents);
+  public Mono<RewardBatch> decrementTotalAmountCents(String batchId, long accruedAmountCents) {
+    return rewardBatchRepository.decrementTotalAmountCents(batchId, accruedAmountCents);
   }
 
     @Override
@@ -1153,8 +1153,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                           ));
                         }
 
-                        return decrementTotals(currentBatch.getId(), accruedRewardCents)
-                            .then(incrementTotals(nextBatch.getId(), accruedRewardCents))
+
+                        boolean isTrxSuspended = RewardBatchTrxStatus.SUSPENDED.equals(trx.getRewardBatchTrxStatus());
+
+                        return rewardBatchRepository.moveTrxToNewBatch(currentBatch.getId(), nextBatch.getId(), accruedRewardCents, isTrxSuspended)
                             .then(Mono.defer(() -> {
 
                               trx.setRewardBatchId(nextBatch.getId());

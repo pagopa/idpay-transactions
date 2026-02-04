@@ -6,7 +6,6 @@ import com.mongodb.client.result.DeleteResult;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.dto.ChecksErrorDTO;
-import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
@@ -212,12 +211,12 @@ class RewardBatchServiceImplTest {
     void incrementDecrementMoveSuspend_callsRepository() {
         RewardBatch rb = RewardBatch.builder().id(BATCH_ID).initialAmountCents(100L).build();
 
-        when(rewardBatchRepository.incrementTotals(BATCH_ID, 50L)).thenReturn(Mono.just(rb));
-        when(rewardBatchRepository.decrementTotals(BATCH_ID, 10L)).thenReturn(Mono.just(rb));
+        when(rewardBatchRepository.incrementTotalAmountCents(BATCH_ID, 50L)).thenReturn(Mono.just(rb));
+        when(rewardBatchRepository.decrementTotalAmountCents(BATCH_ID, 10L)).thenReturn(Mono.just(rb));
         when(rewardBatchRepository.moveSuspendToNewBatch("OLD", "NEW", 99L)).thenReturn(Mono.just(rb));
 
-        StepVerifier.create(service.incrementTotals(BATCH_ID, 50L)).expectNext(rb).verifyComplete();
-        StepVerifier.create(service.decrementTotals(BATCH_ID, 10L)).expectNext(rb).verifyComplete();
+        StepVerifier.create(service.incrementTotalAmountCents(BATCH_ID, 50L)).expectNext(rb).verifyComplete();
+        StepVerifier.create(service.decrementTotalAmountCents(BATCH_ID, 10L)).expectNext(rb).verifyComplete();
         StepVerifier.create(service.moveSuspendToNewBatch("OLD", "NEW", 99L)).expectNext(rb).verifyComplete();
     }
 
@@ -1527,8 +1526,8 @@ class RewardBatchServiceImplTest {
                 .expectError(ClientExceptionNoBody.class)
                 .verify();
 
-        verify(serviceSpy, never()).decrementTotals(anyString(), anyLong());
-        verify(serviceSpy, never()).incrementTotals(anyString(), anyLong());
+        verify(serviceSpy, never()).decrementTotalAmountCents(anyString(), anyLong());
+        verify(serviceSpy, never()).incrementTotalAmountCents(anyString(), anyLong());
         verify(rewardTransactionRepository, never()).save(any());
     }
 
@@ -1564,8 +1563,8 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(current));
 
         doReturn(Mono.just(next)).when(serviceSpy).findOrCreateBatch(MERCHANT_ID, PHYSICAL, "2026-02", BUSINESS_NAME);
-        doReturn(Mono.just(current)).when(serviceSpy).decrementTotals(BATCH_ID, 100L);
-        doReturn(Mono.just(next)).when(serviceSpy).incrementTotals(BATCH_ID_2, 100L);
+        doReturn(Mono.just(current)).when(serviceSpy).decrementTotalAmountCents(BATCH_ID, 100L);
+        doReturn(Mono.just(next)).when(serviceSpy).incrementTotalAmountCents(BATCH_ID_2, 100L);
 
         when(rewardTransactionRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 

@@ -38,7 +38,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 import static it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus.*;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
@@ -319,8 +318,8 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                            long accruedRewardCents) {
 
         if (CREATED.equals(oldBatch.getStatus())) {
-            return rewardBatchService.decrementTotals(oldBatchId, accruedRewardCents)
-                    .then(rewardBatchService.incrementTotals(newBatchId, accruedRewardCents))
+            return rewardBatchService.decrementTotalAmountCents(oldBatchId, accruedRewardCents)
+                    .then(rewardBatchService.incrementTotalAmountCents(newBatchId, accruedRewardCents))
                     .then();
         }
 
@@ -410,7 +409,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
                                             Mono<Void> decrementRewardBatchMono =
                                                     oldRewardBatchId != null
-                                                            ? rewardBatchRepository.decrementTotals(oldRewardBatchId, accruedRewardCents).then()
+                                                            ? rewardBatchRepository.decrementTotalAmountCents(oldRewardBatchId, accruedRewardCents).then()
                                                             : Mono.empty();
 
 

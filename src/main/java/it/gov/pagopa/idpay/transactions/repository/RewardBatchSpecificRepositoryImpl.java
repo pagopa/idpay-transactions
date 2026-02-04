@@ -53,7 +53,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Mono<RewardBatch> incrementTotals(String batchId, long accruedAmountCents) {
+  public Mono<RewardBatch> incrementTotalAmountCents(String batchId, long accruedAmountCents) {
     return mongoTemplate.findAndModify(
         Query.query(Criteria.where("_id").is(batchId)),
         new Update()
@@ -66,7 +66,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Mono<RewardBatch> decrementTotals(String batchId, long accruedAmountCents) {
+  public Mono<RewardBatch> decrementTotalAmountCents(String batchId, long accruedAmountCents) {
     return mongoTemplate.findAndModify(
         Query.query(Criteria.where("_id").is(batchId)),
         new Update()
@@ -78,7 +78,47 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     );
   }
 
-    @Override
+  public Mono<RewardBatch> moveTrxToNewBatch(String oldBatchId, String newBatchId, long accruedAmountCents, boolean isSuspended){
+
+    Update decOld = new Update()
+            .set(RewardBatch.Fields.updateDate, LocalDateTime.now())
+            .inc(INITIAL_AMOUNT_CENTS, -accruedAmountCents)
+            .inc(NUMBER_OF_TRANSACTIONS, -1);
+    Update incNew = new Update()
+            .set(RewardBatch.Fields.updateDate, LocalDateTime.now())
+            .inc(INITIAL_AMOUNT_CENTS, accruedAmountCents)
+            .inc(NUMBER_OF_TRANSACTIONS, 1);
+
+    if(isSuspended){
+      decOld
+              .inc(SUSPENDED_AMOUNT_CENTS, -accruedAmountCents)
+              .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, -1);
+
+      incNew
+              .inc(SUSPENDED_AMOUNT_CENTS, accruedAmountCents)
+              .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, 1);
+    }
+
+
+    return mongoTemplate.findAndModify(
+                    Query.query(Criteria.where("_id").is(oldBatchId)),
+                    decOld,
+                    FindAndModifyOptions.options().returnNew(true),
+                    RewardBatch.class
+            )
+            .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)))
+            .then(mongoTemplate.findAndModify(
+                    Query.query(Criteria.where("_id").is(newBatchId)),
+                    incNew,
+                    FindAndModifyOptions.options().returnNew(true),
+                    RewardBatch.class
+            ))
+            .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)));
+  }
+
+
+
+  @Override
     public Mono<RewardBatch> moveSuspendToNewBatch(String oldBatchId, String newBatchId, long accruedAmountCents) {
 
         Update decOld = new Update()

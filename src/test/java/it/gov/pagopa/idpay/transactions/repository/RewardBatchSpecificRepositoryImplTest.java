@@ -334,11 +334,11 @@ class RewardBatchSpecificRepositoryImplTest {
   }
 
   @Test
-  void incrementTotals_shouldUpdateFieldsCorrectly() {
+  void incrementTotalAmountCents_shouldUpdateFieldsCorrectly() {
     long increment = 500L;
 
     RewardBatch updated = rewardBatchSpecificRepository
-        .incrementTotals(batch1.getId(), increment)
+        .incrementTotalAmountCents(batch1.getId(), increment)
         .block();
 
     assertNotNull(updated);
@@ -354,9 +354,9 @@ class RewardBatchSpecificRepositoryImplTest {
   }
 
   @Test
-  void decrementTotals_shouldUpdateFieldsCorrectly() {
+  void decrementTotalAmountCents_shouldUpdateFieldsCorrectly() {
     rewardBatchSpecificRepository
-        .incrementTotals(batch1.getId(), 1000L)
+        .incrementTotalAmountCents(batch1.getId(), 1000L)
         .block();
 
     RewardBatch batchBeforeDecrement = rewardBatchRepository.findById(batch1.getId()).block();
@@ -365,7 +365,7 @@ class RewardBatchSpecificRepositoryImplTest {
     long decrement = 500L;
 
     RewardBatch updated = rewardBatchSpecificRepository
-        .decrementTotals(batch1.getId(), decrement)
+        .decrementTotalAmountCents(batch1.getId(), decrement)
         .block();
 
     assertNotNull(updated);
@@ -828,7 +828,7 @@ class RewardBatchSpecificRepositoryImplTest {
 
     @Test
     void updateTotals_shouldUpdateMultipleFieldsInOneCall() {
-        rewardBatchSpecificRepository.incrementTotals(batch1.getId(), 1000L).block();
+        rewardBatchSpecificRepository.incrementTotalAmountCents(batch1.getId(), 1000L).block();
         RewardBatch before = rewardBatchRepository.findById(batch1.getId()).block();
         assertNotNull(before);
 
