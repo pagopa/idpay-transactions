@@ -518,16 +518,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                 acc.getTrxSuspended())
                 );
     }
-    @Scheduled (cron = "${app.transactions.reward-batch.to-evaluating.schedule}")
-    void evaluatingRewardBatchStatusScheduler(){
-        log.info("[EVALUATING_REWARD_BATCH][SCHEDULER] Start to evaluating all reward batches with status SENT");
-        evaluatingRewardBatches(null)
-                .onErrorResume(RewardBatchNotFound.class, x -> {
-                    log.error("[EVALUATING_REWARD_BATCH][SCHEDULER] " + ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT, x);
-                    return Mono.just(0L);
-                })
-                .subscribe(numberUpdateBatch -> log.info("[EVALUATING_REWARD_BATCH][SCHEDULER] Completed evaluation. Updated {} reward batches to status EVALUATING", numberUpdateBatch));
-    }
 
     @Override
     public Mono<Long> evaluatingRewardBatches(List<String> rewardBatchesRequest) {
