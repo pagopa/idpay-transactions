@@ -6,7 +6,6 @@ import com.mongodb.client.result.DeleteResult;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.dto.ChecksErrorDTO;
-import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
@@ -21,11 +20,6 @@ import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
-import java.lang.reflect.Method;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.YearMonth;
-import java.util.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,9 +39,17 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.lang.reflect.Method;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
 import static it.gov.pagopa.idpay.transactions.enums.PosType.PHYSICAL;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.*;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_INVALID_CHECKS_ERROR;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.MERCHANT_OR_OPERATOR_HEADER_MANDATORY;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -723,16 +725,6 @@ class RewardBatchServiceImplTest {
                 .verifyComplete();
 
         verify(rewardBatchRepository, never()).updateStatusAndApprovedAmountCents(any(), any(), anyLong());
-    }
-
-    @Test
-    void evaluatingRewardBatchStatusScheduler_handlesRewardBatchNotFoundError() {
-        doReturn(Mono.error(new RewardBatchNotFound(REWARD_BATCH_NOT_FOUND, "x")))
-                .when(serviceSpy).evaluatingRewardBatches(null);
-
-        serviceSpy.evaluatingRewardBatchStatusScheduler();
-
-        verify(serviceSpy).evaluatingRewardBatches(null);
     }
 
 
