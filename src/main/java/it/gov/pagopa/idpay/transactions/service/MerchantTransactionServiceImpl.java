@@ -5,6 +5,7 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import reactor.core.CoreSubscriber;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
@@ -96,6 +98,33 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
             );
         }
     }
+
+    @Override
+    public Mono<MerchantReportDTO> getMerchantTransactionsReport(String merchantId,
+                                                                     String organizationRole,
+                                                                     String initiativeId,
+                                                                     LocalDateTime startPeriod,
+                                                                     LocalDateTime endPeriod,
+                                                                     RewardBatchAssignee rewardBatchAssignee) {
+
+
+        //TrxFiltersDTO filters = new TrxFiltersDTO(
+        //        merchantId,
+        //        initiativeId,
+        //        startPeriod,
+        //        endPeriod,
+        //        rewardBatchAssignee
+        //);
+
+        //return getMerchantTransactionDTOs2Count(filters, organizationRole, pageable)
+        //        .map(tuple -> {
+        //            Page<MerchantTransactionDTO> page = new PageImpl<>(tuple.getT1(),
+        //                    finalPageable, tuple.getT2());
+        //            return new MerchantTransactionsListDTO(tuple.getT1(), page.getNumber(), page.getSize(),
+        //                    (int) page.getTotalElements(), page.getTotalPages());
+        //        });
+        return Mono.empty();
+        }
 
     private Mono<Tuple2<List<MerchantTransactionDTO>, Long>> getMerchantTransactionDTOs2Count(
             TrxFiltersDTO filters,
