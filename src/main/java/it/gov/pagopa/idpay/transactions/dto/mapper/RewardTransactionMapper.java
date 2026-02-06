@@ -29,7 +29,7 @@ public class RewardTransactionMapper {
             }
             rewardTrx.setIdTrxAcquirer(rewardTrxDto.getIdTrxAcquirer());
             rewardTrx.setAcquirerCode(rewardTrxDto.getAcquirerCode());
-            rewardTrx.setTrxDate(toLocalDateTime(rewardTrxDto.getTrxDate()));
+            rewardTrx.setTrxDate(rewardTrxDto.getTrxDate() != null ? toLocalDateTime(rewardTrxDto.getTrxDate()) : null);
             rewardTrx.setHpan(rewardTrxDto.getHpan());
             rewardTrx.setOperationType(rewardTrxDto.getOperationType());
             rewardTrx.setCircuitType(rewardTrxDto.getCircuitType());
