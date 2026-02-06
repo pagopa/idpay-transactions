@@ -100,7 +100,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
     }
 
     @Override
-    public Mono<MerchantReportDTO> getMerchantTransactionsReport(String merchantId,
+    public Mono<MerchantReportDTO> generateMerchantTransactionsReport(String merchantId,
                                                                      String organizationRole,
                                                                      String initiativeId,
                                                                      LocalDateTime startPeriod,

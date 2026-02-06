@@ -48,7 +48,7 @@ public class MerchantTransactionControllerImpl implements MerchantTransactionCon
 
 
     @Override
-    public Mono<MerchantReportDTO> getMerchantTransactionsReport(String merchantId,
+    public Mono<MerchantReportDTO> generateMerchantTransactionsReport(String merchantId,
                                                                  String organizationRole,
                                                                  String initiativeId,
                                                                  LocalDateTime startPeriod,
@@ -57,7 +57,7 @@ public class MerchantTransactionControllerImpl implements MerchantTransactionCon
                                                        ) {
 
         log.info("[GET_MERCHANT_TRANSACTIONS] Merchant {} requested to retrieve transactions", Utilities.sanitizeString(merchantId));
-        return merchantTransactionService.getMerchantTransactionsReport(merchantId, organizationRole, initiativeId, startPeriod, endPeriod, rewardBatchAssignee);
+        return merchantTransactionService.generateMerchantTransactionsReport(merchantId, organizationRole, initiativeId, startPeriod, endPeriod, rewardBatchAssignee);
     }
 
 }

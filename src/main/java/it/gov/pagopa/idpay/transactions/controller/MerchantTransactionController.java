@@ -31,7 +31,7 @@ public interface MerchantTransactionController {
 
 
     @PostMapping("/initiative/{initiativeId}/transactions/report")
-    Mono<MerchantReportDTO> getMerchantTransactionsReport(@RequestHeader("x-merchant-id") String merchantId,
+    Mono<MerchantReportDTO> generateMerchantTransactionsReport(@RequestHeader("x-merchant-id") String merchantId,
                                                           @RequestHeader(value = "x-organization-role", required = false) String organizationRole,
                                                           @PathVariable("initiativeId") String initiativeId,
                                                           @RequestParam LocalDateTime startPeriod,

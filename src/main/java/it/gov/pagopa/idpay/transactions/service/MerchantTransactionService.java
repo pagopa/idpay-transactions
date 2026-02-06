@@ -24,7 +24,7 @@ public interface MerchantTransactionService {
     Mono<List<String>> getProcessedTransactionStatuses(
             String organizationRole);
 
-    Mono<MerchantReportDTO> getMerchantTransactionsReport(String merchantId,
+    Mono<MerchantReportDTO> generateMerchantTransactionsReport(String merchantId,
                                                           String organizationRole,
                                                           String initiativeId,
                                                           LocalDateTime startPeriod,
