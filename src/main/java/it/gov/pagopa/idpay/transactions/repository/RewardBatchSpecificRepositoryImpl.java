@@ -35,8 +35,10 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   public static final String INITIAL_AMOUNT_CENTS = "initialAmountCents";
   public static final String NUMBER_OF_TRANSACTIONS = "numberOfTransactions";
   public static final String SUSPENDED_AMOUNT_CENTS = "suspendedAmountCents";
+    public static final String APPROVED_AMOUNT_CENTS = "approvedAmountCents";
   public static final String NUMBER_OF_TRANSACTIONS_SUSPENDED = "numberOfTransactionsSuspended";
   public static final String NUMBER_OF_TRANSACTIONS_ELABORATED = "numberOfTransactionsElaborated";
+    public static final String NUMBER_OF_TRANSACTIONS_REJECTED = "numberOfTransactionsRejected";
   
   
   @Override
@@ -199,7 +201,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Mono<RewardBatch> updateTotals(String rewardBatchId, long elaboratedTrxNumber, long updateAmountCents, long suspendedAmountCents, long rejectedTrxNumber, long suspendedTrxNumber) {
+  public Mono<RewardBatch> updateTotals(String rewardBatchId, long elaboratedTrxNumber, long approvedAmountCents, long suspendedAmountCents, long rejectedTrxNumber, long suspendedTrxNumber) {
 
     Update update = new Update();
     if (elaboratedTrxNumber != 0){
@@ -208,15 +210,15 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     }
     if (rejectedTrxNumber != 0){
       update
-       .inc("numberOfTransactionsRejected", rejectedTrxNumber);
+       .inc(NUMBER_OF_TRANSACTIONS_REJECTED, rejectedTrxNumber);
     }
     if (suspendedTrxNumber != 0){
       update
               .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, suspendedTrxNumber);
     }
-    if (updateAmountCents != 0){
+    if (approvedAmountCents != 0){
       update
-              .inc("approvedAmountCents", updateAmountCents);
+              .inc(APPROVED_AMOUNT_CENTS, approvedAmountCents);
     }
 
     if (suspendedAmountCents != 0){
