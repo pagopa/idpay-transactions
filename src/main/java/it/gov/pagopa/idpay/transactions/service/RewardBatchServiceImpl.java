@@ -548,7 +548,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             .log("[EVALUATING_REWARD_BATCH]Completed evaluation of transactions for reward batch %s".formatted(Utilities.sanitizeString(rewardBatch.getId())));
                 })
                 .flatMap(batch -> rewardTransactionRepository.sumSuspendedAccruedRewardCents(batch.getId())
-                        .map(suspendedAmountCents -> new TrxSuspendedBatchInfo(batch.getId(), suspendedAmountCents, batch.getInitialAmountCents())))
+                        .map(suspendedAmountCents -> new TrxSuspendedBatchInfo(batch.getId(), batch.getSuspendedAmountCents(), batch.getInitialAmountCents())))
                 .flatMap(suspendedInfo -> rewardBatchRepository.updateStatusAndApprovedAmountCents(suspendedInfo.getRewardBatchId(), RewardBatchStatus.EVALUATING, suspendedInfo.getInitialRewardBatchAmountCents() - suspendedInfo.getSuspendedRewardAmountCents())
                         .log("[EVALUATING_REWARD_BATCH] Reward batch %s moved to status EVALUATING".formatted(Utilities.sanitizeString(suspendedInfo.getRewardBatchId()))))
                 .count()
@@ -735,6 +735,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
                 )))
                 .flatMap(originalBatch -> {
+                    //setta ad approved le trx in stato TO_CHECK e CONSULTABLE
                     Mono<Void> transactionsUpdate = updateAndSaveRewardTransactionsToApprove(rewardBatchId, initiativeId);
                     return transactionsUpdate.thenReturn(originalBatch);
                 })
@@ -763,7 +764,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         }
 
         long countToMove = originalBatch.getNumberOfTransactionsSuspended();
-        return createRewardBatchAndSave(originalBatch)
+
+        return findOrCreateBatch(originalBatch.getMerchantId(),
+                originalBatch.getPosType(),
+                addOneMonth(originalBatch.getMonth()),
+                originalBatch.getBusinessName())
                 .flatMap(newBatch -> updateAndSaveRewardTransactionsSuspended(originalBatch.getId(), initiativeId, newBatch.getId(), originalBatch.getMonth())
                         .flatMap(totalAccrued -> {
                             updateNewBatchCounters(newBatch, totalAccrued, countToMove);
@@ -775,7 +780,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         newBatch.setInitialAmountCents(coalesce(newBatch.getInitialAmountCents()) + totalAccrued);
         newBatch.setNumberOfTransactionsSuspended(coalesce(newBatch.getNumberOfTransactionsSuspended()) + count);
         newBatch.setNumberOfTransactions(coalesce(newBatch.getNumberOfTransactions()) + count);
-        newBatch.setSuspendedAmountCents(totalAccrued);
+        newBatch.setSuspendedAmountCents(coalesce(newBatch.getSuspendedAmountCents()) + totalAccrued);
     }
 
 
@@ -893,7 +898,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             .thenReturn(rewardCents != null ? rewardCents : 0L);
                 })
                 .reduce(0L, Long::sum)
-                .doOnNext(total -> log.info("Total suspended reward cents for new batch {}: {}", newBatchId, total));
+                .doOnNext(total -> log.info("Total suspended reward cents from old batch {}: {}", newBatchId, total));
     }
 
     @Override
