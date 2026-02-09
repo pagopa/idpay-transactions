@@ -293,7 +293,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             acc.incrementTrxSuspended();
 
                             if (accrued != null) {
-                                acc.decrementTotalApprovedAmountCents(accrued);
                                 acc.incrementSuspendedAmountCents(accrued);
                             }
                         }
@@ -422,9 +421,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                 acc.incrementTrxElaborated();
                                 acc.incrementTrxRejected();
 
-                                if (accrued != null) {
-                                    acc.decrementTotalApprovedAmountCents(accrued);
-                                }
                             }
 
                             case RewardBatchTrxStatus.SUSPENDED -> {
@@ -481,19 +477,28 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         .map(trxOld -> Pair.of(trxOld, trxIdAndMonthElaborated.getRight())))
                 .reduce(new BatchCountersDTO(0L, 0L, 0L, 0L, 0L), (acc, trxOld2ActualBatchMonth) -> {
                     RewardTransaction trxOld = trxOld2ActualBatchMonth.getLeft();
+
+                    Long accrued = trxOld.getRewards().get(initiativeId) != null
+                            ? trxOld.getRewards().get(initiativeId).getAccruedRewardCents()
+                            : null;
+
                     switch (trxOld.getRewardBatchTrxStatus()){
 
                         case RewardBatchTrxStatus.APPROVED ->
                                 log.info("Skipping  handler  for transaction  {}:  status  is already  APPROVED",  trxOld.getId());
 
-                        case RewardBatchTrxStatus.TO_CHECK, RewardBatchTrxStatus.CONSULTABLE ->
+                        case RewardBatchTrxStatus.TO_CHECK, RewardBatchTrxStatus.CONSULTABLE -> {
                                 acc.incrementTrxElaborated();
+                            if (accrued != null) {
+                                acc.incrementTotalApprovedAmountCents(accrued);
+                            }
+                        }
 
                         case RewardBatchTrxStatus.SUSPENDED -> {
                             acc.decrementTrxSuspended();
-                            if(trxOld.getRewards().get(initiativeId) != null && trxOld.getRewards().get(initiativeId).getAccruedRewardCents() != null) {
-                                acc.incrementTotalApprovedAmountCents(trxOld.getRewards().get(initiativeId).getAccruedRewardCents());
-                                acc.decrementSuspendedAmountCents(trxOld.getRewards().get(initiativeId).getAccruedRewardCents());
+                            if(accrued != null) {
+                                acc.incrementTotalApprovedAmountCents(accrued);
+                                acc.decrementSuspendedAmountCents(accrued);
                             }
                             checkAndUpdateTrxElaborated(acc, trxOld2ActualBatchMonth, trxOld);
                         }
