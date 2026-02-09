@@ -285,14 +285,17 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                                 String oldBatchId,
                                                                 String merchantId) {
 
-        YearMonth currentMonth = YearMonth.now();
         PosType posType = suspendedTrx.getPointOfSaleType();
         String businessName = suspendedTrx.getBusinessName();
+
+        YearMonth now = YearMonth.now();
+        YearMonth oldMonth = YearMonth.parse(oldBatch.getMonth());
+        YearMonth targetMonth = oldMonth.isAfter(now) ? oldMonth : now;
 
         String initiativeId = suspendedTrx.getInitiatives().getFirst();
         long accruedRewardCents = suspendedTrx.getRewards().get(initiativeId).getAccruedRewardCents();
 
-        return rewardBatchService.findOrCreateBatch(merchantId, posType, currentMonth.toString(), businessName)
+        return rewardBatchService.findOrCreateBatch(merchantId, posType, targetMonth.toString(), businessName)
                 .flatMap(newBatch -> {
                     if (newBatch.getId().equals(oldBatchId)) {
                         // batch già corretto, salvo solo eventuali updateDate già fatto
