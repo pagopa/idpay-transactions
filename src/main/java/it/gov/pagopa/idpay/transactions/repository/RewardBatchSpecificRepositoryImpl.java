@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.repository;
 
 import com.nimbusds.oauth2.sdk.util.StringUtils;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
+import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -239,42 +240,31 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Mono<RewardBatch> updateTotals(String rewardBatchId, long elaboratedTrxNumber, long updateAmountCents, long suspendedAmountCents, long rejectedTrxNumber, long suspendedTrxNumber) {
+  public Mono<RewardBatch> updateTotals(String rewardBatchId, BatchCountersDTO acc) {
 
     Update update = new Update();
-    if (elaboratedTrxNumber != 0){
-      update
-              .inc(NUMBER_OF_TRANSACTIONS_ELABORATED, elaboratedTrxNumber);
+    if (acc.getTrxElaborated() != 0) {
+      update.inc(RewardBatch.Fields.numberOfTransactionsElaborated, acc.getTrxElaborated());
     }
-    if (rejectedTrxNumber != 0){
-      update
-       .inc("numberOfTransactionsRejected", rejectedTrxNumber);
+    if (acc.getTrxRejected() != 0) {
+      update.inc(RewardBatch.Fields.numberOfTransactionsRejected, acc.getTrxRejected());
     }
-    if (suspendedTrxNumber != 0){
-      update
-              .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, suspendedTrxNumber);
+    if (acc.getTrxSuspended() != 0) {
+      update.inc(RewardBatch.Fields.numberOfTransactionsSuspended, acc.getTrxSuspended());
     }
-    if (updateAmountCents != 0){
-      update
-              .inc("approvedAmountCents", updateAmountCents);
+    if (acc.getApprovedAmountCents() != 0) {
+      update.inc(RewardBatch.Fields.approvedAmountCents, acc.getApprovedAmountCents());
     }
-
-    if (suspendedAmountCents != 0){
-      update
-              .inc(SUSPENDED_AMOUNT_CENTS, suspendedAmountCents);
+    if (acc.getSuspendedAmountCents() != 0) {
+      update.inc(RewardBatch.Fields.suspendedAmountCents, acc.getSuspendedAmountCents());
     }
 
-    update
-            .currentDate("updateDate");
+    update.currentDate(RewardBatch.Fields.updateDate);
 
     Query query = Query.query(Criteria.where("_id").is(rewardBatchId));
 
     return mongoTemplate.findAndModify(
-            query,
-            update,
-            FindAndModifyOptions.options().returnNew(true),
-            RewardBatch.class
-    );
+        query, update, FindAndModifyOptions.options().returnNew(true), RewardBatch.class);
   }
 
   private Pageable getPageableRewardBatch(Pageable pageable) {

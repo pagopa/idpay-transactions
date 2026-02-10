@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
+import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -502,11 +503,8 @@ class RewardBatchSpecificRepositoryImplTest {
     RewardBatch updated = rewardBatchSpecificRepository
             .updateTotals(
                     batch1.getId(),
-                    ZERO_LONG,
-                    ZERO_LONG,
-                    ZERO_LONG,
-                    ZERO_LONG,
-                    modifiedCount
+                    BatchCountersDTO.newBatch()
+                            .incrementTrxRejected(modifiedCount)
             )
             .block();
 
@@ -522,11 +520,7 @@ class RewardBatchSpecificRepositoryImplTest {
   void updateTotals_shouldUpdateElaboratedTrxNumber() {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             batch1.getId(),
-            3L,
-            ZERO_LONG,
-            ZERO_LONG,
-            ZERO_LONG,
-            ZERO_LONG
+            BatchCountersDTO.newBatch().incrementApprovedAmountCents(3L)
     ).block();
 
     assertNotNull(updated);
@@ -542,11 +536,8 @@ class RewardBatchSpecificRepositoryImplTest {
   void updateTotals_shouldUpdateSuspendedTrxNumber() {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             batch1.getId(),
-            ZERO_LONG,
-            ZERO_LONG,
-            ZERO_LONG,
-            ZERO_LONG,
-            2L
+            BatchCountersDTO.newBatch()
+                    .incrementTrxRejected(2L)
     ).block();
 
     assertNotNull(updated);
@@ -562,11 +553,8 @@ class RewardBatchSpecificRepositoryImplTest {
   void updateTotals_shouldUpdateRejectedTrxNumber() {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             batch1.getId(),
-            ZERO_LONG,
-            ZERO_LONG,
-            ZERO_LONG,
-            4L,
-            ZERO_LONG
+            BatchCountersDTO.newBatch()
+                    .incrementTrxSuspended(4L)
     ).block();
 
     assertNotNull(updated);
@@ -583,11 +571,8 @@ class RewardBatchSpecificRepositoryImplTest {
   void updateTotals_shouldUpdateApprovedAmount() {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             batch1.getId(),
-            ZERO_LONG,
-            500L,
-            ZERO_LONG,
-            ZERO_LONG,
-            ZERO_LONG
+            BatchCountersDTO.newBatch()
+                    .incrementSuspendedAmountCents(500L)
     ).block();
 
     assertNotNull(updated);
@@ -834,11 +819,11 @@ class RewardBatchSpecificRepositoryImplTest {
 
         RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
                 batch1.getId(),
-                5L,
-                700L,
-                ZERO_LONG,
-                2L,
-                3L
+                BatchCountersDTO.newBatch()
+                        .incrementApprovedAmountCents(5L)
+                        .incrementSuspendedAmountCents(700L)
+                        .incrementTrxSuspended(2L)
+                        .incrementTrxRejected(3L)
         ).block();
 
         assertNotNull(updated);
