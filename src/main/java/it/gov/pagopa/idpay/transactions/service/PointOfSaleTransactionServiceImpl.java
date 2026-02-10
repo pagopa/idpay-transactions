@@ -279,7 +279,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)));
     }
 
-    /** (5) sposta batch al mese corrente + contatori suspended */
+    /** (5) sposta trx al batch del mese corrente + contatori suspended */
     private Mono<Void> moveToCurrentMonthBatchAndUpdateCounters(RewardTransaction suspendedTrx,
                                                                 RewardBatch oldBatch,
                                                                 String oldBatchId,
@@ -298,7 +298,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         return rewardBatchService.findOrCreateBatch(merchantId, posType, targetMonth.toString(), businessName)
                 .flatMap(newBatch -> {
                     if (newBatch.getId().equals(oldBatchId)) {
-                        // batch già corretto, salvo solo eventuali updateDate già fatto
+                        // batch già del mese odierno
                         return rewardTransactionRepository.save(suspendedTrx).then();
                     }
 
