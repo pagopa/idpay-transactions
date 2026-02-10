@@ -35,23 +35,9 @@ public class BatchCountersDTO {
     return this;
   }
 
-  public BatchCountersDTO decrementInitialAmountCents(Long amountCents) {
-    this.initialAmountCents = this.initialAmountCents - amountCents;
-    return this;
-  }
-
-  public BatchCountersDTO incrementNumberOfTransactions() {
-    this.numberOfTransactions = this.numberOfTransactions + 1L;
-    return this;
-  }
 
   public BatchCountersDTO incrementNumberOfTransactions(Long number) {
     this.numberOfTransactions = this.numberOfTransactions + number;
-    return this;
-  }
-
-  public BatchCountersDTO decrementNumberOfTransactions() {
-    this.numberOfTransactions = this.numberOfTransactions - 1L;
     return this;
   }
 
@@ -82,11 +68,6 @@ public class BatchCountersDTO {
 
   public BatchCountersDTO incrementTrxElaborated(Long number) {
     this.trxElaborated = this.trxElaborated + number;
-    return this;
-  }
-
-  public BatchCountersDTO decrementTrxElaborated() {
-    this.trxElaborated = this.trxElaborated - 1L;
     return this;
   }
 
