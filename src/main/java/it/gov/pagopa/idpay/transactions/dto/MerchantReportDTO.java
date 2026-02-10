@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 public class MerchantReportDTO {
 
   String id;
-  String initiiativeId;
+  String initiativeId;
   ReportStatus reportStatus;
   LocalDateTime startPeriod;
   LocalDateTime endPeriod;

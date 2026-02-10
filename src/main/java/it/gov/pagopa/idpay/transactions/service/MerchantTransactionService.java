@@ -25,10 +25,10 @@ public interface MerchantTransactionService {
             String organizationRole);
 
     Mono<MerchantReportDTO> generateMerchantTransactionsReport(String merchantId,
-                                                          String organizationRole,
-                                                          String initiativeId,
-                                                          LocalDateTime startPeriod,
-                                                          LocalDateTime endPeriod,
-                                                          RewardBatchAssignee rewardBatchAssignee);
+                                                               String organizationRole,
+                                                               String initiativeId,
+                                                               LocalDateTime startPeriod,
+                                                               LocalDateTime endPeriod,
+                                                               RewardBatchAssignee rewardBatchAssignee);
 
 }

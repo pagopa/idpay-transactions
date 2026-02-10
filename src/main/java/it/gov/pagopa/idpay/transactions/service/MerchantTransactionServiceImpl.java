@@ -5,36 +5,52 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
+import it.gov.pagopa.idpay.transactions.dto.mapper.MerchantReportMapper;
+import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.MerchantReport;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.repository.MerchantReportRepository;
+import it.gov.pagopa.idpay.transactions.repository.MerchantRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.utils.Utilities;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-import reactor.core.CoreSubscriber;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Service
+@Slf4j
 public class MerchantTransactionServiceImpl implements MerchantTransactionService {
     private final UserRestClient userRestClient;
     private final RewardTransactionRepository rewardTransactionRepository;
+    private final MerchantReportRepository merchantReportRepository;
+    private final MerchantRepository merchantRepository;
     private final ChecksErrorMapper checksErrorMapper;
+    private final MerchantReportMapper merchantReportMapper;
 
     private static final Set<String> OPERATORS =
             Set.of("operator1", "operator2", "operator3");
 
     protected MerchantTransactionServiceImpl(
-            UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository, ChecksErrorMapper checksErrorMapper) {
+            UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository,
+            MerchantReportRepository merchantReportRepository, MerchantRepository merchantRepository,
+            ChecksErrorMapper checksErrorMapper, MerchantReportMapper merchantReportMapper) {
         this.userRestClient = userRestClient;
         this.rewardTransactionRepository = rewardTransactionRepository;
+        this.merchantReportRepository = merchantReportRepository;
+        this.merchantRepository = merchantRepository;
         this.checksErrorMapper = checksErrorMapper;
+        this.merchantReportMapper = merchantReportMapper;
     }
 
     @Override
@@ -101,30 +117,38 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
 
     @Override
     public Mono<MerchantReportDTO> generateMerchantTransactionsReport(String merchantId,
-                                                                     String organizationRole,
-                                                                     String initiativeId,
-                                                                     LocalDateTime startPeriod,
-                                                                     LocalDateTime endPeriod,
-                                                                     RewardBatchAssignee rewardBatchAssignee) {
+                                                                      String organizationRole,
+                                                                      String initiativeId,
+                                                                      LocalDateTime startPeriod,
+                                                                      LocalDateTime endPeriod,
+                                                                      RewardBatchAssignee rewardBatchAssignee) {
 
+        return merchantRepository.findById(merchantId)
+               .flatMap(merchant -> {
 
-        //TrxFiltersDTO filters = new TrxFiltersDTO(
-        //        merchantId,
-        //        initiativeId,
-        //        startPeriod,
-        //        endPeriod,
-        //        rewardBatchAssignee
-        //);
+                   String formattedDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("ddMMyyyyHHmmss"));
+                   String fileName = String.format("Report_%s", formattedDate);
 
-        //return getMerchantTransactionDTOs2Count(filters, organizationRole, pageable)
-        //        .map(tuple -> {
-        //            Page<MerchantTransactionDTO> page = new PageImpl<>(tuple.getT1(),
-        //                    finalPageable, tuple.getT2());
-        //            return new MerchantTransactionsListDTO(tuple.getT1(), page.getNumber(), page.getSize(),
-        //                    (int) page.getTotalElements(), page.getTotalPages());
-        //        });
-        return Mono.empty();
-        }
+                   MerchantReport reportEntity = MerchantReport.builder()
+                           .initiativeId(initiativeId)
+                           .reportStatus(ReportStatus.INSERTED)
+                           .startPeriod(startPeriod)
+                           .endPeriod(endPeriod)
+                           .merchantId(merchantId)
+                           .businessName(merchant.getBusinessName())
+                           .requestDate(LocalDateTime.now())
+                           .rewardBatchAssignee(rewardBatchAssignee)
+                           .fileName(fileName)
+                           .build();
+
+                   return merchantReportRepository.save(reportEntity);
+               })
+                                   .map(merchantReportMapper::mapToDTO)
+                                   .doOnSuccess(saved -> log.info("[GENERATE_REPORT] Saved report {} for merchant {}",
+                                           saved.getFileName(), Utilities.sanitizeString(merchantId)));
+
+    }
+
 
     private Mono<Tuple2<List<MerchantTransactionDTO>, Long>> getMerchantTransactionDTOs2Count(
             TrxFiltersDTO filters,
