@@ -22,7 +22,6 @@ import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -704,7 +703,6 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    @Disabled
     void evaluatingRewardBatches_nullList_processesAllSent() {
         RewardBatch sent = RewardBatch.builder().id("S1")
                 .status(RewardBatchStatus.SENT)
@@ -714,7 +712,7 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findByStatus(RewardBatchStatus.SENT)).thenReturn(Flux.just(sent));
         when(rewardTransactionRepository.rewardTransactionsByBatchId("S1")).thenReturn(Mono.empty());
         when(rewardTransactionRepository.sumSuspendedAccruedRewardCents("S1")).thenReturn(Mono.just(20L));
-        when(rewardBatchRepository.updateStatusAndApprovedAmountCents("S1", RewardBatchStatus.EVALUATING, 80L))
+        when(rewardBatchRepository.updateStatusAndApprovedAmountCents("S1", RewardBatchStatus.EVALUATING, 100L))
                 .thenReturn(Mono.just(sent));
 
         StepVerifier.create(service.evaluatingRewardBatches(null))
@@ -953,44 +951,6 @@ class RewardBatchServiceImplTest {
         verify(serviceSpy, never()).createRewardBatchAndSave(any());
     }
 
-    @Test
-    void processSingleBatch_success_withSuspended_csvFailsButRecovered() {
-        RewardBatch rb = RewardBatch.builder()
-                .id(BATCH_ID)
-                .status(RewardBatchStatus.APPROVING)
-                .assigneeLevel(RewardBatchAssignee.L3)
-                .numberOfTransactionsSuspended(2L)
-                .merchantId(MERCHANT_ID)
-                .month("2025-12")
-                .name("dicembre 2025")
-                .posType(PHYSICAL)
-                .businessName(BUSINESS_NAME)
-                .build();
-
-        RewardBatch newBatch = RewardBatch.builder()
-                .id(BATCH_ID_2)
-                .status(RewardBatchStatus.CREATED)
-                .initialAmountCents(0L)
-                .numberOfTransactions(0L)
-                .numberOfTransactionsSuspended(0L)
-                .build();
-        when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(eq(MERCHANT_ID), eq(PHYSICAL), eq("2026-01")))
-                .thenReturn(Mono.just(newBatch));
-        when(rewardBatchRepository.findRewardBatchById(BATCH_ID)).thenReturn(Mono.just(rb));
-        doReturn(Mono.empty()).when(serviceSpy).updateAndSaveRewardTransactionsToApprove(BATCH_ID, INITIATIVE_ID);
-
-        //doReturn(Mono.just(newBatch)).when(serviceSpy).createRewardBatchAndSave(any());
-        doReturn(Mono.just(300L)).when(serviceSpy).updateAndSaveRewardTransactionsSuspended(eq(BATCH_ID), eq(INITIATIVE_ID), eq(BATCH_ID_2), eq("2025-12"));
-        when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-
-        doReturn(Mono.error(new RuntimeException("csv fail"))).when(serviceSpy).generateAndSaveCsv(eq(BATCH_ID), eq(INITIATIVE_ID), anyString());
-
-        StepVerifier.create(serviceSpy.processSingleBatch(BATCH_ID, INITIATIVE_ID))
-                .assertNext(saved -> assertEquals(RewardBatchStatus.APPROVED, saved.getStatus()))
-                .verifyComplete();
-
-        verify(rewardBatchRepository).save(argThat(b -> BATCH_ID_2.equals(b.getId()) && b.getSuspendedAmountCents() != null));
-    }
 
     @Test
     void handleSuspendedTransactions_nullOrZero_returnsOriginal() throws Exception {

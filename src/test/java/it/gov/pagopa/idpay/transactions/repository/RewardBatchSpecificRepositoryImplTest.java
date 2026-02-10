@@ -504,7 +504,7 @@ class RewardBatchSpecificRepositoryImplTest {
             .updateTotals(
                     batch1.getId(),
                     BatchCountersDTO.newBatch()
-                            .incrementTrxRejected(modifiedCount)
+                            .incrementTrxSuspended(modifiedCount)
             )
             .block();
 
@@ -520,7 +520,7 @@ class RewardBatchSpecificRepositoryImplTest {
   void updateTotals_shouldUpdateElaboratedTrxNumber() {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             batch1.getId(),
-            BatchCountersDTO.newBatch().incrementApprovedAmountCents(3L)
+            BatchCountersDTO.newBatch().incrementTrxElaborated(3L)
     ).block();
 
     assertNotNull(updated);
@@ -537,7 +537,7 @@ class RewardBatchSpecificRepositoryImplTest {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             batch1.getId(),
             BatchCountersDTO.newBatch()
-                    .incrementTrxRejected(2L)
+                    .incrementTrxSuspended(2L)
     ).block();
 
     assertNotNull(updated);
@@ -554,7 +554,7 @@ class RewardBatchSpecificRepositoryImplTest {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             batch1.getId(),
             BatchCountersDTO.newBatch()
-                    .incrementTrxSuspended(4L)
+                    .incrementTrxRejected(4L)
     ).block();
 
     assertNotNull(updated);
@@ -572,7 +572,7 @@ class RewardBatchSpecificRepositoryImplTest {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             batch1.getId(),
             BatchCountersDTO.newBatch()
-                    .incrementSuspendedAmountCents(500L)
+                    .incrementApprovedAmountCents(500L)
     ).block();
 
     assertNotNull(updated);
@@ -820,10 +820,10 @@ class RewardBatchSpecificRepositoryImplTest {
         RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
                 batch1.getId(),
                 BatchCountersDTO.newBatch()
-                        .incrementApprovedAmountCents(5L)
-                        .incrementSuspendedAmountCents(700L)
-                        .incrementTrxSuspended(2L)
-                        .incrementTrxRejected(3L)
+                        .incrementTrxElaborated(5L)
+                        .incrementApprovedAmountCents(700L)
+                        .incrementTrxSuspended(3L)
+                        .incrementTrxRejected(2L)
         ).block();
 
         assertNotNull(updated);

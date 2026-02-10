@@ -80,6 +80,11 @@ public class BatchCountersDTO {
     return this;
   }
 
+  public BatchCountersDTO incrementTrxElaborated(Long number) {
+    this.trxElaborated = this.trxElaborated + number;
+    return this;
+  }
+
   public BatchCountersDTO decrementTrxElaborated() {
     this.trxElaborated = this.trxElaborated - 1L;
     return this;
