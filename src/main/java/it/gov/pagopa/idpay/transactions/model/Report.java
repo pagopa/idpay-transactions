@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 @Builder
 @FieldNameConstants
 @EqualsAndHashCode(of = {"id"}, callSuper = false)
-@Document(collection = "report")
+@Document(collection = "reports")
 public class Report {
 
     @MongoId
