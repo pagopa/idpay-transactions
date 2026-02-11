@@ -26,6 +26,7 @@ public final class ExceptionConstants {
         public static final String REWARD_BATCH_GENERIC_ERROR = "REWARD_BATCH_GENERIC_ERROR";
         public static final String POINT_OF_SALE_NOT_ALLOWED = "POINT_OF_SALE_NOT_ALLOWED";
         public static final String REASON_FIELD_IS_MANDATORY = "REASON_FIELD_IS_MANDATORY";
+        public static final String MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY = "MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY";
 
         public static final String ROLE_NOT_ALLOWED_FOR_L1_PROMOTION = "ROLE_NOT_ALLOWED_FOR_L1_PROMOTION";
         public static final String ROLE_NOT_ALLOWED_FOR_L2_PROMOTION = "ROLE_NOT_ALLOWED_FOR_L2_PROMOTION";
@@ -52,6 +53,7 @@ public final class ExceptionConstants {
         public static final String MISSING_TRANSACTIONS_FILTERS = "Mandatory filters are missing. Insert one of the following options: 1) organizationRole 2) merchantId";
         public static final String REWARD_BATCH_STATUS_MISMATCH = "Operation not allowed: the batch is no longer in CREATED status";
         public static final String ERROR_MESSAGE_REWARD_BATCH_STATUS_NOT_ALLOWED = "Operation not allowed: the batch is no longer in CREATED or EVALUATING status";
+        public static final String ERROR_MESSAGE_MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY = "MerchantId or OrganizationRole must be provided";
 
         public static final String REASON_FIELD_IS_MANDATORY = "Reason field is mandatory";
         public static final String ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH = "Reward batch  %s not  found  or  not in  a  valid  state";
