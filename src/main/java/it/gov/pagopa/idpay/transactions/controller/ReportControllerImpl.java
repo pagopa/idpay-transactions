@@ -35,7 +35,7 @@ public class ReportControllerImpl implements ReportController {
             String initiativeId,
             Pageable pageable
     ) {
-        log.info("[GET_TRANSACTIONS_REPORTS] Request received for initiative: {}", initiativeId);
+        log.info("[GET_TRANSACTIONS_REPORTS] Request received for initiative: {}", Utilities.sanitizeString(initiativeId));
 
         return reportService.getTransactionsReports(merchantId, organizationRole, rewardBatchAssignee, initiativeId, pageable)
                 .flatMap(page -> Mono.just(reportMapper.toListDTO(page)));
