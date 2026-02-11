@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.connector.rest;
 
 import it.gov.pagopa.common.reactive.utils.PerformanceLogger;
+import it.gov.pagopa.idpay.transactions.connector.rest.dto.MerchantDetailDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.PointOfSaleDTO;
 import java.time.Duration;
 import java.util.Map;
@@ -22,6 +23,7 @@ import reactor.util.retry.Retry;
 public class MerchantRestClientImpl implements MerchantRestClient {
 
   private static final String URI_POS_DETAIL = "/idpay/merchant/portal/{merchantId}/point-of-sales/{pointOfSaleId}";
+  private static final String URI_MERCHANT_DETAIL = "/idpay/merchant/portal/initiatives/{initiativeId}";
   private final WebClient webClient;
   private final int retryDelay;
   private final long maxAttempts;
@@ -81,4 +83,44 @@ public class MerchantRestClientImpl implements MerchantRestClient {
           return Mono.empty();
         });
   }
+
+    @Override
+    public Mono<MerchantDetailDTO> getMerchantDetail(String merchantId, String initiativeId) {
+        log.info("Sending request to merchant {} to get merchant details", merchantId);
+
+        return PerformanceLogger.logTimingOnNext(
+                        "MERCHANT_INTEGRATION",
+                        webClient
+                                .get()
+                                .uri(URI_MERCHANT_DETAIL, Map.of("initiativeId", initiativeId))
+                                .header("x-merchant-id", merchantId)
+                                .retrieve()
+                                .bodyToMono(MerchantDetailDTO.class),
+                        x -> "received merchant detail"
+                )
+                .retryWhen(
+                        Retry.fixedDelay(maxAttempts, Duration.ofMillis(retryDelay))
+                                .filter(ex -> {
+                                    boolean retry =
+                                            ex instanceof WebClientResponseException.TooManyRequests ||
+                                                    ex.getMessage().startsWith("Connection refused");
+
+                                    if (retry) {
+                                        log.info("[MERCHANT_INTEGRATION] Retrying invocation due to exception: {}: {}",
+                                                ex.getClass().getSimpleName(), ex.getMessage());
+                                    }
+                                    return retry;
+                                })
+                )
+                .onErrorResume(WebClientResponseException.NotFound.class, ex -> {
+                    log.warn("Merchant detail not found for merchant {}", merchantId);
+                    return Mono.empty();
+                })
+                .onErrorResume(WebClientResponseException.BadRequest.class, ex -> {
+                    log.warn("Invalid request for merchant {}", merchantId);
+                    return Mono.empty();
+                });
+    }
+
+
 }

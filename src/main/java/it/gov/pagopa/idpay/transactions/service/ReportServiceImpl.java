@@ -6,11 +6,11 @@ import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ReportMapper;
 import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
 import it.gov.pagopa.idpay.transactions.enums.ReportType;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
+
 import it.gov.pagopa.idpay.transactions.model.Report;
-import it.gov.pagopa.idpay.transactions.repository.MerchantRepository;
 import it.gov.pagopa.idpay.transactions.repository.ReportRepository;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
+import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -31,13 +31,13 @@ public class ReportServiceImpl implements ReportService {
 
     private final ReportRepository reportRepository;
 
-    private final MerchantRepository merchantRepository;
+    private final MerchantRestClient merchantRestClient;
 
     private final ReportMapper reportMapper;
 
-    public ReportServiceImpl(ReportRepository reportRepository, MerchantRepository merchantRepository, ReportMapper reportMapper) {
+    public ReportServiceImpl(ReportRepository reportRepository, MerchantRestClient merchantRestClient, ReportMapper reportMapper) {
         this.reportRepository = reportRepository;
-        this.merchantRepository = merchantRepository;
+        this.merchantRestClient = merchantRestClient;
         this.reportMapper = reportMapper;
     }
 
@@ -90,7 +90,7 @@ public class ReportServiceImpl implements ReportService {
                                    String organizationRole,
                                    String initiativeId,
                                    ReportRequest request){
-        if (request.getReportType().equals(ReportType.MERCHANT_TRANSACTIONS)) {
+        if (ReportType.MERCHANT_TRANSACTIONS.equals(request.getReportType())) {
             log.info("[GET_MERCHANT_REPORT] Requested report with MerchantId = {}, startPeriod = {}, endPeriod = {}",
                     Utilities.sanitizeString(merchantId),
                     request.getStartPeriod(),
@@ -107,7 +107,7 @@ public class ReportServiceImpl implements ReportService {
                                                               ReportRequest request) {
 
 
-        return merchantRepository.findById(merchantId)
+        return merchantRestClient.getMerchantDetail(merchantId, initiativeId)
                 .flatMap(merchant -> {
 
                     String formattedDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("ddMMyyyyHHmmss"));
