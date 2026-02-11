@@ -36,10 +36,8 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   public static final String INITIAL_AMOUNT_CENTS = "initialAmountCents";
   public static final String NUMBER_OF_TRANSACTIONS = "numberOfTransactions";
   public static final String SUSPENDED_AMOUNT_CENTS = "suspendedAmountCents";
-    public static final String APPROVED_AMOUNT_CENTS = "approvedAmountCents";
   public static final String NUMBER_OF_TRANSACTIONS_SUSPENDED = "numberOfTransactionsSuspended";
   public static final String NUMBER_OF_TRANSACTIONS_ELABORATED = "numberOfTransactionsElaborated";
-    public static final String NUMBER_OF_TRANSACTIONS_REJECTED = "numberOfTransactionsRejected";
 
   
   @Override
