@@ -36,9 +36,11 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   public static final String INITIAL_AMOUNT_CENTS = "initialAmountCents";
   public static final String NUMBER_OF_TRANSACTIONS = "numberOfTransactions";
   public static final String SUSPENDED_AMOUNT_CENTS = "suspendedAmountCents";
+    public static final String APPROVED_AMOUNT_CENTS = "approvedAmountCents";
   public static final String NUMBER_OF_TRANSACTIONS_SUSPENDED = "numberOfTransactionsSuspended";
   public static final String NUMBER_OF_TRANSACTIONS_ELABORATED = "numberOfTransactionsElaborated";
-  
+    public static final String NUMBER_OF_TRANSACTIONS_REJECTED = "numberOfTransactionsRejected";
+
   
   @Override
   public Flux<RewardBatch> findRewardBatchesCombined(String merchantId, String status, String assigneeLevel, String month, boolean isOperator, Pageable pageable) {
@@ -117,13 +119,11 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
             .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)));
   }
 
-
-
   @Override
     public Mono<RewardBatch> moveSuspendToNewBatch(String oldBatchId, String newBatchId, long accruedAmountCents) {
 
         Update decOld = new Update()
-                .inc(INITIAL_AMOUNT_CENTS, -accruedAmountCents)
+                //.inc(INITIAL_AMOUNT_CENTS, -accruedAmountCents)
                 .inc(NUMBER_OF_TRANSACTIONS, -1)
                 .inc(SUSPENDED_AMOUNT_CENTS, -accruedAmountCents)
                 .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, -1)
