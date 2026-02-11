@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
+import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,6 +25,8 @@ public class ReportDTO {
     String businessName;
     LocalDateTime requestDate;
     LocalDateTime elaborationDate;
-    RewardBatchAssignee rewardBatchAssignee;
+    RewardBatchAssignee operatorLevel;
     String fileName;
+    ReportType reportType;
+
 }

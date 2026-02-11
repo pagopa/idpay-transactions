@@ -1,14 +1,11 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
-import it.gov.pagopa.idpay.transactions.dto.MerchantReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @RequestMapping("/idpay/merchant/portal")
@@ -30,12 +27,6 @@ public interface MerchantTransactionController {
             @RequestHeader(value = "x-organization-role", required = false) String organizationRole);
 
 
-    @PostMapping("/initiative/{initiativeId}/transactions/report")
-    Mono<MerchantReportDTO> generateMerchantTransactionsReport(@RequestHeader("x-merchant-id") String merchantId,
-                                                               @RequestHeader(value = "x-organization-role", required = false) String organizationRole,
-                                                               @PathVariable("initiativeId") String initiativeId,
-                                                               @RequestParam LocalDateTime startPeriod,
-                                                               @RequestParam LocalDateTime endPeriod,
-                                                               @RequestParam(required = false) RewardBatchAssignee rewardBatchAssignee);
+
 
 }

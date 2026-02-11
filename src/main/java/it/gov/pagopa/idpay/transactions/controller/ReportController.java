@@ -1,10 +1,17 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportListDTO;
+import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
+import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
+
+import java.time.LocalDateTime;
 
 @RequestMapping("/idpay/merchant/portal")
 public interface ReportController {
@@ -17,4 +24,10 @@ public interface ReportController {
             @PathVariable("initiativeId") String initiativeId,
             @PageableDefault Pageable pageable
     );
+
+    @PostMapping("/initiatives/{initiativeId}/transactions/reports")
+    Mono<ReportDTO> generateReport(@RequestHeader("x-merchant-id") String merchantId,
+                                                       @RequestHeader(value = "x-organization-role", required = false) String organizationRole,
+                                                       @PathVariable("initiativeId") String initiativeId,
+                                                       @RequestBody @Valid ReportRequest request);
 }

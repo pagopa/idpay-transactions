@@ -48,7 +48,7 @@ public class ReportSpecificRepositoryImpl implements ReportSpecificRepository {
         }
 
         if (rewardBatchAssignee != null && !rewardBatchAssignee.isBlank()) {
-            subCriteria.add(Criteria.where(Report.Fields.rewardBatchAssignee).is(rewardBatchAssignee));
+            subCriteria.add(Criteria.where(Report.Fields.operatorLevel).is(rewardBatchAssignee));
         }
 
         return new Criteria().andOperator(subCriteria.toArray(new Criteria[0]));

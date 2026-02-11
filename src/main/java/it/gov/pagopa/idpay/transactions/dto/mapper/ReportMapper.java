@@ -27,8 +27,9 @@ public class ReportMapper {
                 .businessName(report.getBusinessName())
                 .requestDate(report.getRequestDate())
                 .elaborationDate(report.getElaborationDate())
-                .rewardBatchAssignee(report.getRewardBatchAssignee())
+                .operatorLevel(report.getOperatorLevel())
                 .fileName(report.getFileName())
+                .reportType(report.getReportType())
                 .build();
     }
 

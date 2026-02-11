@@ -1,8 +1,6 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
-import it.gov.pagopa.idpay.transactions.dto.MerchantReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.service.MerchantTransactionService;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
@@ -10,7 +8,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -44,23 +41,6 @@ public class MerchantTransactionControllerImpl implements MerchantTransactionCon
 
         return merchantTransactionService.getProcessedTransactionStatuses(
                 organizationRole);
-    }
-
-
-    @Override
-    public Mono<MerchantReportDTO> generateMerchantTransactionsReport(String merchantId,
-                                                                      String organizationRole,
-                                                                      String initiativeId,
-                                                                      LocalDateTime startPeriod,
-                                                                      LocalDateTime endPeriod,
-                                                                      RewardBatchAssignee rewardBatchAssignee
-                                                       ) {
-
-        log.info("[GET_MERCHANT_REPORT] Requested report with MerchantId = {}, startPeriod = {}, endPeriod = {}",
-                Utilities.sanitizeString(merchantId),
-                startPeriod,
-                endPeriod);
-        return merchantTransactionService.generateMerchantTransactionsReport(merchantId, organizationRole, initiativeId, startPeriod, endPeriod, rewardBatchAssignee);
     }
 
 }
