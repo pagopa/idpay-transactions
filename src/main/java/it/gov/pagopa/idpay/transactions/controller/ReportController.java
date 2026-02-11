@@ -3,15 +3,11 @@ package it.gov.pagopa.idpay.transactions.controller;
 import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportListDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
-import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
-
-import java.time.LocalDateTime;
 
 @RequestMapping("/idpay/merchant/portal")
 public interface ReportController {
