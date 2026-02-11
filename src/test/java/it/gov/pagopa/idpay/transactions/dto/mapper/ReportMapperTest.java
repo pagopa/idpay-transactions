@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportListDTO;
 import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
+import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import java.time.LocalDateTime;
@@ -37,7 +38,8 @@ class ReportMapperTest {
                 .endPeriod(LocalDateTime.of(2026, 2, 28, 23, 59))
                 .requestDate(LocalDateTime.of(2026, 2, 10, 10, 0))
                 .elaborationDate(LocalDateTime.of(2026, 2, 10, 12, 0))
-                .rewardBatchAssignee(RewardBatchAssignee.L1)
+                .operatorLevel(RewardBatchAssignee.L1)
+                .reportType(ReportType.MERCHANT_TRANSACTIONS)
                 .build();
 
         ReportDTO dto = mapper.toDTO(report);
@@ -53,7 +55,8 @@ class ReportMapperTest {
         assertEquals(LocalDateTime.of(2026, 2, 28, 23, 59), dto.getEndPeriod());
         assertEquals(LocalDateTime.of(2026, 2, 10, 10, 0), dto.getRequestDate());
         assertEquals(LocalDateTime.of(2026, 2, 10, 12, 0), dto.getElaborationDate());
-        assertEquals(RewardBatchAssignee.L1, dto.getRewardBatchAssignee());
+        assertEquals(RewardBatchAssignee.L1, dto.getOperatorLevel());
+        assertEquals(ReportType.MERCHANT_TRANSACTIONS, dto.getReportType());
     }
 
     @Test

@@ -53,7 +53,7 @@ class ReportControllerImplTest {
                 .endPeriod(LocalDateTime.of(2026, 2, 28, 23, 59))
                 .requestDate(LocalDateTime.of(2026, 2, 10, 10, 0))
                 .elaborationDate(LocalDateTime.of(2026, 2, 10, 12, 0))
-                .rewardBatchAssignee(RewardBatchAssignee.L1)
+                .operatorLevel(RewardBatchAssignee.L1)
                 .build();
 
         Page<Report> servicePage = new PageImpl<>(List.of(report), PageRequest.of(0, 10), 1);
@@ -69,7 +69,7 @@ class ReportControllerImplTest {
                 .endPeriod(report.getEndPeriod())
                 .requestDate(report.getRequestDate())
                 .elaborationDate(report.getElaborationDate())
-                .rewardBatchAssignee(report.getRewardBatchAssignee())
+                .operatorLevel(report.getOperatorLevel())
                 .build();
 
         ReportListDTO listDTO = ReportListDTO.builder()
