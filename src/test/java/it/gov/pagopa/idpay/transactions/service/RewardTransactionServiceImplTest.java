@@ -155,7 +155,7 @@ class RewardTransactionServiceImplTest {
             rt.getBusinessName()
         )).thenReturn(Mono.just(batch));
 
-        Mockito.when(rewardBatchService.incrementTotals(batch.getId(), 1000L))
+        Mockito.when(rewardBatchService.incrementTotalAmountCents(batch.getId(), 1000L))
             .thenReturn(Mono.just(batch));
 
         Mockito.when(rewardTransactionRepository.save(Mockito.any()))
@@ -288,7 +288,7 @@ class RewardTransactionServiceImplTest {
         rt.getBusinessName()
     )).thenReturn(Mono.just(batch));
 
-    Mockito.when(rewardBatchService.incrementTotals(batch.getId(), 1000L))
+    Mockito.when(rewardBatchService.incrementTotalAmountCents(batch.getId(), 1000L))
         .thenReturn(Mono.just(batch));
 
     Mockito.when(rewardTransactionRepository.save(Mockito.any()))
@@ -353,7 +353,7 @@ class RewardTransactionServiceImplTest {
 
         Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
             .thenReturn(Mono.just(batch));
-        Mockito.when(rewardBatchService.incrementTotals(Mockito.anyString(), Mockito.anyLong()))
+        Mockito.when(rewardBatchService.incrementTotalAmountCents(Mockito.anyString(), Mockito.anyLong()))
             .thenReturn(Mono.just(batch));
 
         Mockito.when(rewardTransactionRepository.save(Mockito.any()))
@@ -372,7 +372,7 @@ class RewardTransactionServiceImplTest {
         Mockito.verify(rewardBatchService, Mockito.times(2))
             .findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any());
         Mockito.verify(rewardBatchService, Mockito.times(2))
-            .incrementTotals(Mockito.anyString(), Mockito.anyLong());
+            .incrementTotalAmountCents(Mockito.anyString(), Mockito.anyLong());
 
         Mockito.verify(rewardTransactionRepository, Mockito.times(2))
             .save(Mockito.any());
@@ -426,7 +426,7 @@ class RewardTransactionServiceImplTest {
 
         Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
             .thenReturn(Mono.just(batch));
-        Mockito.when(rewardBatchService.incrementTotals(Mockito.anyString(), Mockito.anyLong()))
+        Mockito.when(rewardBatchService.incrementTotalAmountCents(Mockito.anyString(), Mockito.anyLong()))
             .thenReturn(Mono.just(batch));
 
         Mockito.when(rewardTransactionRepository.save(Mockito.any()))
@@ -446,7 +446,7 @@ class RewardTransactionServiceImplTest {
         Mockito.verify(rewardBatchService, Mockito.times(2))
             .findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any());
         Mockito.verify(rewardBatchService, Mockito.times(2))
-            .incrementTotals(Mockito.anyString(), Mockito.anyLong());
+            .incrementTotalAmountCents(Mockito.anyString(), Mockito.anyLong());
 
         Mockito.verify(rewardTransactionRepository, Mockito.times(2))
             .save(Mockito.any());
@@ -506,7 +506,7 @@ class RewardTransactionServiceImplTest {
 
         Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
             .thenReturn(Mono.just(batch));
-        Mockito.when(rewardBatchService.incrementTotals(Mockito.anyString(), Mockito.anyLong()))
+        Mockito.when(rewardBatchService.incrementTotalAmountCents(Mockito.anyString(), Mockito.anyLong()))
             .thenReturn(Mono.just(batch));
         Mockito.when(rewardTransactionRepository.save(Mockito.any()))
             .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
@@ -556,7 +556,7 @@ class RewardTransactionServiceImplTest {
 
         Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
             .thenReturn(Mono.just(batch));
-        Mockito.when(rewardBatchService.incrementTotals(Mockito.anyString(), Mockito.anyLong()))
+        Mockito.when(rewardBatchService.incrementTotalAmountCents(Mockito.anyString(), Mockito.anyLong()))
             .thenReturn(Mono.just(batch));
         Mockito.when(rewardTransactionRepository.save(Mockito.any()))
             .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
@@ -606,7 +606,7 @@ class RewardTransactionServiceImplTest {
 
         Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
             .thenReturn(Mono.just(batch));
-        Mockito.when(rewardBatchService.incrementTotals(Mockito.anyString(), Mockito.anyLong()))
+        Mockito.when(rewardBatchService.incrementTotalAmountCents(Mockito.anyString(), Mockito.anyLong()))
             .thenReturn(Mono.just(batch));
         Mockito.when(rewardTransactionRepository.save(Mockito.any()))
             .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
@@ -657,7 +657,7 @@ class RewardTransactionServiceImplTest {
             .verify();
 
         Mockito.verify(rewardBatchService, Mockito.never())
-            .incrementTotals(Mockito.anyString(), Mockito.anyLong());
+            .incrementTotalAmountCents(Mockito.anyString(), Mockito.anyLong());
     }
 
   @Test
@@ -690,7 +690,7 @@ class RewardTransactionServiceImplTest {
             .build()));
     Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
         .thenReturn(Mono.just(batch));
-    Mockito.when(rewardBatchService.incrementTotals(Mockito.anyString(), Mockito.anyLong()))
+    Mockito.when(rewardBatchService.incrementTotalAmountCents(Mockito.anyString(), Mockito.anyLong()))
         .thenReturn(Mono.just(batch));
     Mockito.when(rewardTransactionRepository.save(Mockito.any()))
         .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));

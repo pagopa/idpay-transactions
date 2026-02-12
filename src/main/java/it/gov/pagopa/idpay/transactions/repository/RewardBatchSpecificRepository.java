@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
+import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
@@ -9,12 +10,13 @@ import reactor.core.publisher.Mono;
 
 
 public interface RewardBatchSpecificRepository {
-  Mono<RewardBatch> incrementTotals(String batchId, long accruedAmountCents);
-  Mono<RewardBatch> decrementTotals(String batchId, long accruedAmountCents);
+  Mono<RewardBatch> incrementTotalAmountCents(String batchId, long accruedAmountCents);
+  Mono<RewardBatch> decrementTotalAmountCents(String batchId, long accruedAmountCents);
   Mono<RewardBatch> moveSuspendToNewBatch(String oldBatchId, String newBatchId, long accruedAmountCents);
+  Mono<RewardBatch> moveTrxToNewBatch(String oldBatchId, String newBatchId, long accruedAmountCents, boolean isSuspended);
   Flux<RewardBatch> findRewardBatchesCombined(String merchantId, String status, String assigneeLevel, String month, boolean isOperator, Pageable pageable);
   Mono<Long> getCountCombined(String merchantId, String status, String assigneeLevel, String month, boolean isOperator);
-  Mono<RewardBatch> updateTotals(String rewardBatchId, long elaboratedTrxNumber, long updateAmountCents, long suspendedAmountCents, long rejectedTrxNumber, long suspendedTrxNumber);
+  Mono<RewardBatch> updateTotals(String rewardBatchId, BatchCountersDTO batchCountersDTO);
   Mono<RewardBatch> findRewardBatchById(String rewardBatchId);
   Mono<RewardBatch> findRewardBatchByFilter(String rewardBatchId, String merchantId, PosType posType, String month);
   Flux<RewardBatch> findRewardBatchByStatus(RewardBatchStatus rewardBatchStatus);

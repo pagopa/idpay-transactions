@@ -279,7 +279,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)));
     }
 
-    /** (5) sposta batch al mese corrente + contatori suspended */
+    /** (5) sposta trx al batch del mese corrente + contatori suspended */
     private Mono<Void> moveToCurrentMonthBatchAndUpdateCounters(RewardTransaction suspendedTrx,
                                                                 RewardBatch oldBatch,
                                                                 String oldBatchId,
@@ -298,7 +298,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         return rewardBatchService.findOrCreateBatch(merchantId, posType, targetMonth.toString(), businessName)
                 .flatMap(newBatch -> {
                     if (newBatch.getId().equals(oldBatchId)) {
-                        // batch già corretto, salvo solo eventuali updateDate già fatto
+                        // batch già del mese odierno
                         return rewardTransactionRepository.save(suspendedTrx).then();
                     }
 
@@ -321,8 +321,8 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                            long accruedRewardCents) {
 
         if (CREATED.equals(oldBatch.getStatus())) {
-            return rewardBatchService.decrementTotals(oldBatchId, accruedRewardCents)
-                    .then(rewardBatchService.incrementTotals(newBatchId, accruedRewardCents))
+            return rewardBatchService.decrementTotalAmountCents(oldBatchId, accruedRewardCents)
+                    .then(rewardBatchService.incrementTotalAmountCents(newBatchId, accruedRewardCents))
                     .then();
         }
 
@@ -412,7 +412,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
                                             Mono<Void> decrementRewardBatchMono =
                                                     oldRewardBatchId != null
-                                                            ? rewardBatchRepository.decrementTotals(oldRewardBatchId, accruedRewardCents).then()
+                                                            ? rewardBatchRepository.decrementTotalAmountCents(oldRewardBatchId, accruedRewardCents).then()
                                                             : Mono.empty();
 
 

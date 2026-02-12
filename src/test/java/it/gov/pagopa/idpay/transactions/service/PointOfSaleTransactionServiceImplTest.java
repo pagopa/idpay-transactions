@@ -405,7 +405,7 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POS_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findRewardBatchById("B1")).thenReturn(Mono.just(batch));
-        when(rewardBatchRepository.decrementTotals("B1", 123L)).thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.decrementTotalAmountCents("B1", 123L)).thenReturn(Mono.just(batch));
         when(rewardTransactionRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
         @SuppressWarnings("unchecked")
@@ -424,7 +424,7 @@ class PointOfSaleTransactionServiceImplTest {
                         eq(
                                 "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/creditNote/credit-note.pdf"),
                         eq("application/pdf"));
-        verify(rewardBatchRepository).decrementTotals("B1", 123L);
+        verify(rewardBatchRepository).decrementTotalAmountCents("B1", 123L);
         verify(rewardTransactionRepository).save(any());
         verify(transactionNotifierService).notify(any(RewardTransactionKafkaDTO.class), eq(USER_ID));
     }
@@ -847,8 +847,8 @@ class PointOfSaleTransactionServiceImplTest {
         );
 
         verify(rewardBatchService, never()).moveSuspendToNewBatch(anyString(), anyString(), anyLong());
-        verify(rewardBatchService, never()).decrementTotals(anyString(), anyLong());
-        verify(rewardBatchService, never()).incrementTotals(anyString(), anyLong());
+        verify(rewardBatchService, never()).decrementTotalAmountCents(anyString(), anyLong());
+        verify(rewardBatchService, never()).incrementTotalAmountCents(anyString(), anyLong());
 
         verify(invoiceStorageClient).deleteFile(
                 "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/old.pdf"
@@ -1141,8 +1141,8 @@ class PointOfSaleTransactionServiceImplTest {
                 .verifyComplete();
 
         verify(rewardBatchService, never()).moveSuspendToNewBatch(anyString(), anyString(), anyLong());
-        verify(rewardBatchService, never()).decrementTotals(anyString(), anyLong());
-        verify(rewardBatchService, never()).incrementTotals(anyString(), anyLong());
+        verify(rewardBatchService, never()).decrementTotalAmountCents(anyString(), anyLong());
+        verify(rewardBatchService, never()).incrementTotalAmountCents(anyString(), anyLong());
     }
 
     @Test
@@ -1187,15 +1187,15 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardBatchService.findOrCreateBatch(eq(MERCHANT_ID), eq(PosType.PHYSICAL), eq(YearMonth.now().toString()), eq("Biz")))
                 .thenReturn(Mono.just(newBatch));
 
-        when(rewardBatchService.decrementTotals("OLD", 123L)).thenReturn(Mono.just(oldBatch));
-        when(rewardBatchService.incrementTotals("NEW", 123L)).thenReturn(Mono.just(newBatch));
+        when(rewardBatchService.decrementTotalAmountCents("OLD", 123L)).thenReturn(Mono.just(oldBatch));
+        when(rewardBatchService.incrementTotalAmountCents("NEW", 123L)).thenReturn(Mono.just(newBatch));
 
         StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
                 .verifyComplete();
 
         verify(rewardBatchService, never()).suspendTransactions(anyString(), anyString(), any());
-        verify(rewardBatchService).decrementTotals("OLD", 123L);
-        verify(rewardBatchService).incrementTotals("NEW", 123L);
+        verify(rewardBatchService).decrementTotalAmountCents("OLD", 123L);
+        verify(rewardBatchService).incrementTotalAmountCents("NEW", 123L);
         verify(rewardBatchService, never()).moveSuspendToNewBatch(anyString(), anyString(), anyLong());
     }
 
