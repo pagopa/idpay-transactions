@@ -107,8 +107,8 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
         "[UPDATE_INVOICE_TRANSACTION] The merchant {} is requesting a invoice update for the transactionId {} at POS {}",
         sanitizedMerchantId, sanitizedTrxCode, sanitizedPointOfSaleId
     );
-    return pointOfSaleTransactionService.updateInvoiceTransaction(transactionId, merchantId,
-        pointOfSaleId, file, docNumber);
+    return pointOfSaleTransactionService.updateInvoiceTransaction(transactionId, sanitizedMerchantId,
+            sanitizedPointOfSaleId, file, docNumber);
   }
 
     @Override
