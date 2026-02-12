@@ -1,11 +1,11 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
+import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ReportMapper;
 import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.model.Report;
-import it.gov.pagopa.idpay.transactions.repository.MerchantRepository;
 import it.gov.pagopa.idpay.transactions.repository.ReportRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,7 +32,7 @@ class ReportServiceImplTest {
     private ReportRepository reportRepository;
 
     @Mock
-    private MerchantRepository merchantRepository;
+    private MerchantRestClient merchantRestClient;
 
     @Mock
     private ReportMapper reportMapper;
@@ -45,7 +45,7 @@ class ReportServiceImplTest {
 
     @BeforeEach
     void setup() {
-        service = new ReportServiceImpl(reportRepository, merchantRepository, reportMapper);
+        service = new ReportServiceImpl(reportRepository, merchantRestClient, reportMapper);
     }
 
     @Test
