@@ -5,6 +5,8 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.MerchantDetailDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.PointOfSaleDTO;
 import java.time.Duration;
 import java.util.Map;
+
+import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheConfig;
@@ -86,7 +88,7 @@ public class MerchantRestClientImpl implements MerchantRestClient {
 
     @Override
     public Mono<MerchantDetailDTO> getMerchantDetail(String merchantId, String initiativeId) {
-        log.info("Sending request to merchant {} to get merchant details", merchantId);
+        log.info("Sending request to merchant {} to get merchant details", Utilities.sanitizeString(merchantId));
 
         return PerformanceLogger.logTimingOnNext(
                         "MERCHANT_INTEGRATION",
@@ -113,11 +115,11 @@ public class MerchantRestClientImpl implements MerchantRestClient {
                                 })
                 )
                 .onErrorResume(WebClientResponseException.NotFound.class, ex -> {
-                    log.warn("Merchant detail not found for merchant {}", merchantId);
+                    log.warn("Merchant detail not found for merchant {}", Utilities.sanitizeString(merchantId));
                     return Mono.empty();
                 })
                 .onErrorResume(WebClientResponseException.BadRequest.class, ex -> {
-                    log.warn("Invalid request for merchant {}", merchantId);
+                    log.warn("Invalid request for merchant {}", Utilities.sanitizeString(merchantId));
                     return Mono.empty();
                 });
     }
