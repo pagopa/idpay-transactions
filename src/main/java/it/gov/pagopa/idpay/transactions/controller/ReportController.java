@@ -12,7 +12,7 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/idpay/merchant/portal")
 public interface ReportController {
 
-    @GetMapping("/initiatives/{initiativeId}/transactions/reports")
+    @GetMapping("/initiatives/{initiativeId}/reports")
     Mono<ReportListDTO> getTransactionsReports(
             @RequestHeader(value = "x-merchant-id", required = false) String merchantId,
             @RequestHeader(value = "x-organization-role", required = false) String organizationRole,
@@ -20,7 +20,7 @@ public interface ReportController {
             @PageableDefault Pageable pageable
     );
 
-    @PostMapping("/initiatives/{initiativeId}/transactions/reports")
+    @PostMapping("/initiatives/{initiativeId}/reports")
     Mono<ReportDTO> generateReport(@RequestHeader("x-merchant-id") String merchantId,
                                                        @RequestHeader(value = "x-organization-role", required = false) String organizationRole,
                                                        @PathVariable("initiativeId") String initiativeId,
