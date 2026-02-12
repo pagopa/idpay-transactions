@@ -1,14 +1,10 @@
 {
   "request": {
     "method": "GET",
-    "urlPathPattern": "/idpay/merchant/portal/initiatives/INIT_NOTFOUND_1",
-    "headers": {
-      "x-merchant-id": {
-        "equalTo": "MERCHANT_NOTFOUND_1"
-      }
-    }
+    "urlPattern": "/idpay/merchant/portal/initiatives/.*/MERCHANT_NOTFOUND_1"
   },
   "response": {
-    "status": 404
+    "status": 404,
+    "body": "Merchant not found"
   }
 }

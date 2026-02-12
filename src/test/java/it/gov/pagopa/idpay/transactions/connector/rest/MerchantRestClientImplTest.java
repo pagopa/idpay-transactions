@@ -1,9 +1,12 @@
 package it.gov.pagopa.idpay.transactions.connector.rest;
 
 import static it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest.WIREMOCK_TEST_PROP2BASEPATH_MAP_PREFIX;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.MERCHANT_NOT_FOUND;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_MERCHANT_NOT_FOUND;
 
 import it.gov.pagopa.common.reactive.rest.config.WebClientConfig;
 import it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest;
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.MerchantDetailDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.PointOfSaleDTO;
 import org.junit.jupiter.api.Assertions;
@@ -11,11 +14,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.web.reactive.function.client.WebClientException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.Exceptions;
+import reactor.test.StepVerifier;
 
 @ContextConfiguration(
     classes = {
@@ -135,10 +140,24 @@ class MerchantRestClientImplTest extends BaseWireMockTest {
           "MERCHANT_OK_1,INIT_NOTFOUND_1"
   })
   void getMerchantDetail_NotFound(String merchantId, String initiativeId) {
-    MerchantDetailDTO result = merchantRestClient.getMerchantDetail(merchantId, initiativeId).block();
 
-    Assertions.assertNull(result);
+    StepVerifier.create(merchantRestClient.getMerchantDetail(merchantId, initiativeId))
+            .expectErrorSatisfies(error -> {
+                Assertions.assertInstanceOf(ClientExceptionWithBody.class, error);
+
+              ClientExceptionWithBody ex = (ClientExceptionWithBody) error;
+
+              Assertions.assertEquals(HttpStatus.NOT_FOUND, ex.getHttpStatus());
+              Assertions.assertEquals(MERCHANT_NOT_FOUND, ex.getCode());
+              Assertions.assertEquals(
+                      ERROR_MESSAGE_MERCHANT_NOT_FOUND.formatted(merchantId, initiativeId),
+                      ex.getMessage()
+              );
+            })
+            .verify();
   }
+
+
 
   @Test
   void getMerchantDetailInternalServerError() {
