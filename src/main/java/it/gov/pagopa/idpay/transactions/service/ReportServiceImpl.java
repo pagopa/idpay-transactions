@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
+import it.gov.pagopa.idpay.transactions.dto.PatchReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ReportMapper;
@@ -25,6 +26,7 @@ import java.util.List;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.*;
+import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @Slf4j
 @Service
@@ -161,5 +163,28 @@ public class ReportServiceImpl implements ReportService {
         if ("operator3".equals(organizationRole)) return RewardBatchAssignee.L3;
         return null;
     }
+
+
+    @Override
+    public Mono<ReportDTO> patchReport(String initiativeId,
+                                       String reportId,
+                                       PatchReportRequest request) {
+
+        return reportRepository.findByIdAndInitiativeId(reportId, initiativeId)
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        NOT_FOUND,
+                        REPORT_NOT_FOUND,
+                        ERROR_MESSAGE_REPORT_NOT_FOUND.formatted(reportId, initiativeId)
+                )))
+                .flatMap(report -> {
+                    if (request.getReportStatus() != null) {
+                        report.setReportStatus(request.getReportStatus());
+                    }
+
+                    return reportRepository.save(report);
+                })
+                .map(reportMapper::toDTO);
+    }
+
 
 }

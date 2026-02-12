@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.idpay.transactions.dto.PatchReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
 import it.gov.pagopa.idpay.transactions.model.Report;
@@ -14,4 +15,8 @@ public interface ReportService {
                                    String organizationRole,
                                    String initiativeId,
                                    ReportRequest request);
+
+    Mono<ReportDTO> patchReport(String initiativeId,
+                                String reportId,
+                                PatchReportRequest request);
 }

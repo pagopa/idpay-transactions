@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import it.gov.pagopa.idpay.transactions.dto.PatchReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportListDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
@@ -44,5 +45,14 @@ public class ReportControllerImpl implements ReportController {
                                           ReportRequest request
     ) {
             return reportService.generateReport(merchantId, organizationRole, initiativeId, request);
+    }
+
+
+    @Override
+    public Mono<ReportDTO> patchReport(String initiativeId,
+                                       String reportId,
+                                       PatchReportRequest request
+    ) {
+        return reportService.patchReport(initiativeId, reportId, request);
     }
 }
