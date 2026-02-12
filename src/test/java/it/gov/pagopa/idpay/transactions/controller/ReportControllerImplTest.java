@@ -2,7 +2,9 @@ package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportListDTO;
+import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ReportMapper;
+import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
@@ -142,4 +144,81 @@ class ReportControllerImplTest {
         verify(reportService, times(1))
                 .getTransactionsReports(eq(MERCHANT_ID), isNull(), isNull(), eq(INITIATIVE_ID), any(Pageable.class));
     }
+
+    @Test
+    void generateReport_ReturnsReport_Success() {
+        ReportRequest request = ReportRequest.builder()
+                .startPeriod(LocalDateTime.of(2026, 2, 1, 0, 0))
+                .endPeriod(LocalDateTime.of(2026, 2, 28, 23, 59))
+                .reportType(ReportType.MERCHANT_TRANSACTIONS)
+                .operatorLevel(RewardBatchAssignee.L1)
+                .build();
+
+        ReportDTO reportDTO = ReportDTO.builder()
+                .id("generatedReport1")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
+                .fileName("generated_report.csv")
+                .reportStatus(ReportStatus.INSERTED)
+                .startPeriod(request.getStartPeriod())
+                .endPeriod(request.getEndPeriod())
+                .operatorLevel(request.getOperatorLevel())
+                .build();
+
+        when(reportService.generateReport(
+                eq(MERCHANT_ID),
+                isNull(),
+                eq(INITIATIVE_ID),
+                eq(request)
+        )).thenReturn(Mono.just(reportDTO));
+
+        webClient.post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/transactions/reports", INITIATIVE_ID)
+                .header("x-merchant-id", MERCHANT_ID)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(ReportDTO.class)
+                .value(response -> {
+                    assertNotNull(response);
+                    assertEquals("generatedReport1", response.getId());
+                    assertEquals("generated_report.csv", response.getFileName());
+                    assertEquals(ReportStatus.INSERTED, response.getReportStatus());
+                    assertEquals(request.getStartPeriod(), response.getStartPeriod());
+                    assertEquals(request.getEndPeriod(), response.getEndPeriod());
+                    assertEquals(request.getOperatorLevel(), response.getOperatorLevel());
+                });
+
+        verify(reportService, times(1))
+                .generateReport(eq(MERCHANT_ID), isNull(), eq(INITIATIVE_ID), eq(request));
+    }
+
+    @Test
+    void generateReport_ServiceFails_InternalServerError() {
+        ReportRequest request = ReportRequest.builder()
+                .startPeriod(LocalDateTime.of(2026, 2, 1, 0, 0))
+                .endPeriod(LocalDateTime.of(2026, 2, 28, 23, 59))
+                .reportType(ReportType.MERCHANT_TRANSACTIONS)
+                .operatorLevel(RewardBatchAssignee.L1)
+                .build();
+
+        when(reportService.generateReport(
+                eq(MERCHANT_ID),
+                isNull(),
+                eq(INITIATIVE_ID),
+                eq(request)
+        )).thenReturn(Mono.error(new RuntimeException("Service failure")));
+
+        webClient.post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/transactions/reports", INITIATIVE_ID)
+                .header("x-merchant-id", MERCHANT_ID)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().is5xxServerError();
+
+        verify(reportService, times(1))
+                .generateReport(eq(MERCHANT_ID), isNull(), eq(INITIATIVE_ID), eq(request));
+    }
+
+
 }
