@@ -25,7 +25,6 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -56,51 +55,35 @@ class ReportServiceImplTest {
 
     @Test
     void getTransactionsReports_returnsPage_success() {
+        Pageable pageable = PageRequest.of(0, 10);
+
         Report report = Report.builder()
                 .id("R1")
                 .initiativeId(INITIATIVE_ID)
                 .merchantId(MERCHANT_ID)
-                .businessName("Business")
                 .reportStatus(ReportStatus.INSERTED)
-                .startPeriod(LocalDateTime.of(2026, 2, 1, 0, 0))
-                .endPeriod(LocalDateTime.of(2026, 2, 28, 23, 59))
-                .operatorLevel(RewardBatchAssignee.L1)
-                .fileName("report.csv")
-                .requestDate(LocalDateTime.now())
-                .elaborationDate(LocalDateTime.now())
+                .operatorLevel(null)
                 .build();
-
-        Pageable pageable = PageRequest.of(0, 10);
-        List<Report> reports = List.of(report);
 
         when(reportRepository.findReportsCombined(
                 eq(MERCHANT_ID),
-                eq(ORGANIZATION_ROLE),
                 isNull(),
                 eq(INITIATIVE_ID),
-                eq(true),
                 eq(pageable)
-        )).thenReturn(Flux.fromIterable(reports));
+        )).thenReturn(Flux.just(report));
 
         when(reportRepository.countReportsCombined(
                 eq(MERCHANT_ID),
-                eq(ORGANIZATION_ROLE),
                 isNull(),
-                eq(INITIATIVE_ID),
-                eq(true)
+                eq(INITIATIVE_ID)
         )).thenReturn(Mono.just(1L));
 
-        StepVerifier.create(service.getTransactionsReports(MERCHANT_ID, ORGANIZATION_ROLE, null, INITIATIVE_ID, pageable))
+        StepVerifier.create(service.getTransactionsReports(MERCHANT_ID, null, INITIATIVE_ID, pageable))
                 .assertNext(page -> {
-                    assertNotNull(page);
                     assertEquals(1, page.getTotalElements());
-                    assertEquals(1, page.getContent().size());
                     assertEquals("R1", page.getContent().get(0).getId());
                 })
                 .verifyComplete();
-
-        verify(reportRepository, times(1)).findReportsCombined(any(), any(), any(), any(), anyBoolean(), any());
-        verify(reportRepository, times(1)).countReportsCombined(any(), any(), any(), any(), anyBoolean());
     }
 
     @Test
@@ -108,7 +91,7 @@ class ReportServiceImplTest {
         Pageable pageable = PageRequest.of(0, 10);
 
         ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class,
-                () -> service.getTransactionsReports(null, null, null, INITIATIVE_ID, pageable));
+                () -> service.getTransactionsReports(null, null, INITIATIVE_ID, pageable));
 
         assertEquals(400, ex.getHttpStatus().value());
     }
@@ -117,14 +100,21 @@ class ReportServiceImplTest {
     void getTransactionsReports_returnsEmpty_whenNoReports() {
         Pageable pageable = PageRequest.of(0, 10);
 
-        when(reportRepository.findReportsCombined(any(), any(), any(), any(), anyBoolean(), any()))
-                .thenReturn(Flux.empty());
-        when(reportRepository.countReportsCombined(any(), any(), any(), any(), anyBoolean()))
-                .thenReturn(Mono.just(0L));
+        when(reportRepository.findReportsCombined(
+                eq(MERCHANT_ID),
+                isNull(),
+                eq(INITIATIVE_ID),
+                eq(pageable)
+        )).thenReturn(Flux.empty());
 
-        StepVerifier.create(service.getTransactionsReports(MERCHANT_ID, ORGANIZATION_ROLE, null, INITIATIVE_ID, pageable))
+        when(reportRepository.countReportsCombined(
+                eq(MERCHANT_ID),
+                isNull(),
+                eq(INITIATIVE_ID)
+        )).thenReturn(Mono.just(0L));
+
+        StepVerifier.create(service.getTransactionsReports(MERCHANT_ID, null, INITIATIVE_ID, pageable))
                 .assertNext(page -> {
-                    assertNotNull(page);
                     assertTrue(page.getContent().isEmpty());
                     assertEquals(0, page.getTotalElements());
                 })
@@ -150,21 +140,17 @@ class ReportServiceImplTest {
         when(reportRepository.findReportsCombined(
                 isNull(),
                 eq(ORGANIZATION_ROLE),
-                isNull(),
                 eq(INITIATIVE_ID),
-                eq(true),
                 eq(pageable)
         )).thenReturn(Flux.just(report));
 
         when(reportRepository.countReportsCombined(
                 isNull(),
                 eq(ORGANIZATION_ROLE),
-                isNull(),
-                eq(INITIATIVE_ID),
-                eq(true)
+                eq(INITIATIVE_ID)
         )).thenReturn(Mono.just(1L));
 
-        StepVerifier.create(service.getTransactionsReports(null, ORGANIZATION_ROLE, null, INITIATIVE_ID, pageable))
+        StepVerifier.create(service.getTransactionsReports(null, ORGANIZATION_ROLE, INITIATIVE_ID, pageable))
                 .assertNext(page -> {
                     assertNotNull(page);
                     assertEquals(1, page.getTotalElements());
@@ -192,21 +178,17 @@ class ReportServiceImplTest {
         when(reportRepository.findReportsCombined(
                 eq(MERCHANT_ID),
                 isNull(),
-                isNull(),
                 eq(INITIATIVE_ID),
-                eq(false),
                 eq(pageable)
         )).thenReturn(Flux.just(report));
 
         when(reportRepository.countReportsCombined(
                 eq(MERCHANT_ID),
                 isNull(),
-                isNull(),
-                eq(INITIATIVE_ID),
-                eq(false)
+                eq(INITIATIVE_ID)
         )).thenReturn(Mono.just(1L));
 
-        StepVerifier.create(service.getTransactionsReports(MERCHANT_ID, null, null, INITIATIVE_ID, pageable))
+        StepVerifier.create(service.getTransactionsReports(MERCHANT_ID, null, INITIATIVE_ID, pageable))
                 .assertNext(page -> {
                     assertNotNull(page);
                     assertEquals(1, page.getTotalElements());
@@ -214,6 +196,30 @@ class ReportServiceImplTest {
                 })
                 .verifyComplete();
     }
+
+    @Test
+    void getTransactionsReports_throwsBadRequest_whenMerchantIdAndRoleBothPresent() {
+        Pageable pageable = PageRequest.of(0, 10);
+
+        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class,
+                () -> service.getTransactionsReports(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, pageable));
+
+        assertEquals(400, ex.getHttpStatus().value());
+    }
+
+    @Test
+    void getTransactionsReports_throwsBadRequest_whenOrganizationRoleDoesNotContainOperator() {
+        Pageable pageable = PageRequest.of(0, 10);
+        String invalidRole = "admin";
+
+        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class,
+                () -> service.getTransactionsReports(null, invalidRole, INITIATIVE_ID, pageable));
+
+        assertEquals(400, ex.getHttpStatus().value());
+        assertEquals("INVALID_ORGANIZATION_ROLE", ex.getCode());
+        assertEquals("The provided organization role is not a valid operator", ex.getMessage());
+    }
+
 
 
     @Test

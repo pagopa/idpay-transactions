@@ -53,7 +53,7 @@ class ReportSpecificRepositoryImplTest {
                 .merchantId(MERCHANT_ID)
                 .businessName("Business1")
                 .reportStatus(ReportStatus.INSERTED)
-                .operatorLevel(RewardBatchAssignee.L1)
+                .operatorLevel(null)
                 .fileName("file1.csv")
                 .startPeriod(LocalDateTime.of(2026, 2, 1, 0, 0))
                 .endPeriod(LocalDateTime.of(2026, 2, 28, 23, 59))
@@ -65,7 +65,7 @@ class ReportSpecificRepositoryImplTest {
 
         Pageable pageable = PageRequest.of(0, 10);
 
-        StepVerifier.create(reportSpecificRepository.findReportsCombined(MERCHANT_ID, null, null, INITIATIVE_ID, false, pageable))
+        StepVerifier.create(reportSpecificRepository.findReportsCombined(MERCHANT_ID, null, INITIATIVE_ID, pageable))
                 .assertNext(r -> {
                     assertEquals("R1", r.getId());
                     assertEquals(MERCHANT_ID, r.getMerchantId());
@@ -78,7 +78,7 @@ class ReportSpecificRepositoryImplTest {
     void findReportsCombined_shouldReturnEmpty_whenNoMatch() {
         Pageable pageable = PageRequest.of(0, 10);
 
-        StepVerifier.create(reportSpecificRepository.findReportsCombined("NON_EXISTENT", null, null, INITIATIVE_ID, false, pageable))
+        StepVerifier.create(reportSpecificRepository.findReportsCombined(MERCHANT_ID, null, INITIATIVE_ID, pageable))
                 .expectNextCount(0)
                 .verifyComplete();
     }
@@ -90,31 +90,111 @@ class ReportSpecificRepositoryImplTest {
 
         reportRepository.saveAll(List.of(report1, report2)).collectList().block();
 
-        StepVerifier.create(reportSpecificRepository.countReportsCombined(MERCHANT_ID, null, null, INITIATIVE_ID, false))
+        StepVerifier.create(reportSpecificRepository.countReportsCombined(MERCHANT_ID, null, INITIATIVE_ID))
                 .assertNext(count -> assertEquals(2L, count))
                 .verifyComplete();
     }
 
     @Test
     void countReportsCombined_shouldReturnZero_whenNoMatch() {
-        StepVerifier.create(reportSpecificRepository.countReportsCombined("NON_EXISTENT", null, null, INITIATIVE_ID, false))
+        StepVerifier.create(reportSpecificRepository.countReportsCombined(MERCHANT_ID, null, INITIATIVE_ID))
                 .assertNext(count -> assertEquals(0L, count))
                 .verifyComplete();
     }
 
     @Test
     void findReportsCombined_shouldFilterByRewardBatchAssignee() {
-        Report report1 = Report.builder().id("R1").merchantId(MERCHANT_ID).initiativeId(INITIATIVE_ID)
-                .operatorLevel(RewardBatchAssignee.L1).build();
-        Report report2 = Report.builder().id("R2").merchantId(MERCHANT_ID).initiativeId(INITIATIVE_ID)
-                .operatorLevel(RewardBatchAssignee.L2).build();
 
-        reportRepository.saveAll(List.of(report1, report2)).collectList().block();
+        Report report1 = Report.builder()
+                .id("R1")
+                .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
+                .operatorLevel(null)
+                .build();
+
+        Report report2 = Report.builder()
+                .id("R2")
+                .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
+                .operatorLevel(RewardBatchAssignee.L1)
+                .build();
+
+        reportRepository.saveAll(List.of(report1, report2))
+                .collectList()
+                .block();
 
         Pageable pageable = PageRequest.of(0, 10);
 
-        StepVerifier.create(reportSpecificRepository.findReportsCombined(MERCHANT_ID, null, RewardBatchAssignee.L1.name(), INITIATIVE_ID, false, pageable))
-                .assertNext(r -> assertEquals("R1", r.getId()))
+        StepVerifier.create(
+                        reportSpecificRepository.findReportsCombined(
+                                MERCHANT_ID,
+                                null,
+                                INITIATIVE_ID,
+                                pageable
+                        )
+                )
+                .expectNextMatches(r -> r.getId().equals("R1"))
                 .verifyComplete();
     }
+
+    @Test
+    void findReportsCombined_shouldFilterByOrganizationRole() {
+
+        Report report1 = Report.builder()
+                .id("R1")
+                .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
+                .operatorLevel(null)
+                .build();
+
+        Report report2 = Report.builder()
+                .id("R2")
+                .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
+                .operatorLevel(RewardBatchAssignee.L1)
+                .build();
+
+        reportRepository.saveAll(List.of(report1, report2))
+                .collectList()
+                .block();
+
+        Pageable pageable = PageRequest.of(0, 10);
+
+        StepVerifier.create(
+                        reportSpecificRepository.findReportsCombined(
+                                null,
+                                "Operator1",
+                                INITIATIVE_ID,
+                                pageable
+                        )
+                )
+                .expectNextMatches(r -> r.getId().equals("R2"))
+                .verifyComplete();
+    }
+
+    @Test
+    void findReportsCombined_shouldWork_whenMerchantIdIsNull() {
+
+        Report report = Report.builder()
+                .id("R1")
+                .initiativeId(INITIATIVE_ID)
+                .operatorLevel(RewardBatchAssignee.L1)
+                .build();
+
+        reportRepository.save(report).block();
+
+        Pageable pageable = PageRequest.of(0, 10);
+
+        StepVerifier.create(
+                        reportSpecificRepository.findReportsCombined(
+                                null,
+                                "Operator1",
+                                INITIATIVE_ID,
+                                pageable
+                        )
+                )
+                .expectNextMatches(r -> r.getId().equals("R1"))
+                .verifyComplete();
+    }
+
 }
