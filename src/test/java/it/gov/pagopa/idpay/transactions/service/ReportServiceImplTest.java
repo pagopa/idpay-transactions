@@ -222,7 +222,6 @@ class ReportServiceImplTest {
         request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
         request.setStartPeriod(LocalDateTime.now().minusDays(10));
         request.setEndPeriod(LocalDateTime.now());
-        request.setOperatorLevel(RewardBatchAssignee.L1);
 
         ReportDTO expectedDto = ReportDTO.builder().id("R1").build();
 
@@ -244,7 +243,6 @@ class ReportServiceImplTest {
         ReportRequest request = new ReportRequest();
         request.setStartPeriod(LocalDateTime.now().minusDays(5));
         request.setEndPeriod(LocalDateTime.now());
-        request.setOperatorLevel(RewardBatchAssignee.L1);
         request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
 
         MerchantDetailDTO merchant = new MerchantDetailDTO();
@@ -288,7 +286,6 @@ class ReportServiceImplTest {
         ReportRequest request = new ReportRequest();
         request.setStartPeriod(LocalDateTime.now().minusDays(5));
         request.setEndPeriod(LocalDateTime.now());
-        request.setOperatorLevel(RewardBatchAssignee.L1);
         request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
 
         RuntimeException remoteError = new RuntimeException("Merchant not found");
@@ -310,7 +307,6 @@ class ReportServiceImplTest {
         ReportRequest request = new ReportRequest();
         request.setStartPeriod(LocalDateTime.now().minusDays(5));
         request.setEndPeriod(LocalDateTime.now());
-        request.setOperatorLevel(RewardBatchAssignee.L1);
         request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
 
         MerchantDetailDTO merchant = new MerchantDetailDTO();
@@ -338,7 +334,6 @@ class ReportServiceImplTest {
         ReportRequest request = new ReportRequest();
         request.setStartPeriod(LocalDateTime.of(2026, 1, 1, 0, 0));
         request.setEndPeriod(LocalDateTime.of(2026, 1, 31, 23, 59));
-        request.setOperatorLevel(RewardBatchAssignee.L1);
         request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
 
         MerchantDetailDTO merchant = new MerchantDetailDTO();

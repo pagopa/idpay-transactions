@@ -151,7 +151,6 @@ class ReportControllerImplTest {
                 .startPeriod(LocalDateTime.of(2026, 2, 1, 0, 0))
                 .endPeriod(LocalDateTime.of(2026, 2, 28, 23, 59))
                 .reportType(ReportType.MERCHANT_TRANSACTIONS)
-                .operatorLevel(RewardBatchAssignee.L1)
                 .build();
 
         ReportDTO reportDTO = ReportDTO.builder()
@@ -162,7 +161,7 @@ class ReportControllerImplTest {
                 .reportStatus(ReportStatus.INSERTED)
                 .startPeriod(request.getStartPeriod())
                 .endPeriod(request.getEndPeriod())
-                .operatorLevel(request.getOperatorLevel())
+                .operatorLevel(null)
                 .build();
 
         when(reportService.generateReport(
@@ -186,7 +185,6 @@ class ReportControllerImplTest {
                     assertEquals(ReportStatus.INSERTED, response.getReportStatus());
                     assertEquals(request.getStartPeriod(), response.getStartPeriod());
                     assertEquals(request.getEndPeriod(), response.getEndPeriod());
-                    assertEquals(request.getOperatorLevel(), response.getOperatorLevel());
                 });
 
         verify(reportService, times(1))
@@ -199,7 +197,6 @@ class ReportControllerImplTest {
                 .startPeriod(LocalDateTime.of(2026, 2, 1, 0, 0))
                 .endPeriod(LocalDateTime.of(2026, 2, 28, 23, 59))
                 .reportType(ReportType.MERCHANT_TRANSACTIONS)
-                .operatorLevel(RewardBatchAssignee.L1)
                 .build();
 
         when(reportService.generateReport(
