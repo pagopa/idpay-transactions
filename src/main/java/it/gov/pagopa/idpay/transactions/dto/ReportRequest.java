@@ -30,6 +30,5 @@ public class ReportRequest {
     @NotNull
     private ReportType reportType;
 
-    private RewardBatchAssignee operatorLevel;
 }
 

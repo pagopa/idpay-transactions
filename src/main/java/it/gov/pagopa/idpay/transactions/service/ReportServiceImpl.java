@@ -6,6 +6,7 @@ import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ReportMapper;
 import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
 import it.gov.pagopa.idpay.transactions.enums.ReportType;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.repository.ReportRepository;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
@@ -105,6 +106,7 @@ public class ReportServiceImpl implements ReportService {
                                                               String initiativeId,
                                                               ReportRequest request) {
 
+        RewardBatchAssignee operatorLevel = resolveOperatorLevel(organizationRole);
 
         return merchantRestClient.getMerchantDetail(merchantId, initiativeId)
                 .flatMap(merchant -> {
@@ -120,7 +122,7 @@ public class ReportServiceImpl implements ReportService {
                             .merchantId(merchantId)
                             .businessName(merchant.getBusinessName())
                             .requestDate(LocalDateTime.now())
-                            .operatorLevel(request.getOperatorLevel())
+                            .operatorLevel(operatorLevel)
                             .fileName(fileName)
                             .reportType(request.getReportType())
                             .build();
@@ -131,6 +133,13 @@ public class ReportServiceImpl implements ReportService {
                 .doOnSuccess(saved -> log.info("[GENERATE_REPORT] Saved report {} for merchant {}",
                         saved.getFileName(), Utilities.sanitizeString(merchantId)));
 
+    }
+
+    private RewardBatchAssignee resolveOperatorLevel(String organizationRole) {
+        if ("operator1".equals(organizationRole)) return RewardBatchAssignee.L1;
+        if ("operator2".equals(organizationRole)) return RewardBatchAssignee.L2;
+        if ("operator3".equals(organizationRole)) return RewardBatchAssignee.L3;
+        return null;
     }
 
 }
