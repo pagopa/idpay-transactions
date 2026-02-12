@@ -4,6 +4,7 @@ import static it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest.WIREMOCK_T
 
 import it.gov.pagopa.common.reactive.rest.config.WebClientConfig;
 import it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest;
+import it.gov.pagopa.idpay.transactions.connector.rest.dto.MerchantDetailDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.PointOfSaleDTO;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -116,4 +117,95 @@ class MerchantRestClientImplTest extends BaseWireMockTest {
     PointOfSaleDTO result = merchantRestClient.getPointOfSale(merchantId, pointOfSaleId).block();
     Assertions.assertNull(result);
   }
+
+  @Test
+  void getMerchantDetailOk() {
+    String merchantId = "MERCHANT_OK_1";
+    String initiativeId = "INIT_OK_1";
+
+    MerchantDetailDTO result = merchantRestClient.getMerchantDetail(merchantId, initiativeId).block();
+
+    Assertions.assertNotNull(result);
+  }
+
+
+  @ParameterizedTest
+  @CsvSource({
+          "MERCHANT_NOTFOUND_1,INIT_NOTFOUND_1",
+          "MERCHANT_OK_1,INIT_NOTFOUND_1"
+  })
+  void getMerchantDetail_NotFound(String merchantId, String initiativeId) {
+    MerchantDetailDTO result = merchantRestClient.getMerchantDetail(merchantId, initiativeId).block();
+
+    Assertions.assertNull(result);
+  }
+
+  @Test
+  void getMerchantDetailInternalServerError() {
+    String merchantId = "MERCHANT_INTERNALSERVERERROR_1";
+    String initiativeId = "INIT_INTERNALSERVERERROR_1";
+
+    try {
+      merchantRestClient.getMerchantDetail(merchantId, initiativeId).block();
+      Assertions.fail("Expected WebClientResponseException.InternalServerError");
+    } catch (Throwable e) {
+      Assertions.assertEquals(WebClientResponseException.InternalServerError.class, e.getClass());
+    }
+  }
+
+  @Test
+  void getMerchantDetailTooManyRequest() {
+    String merchantId = "MERCHANT_TOOMANYREQUEST_1";
+    String initiativeId = "INIT_TOOMANYREQUEST_1";
+
+    try {
+      merchantRestClient.getMerchantDetail(merchantId, initiativeId).block();
+      Assertions.fail("Expected retry exhausted exception");
+    } catch (Throwable e) {
+      Assertions.assertTrue(Exceptions.isRetryExhausted(e));
+    }
+  }
+
+
+
+  @Test
+  void getMerchantDetailHttpForbidden() {
+    String merchantId = "MERCHANT_FORBIDDEN_1";
+    String initiativeId = "INIT_FORBIDDEN_1";
+
+    try {
+      merchantRestClient.getMerchantDetail(merchantId, initiativeId).block();
+      Assertions.fail("Expected WebClientResponseException.Forbidden");
+    } catch (Throwable e) {
+      Assertions.assertEquals(WebClientResponseException.Forbidden.class, e.getClass());
+    }
+  }
+
+
+
+  @Test
+  void getMerchantDetailUnauthorized() {
+    String merchantId = "MERCHANT_UNAUTHORIZED_1";
+    String initiativeId = "INIT_UNAUTHORIZED_1";
+
+    try {
+      merchantRestClient.getMerchantDetail(merchantId, initiativeId).block();
+      Assertions.fail("Expected WebClientResponseException.Unauthorized");
+    } catch (Throwable e) {
+      Assertions.assertEquals(WebClientResponseException.Unauthorized.class, e.getClass());
+    }
+  }
+
+
+
+  @Test
+  void getMerchantDetail_BadRequest_Single() {
+    String merchantId = "MERCHANT_BADREQUEST_1";
+    String initiativeId = "INIT_BADREQUEST_1";
+
+    MerchantDetailDTO result = merchantRestClient.getMerchantDetail(merchantId, initiativeId).block();
+    Assertions.assertNull(result);
+  }
+
+
 }
