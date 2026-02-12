@@ -23,6 +23,7 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.*;
@@ -47,6 +48,7 @@ public class ReportServiceImpl implements ReportService {
     private static final List<String> ALLOWED_ROLES = List.of(
             "operator1", "operator2", "operator3"
     );
+    private static final DateTimeFormatter FILE_NAME_FORMAT = DateTimeFormatter.ofPattern("ddMMyyyyHHmmss");
 
     @Override
     public Mono<Page<Report>> getTransactionsReports(
@@ -133,7 +135,7 @@ public class ReportServiceImpl implements ReportService {
         return merchantRestClient.getMerchantDetail(merchantId, initiativeId)
                 .flatMap(merchant -> {
 
-                    String formattedDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("ddMMyyyyHHmmss"));
+                    String formattedDate = LocalDateTime.now().format(FILE_NAME_FORMAT);
                     String fileName = String.format("Report_%s", formattedDate);
 
                     Report reportEntity = Report.builder()
