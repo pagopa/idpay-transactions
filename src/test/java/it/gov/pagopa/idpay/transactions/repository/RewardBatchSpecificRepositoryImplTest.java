@@ -921,7 +921,7 @@ class RewardBatchSpecificRepositoryImplTest {
         LocalDateTime newUpdateBefore = newBatch.getUpdateDate();
 
         Mono<RewardBatch> result = rewardBatchSpecificRepository
-                .moveSuspendToNewBatch("batch1", "batch2", accrued);
+                .moveSuspendFromEvaluatingBatch("batch1", "batch2", accrued);
 
         StepVerifier.create(result)
                 .assertNext(updatedNew -> {
@@ -958,9 +958,9 @@ class RewardBatchSpecificRepositoryImplTest {
     }
 
     @Test
-    void moveSuspendToNewBatch_oldBatchNotFound_returnsBadRequest() {
+    void moveSuspendFromEvaluatingBatch_oldBatchNotFound_returnsBadRequest() {
         Mono<RewardBatch> result = rewardBatchSpecificRepository
-                .moveSuspendToNewBatch("NOT_EXISTING", "batch2", 150L);
+                .moveSuspendFromEvaluatingBatch("NOT_EXISTING", "batch2", 150L);
 
         StepVerifier.create(result)
                 .expectErrorSatisfies(ex -> {
@@ -973,7 +973,7 @@ class RewardBatchSpecificRepositoryImplTest {
 
 
     @Test
-    void moveSuspendToNewBatch_newBatchNotFound_returnsBadRequest_andOldWasDecremented() {
+    void moveSuspendFromEvaluatingBatchNotFound_returnsBadRequest_andOldWasDecremented() {
         long accrued = 150L;
 
         RewardBatch oldBatch = rewardBatchRepository.findById("batch1").block();
@@ -987,7 +987,7 @@ class RewardBatchSpecificRepositoryImplTest {
         rewardBatchRepository.save(oldBatch).block();
 
         Mono<RewardBatch> result = rewardBatchSpecificRepository
-                .moveSuspendToNewBatch("batch1", "NOT_EXISTING", accrued);
+                .moveSuspendFromEvaluatingBatch("batch1", "NOT_EXISTING", accrued);
 
         StepVerifier.create(result)
                 .expectErrorSatisfies(ex -> {

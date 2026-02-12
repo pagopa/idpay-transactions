@@ -217,11 +217,11 @@ class RewardBatchServiceImplTest {
 
         when(rewardBatchRepository.incrementTotalAmountCents(BATCH_ID, 50L)).thenReturn(Mono.just(rb));
         when(rewardBatchRepository.decrementTotalAmountCents(BATCH_ID, 10L)).thenReturn(Mono.just(rb));
-        when(rewardBatchRepository.moveSuspendToNewBatch("OLD", "NEW", 99L)).thenReturn(Mono.just(rb));
+        when(rewardBatchRepository.moveSuspendFromEvaluatingBatch("OLD", "NEW", 99L)).thenReturn(Mono.just(rb));
 
         StepVerifier.create(service.incrementTotalAmountCents(BATCH_ID, 50L)).expectNext(rb).verifyComplete();
         StepVerifier.create(service.decrementTotalAmountCents(BATCH_ID, 10L)).expectNext(rb).verifyComplete();
-        StepVerifier.create(service.moveSuspendToNewBatch("OLD", "NEW", 99L)).expectNext(rb).verifyComplete();
+        StepVerifier.create(service.moveSuspendFromEvaluatingBatch("OLD", "NEW", 99L)).expectNext(rb).verifyComplete();
     }
 
     @Test

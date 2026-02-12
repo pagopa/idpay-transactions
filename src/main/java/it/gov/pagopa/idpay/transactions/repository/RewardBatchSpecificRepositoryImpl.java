@@ -53,6 +53,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     return mongoTemplate.count(Query.query(criteria), RewardBatch.class);
   }
 
+  @Deprecated
   @Override
   public Mono<RewardBatch> incrementTotalAmountCents(String batchId, long accruedAmountCents) {
     return mongoTemplate.findAndModify(
@@ -66,6 +67,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     );
   }
 
+  @Deprecated
   @Override
   public Mono<RewardBatch> decrementTotalAmountCents(String batchId, long accruedAmountCents) {
     return mongoTemplate.findAndModify(
@@ -116,42 +118,6 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
             ))
             .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)));
   }
-
-  @Override
-    public Mono<RewardBatch> moveSuspendToNewBatch(String oldBatchId, String newBatchId, long accruedAmountCents) {
-
-        Update decOld = new Update()
-                //.inc(INITIAL_AMOUNT_CENTS, -accruedAmountCents)
-                .inc(NUMBER_OF_TRANSACTIONS, -1)
-                .inc(SUSPENDED_AMOUNT_CENTS, -accruedAmountCents)
-                .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, -1)
-                .inc(NUMBER_OF_TRANSACTIONS_ELABORATED, -1)
-                .set(RewardBatch.Fields.updateDate, LocalDateTime.now());
-
-        Update incNew = new Update()
-                .inc(INITIAL_AMOUNT_CENTS, accruedAmountCents)
-                .inc(NUMBER_OF_TRANSACTIONS, 1)
-                .inc(SUSPENDED_AMOUNT_CENTS, accruedAmountCents)
-                .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, 1)
-                .inc(NUMBER_OF_TRANSACTIONS_ELABORATED, 1)
-                .set(RewardBatch.Fields.updateDate, LocalDateTime.now());
-
-        return mongoTemplate.findAndModify(
-                        Query.query(Criteria.where("_id").is(oldBatchId)),
-                        decOld,
-                        FindAndModifyOptions.options().returnNew(true),
-                        RewardBatch.class
-                )
-                .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)))
-                .then(mongoTemplate.findAndModify(
-                        Query.query(Criteria.where("_id").is(newBatchId)),
-                        incNew,
-                        FindAndModifyOptions.options().returnNew(true),
-                        RewardBatch.class
-                ))
-                .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)));
-    }
-
 
     private Criteria buildCombinedCriteria(String merchantId, String status, String assigneeLevel, String month, boolean isOperator) {
     List<Criteria> subCriteria = new ArrayList<>();

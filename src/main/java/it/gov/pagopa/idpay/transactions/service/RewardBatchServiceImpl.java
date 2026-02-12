@@ -175,20 +175,17 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     return rewardBatchRepository.save(batch);
   }
 
+  @Deprecated
   @Override
   public Mono<RewardBatch> incrementTotalAmountCents(String batchId, long accruedAmountCents) {
     return rewardBatchRepository.incrementTotalAmountCents(batchId, accruedAmountCents);
   }
 
+  @Deprecated
   @Override
   public Mono<RewardBatch> decrementTotalAmountCents(String batchId, long accruedAmountCents) {
     return rewardBatchRepository.decrementTotalAmountCents(batchId, accruedAmountCents);
   }
-
-    @Override
-    public Mono<RewardBatch> moveSuspendToNewBatch(String oldBatchId, String newBatchId, long accruedAmountCents) {
-      return rewardBatchRepository.moveSuspendToNewBatch(oldBatchId, newBatchId, accruedAmountCents);
-    }
 
   @Override
   public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
