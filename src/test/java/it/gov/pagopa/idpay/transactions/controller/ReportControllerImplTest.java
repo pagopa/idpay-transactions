@@ -1,5 +1,7 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
+import it.gov.pagopa.idpay.transactions.dto.PatchReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportListDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
@@ -16,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
@@ -23,6 +26,8 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REPORT_NOT_FOUND;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_REPORT_NOT_FOUND;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -214,6 +219,72 @@ class ReportControllerImplTest {
         verify(reportService, times(1))
                 .generateReport(eq(MERCHANT_ID), isNull(), eq(INITIATIVE_ID), eq(request));
     }
+
+    @Test
+    void patchReport_Success() {
+        PatchReportRequest request = PatchReportRequest.builder()
+                .reportStatus(ReportStatus.GENERATED)
+                .build();
+
+        Report report = Report.builder()
+                .id("report123")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
+                .reportStatus(ReportStatus.GENERATED)
+                .build();
+
+        ReportDTO reportDTO = ReportDTO.builder()
+                .id(report.getId())
+                .initiativeId(report.getInitiativeId())
+                .merchantId(report.getMerchantId())
+                .reportStatus(report.getReportStatus())
+                .build();
+
+        when(reportService.patchReport(eq(INITIATIVE_ID), eq("report123"), any(PatchReportRequest.class)))
+                .thenReturn(Mono.just(reportDTO));
+
+        webClient.patch()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reports/{reportId}",
+                        INITIATIVE_ID, "report123")
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(ReportDTO.class)
+                .value(response -> {
+                    assertNotNull(response);
+                    assertEquals("report123", response.getId());
+                    assertEquals(ReportStatus.GENERATED, response.getReportStatus());
+                });
+
+        verify(reportService, times(1))
+                .patchReport(eq(INITIATIVE_ID), eq("report123"), any(PatchReportRequest.class));
+    }
+
+    @Test
+    void patchReport_NotFound() {
+        PatchReportRequest request = PatchReportRequest.builder()
+                .reportStatus(ReportStatus.GENERATED)
+                .build();
+
+        when(reportService.patchReport(eq(INITIATIVE_ID), eq("missingReport"), any()))
+                .thenReturn(Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.NOT_FOUND,
+                        REPORT_NOT_FOUND,
+                        ERROR_MESSAGE_REPORT_NOT_FOUND.formatted("missingReport", INITIATIVE_ID)
+                )));
+
+        webClient.patch()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reports/{reportId}",
+                        INITIATIVE_ID, "missingReport")
+                .header("x-merchant-id", MERCHANT_ID)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isNotFound();
+
+        verify(reportService, times(1))
+                .patchReport(eq(INITIATIVE_ID), eq("missingReport"), any());
+    }
+
 
 
 }

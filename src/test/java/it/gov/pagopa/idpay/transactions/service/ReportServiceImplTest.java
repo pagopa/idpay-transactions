@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.service;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.MerchantDetailDTO;
+import it.gov.pagopa.idpay.transactions.dto.PatchReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ReportMapper;
@@ -26,6 +27,8 @@ import reactor.test.StepVerifier;
 
 import java.time.LocalDateTime;
 
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REPORT_NOT_FOUND;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_REPORT_NOT_FOUND;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -372,5 +375,117 @@ class ReportServiceImplTest {
         }
     }
 
+    @Test
+    void patchReport_success_updatesStatus() {
+        PatchReportRequest request = PatchReportRequest.builder()
+                .reportStatus(ReportStatus.GENERATED)
+                .build();
+
+        Report existing = Report.builder()
+                .id("R1")
+                .initiativeId(INITIATIVE_ID)
+                .reportStatus(ReportStatus.INSERTED)
+                .build();
+
+        Report updated = Report.builder()
+                .id("R1")
+                .initiativeId(INITIATIVE_ID)
+                .reportStatus(ReportStatus.GENERATED)
+                .build();
+
+        ReportDTO updatedDTO = ReportDTO.builder()
+                .id("R1")
+                .initiativeId(INITIATIVE_ID)
+                .reportStatus(ReportStatus.GENERATED)
+                .build();
+
+        when(reportRepository.findByIdAndInitiativeId("R1", INITIATIVE_ID))
+                .thenReturn(Mono.just(existing));
+
+        when(reportRepository.save(any(Report.class)))
+                .thenReturn(Mono.just(updated));
+
+        when(reportMapper.toDTO(updated)).thenReturn(updatedDTO);
+
+        StepVerifier.create(service.patchReport(INITIATIVE_ID, "R1", request))
+                .assertNext(dto -> {
+                    assertEquals("R1", dto.getId());
+                    assertEquals(ReportStatus.GENERATED, dto.getReportStatus());
+                })
+                .verifyComplete();
+
+        verify(reportRepository).findByIdAndInitiativeId("R1", INITIATIVE_ID);
+        verify(reportRepository).save(any(Report.class));
+        verify(reportMapper).toDTO(updated);
+    }
+    @Test
+    void patchReport_success_noStatusUpdateWhenNull() {
+        PatchReportRequest request = PatchReportRequest.builder()
+                .reportStatus(null)
+                .build();
+
+        Report existing = Report.builder()
+                .id("R2")
+                .initiativeId(INITIATIVE_ID)
+                .reportStatus(ReportStatus.INSERTED)
+                .build();
+
+        Report saved = Report.builder()
+                .id("R2")
+                .initiativeId(INITIATIVE_ID)
+                .reportStatus(ReportStatus.INSERTED)
+                .build();
+
+        ReportDTO savedDTO = ReportDTO.builder()
+                .id("R2")
+                .initiativeId(INITIATIVE_ID)
+                .reportStatus(ReportStatus.INSERTED)
+                .build();
+
+        when(reportRepository.findByIdAndInitiativeId("R2", INITIATIVE_ID))
+                .thenReturn(Mono.just(existing));
+
+        when(reportRepository.save(any(Report.class)))
+                .thenReturn(Mono.just(saved));
+
+        when(reportMapper.toDTO(saved)).thenReturn(savedDTO);
+
+        StepVerifier.create(service.patchReport(INITIATIVE_ID, "R2", request))
+                .assertNext(dto -> {
+                    assertEquals("R2", dto.getId());
+                    assertEquals(ReportStatus.INSERTED, dto.getReportStatus());
+                })
+                .verifyComplete();
+
+        verify(reportRepository).findByIdAndInitiativeId("R2", INITIATIVE_ID);
+        verify(reportRepository).save(any(Report.class));
+        verify(reportMapper).toDTO(saved);
+    }
+    @Test
+    void patchReport_notFound_throwsException() {
+        PatchReportRequest request = PatchReportRequest.builder()
+                .reportStatus(ReportStatus.GENERATED)
+                .build();
+
+        when(reportRepository.findByIdAndInitiativeId("missing", INITIATIVE_ID))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(service.patchReport(INITIATIVE_ID, "missing", request))
+                .expectErrorSatisfies(error -> {
+                    assertInstanceOf(ClientExceptionWithBody.class, error);
+                    ClientExceptionWithBody ex = (ClientExceptionWithBody) error;
+                    assertEquals(404, ex.getHttpStatus().value());
+                    assertEquals(REPORT_NOT_FOUND, ex.getCode());
+                    assertEquals(
+                            ERROR_MESSAGE_REPORT_NOT_FOUND.formatted("missing", INITIATIVE_ID),
+                            ex.getMessage()
+                    );
+                })
+                .verify();
+
+        verify(reportRepository).findByIdAndInitiativeId("missing", INITIATIVE_ID);
+        verify(reportRepository, never()).save(any());
+        verify(reportMapper, never()).toDTO(any());
+    }
 
 }
