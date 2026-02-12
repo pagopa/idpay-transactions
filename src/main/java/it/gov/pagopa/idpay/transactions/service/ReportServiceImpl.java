@@ -42,6 +42,10 @@ public class ReportServiceImpl implements ReportService {
         this.reportMapper = reportMapper;
     }
 
+    private static final List<String> ALLOWED_ROLES = List.of(
+            "operator1", "operator2", "operator3"
+    );
+
     @Override
     public Mono<Page<Report>> getTransactionsReports(
             String merchantId,
@@ -68,9 +72,8 @@ public class ReportServiceImpl implements ReportService {
             );
         }
 
-        List<String> allowedRoles = List.of("operator1", "operator2", "operator3");
-
-        if (organizationRole != null && !allowedRoles.contains(organizationRole)) {
+        if (organizationRole != null &&
+                ALLOWED_ROLES.stream().noneMatch(role -> role.equalsIgnoreCase(organizationRole))) {
 
             log.warn("[GET_TRANSACTIONS_REPORTS] Invalid organizationRole: {}",
                     Utilities.sanitizeString(organizationRole));

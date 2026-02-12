@@ -93,7 +93,7 @@ class ReportControllerImplTest {
 
         webClient.get()
                 .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/merchant/portal/initiatives/{initiativeId}/transactions/reports")
+                        .path("/idpay/merchant/portal/initiatives/{initiativeId}/reports")
                         .queryParam("page", 0)
                         .queryParam("size", 10)
                         .build(INITIATIVE_ID))
@@ -131,7 +131,7 @@ class ReportControllerImplTest {
 
         webClient.get()
                 .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/merchant/portal/initiatives/{initiativeId}/transactions/reports")
+                        .path("/idpay/merchant/portal/initiatives/{initiativeId}/reports")
                         .queryParam("page", 0)
                         .queryParam("size", 10)
                         .build(INITIATIVE_ID))
@@ -170,7 +170,7 @@ class ReportControllerImplTest {
         )).thenReturn(Mono.just(reportDTO));
 
         webClient.post()
-                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/transactions/reports", INITIATIVE_ID)
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reports", INITIATIVE_ID)
                 .header("x-merchant-id", MERCHANT_ID)
                 .bodyValue(request)
                 .exchange()
@@ -205,7 +205,7 @@ class ReportControllerImplTest {
         )).thenReturn(Mono.error(new RuntimeException("Service failure")));
 
         webClient.post()
-                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/transactions/reports", INITIATIVE_ID)
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reports", INITIATIVE_ID)
                 .header("x-merchant-id", MERCHANT_ID)
                 .bodyValue(request)
                 .exchange()
