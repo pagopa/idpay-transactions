@@ -21,9 +21,10 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.*;
 
 @Slf4j
 @Service
@@ -45,12 +46,9 @@ public class ReportServiceImpl implements ReportService {
     public Mono<Page<Report>> getTransactionsReports(
             String merchantId,
             String organizationRole,
-            String rewardBatchAssignee,
             String initiativeId,
             Pageable pageable
     ) {
-
-        boolean callerIsOperator = organizationRole != null && organizationRole.startsWith("operator");
 
         if (merchantId == null && organizationRole == null) {
             log.warn("[GET_TRANSACTIONS_REPORTS] Missing mandatory filters: merchantId and organizationRole are null");
@@ -58,6 +56,29 @@ public class ReportServiceImpl implements ReportService {
                     HttpStatus.BAD_REQUEST,
                     MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY,
                     ERROR_MESSAGE_MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY
+            );
+        }
+
+        if (merchantId != null && organizationRole != null) {
+            log.warn("[GET_TRANSACTIONS_REPORTS] Both merchantId and organizationRole provided");
+            throw new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    MERCHANT_ID_AND_ORGANIZATION_ROLE_CANNOT_COEXIST,
+                    ERROR_MESSAGE_MERCHANT_ID_AND_ORGANIZATION_ROLE_CANNOT_COEXIST
+            );
+        }
+
+        List<String> allowedRoles = List.of("operator1", "operator2", "operator3");
+
+        if (organizationRole != null && !allowedRoles.contains(organizationRole)) {
+
+            log.warn("[GET_TRANSACTIONS_REPORTS] Invalid organizationRole: {}",
+                    Utilities.sanitizeString(organizationRole));
+
+            throw new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    INVALID_ORGANIZATION_ROLE,
+                    ERROR_MESSAGE_INVALID_ORGANIZATION_ROLE
             );
         }
 
@@ -69,18 +90,14 @@ public class ReportServiceImpl implements ReportService {
         return reportRepository.findReportsCombined(
                         merchantId,
                         organizationRole,
-                        rewardBatchAssignee,
                         initiativeId,
-                        callerIsOperator,
                         pageable
                 )
                 .collectList()
                 .zipWith(reportRepository.countReportsCombined(
                         merchantId,
                         organizationRole,
-                        rewardBatchAssignee,
-                        initiativeId,
-                        callerIsOperator
+                        initiativeId
                 ))
                 .flatMap(tuple -> Mono.just(new PageImpl<>(tuple.getT1(), pageable, tuple.getT2())));
     }

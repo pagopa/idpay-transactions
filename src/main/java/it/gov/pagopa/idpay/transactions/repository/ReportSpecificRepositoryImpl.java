@@ -22,33 +22,48 @@ public class ReportSpecificRepositoryImpl implements ReportSpecificRepository {
     }
 
     @Override
-    public Flux<Report> findReportsCombined(String merchantId, String organizationRole, String rewardBatchAssignee, String initiativeId, boolean isOperator, Pageable pageable) {
+    public Flux<Report> findReportsCombined(String merchantId, String organizationRole, String initiativeId, Pageable pageable) {
 
-        Criteria criteria = buildCombinedCriteria(merchantId, rewardBatchAssignee, initiativeId);
+        Criteria criteria = buildCombinedCriteria(merchantId, organizationRole, initiativeId);
         Query query = Query.query(criteria).with(pageable);
         return mongoTemplate.find(query, Report.class);
     }
 
     @Override
-    public Mono<Long> countReportsCombined(String merchantId, String organizationRole, String rewardBatchAssignee, String initiativeId, boolean isOperator) {
+    public Mono<Long> countReportsCombined(String merchantId, String organizationRole, String initiativeId) {
 
-        Criteria criteria = buildCombinedCriteria(merchantId, rewardBatchAssignee, initiativeId);
+        Criteria criteria = buildCombinedCriteria(merchantId, organizationRole, initiativeId);
         return mongoTemplate.count(Query.query(criteria), Report.class);
     }
 
-    private Criteria buildCombinedCriteria(String merchantId, String rewardBatchAssignee, String initiativeId) {
+    private Criteria buildCombinedCriteria(
+            String merchantId,
+            String organizationRole,
+            String initiativeId
+    ) {
+
         List<Criteria> subCriteria = new ArrayList<>();
 
-        if (merchantId != null && !merchantId.isBlank()) {
-            subCriteria.add(Criteria.where(Report.Fields.merchantId).is(merchantId));
-        }
-
         if (initiativeId != null && !initiativeId.isBlank()) {
-            subCriteria.add(Criteria.where(Report.Fields.initiativeId).is(initiativeId));
+            subCriteria.add(
+                    Criteria.where(Report.Fields.initiativeId).is(initiativeId)
+            );
         }
 
-        if (rewardBatchAssignee != null && !rewardBatchAssignee.isBlank()) {
-            subCriteria.add(Criteria.where(Report.Fields.operatorLevel).is(rewardBatchAssignee));
+        if (merchantId != null && !merchantId.isBlank()) {
+            subCriteria.add(
+                    Criteria.where(Report.Fields.merchantId).is(merchantId)
+            );
+
+            subCriteria.add(
+                    Criteria.where(Report.Fields.operatorLevel).is(null)
+            );
+        }
+
+        if (organizationRole != null && !organizationRole.isBlank()) {
+            subCriteria.add(
+                    Criteria.where(Report.Fields.operatorLevel).ne(null)
+            );
         }
 
         return new Criteria().andOperator(subCriteria.toArray(new Criteria[0]));

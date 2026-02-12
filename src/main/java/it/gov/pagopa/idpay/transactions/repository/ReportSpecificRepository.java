@@ -6,6 +6,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public interface ReportSpecificRepository {
-    Flux<Report> findReportsCombined(String merchantId, String organizationRole, String rewardBatchAssignee, String initiativeId, boolean isOperator, Pageable pageable);
-    Mono<Long> countReportsCombined(String merchantId, String organizationRole, String rewardBatchAssignee, String initiativeId, boolean isOperator);
+    Flux<Report> findReportsCombined(String merchantId, String organizationRole, String initiativeId, Pageable pageable);
+    Mono<Long> countReportsCombined(String merchantId, String organizationRole, String initiativeId);
 }

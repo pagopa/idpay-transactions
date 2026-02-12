@@ -16,7 +16,6 @@ public interface ReportController {
     Mono<ReportListDTO> getTransactionsReports(
             @RequestHeader(value = "x-merchant-id", required = false) String merchantId,
             @RequestHeader(value = "x-organization-role", required = false) String organizationRole,
-            @RequestParam(value = "rewardBatchAssignee", required = false) String rewardBatchAssignee,
             @PathVariable("initiativeId") String initiativeId,
             @PageableDefault Pageable pageable
     );

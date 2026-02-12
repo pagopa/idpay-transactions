@@ -85,7 +85,6 @@ class ReportControllerImplTest {
         when(reportService.getTransactionsReports(
                 eq(MERCHANT_ID),
                 isNull(),
-                isNull(),
                 eq(INITIATIVE_ID),
                 any(Pageable.class)
         )).thenReturn(Mono.just(servicePage));
@@ -117,7 +116,7 @@ class ReportControllerImplTest {
                 });
 
         verify(reportService, times(1))
-                .getTransactionsReports(eq(MERCHANT_ID), isNull(), isNull(), eq(INITIATIVE_ID), any(Pageable.class));
+                .getTransactionsReports(eq(MERCHANT_ID), isNull(), eq(INITIATIVE_ID), any(Pageable.class));
         verify(reportMapper, times(1)).toListDTO(servicePage);
     }
 
@@ -125,7 +124,6 @@ class ReportControllerImplTest {
     void getReports_ServiceFails_InternalServerError() {
         when(reportService.getTransactionsReports(
                 eq(MERCHANT_ID),
-                isNull(),
                 isNull(),
                 eq(INITIATIVE_ID),
                 any(Pageable.class)
@@ -142,7 +140,7 @@ class ReportControllerImplTest {
                 .expectStatus().is5xxServerError();
 
         verify(reportService, times(1))
-                .getTransactionsReports(eq(MERCHANT_ID), isNull(), isNull(), eq(INITIATIVE_ID), any(Pageable.class));
+                .getTransactionsReports(eq(MERCHANT_ID), isNull(), eq(INITIATIVE_ID), any(Pageable.class));
     }
 
     @Test

@@ -8,7 +8,7 @@ import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Mono;
 
 public interface ReportService {
-    Mono<Page<Report>> getTransactionsReports(String merchantId, String organizationRole, String rewardBatchAssignee, String initiativeId, Pageable pageable);
+    Mono<Page<Report>> getTransactionsReports(String merchantId, String organizationRole, String initiativeId, Pageable pageable);
 
     Mono<ReportDTO> generateReport(String merchantId,
                                    String organizationRole,
