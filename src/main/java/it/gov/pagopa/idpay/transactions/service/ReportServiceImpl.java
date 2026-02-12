@@ -133,6 +133,10 @@ public class ReportServiceImpl implements ReportService {
         RewardBatchAssignee operatorLevel = resolveOperatorLevel(organizationRole);
 
         return merchantRestClient.getMerchantDetail(merchantId, initiativeId)
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.NOT_FOUND,
+                        MERCHANT_NOT_FOUND,
+                        ERROR_MESSAGE_MERCHANT_NOT_FOUND.formatted(merchantId, initiativeId) )))
                 .flatMap(merchant -> {
 
                     String formattedDate = LocalDateTime.now().format(FILE_NAME_FORMAT);

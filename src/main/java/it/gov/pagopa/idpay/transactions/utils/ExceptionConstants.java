@@ -39,6 +39,7 @@ public final class ExceptionConstants {
         public static final String REWARD_BATCH_PREVIOUS_NOT_SENT = "REWARD_BATCH_PREVIOUS_NOT_SENT";
         public static final String INVALID_CHECKS_ERROR = "INVALID_CHECKS_ERROR";
         public static final String REPORT_NOT_FOUND = "REPORT_NOT_FOUND";
+        public static final String MERCHANT_NOT_FOUND = "MERCHANT_NOT_FOUND";
     }
 
     public static final class ExceptionMessage {
@@ -79,5 +80,6 @@ public final class ExceptionConstants {
 
         public static final String ERROR_MESSAGE_INVALID_CHECKS_ERROR = "At least one checksError field must be true";
         public static final String  ERROR_MESSAGE_REPORT_NOT_FOUND = "Report %s not found for initiative %s ";
+        public static final String  ERROR_MESSAGE_MERCHANT_NOT_FOUND = "Merchant %s not found for initiative %s ";
     }
 }
