@@ -6,6 +6,7 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionKafkaMapper;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
@@ -280,40 +281,48 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     }
 
     /** (5) sposta trx al batch del mese corrente + contatori suspended */
-    private Mono<Void> moveToCurrentMonthBatchAndUpdateCounters(RewardTransaction suspendedTrx,
-                                                                RewardBatch oldBatch,
-                                                                String oldBatchId,
-                                                                String merchantId) {
+    private Mono<Void> moveToCurrentMonthBatchAndUpdateCounters(
+            RewardTransaction suspendedTrx,
+            RewardBatch oldBatch,
+            String oldBatchId,
+            String merchantId
+    ) {
 
         PosType posType = suspendedTrx.getPointOfSaleType();
         String businessName = suspendedTrx.getBusinessName();
 
         YearMonth now = YearMonth.now();
-        YearMonth oldMonth = YearMonth.parse(oldBatch.getMonth());
-        YearMonth targetMonth = oldMonth.isAfter(now) ? oldMonth : now;
+        YearMonth originalBatchMonth = YearMonth.parse(oldBatch.getMonth());
+        YearMonth targetMonth = originalBatchMonth.isAfter(now) ? originalBatchMonth : now;
 
         String initiativeId = suspendedTrx.getInitiatives().getFirst();
         long accruedRewardCents = suspendedTrx.getRewards().get(initiativeId).getAccruedRewardCents();
 
         return rewardBatchService.findOrCreateBatch(merchantId, posType, targetMonth.toString(), businessName)
+                .flatMap(batchFound -> {
+                    // Se sto puntando al mese corrente ma il batch è EVALUATING -> vado al mese successivo
+                    if (targetMonth.equals(now) && batchFound.getStatus() == EVALUATING) {
+                        YearMonth nextMonth = now.plusMonths(1);
+                        return rewardBatchService.findOrCreateBatch(merchantId, posType, nextMonth.toString(), businessName);
+                    }
+                    return Mono.just(batchFound);
+                })
                 .flatMap(newBatch -> {
-                    if (newBatch.getId().equals(oldBatchId)) {
-                        // batch già del mese odierno
+                    if (newBatch.getId().equals(oldBatchId) && newBatch.getStatus() == CREATED) {
+                        // batch già corretto (mese target) e in CREATED: salvo solo la trx
                         return rewardTransactionRepository.save(suspendedTrx).then();
                     }
 
-                    Mono<Void> moveCounters = computeMoveCounters(oldBatch, oldBatchId, newBatch.getId(), accruedRewardCents);
+                    Mono<Void> moveCounters =
+                            computeMoveCounters(oldBatch, oldBatchId, newBatch.getId(), accruedRewardCents);
 
                     return moveCounters
-                            .then(Mono.fromRunnable(() -> applyBatchMoveToTransaction(
-                                    suspendedTrx,
-                                    oldBatch,
-                                    newBatch
-                            )))
+                            .then(Mono.fromRunnable(() -> applyBatchMoveToTransaction(suspendedTrx, oldBatch, newBatch)))
                             .then(rewardTransactionRepository.save(suspendedTrx))
                             .then();
                 });
     }
+
 
     private Mono<Void> computeMoveCounters(RewardBatch oldBatch,
                                            String oldBatchId,

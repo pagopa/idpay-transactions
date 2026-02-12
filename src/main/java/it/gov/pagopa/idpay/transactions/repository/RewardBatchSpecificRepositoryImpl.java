@@ -121,7 +121,6 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     public Mono<RewardBatch> moveSuspendToNewBatch(String oldBatchId, String newBatchId, long accruedAmountCents) {
 
         Update decOld = new Update()
-                //.inc(INITIAL_AMOUNT_CENTS, -accruedAmountCents)
                 .inc(NUMBER_OF_TRANSACTIONS, -1)
                 .inc(SUSPENDED_AMOUNT_CENTS, -accruedAmountCents)
                 .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, -1)
