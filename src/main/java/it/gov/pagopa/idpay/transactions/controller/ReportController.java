@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import it.gov.pagopa.idpay.transactions.dto.PatchReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportListDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
@@ -25,4 +26,10 @@ public interface ReportController {
                                                        @RequestHeader(value = "x-organization-role", required = false) String organizationRole,
                                                        @PathVariable("initiativeId") String initiativeId,
                                                        @RequestBody @Valid ReportRequest request);
+
+
+    @PatchMapping("/initiatives/{initiativeId}/reports/{reportId}")
+    Mono<ReportDTO> patchReport(@PathVariable("initiativeId") String initiativeId,
+                                @PathVariable("reportId") String reportId,
+                                @RequestBody PatchReportRequest request);
 }
