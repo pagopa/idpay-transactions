@@ -945,7 +945,7 @@ class RewardBatchSpecificRepositoryImplTest {
         assertNotNull(oldAfter);
         assertNotNull(newAfter);
 
-        assertEquals(0, oldAfter.getInitialAmountCents());
+        assertEquals(150L, oldAfter.getInitialAmountCents());
         assertEquals(0, oldAfter.getSuspendedAmountCents());
         assertEquals(ZERO_LONG, oldAfter.getNumberOfTransactions());
         assertEquals(ZERO_LONG, oldAfter.getNumberOfTransactionsSuspended());
@@ -979,7 +979,7 @@ class RewardBatchSpecificRepositoryImplTest {
         RewardBatch oldBatch = rewardBatchRepository.findById("batch1").block();
         assertNotNull(oldBatch);
 
-        oldBatch.setInitialAmountCents(accrued);
+        oldBatch.setInitialAmountCents(ONE_LONG);
         oldBatch.setSuspendedAmountCents(accrued);
         oldBatch.setNumberOfTransactions(ONE_LONG);
         oldBatch.setNumberOfTransactionsSuspended(ONE_LONG);
@@ -1000,7 +1000,7 @@ class RewardBatchSpecificRepositoryImplTest {
         RewardBatch oldAfter = rewardBatchRepository.findById("batch1").block();
         assertNotNull(oldAfter);
 
-        assertEquals(ZERO_LONG, oldAfter.getInitialAmountCents());
+        assertEquals(ONE_LONG, oldAfter.getInitialAmountCents());
         assertEquals(ZERO_LONG, oldAfter.getSuspendedAmountCents());
         assertEquals(ZERO_LONG, oldAfter.getNumberOfTransactions());
         assertEquals(ZERO_LONG, oldAfter.getNumberOfTransactionsSuspended());
