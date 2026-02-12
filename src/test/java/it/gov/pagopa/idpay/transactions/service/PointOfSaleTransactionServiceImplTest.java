@@ -1088,7 +1088,7 @@ class PointOfSaleTransactionServiceImplTest {
     }
 
     @Test
-    void updateInvoiceTransaction_evaluatingBatch_newBatchSameAsOld_doesNotMoveCounters() {
+    void updateInvoiceTransaction_evaluatingBatch_currentMonthEvaluating_switchesToNextMonth_andMovesCounters() {
         FilePart fp = filePartBackedBySrc("invoice.pdf", true);
 
         RewardTransaction trx = baseInvoicedTrx();
@@ -1111,10 +1111,15 @@ class PointOfSaleTransactionServiceImplTest {
         oldBatch.setStatus(RewardBatchStatus.EVALUATING);
         oldBatch.setMonth("2024-01");
 
-        RewardBatch sameBatch = new RewardBatch();
-        sameBatch.setId("SAME");
-        sameBatch.setStatus(RewardBatchStatus.EVALUATING);
-        sameBatch.setMonth(YearMonth.now().toString());
+        RewardBatch currentMonthBatch = new RewardBatch();
+        currentMonthBatch.setId("SAME");
+        currentMonthBatch.setStatus(RewardBatchStatus.EVALUATING);
+        currentMonthBatch.setMonth(YearMonth.now().toString());
+
+        RewardBatch nextMonthBatch = new RewardBatch();
+        nextMonthBatch.setId("NEXT");
+        nextMonthBatch.setStatus(RewardBatchStatus.CREATED);
+        nextMonthBatch.setMonth(YearMonth.now().plusMonths(1).toString());
 
         @SuppressWarnings("unchecked")
         Response<BlockBlobItem> uploadResponse = (Response<BlockBlobItem>) mock(Response.class);
@@ -1134,16 +1139,37 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardBatchService.suspendTransactions(eq("SAME"), eq(INITIATIVE_ID), any(TransactionsRequest.class)))
                 .thenReturn(Mono.just(oldBatch));
 
-        when(rewardBatchService.findOrCreateBatch(eq(MERCHANT_ID), eq(PosType.PHYSICAL), eq(YearMonth.now().toString()), eq("Biz")))
-                .thenReturn(Mono.just(sameBatch));
+        // 1) lookup mese corrente -> EVALUATING -> triggera switch
+        when(rewardBatchService.findOrCreateBatch(
+                eq(MERCHANT_ID),
+                eq(PosType.PHYSICAL),
+                eq(YearMonth.now().toString()),
+                eq("Biz")
+        )).thenReturn(Mono.just(currentMonthBatch));
+
+        // 2) lookup mese successivo -> batch destinazione
+        when(rewardBatchService.findOrCreateBatch(
+                eq(MERCHANT_ID),
+                eq(PosType.PHYSICAL),
+                eq(YearMonth.now().plusMonths(1).toString()),
+                eq("Biz")
+        )).thenReturn(Mono.just(nextMonthBatch));
+
+        // move counters (oldBatch è EVALUATING -> va su moveSuspendToNewBatch)
+        when(rewardBatchService.moveSuspendToNewBatch(eq("SAME"), eq("NEXT"), eq(123L)))
+                .thenReturn(Mono.empty());
 
         StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
                 .verifyComplete();
 
-        verify(rewardBatchService, never()).moveSuspendToNewBatch(anyString(), anyString(), anyLong());
+        // Verifica chiamate contatori: deve muovere suspended da SAME a NEXT
+        verify(rewardBatchService, times(1)).moveSuspendToNewBatch("SAME", "NEXT", 123L);
+
+        // E non deve usare il ramo CREATED (decrement/increment)
         verify(rewardBatchService, never()).decrementTotalAmountCents(anyString(), anyLong());
         verify(rewardBatchService, never()).incrementTotalAmountCents(anyString(), anyLong());
     }
+
 
     @Test
     void updateInvoiceTransaction_createdBatch_newBatchDifferent_movesTotalsWithDecrementAndIncrement() {
