@@ -103,7 +103,7 @@ public class MerchantRestClientImpl implements MerchantRestClient {
                 .onStatus(HttpStatus.NOT_FOUND::equals, response ->
                         response.bodyToMono(String.class)
                                 .flatMap(body -> {
-                                    log.warn("Merchant not found for merchantId {}", merchantId);
+                                    log.warn("Merchant not found for merchantId {}", Utilities.sanitizeString(merchantId));
                                     return Mono.error(new ClientExceptionWithBody(
                                             HttpStatus.NOT_FOUND,
                                             MERCHANT_NOT_FOUND,
