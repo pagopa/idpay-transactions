@@ -1,0 +1,14 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/idpay/merchant/portal/initiatives/INIT_FORBIDDEN_1",
+    "headers": {
+      "x-merchant-id": {
+        "equalTo": "MERCHANT_FORBIDDEN_1"
+      }
+    }
+  },
+  "response": {
+    "status": 403
+  }
+}

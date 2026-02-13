@@ -8,6 +8,7 @@ import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
@@ -20,16 +21,17 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
+@Slf4j
 public class MerchantTransactionServiceImpl implements MerchantTransactionService {
     private final UserRestClient userRestClient;
     private final RewardTransactionRepository rewardTransactionRepository;
     private final ChecksErrorMapper checksErrorMapper;
-
     private static final Set<String> OPERATORS =
             Set.of("operator1", "operator2", "operator3");
 
     protected MerchantTransactionServiceImpl(
-            UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository, ChecksErrorMapper checksErrorMapper) {
+            UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository,
+            ChecksErrorMapper checksErrorMapper) {
         this.userRestClient = userRestClient;
         this.rewardTransactionRepository = rewardTransactionRepository;
         this.checksErrorMapper = checksErrorMapper;
@@ -96,6 +98,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
             );
         }
     }
+
 
     private Mono<Tuple2<List<MerchantTransactionDTO>, Long>> getMerchantTransactionDTOs2Count(
             TrxFiltersDTO filters,
