@@ -1,8 +1,10 @@
 package it.gov.pagopa.idpay.transactions.dto.batch;
 
 import lombok.Getter;
+import lombok.ToString;
 
 @Getter
+@ToString
 public class BatchCountersDTO {
   private Long initialAmountCents;
   private Long numberOfTransactions;
@@ -12,27 +14,15 @@ public class BatchCountersDTO {
   private Long trxElaborated;
   private Long trxRejected;
 
-    @Override
-    public String toString() {
-        return "BatchCountersDTO{" +
-                "initialAmountCents=" + initialAmountCents +
-                ", numberOfTransactions=" + numberOfTransactions +
-                ", suspendedAmountCents=" + suspendedAmountCents +
-                ", trxSuspended=" + trxSuspended +
-                ", approvedAmountCents=" + approvedAmountCents +
-                ", trxElaborated=" + trxElaborated +
-                ", trxRejected=" + trxRejected +
-                '}';
-    }
 
-    private BatchCountersDTO() {
-    this.initialAmountCents = 0L;
-    this.numberOfTransactions = 0L;
-    this.approvedAmountCents = 0L;
-    this.suspendedAmountCents = 0L;
-    this.trxElaborated = 0L;
-    this.trxSuspended = 0L;
-    this.trxRejected = 0L;
+  private BatchCountersDTO() {
+  this.initialAmountCents = 0L;
+  this.numberOfTransactions = 0L;
+  this.approvedAmountCents = 0L;
+  this.suspendedAmountCents = 0L;
+  this.trxElaborated = 0L;
+  this.trxSuspended = 0L;
+  this.trxRejected = 0L;
   }
 
   public static BatchCountersDTO newBatch() {
