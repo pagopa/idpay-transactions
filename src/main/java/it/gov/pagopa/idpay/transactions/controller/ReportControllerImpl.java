@@ -1,9 +1,6 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
-import it.gov.pagopa.idpay.transactions.dto.PatchReportRequest;
-import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
-import it.gov.pagopa.idpay.transactions.dto.ReportListDTO;
-import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
+import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.report.Report2RunDto;
 import it.gov.pagopa.idpay.transactions.dto.report.ReportGenerateForce;
 import it.gov.pagopa.idpay.transactions.service.ReportService;
