@@ -29,6 +29,7 @@ public final class ExceptionConstants {
         public static final String MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY = "MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY";
         public static final String MERCHANT_ID_AND_ORGANIZATION_ROLE_CANNOT_COEXIST = "MERCHANT_ID_AND_ORGANIZATION_ROLE_CANNOT_COEXIST";
         public static final String INVALID_ORGANIZATION_ROLE = "INVALID_ORGANIZATION_ROLE";
+        public static final String REPORT_MISSING_FILENAME = "REPORT_MISSING_FILENAME";
 
         public static final String ROLE_NOT_ALLOWED_FOR_L1_PROMOTION = "ROLE_NOT_ALLOWED_FOR_L1_PROMOTION";
         public static final String ROLE_NOT_ALLOWED_FOR_L2_PROMOTION = "ROLE_NOT_ALLOWED_FOR_L2_PROMOTION";
@@ -39,6 +40,7 @@ public final class ExceptionConstants {
         public static final String REWARD_BATCH_PREVIOUS_NOT_SENT = "REWARD_BATCH_PREVIOUS_NOT_SENT";
         public static final String INVALID_CHECKS_ERROR = "INVALID_CHECKS_ERROR";
         public static final String REPORT_NOT_FOUND = "REPORT_NOT_FOUND";
+        public static final String REPORT_NOT_GENERATED = "REPORT_NOT_GENERATED";
         public static final String MERCHANT_NOT_FOUND = "MERCHANT_NOT_FOUND";
     }
 
@@ -81,5 +83,7 @@ public final class ExceptionConstants {
         public static final String ERROR_MESSAGE_INVALID_CHECKS_ERROR = "At least one checksError field must be true";
         public static final String  ERROR_MESSAGE_REPORT_NOT_FOUND = "Report %s not found for initiative %s ";
         public static final String  ERROR_MESSAGE_MERCHANT_NOT_FOUND = "Merchant %s not found for initiative %s ";
+        public static final String ERROR_MESSAGE_REPORT_MISSING_FILENAME = "The report %s does not have an associated file name and cannot be downloaded";
+        public static final String ERROR_MESSAGE_REPORT_NOT_GENERATED = "The report %s is not generated yet and cannot be downloaded";
     }
 }

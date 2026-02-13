@@ -13,4 +13,5 @@ public class BlobStorageProperties {
   private String containerReference;
   private String csvContainerReference;
   private Integer invoiceTokenDurationSeconds;
+  private String reportsContainerReference;
 }

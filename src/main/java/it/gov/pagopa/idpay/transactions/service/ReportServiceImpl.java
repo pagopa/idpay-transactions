@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
+import it.gov.pagopa.idpay.transactions.dto.DownloadReportResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.PatchReportRequest;
 import it.gov.pagopa.idpay.transactions.data.factory.DataFactoryService;
 import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
@@ -14,6 +15,7 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.repository.ReportRepository;
+import it.gov.pagopa.idpay.transactions.storage.ReportBlobService;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import lombok.extern.slf4j.Slf4j;
@@ -42,16 +44,19 @@ public class ReportServiceImpl implements ReportService {
 
     private final ReportMapper reportMapper;
 
+    private final ReportBlobService reportBlobService;
+
     private final DataFactoryService dataFactoryService;
 
-    public ReportServiceImpl(ReportRepository reportRepository, MerchantRestClient merchantRestClient, ReportMapper reportMapper, DataFactoryService dataFactoryService) {
+    public ReportServiceImpl(ReportRepository reportRepository, MerchantRestClient merchantRestClient, ReportMapper reportMapper, ReportBlobService reportBlobService, DataFactoryService dataFactoryService) {
         this.reportRepository = reportRepository;
         this.merchantRestClient = merchantRestClient;
         this.reportMapper = reportMapper;
+        this.reportBlobService = reportBlobService;
         this.dataFactoryService = dataFactoryService;
     }
 
-    private static final List<String> ALLOWED_ROLES = List.of(
+    static final List<String> ALLOWED_ROLES = List.of(
             "operator1", "operator2", "operator3"
     );
     private static final DateTimeFormatter FILE_NAME_FORMAT = DateTimeFormatter.ofPattern("ddMMyyyyHHmmss");
@@ -225,4 +230,82 @@ public class ReportServiceImpl implements ReportService {
                                 .reportId(report.getId())
                                 .runId(runId).build());
     }
+    @Override
+    public Mono<DownloadReportResponseDTO> downloadTransactionsReport(
+            String merchantId,
+            String organizationRole,
+            String initiativeId,
+            String reportId
+    ) {
+
+        if ((merchantId == null || merchantId.isBlank()) &&
+                (organizationRole == null || organizationRole.isBlank())) {
+
+            return Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY,
+                    ERROR_MESSAGE_MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY
+            ));
+        }
+
+        if (merchantId != null && organizationRole != null) {
+            return Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    MERCHANT_ID_AND_ORGANIZATION_ROLE_CANNOT_COEXIST,
+                    ERROR_MESSAGE_MERCHANT_ID_AND_ORGANIZATION_ROLE_CANNOT_COEXIST
+            ));
+        }
+
+        if (organizationRole != null &&
+                ALLOWED_ROLES.stream().noneMatch(role -> role.equalsIgnoreCase(organizationRole))) {
+
+            return Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    INVALID_ORGANIZATION_ROLE,
+                    ERROR_MESSAGE_INVALID_ORGANIZATION_ROLE
+            ));
+        }
+
+        Mono<Report> query = merchantId == null
+                ? reportRepository.findByIdAndInitiativeId(reportId, initiativeId)
+                : reportRepository.findByIdAndInitiativeIdAndMerchantId(reportId, initiativeId, merchantId);
+
+        return query
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.NOT_FOUND,
+                        REPORT_NOT_FOUND,
+                        ERROR_MESSAGE_REPORT_NOT_FOUND.formatted(reportId, initiativeId)
+                )))
+                .map(report -> {
+
+                    if (!ReportStatus.GENERATED.equals(report.getReportStatus())) {
+                        throw new ClientExceptionWithBody(
+                                HttpStatus.BAD_REQUEST,
+                                REPORT_NOT_GENERATED,
+                                ERROR_MESSAGE_REPORT_NOT_GENERATED.formatted(reportId)
+                        );
+                    }
+
+                    String filename = report.getFileName();
+                    if (filename == null || filename.isBlank()) {
+                        throw new ClientExceptionWithBody(
+                                HttpStatus.INTERNAL_SERVER_ERROR,
+                                REPORT_MISSING_FILENAME,
+                                ERROR_MESSAGE_REPORT_MISSING_FILENAME.formatted(reportId)
+                        );
+                    }
+
+                    String blobPath = String.format(
+                            "/initiative/%s/merchant/%s/report/%s",
+                            initiativeId,
+                            report.getMerchantId(),
+                            filename
+                    );
+
+                    return DownloadReportResponseDTO.builder()
+                            .reportUrl(reportBlobService.getFileSignedUrl(blobPath))
+                            .build();
+                });
+    }
+
 }

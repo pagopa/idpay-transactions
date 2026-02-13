@@ -16,9 +16,12 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.repository.ReportRepository;
+import it.gov.pagopa.idpay.transactions.storage.ReportBlobService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -32,11 +35,14 @@ import reactor.test.StepVerifier;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static it.gov.pagopa.idpay.transactions.service.ReportServiceImpl.ALLOWED_ROLES;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REPORT_NOT_FOUND;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_REPORT_NOT_FOUND;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
 
 @ExtendWith(MockitoExtension.class)
 class ReportServiceImplTest {
@@ -55,13 +61,17 @@ class ReportServiceImplTest {
 
     private ReportServiceImpl service;
 
+    @Mock
+    private ReportBlobService reportBlobService;
+
+
     private static final String MERCHANT_ID = "M1";
     private static final String INITIATIVE_ID = "INIT1";
     private static final String ORGANIZATION_ROLE = "operator1";
 
     @BeforeEach
     void setup() {
-        service = new ReportServiceImpl(reportRepository, merchantRestClient, reportMapper, dataFactoryServiceMock);
+        service = new ReportServiceImpl(reportRepository, merchantRestClient, reportMapper, reportBlobService, dataFactoryServiceMock);
     }
 
     @Test
@@ -566,4 +576,271 @@ class ReportServiceImplTest {
         verify(reportRepository, times(1)).findAllById(anyList());
         verify(dataFactoryServiceMock, times(2)).triggerTransactionReportPipeline(any());
     }
+    @Test
+    void downloadTransactionsReport_success() {
+
+        String reportId = "R1";
+        String fileName = "Report_01012026120000";
+        String expectedUrl = "https://signed-url";
+
+        Report report = Report.builder()
+                .id(reportId)
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
+                .reportStatus(ReportStatus.GENERATED)
+                .fileName(fileName)
+                .build();
+
+        when(reportRepository.findByIdAndInitiativeIdAndMerchantId(
+                reportId, INITIATIVE_ID, MERCHANT_ID))
+                .thenReturn(Mono.just(report));
+
+        when(reportBlobService.getFileSignedUrl(anyString()))
+                .thenReturn(expectedUrl);
+
+        StepVerifier.create(
+                        service.downloadTransactionsReport(
+                                MERCHANT_ID,
+                                null,
+                                INITIATIVE_ID,
+                                reportId
+                        )
+                )
+                .assertNext(response -> {
+                    assertEquals(expectedUrl, response.getReportUrl());
+                })
+                .verifyComplete();
+
+        verify(reportBlobService).getFileSignedUrl(contains(fileName));
+    }
+
+    @Test
+    void downloadTransactionsReport_notGenerated_throwsException() {
+
+        String reportId = "R1";
+
+        Report report = Report.builder()
+                .id(reportId)
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
+                .reportStatus(ReportStatus.INSERTED)
+                .fileName("file.csv")
+                .build();
+
+        when(reportRepository.findByIdAndInitiativeIdAndMerchantId(
+                reportId, INITIATIVE_ID, MERCHANT_ID))
+                .thenReturn(Mono.just(report));
+
+        StepVerifier.create(
+                        service.downloadTransactionsReport(
+                                MERCHANT_ID,
+                                null,
+                                INITIATIVE_ID,
+                                reportId
+                        )
+                )
+                .expectErrorSatisfies(error -> {
+                    assertInstanceOf(ClientExceptionWithBody.class, error);
+                    ClientExceptionWithBody ex = (ClientExceptionWithBody) error;
+                    assertEquals(400, ex.getHttpStatus().value());
+                    assertEquals("REPORT_NOT_GENERATED", ex.getCode());
+                    assertEquals(
+                            "The report R1 is not generated yet and cannot be downloaded",
+                            ex.getMessage()
+                    );
+                })
+                .verify();
+    }
+
+    @Test
+    void downloadTransactionsReport_missingFilename_throwsException() {
+
+        String reportId = "R1";
+
+        Report report = Report.builder()
+                .id(reportId)
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
+                .reportStatus(ReportStatus.GENERATED)
+                .fileName(null)
+                .build();
+
+        when(reportRepository.findByIdAndInitiativeIdAndMerchantId(
+                reportId, INITIATIVE_ID, MERCHANT_ID))
+                .thenReturn(Mono.just(report));
+
+        StepVerifier.create(
+                        service.downloadTransactionsReport(
+                                MERCHANT_ID,
+                                null,
+                                INITIATIVE_ID,
+                                reportId
+                        )
+                )
+                .expectErrorSatisfies(error -> {
+                    assertInstanceOf(ClientExceptionWithBody.class, error);
+                    ClientExceptionWithBody ex = (ClientExceptionWithBody) error;
+                    assertEquals(500, ex.getHttpStatus().value());
+                })
+                .verify();
+    }
+
+    @Test
+    void downloadTransactionsReport_notFound() {
+
+        when(reportRepository.findByIdAndInitiativeIdAndMerchantId(
+                anyString(), anyString(), anyString()))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                        service.downloadTransactionsReport(
+                                MERCHANT_ID,
+                                null,
+                                INITIATIVE_ID,
+                                "missing"
+                        )
+                )
+                .expectErrorSatisfies(error -> {
+                    assertInstanceOf(ClientExceptionWithBody.class, error);
+                    ClientExceptionWithBody ex = (ClientExceptionWithBody) error;
+                    assertEquals(404, ex.getHttpStatus().value());
+                })
+                .verify();
+    }
+
+    @Test
+    void downloadTransactionsReport_bothMerchantAndRoleMissing_returnsBadRequest() {
+
+        StepVerifier.create(
+                        service.downloadTransactionsReport(
+                                null,
+                                null,
+                                INITIATIVE_ID,
+                                "R1"
+                        )
+                )
+                .expectErrorSatisfies(error -> {
+                    assertInstanceOf(ClientExceptionWithBody.class, error);
+                    ClientExceptionWithBody ex = (ClientExceptionWithBody) error;
+
+                    assertEquals(400, ex.getHttpStatus().value());
+                    assertEquals(MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY, ex.getCode());
+                })
+                .verify();
+
+        verifyNoInteractions(reportRepository);
+    }
+
+    @Test
+    void downloadTransactionsReport_merchantAndRoleBothPresent_returnsBadRequest() {
+
+        StepVerifier.create(
+                        service.downloadTransactionsReport(
+                                MERCHANT_ID,
+                                "ADMIN",
+                                INITIATIVE_ID,
+                                "R1"
+                        )
+                )
+                .expectErrorSatisfies(error -> {
+                    assertInstanceOf(ClientExceptionWithBody.class, error);
+                    ClientExceptionWithBody ex = (ClientExceptionWithBody) error;
+
+                    assertEquals(400, ex.getHttpStatus().value());
+                    assertEquals(MERCHANT_ID_AND_ORGANIZATION_ROLE_CANNOT_COEXIST, ex.getCode());
+                })
+                .verify();
+
+        verifyNoInteractions(reportRepository);
+    }
+
+
+    @Test
+    void downloadTransactionsReport_invalidOrganizationRole_returnsBadRequest() {
+
+        StepVerifier.create(
+                        service.downloadTransactionsReport(
+                                null,
+                                "INVALID_ROLE",
+                                INITIATIVE_ID,
+                                "R1"
+                        )
+                )
+                .expectErrorSatisfies(error -> {
+                    assertInstanceOf(ClientExceptionWithBody.class, error);
+                    ClientExceptionWithBody ex = (ClientExceptionWithBody) error;
+
+                    assertEquals(400, ex.getHttpStatus().value());
+                    assertEquals(INVALID_ORGANIZATION_ROLE, ex.getCode());
+                })
+                .verify();
+
+        verifyNoInteractions(reportRepository);
+    }
+
+    @Test
+    void downloadTransactionsReport_withOrganizationRole_callsCorrectRepositoryMethod() {
+
+        Report report = Report.builder()
+                .id("R1")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId("M1")
+                .reportStatus(ReportStatus.GENERATED)
+                .fileName("file.csv")
+                .build();
+
+        when(reportRepository.findByIdAndInitiativeId("R1", INITIATIVE_ID))
+                .thenReturn(Mono.just(report));
+
+        when(reportBlobService.getFileSignedUrl(anyString()))
+                .thenReturn("signed-url");
+
+        StepVerifier.create(
+                        service.downloadTransactionsReport(
+                                null,
+                                ALLOWED_ROLES.get(0),
+                                INITIATIVE_ID,
+                                "R1"
+                        )
+                )
+                .expectNextCount(1)
+                .verifyComplete();
+
+        verify(reportRepository).findByIdAndInitiativeId("R1", INITIATIVE_ID);
+        verify(reportRepository, never())
+                .findByIdAndInitiativeIdAndMerchantId(any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            ",",
+            "'',",
+            ",'',",
+            "'',''"
+    })
+    void downloadTransactionsReport_bothMerchantAndRoleMissing_returnsBadRequest(
+            String merchantId,
+            String organizationRole
+    ) {
+
+        StepVerifier.create(
+                        service.downloadTransactionsReport(
+                                merchantId,
+                                organizationRole,
+                                INITIATIVE_ID,
+                                "R1"
+                        )
+                )
+                .expectErrorSatisfies(error -> {
+                    assertInstanceOf(ClientExceptionWithBody.class, error);
+                    ClientExceptionWithBody ex = (ClientExceptionWithBody) error;
+
+                    assertEquals(BAD_REQUEST, ex.getHttpStatus());
+                    assertEquals(MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY, ex.getCode());
+                })
+                .verify();
+
+        verifyNoInteractions(reportRepository);
+    }
+
 }

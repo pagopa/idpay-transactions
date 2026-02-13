@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.idpay.transactions.dto.DownloadReportResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.PatchReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
@@ -23,6 +24,14 @@ public interface ReportService {
     Mono<ReportDTO> patchReport(String initiativeId,
                                 String reportId,
                                 PatchReportRequest request);
+
+    Mono<DownloadReportResponseDTO> downloadTransactionsReport(
+            String merchantId,
+            String organizationRole,
+            String initiativeId,
+            String reportId
+    );
+
 
     Mono<List<Report2RunDto>> forceGenerateReports(ReportGenerateForce reportGenerateForce);
 }
