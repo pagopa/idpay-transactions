@@ -209,7 +209,7 @@ public class ReportServiceImpl implements ReportService {
 
     @Override
     public Mono<List<Report2RunDto>> forceGenerateReports(ReportGenerateForce reportGenerateForce) {
-        log.info("[RUN_GENERATE_REPORT] Request generate report {}", reportGenerateForce.getReportsId());
+        log.info("[RUN_GENERATE_REPORT] Request generate report {}",  Utilities.sanitizeString(String.valueOf(reportGenerateForce.getReportsId())));
         return reportRepository.findAllById(reportGenerateForce.getReportsId())
                 .flatMap(this::triggerTransactionReportPipeline)
                 .collectList();
