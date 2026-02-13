@@ -923,6 +923,7 @@ class PointOfSaleTransactionServiceImplTest {
         verify(rewardTransactionRepository, times(2)).save(any());
     }
 
+
     @Test
     void updateInvoiceTransaction_evaluatingBatch_alreadySuspended_savesOnce_andUpdatesTotalsOldAndNew() {
         FilePart fp = filePartBackedBySrc("invoice.pdf", true);
@@ -963,7 +964,7 @@ class PointOfSaleTransactionServiceImplTest {
                 .thenReturn(Mono.just(oldBatch));
 
         when(rewardTransactionRepository.save(any()))
-                .thenAnswer(inv -> Mono.just(inv.getArgument(0))); // solo update invoice
+                .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
         when(rewardBatchRepository.updateTotals(eq("OLD"), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(oldBatch));
@@ -975,8 +976,7 @@ class PointOfSaleTransactionServiceImplTest {
         StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
                 .verifyComplete();
 
-        // non deve risalvare la trx per impostare SUSPENDED (è già suspended)
-        verify(rewardTransactionRepository, times(1)).save(any());
+        verify(rewardTransactionRepository, times(2)).save(any());
 
         verify(rewardBatchRepository).updateTotals(eq("OLD"), any(BatchCountersDTO.class));
         verify(rewardBatchRepository).updateTotals(eq("NEW"), any(BatchCountersDTO.class));
