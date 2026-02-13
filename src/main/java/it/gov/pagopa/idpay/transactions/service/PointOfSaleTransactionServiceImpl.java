@@ -169,7 +169,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                String pointOfSaleId, FilePart file, String docNumber) {
 
         log.info("[UPDATE_INVOICE_FILE_SERVICE] - [updateInvoiceTransaction] - start | trxId={} merchantId={} posId={} docNumber={} filename={}",
-                transactionId, merchantId, pointOfSaleId, docNumber, file != null ? file.filename() : null);
+                Utilities.sanitizeString(transactionId), Utilities.sanitizeString(merchantId), Utilities.sanitizeString(pointOfSaleId), Utilities.sanitizeString(docNumber), file != null ? Utilities.sanitizeString(file.filename()) : null);
 
         Utilities.checkFileExtensionOrThrow(file);
 
@@ -261,7 +261,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         YearMonth targetMonth = oldMonth.isAfter(currentMonth) ? oldMonth : currentMonth;
 
         log.info("[UPDATE_INVOICE_FILE_SERVICE] - [findOrCreateTargetBatch] - start | oldBatchId={} trxId={} targetMonth={}",
-                oldBatch.getId(), oldTransaction.getId(), targetMonth);
+                Utilities.sanitizeString(oldBatch.getId()), Utilities.sanitizeString(oldTransaction.getId()), targetMonth);
 
         return rewardBatchService.findOrCreateBatch(oldBatch.getMerchantId(), posType, targetMonth.toString(), businessName);
     }
@@ -313,7 +313,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         return findOrCreateTargetBatch(oldTransaction, oldBatch)
                 .flatMap(newBatch -> {
                     log.info("[UPDATE_INVOICE_FILE_SERVICE] - [suspendAndMoveTransaction] - moving trx | trxId={} fromBatchId={} toBatchId={} oldCounters={} newCounters={}",
-                            oldTransaction.getId(), oldBatch.getId(), newBatch.getId(),
+                            Utilities.sanitizeString(oldTransaction.getId()), Utilities.sanitizeString(oldBatch.getId()), Utilities.sanitizeString(newBatch.getId()),
                             oldBatchCounter, newBatchCounter);
 
                     oldTransaction.setRewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED);
