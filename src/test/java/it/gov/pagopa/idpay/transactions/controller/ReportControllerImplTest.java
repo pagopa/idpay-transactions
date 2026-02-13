@@ -7,6 +7,8 @@ import it.gov.pagopa.idpay.transactions.dto.ReportListDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ReportMapper;
 import it.gov.pagopa.idpay.transactions.enums.ReportType;
+import it.gov.pagopa.idpay.transactions.dto.report.Report2RunDto;
+import it.gov.pagopa.idpay.transactions.dto.report.ReportGenerateForce;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
@@ -14,6 +16,7 @@ import it.gov.pagopa.idpay.transactions.service.ReportService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -287,4 +290,35 @@ class ReportControllerImplTest {
 
 
 
+
+    @Test
+    void postForceGenerateReports_Success() {
+        ReportGenerateForce request = new ReportGenerateForce(List.of("REPORT_ID"));
+
+        Report2RunDto responseMock = Report2RunDto.builder()
+                .runId("RUN_ID")
+                .reportId("REPORT_ID")
+                .build();
+
+        when(reportService.forceGenerateReports(any()))
+                .thenReturn(Mono.just(List.of(responseMock)));
+
+        webClient.post()
+                .uri("/idpay/merchant/portal/reports/transaction/force")
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(new ParameterizedTypeReference<List<Report2RunDto>>() {})
+                .value(response -> {
+                    assertNotNull(response);
+                    assertEquals(1, response.size());
+
+                    Report2RunDto first = response.get(0);
+                    assertEquals("RUN_ID", first.getRunId());
+                    assertEquals("REPORT_ID", first.getReportId());
+                });
+
+        verify(reportService, times(1))
+                .forceGenerateReports(any());
+    }
 }
