@@ -305,7 +305,7 @@ class ReportControllerImplTest {
 
         webClient.post()
                 .uri("/idpay/merchant/portal/reports/transaction/force")
-                .bodyValue(request)   // ✅ corretto
+                .bodyValue(request)
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(new ParameterizedTypeReference<List<Report2RunDto>>() {})
