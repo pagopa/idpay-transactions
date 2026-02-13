@@ -215,7 +215,7 @@ app:
       delay-millis: ${PDV_RETRY_DELAY_MILLIS:2000}
       max-attempts: ${PDV_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:10}}
   merchant:
-    base-url: ${MERCHANT_BASE_URL:http://idpay-merchant}
+    base-url: ${MERCHANT_BASE_URL:}
     retry:
       delay-millis: ${MERCHANT_RETRY_DELAY_MILLIS:2000}
       max-attempts: ${MERCHANT_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:10}}
