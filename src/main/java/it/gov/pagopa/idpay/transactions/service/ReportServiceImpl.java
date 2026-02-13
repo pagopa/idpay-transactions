@@ -3,12 +3,16 @@ package it.gov.pagopa.idpay.transactions.service;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.dto.DownloadReportResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.PatchReportRequest;
+import it.gov.pagopa.idpay.transactions.data.factory.DataFactoryService;
 import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ReportMapper;
+import it.gov.pagopa.idpay.transactions.dto.report.Report2RunDto;
+import it.gov.pagopa.idpay.transactions.dto.report.ReportGenerateForce;
 import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
 import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
+import it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.repository.ReportRepository;
 import it.gov.pagopa.idpay.transactions.storage.ReportBlobService;
@@ -42,11 +46,14 @@ public class ReportServiceImpl implements ReportService {
 
     private final ReportBlobService reportBlobService;
 
-    public ReportServiceImpl(ReportRepository reportRepository, MerchantRestClient merchantRestClient, ReportMapper reportMapper, ReportBlobService reportBlobService) {
+    private final DataFactoryService dataFactoryService;
+
+    public ReportServiceImpl(ReportRepository reportRepository, MerchantRestClient merchantRestClient, ReportMapper reportMapper, ReportBlobService reportBlobService, DataFactoryService dataFactoryService) {
         this.reportRepository = reportRepository;
         this.merchantRestClient = merchantRestClient;
         this.reportMapper = reportMapper;
         this.reportBlobService = reportBlobService;
+        this.dataFactoryService = dataFactoryService;
     }
 
     static final List<String> ALLOWED_ROLES = List.of(
@@ -161,6 +168,14 @@ public class ReportServiceImpl implements ReportService {
 
                     return reportRepository.save(reportEntity);
                 })
+                .flatMap(report ->
+                        triggerTransactionReportPipeline(report)
+                                .thenReturn(report)
+                                .onErrorResume(AzureConnectingErrorException.class, ex -> {
+                                    report.setReportStatus(ReportStatus.FAILED);
+                                    return reportRepository.save(report);
+                                })
+                )
                 .map(reportMapper::toDTO)
                 .doOnSuccess(saved -> log.info("[GENERATE_REPORT] Saved report {} for merchant {}",
                         saved.getFileName(), Utilities.sanitizeString(merchantId)));
@@ -190,6 +205,9 @@ public class ReportServiceImpl implements ReportService {
                     if (request.getReportStatus() != null) {
                         report.setReportStatus(request.getReportStatus());
                     }
+                    if(ReportStatus.GENERATED.equals(request.getReportStatus())){
+                        report.setElaborationDate(LocalDateTime.now());
+                    }
 
                     return reportRepository.save(report);
                 })
@@ -197,6 +215,21 @@ public class ReportServiceImpl implements ReportService {
     }
 
 
+    @Override
+    public Mono<List<Report2RunDto>> forceGenerateReports(ReportGenerateForce reportGenerateForce) {
+        log.info("[RUN_GENERATE_REPORT] Request generate report {}",  Utilities.sanitizeString(String.valueOf(reportGenerateForce.getReportsId())));
+        return reportRepository.findAllById(reportGenerateForce.getReportsId())
+                .flatMap(this::triggerTransactionReportPipeline)
+                .collectList();
+    }
+
+    private Mono<Report2RunDto> triggerTransactionReportPipeline(Report report) {
+        return dataFactoryService.triggerTransactionReportPipeline(report)
+                .map(runId ->
+                        Report2RunDto.builder()
+                                .reportId(report.getId())
+                                .runId(runId).build());
+    }
     @Override
     public Mono<DownloadReportResponseDTO> downloadTransactionsReport(
             String merchantId,
