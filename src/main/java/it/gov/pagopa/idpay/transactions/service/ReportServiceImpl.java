@@ -200,6 +200,9 @@ public class ReportServiceImpl implements ReportService {
                     if (request.getReportStatus() != null) {
                         report.setReportStatus(request.getReportStatus());
                     }
+                    if(ReportStatus.GENERATED.equals(request.getReportStatus())){
+                        report.setElaborationDate(LocalDateTime.now());
+                    }
 
                     return reportRepository.save(report);
                 })
