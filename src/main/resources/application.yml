@@ -233,3 +233,5 @@ app:
     factory-name: ${DATA_FACTORY_NAME:cstar-d-itn-platform-adf}
     pipeline-name: ${DATA_FACTORY_PIPELINE_NAME:idpay_transaction_report}
     max-retries: ${DATA_FACTORY_RUN_PIPELINE_MAX_RETRIES:3}
+    tenant-id: ${DATA_FACTORY_TENANT_ID:}
+    subscription-id: ${DATA_FACTORY_SUBSCRIPTION_ID:}

@@ -12,7 +12,7 @@ class DataFactoryManagerConfigTest {
 
     @BeforeEach
     void setUp() {
-        config = new DataFactoryManagerConfig();
+        config = new DataFactoryManagerConfig("", "");
 
     }
 
