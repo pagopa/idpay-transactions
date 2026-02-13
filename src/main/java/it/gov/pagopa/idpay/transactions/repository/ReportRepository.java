@@ -7,4 +7,10 @@ import reactor.core.publisher.Mono;
 public interface ReportRepository extends ReactiveMongoRepository<Report, String>, ReportSpecificRepository {
 
     Mono<Report> findByIdAndInitiativeId(String reportId, String initiativeId);
+
+    Mono<Report> findByIdAndInitiativeIdAndMerchantId(
+            String reportId,
+            String initiativeId,
+            String merchantId
+    );
 }

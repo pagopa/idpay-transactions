@@ -1,10 +1,7 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
-import it.gov.pagopa.idpay.transactions.dto.PatchReportRequest;
-import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
-import it.gov.pagopa.idpay.transactions.dto.ReportListDTO;
-import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
+import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ReportMapper;
 import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.model.Report;
@@ -285,6 +282,110 @@ class ReportControllerImplTest {
                 .patchReport(eq(INITIATIVE_ID), eq("missingReport"), any());
     }
 
+    @Test
+    void downloadTransactionsReport_WithMerchantId_Success() {
 
+        DownloadReportResponseDTO responseDTO = DownloadReportResponseDTO.builder()
+                .reportUrl("http://localhost/report.csv?sasToken")
+                .build();
+
+        when(reportService.downloadTransactionsReport(
+                eq(MERCHANT_ID),
+                isNull(),
+                eq(INITIATIVE_ID),
+                eq("report123")
+        )).thenReturn(Mono.just(responseDTO));
+
+        webClient.get()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reports/{reportId}/download",
+                        INITIATIVE_ID, "report123")
+                .header("x-merchant-id", MERCHANT_ID)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(DownloadReportResponseDTO.class)
+                .value(response -> {
+                    assertNotNull(response);
+                    assertEquals("http://localhost/report.csv?sasToken", response.getReportUrl());
+                });
+
+        verify(reportService, times(1))
+                .downloadTransactionsReport(eq(MERCHANT_ID), isNull(), eq(INITIATIVE_ID), eq("report123"));
+    }
+
+    @Test
+    void downloadTransactionsReport_WithOrganizationRole_Success() {
+
+        DownloadReportResponseDTO responseDTO = DownloadReportResponseDTO.builder()
+                .reportUrl("http://localhost/report.csv?sasToken")
+                .build();
+
+        when(reportService.downloadTransactionsReport(
+                isNull(),
+                eq("ADMIN"),
+                eq(INITIATIVE_ID),
+                eq("report123")
+        )).thenReturn(Mono.just(responseDTO));
+
+        webClient.get()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reports/{reportId}/download",
+                        INITIATIVE_ID, "report123")
+                .header("x-organization-role", "ADMIN")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(DownloadReportResponseDTO.class)
+                .value(response -> {
+                    assertNotNull(response);
+                    assertEquals("http://localhost/report.csv?sasToken", response.getReportUrl());
+                });
+
+        verify(reportService, times(1))
+                .downloadTransactionsReport(isNull(), eq("ADMIN"), eq(INITIATIVE_ID), eq("report123"));
+    }
+
+    @Test
+    void downloadTransactionsReport_NotFound() {
+
+        when(reportService.downloadTransactionsReport(
+                eq(MERCHANT_ID),
+                isNull(),
+                eq(INITIATIVE_ID),
+                eq("missingReport")
+        )).thenReturn(Mono.error(new ClientExceptionWithBody(
+                HttpStatus.NOT_FOUND,
+                REPORT_NOT_FOUND,
+                ERROR_MESSAGE_REPORT_NOT_FOUND.formatted("missingReport", INITIATIVE_ID)
+        )));
+
+        webClient.get()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reports/{reportId}/download",
+                        INITIATIVE_ID, "missingReport")
+                .header("x-merchant-id", MERCHANT_ID)
+                .exchange()
+                .expectStatus().isNotFound();
+
+        verify(reportService, times(1))
+                .downloadTransactionsReport(eq(MERCHANT_ID), isNull(), eq(INITIATIVE_ID), eq("missingReport"));
+    }
+
+    @Test
+    void downloadTransactionsReport_ServiceFails_InternalServerError() {
+
+        when(reportService.downloadTransactionsReport(
+                eq(MERCHANT_ID),
+                isNull(),
+                eq(INITIATIVE_ID),
+                eq("report123")
+        )).thenReturn(Mono.error(new RuntimeException("Service failure")));
+
+        webClient.get()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reports/{reportId}/download",
+                        INITIATIVE_ID, "report123")
+                .header("x-merchant-id", MERCHANT_ID)
+                .exchange()
+                .expectStatus().is5xxServerError();
+
+        verify(reportService, times(1))
+                .downloadTransactionsReport(eq(MERCHANT_ID), isNull(), eq(INITIATIVE_ID), eq("report123"));
+    }
 
 }

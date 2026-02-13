@@ -1,9 +1,6 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
-import it.gov.pagopa.idpay.transactions.dto.PatchReportRequest;
-import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
-import it.gov.pagopa.idpay.transactions.dto.ReportListDTO;
-import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
+import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.service.ReportService;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ReportMapper;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
@@ -35,6 +32,25 @@ public class ReportControllerImpl implements ReportController {
 
         return reportService.getTransactionsReports(merchantId, organizationRole, initiativeId, pageable)
                 .flatMap(page -> Mono.just(reportMapper.toListDTO(page)));
+    }
+
+    @Override
+    public Mono<DownloadReportResponseDTO> downloadTransactionsReport(
+            String merchantId,
+            String organizationRole,
+            String initiativeId,
+            String reportId
+    ) {
+        log.info("[DOWNLOAD_TRANSACTIONS_REPORT] Request received for initiative: {}, reportId: {}",
+                Utilities.sanitizeString(initiativeId),
+                Utilities.sanitizeString(reportId));
+
+        return reportService.downloadTransactionsReport(
+                merchantId,
+                organizationRole,
+                initiativeId,
+                reportId
+        );
     }
 
 

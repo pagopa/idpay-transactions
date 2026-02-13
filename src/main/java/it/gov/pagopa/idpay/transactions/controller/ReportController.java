@@ -1,9 +1,6 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
-import it.gov.pagopa.idpay.transactions.dto.PatchReportRequest;
-import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
-import it.gov.pagopa.idpay.transactions.dto.ReportListDTO;
-import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
+import it.gov.pagopa.idpay.transactions.dto.*;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -19,6 +16,14 @@ public interface ReportController {
             @RequestHeader(value = "x-organization-role", required = false) String organizationRole,
             @PathVariable("initiativeId") String initiativeId,
             @PageableDefault Pageable pageable
+    );
+
+    @GetMapping("/initiatives/{initiativeId}/reports/{reportId}/download")
+    Mono<DownloadReportResponseDTO> downloadTransactionsReport(
+            @RequestHeader(value = "x-merchant-id", required = false) String merchantId,
+            @RequestHeader(value = "x-organization-role", required = false) String organizationRole,
+            @PathVariable("initiativeId") String initiativeId,
+            @PathVariable("reportId") String reportId
     );
 
     @PostMapping("/initiatives/{initiativeId}/reports")

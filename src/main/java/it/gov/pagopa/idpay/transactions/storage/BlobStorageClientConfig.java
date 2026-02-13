@@ -34,4 +34,8 @@ public class BlobStorageClientConfig {
     return blobServiceClient.getBlobContainerClient(properties.getCsvContainerReference());
   }
 
+  @Bean("reportsContainerClient")
+  public BlobContainerClient reportsContainerClient(BlobServiceClient blobServiceClient){
+    return blobServiceClient.getBlobContainerClient(properties.getReportsContainerReference());
+  }
 }
