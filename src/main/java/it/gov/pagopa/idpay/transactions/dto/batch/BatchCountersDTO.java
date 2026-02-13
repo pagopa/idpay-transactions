@@ -12,7 +12,20 @@ public class BatchCountersDTO {
   private Long trxElaborated;
   private Long trxRejected;
 
-  private BatchCountersDTO() {
+    @Override
+    public String toString() {
+        return "BatchCountersDTO{" +
+                "initialAmountCents=" + initialAmountCents +
+                ", numberOfTransactions=" + numberOfTransactions +
+                ", suspendedAmountCents=" + suspendedAmountCents +
+                ", trxSuspended=" + trxSuspended +
+                ", approvedAmountCents=" + approvedAmountCents +
+                ", trxElaborated=" + trxElaborated +
+                ", trxRejected=" + trxRejected +
+                '}';
+    }
+
+    private BatchCountersDTO() {
     this.initialAmountCents = 0L;
     this.numberOfTransactions = 0L;
     this.approvedAmountCents = 0L;

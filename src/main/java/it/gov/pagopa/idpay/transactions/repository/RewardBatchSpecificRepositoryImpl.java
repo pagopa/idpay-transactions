@@ -222,6 +222,12 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     if (acc.getSuspendedAmountCents() != 0) {
       update.inc(RewardBatch.Fields.suspendedAmountCents, acc.getSuspendedAmountCents());
     }
+    if (acc.getInitialAmountCents() != 0) {
+        update.inc(RewardBatch.Fields.initialAmountCents, acc.getInitialAmountCents());
+    }
+    if (acc.getNumberOfTransactions() != 0) {
+        update.inc(RewardBatch.Fields.numberOfTransactions, acc.getNumberOfTransactions());
+    }
 
     update.currentDate(RewardBatch.Fields.updateDate);
 
