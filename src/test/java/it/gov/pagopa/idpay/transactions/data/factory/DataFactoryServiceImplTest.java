@@ -48,7 +48,7 @@ class DataFactoryServiceImplTest {
     }
 
     @Test
-    void generateReport_success() {
+    void triggerTransactionReport_Pipeline_success() {
 
         LocalDateTime now = LocalDateTime.now();
         Report report = Report.builder()
@@ -59,7 +59,6 @@ class DataFactoryServiceImplTest {
                 .endPeriod(now)
                 .fileName("file.csv").build();
 
-        // mock Azure chain
         when(dataFactoryManager.pipelines()).thenReturn(pipelines);
         when(pipelines.createRunWithResponse(
                 anyString(),
@@ -77,7 +76,7 @@ class DataFactoryServiceImplTest {
         when(response.getValue()).thenReturn(createRunResponse);
         when(createRunResponse.runId()).thenReturn("RUN_ID");
 
-        StepVerifier.create(service.generateReport(report))
+        StepVerifier.create(service.triggerTransactionReportPipeline(report))
                 .expectNext("RUN_ID")
                 .verifyComplete();
 
@@ -95,7 +94,7 @@ class DataFactoryServiceImplTest {
     }
 
     @Test
-    void generateReport_error_shouldThrowAzureConnectingError() {
+    void triggerTransactionReport_Pipeline_error_shouldThrowAzureConnectingError() {
 
         Report report = mock(Report.class);
         when(report.getId()).thenReturn("REPORT_ID");
@@ -114,7 +113,7 @@ class DataFactoryServiceImplTest {
                 any()
         )).thenThrow(new RuntimeException("Connection error"));
 
-        StepVerifier.create(service.generateReport(report))
+        StepVerifier.create(service.triggerTransactionReportPipeline(report))
                 .expectError(AzureConnectingErrorException.class)
                 .verify();
     }

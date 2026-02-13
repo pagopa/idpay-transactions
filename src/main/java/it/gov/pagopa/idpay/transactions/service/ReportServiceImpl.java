@@ -11,6 +11,7 @@ import it.gov.pagopa.idpay.transactions.dto.report.ReportGenerateForce;
 import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
 import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
+import it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.repository.ReportRepository;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
@@ -26,7 +27,6 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Locale;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.*;
@@ -163,6 +163,14 @@ public class ReportServiceImpl implements ReportService {
 
                     return reportRepository.save(reportEntity);
                 })
+                .flatMap(report ->
+                        triggerTransactionReportPipeline(report)
+                                .thenReturn(report)
+                                .onErrorResume(AzureConnectingErrorException.class, ex -> {
+                                    report.setReportStatus(ReportStatus.FAILED);
+                                    return reportRepository.save(report);
+                                })
+                )
                 .map(reportMapper::toDTO)
                 .doOnSuccess(saved -> log.info("[GENERATE_REPORT] Saved report {} for merchant {}",
                         saved.getFileName(), Utilities.sanitizeString(merchantId)));
@@ -203,13 +211,15 @@ public class ReportServiceImpl implements ReportService {
     public Mono<List<Report2RunDto>> forceGenerateReports(ReportGenerateForce reportGenerateForce) {
         log.info("[RUN_GENERATE_REPORT] Request generate report {}", reportGenerateForce.getReportsId());
         return reportRepository.findAllById(reportGenerateForce.getReportsId())
-                .flatMap(report ->
-                        dataFactoryService.generateReport(report)
-                                .map(runId ->
-                                        Report2RunDto.builder()
-                                                .reportId(report.getId())
-                                                .runId(runId).build()))
+                .flatMap(this::triggerTransactionReportPipeline)
                 .collectList();
     }
 
+    private Mono<Report2RunDto> triggerTransactionReportPipeline(Report report) {
+        return dataFactoryService.triggerTransactionReportPipeline(report)
+                .map(runId ->
+                        Report2RunDto.builder()
+                                .reportId(report.getId())
+                                .runId(runId).build());
+    }
 }

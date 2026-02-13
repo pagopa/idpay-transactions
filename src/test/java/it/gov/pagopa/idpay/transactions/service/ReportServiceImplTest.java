@@ -13,6 +13,7 @@ import it.gov.pagopa.idpay.transactions.dto.report.ReportGenerateForce;
 import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
 import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
+import it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.repository.ReportRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -285,6 +286,8 @@ class ReportServiceImplTest {
         when(reportRepository.save(any()))
                 .thenReturn(Mono.just(savedReport));
 
+        when(dataFactoryServiceMock.triggerTransactionReportPipeline(savedReport)).thenReturn(Mono.just("RUN_ID"));
+
         when(reportMapper.toDTO(savedReport))
                 .thenReturn(mappedDto);
 
@@ -371,6 +374,7 @@ class ReportServiceImplTest {
                     .build();
 
             when(reportRepository.save(any())).thenReturn(Mono.just(saved));
+            when(dataFactoryServiceMock.triggerTransactionReportPipeline(saved)).thenReturn(Mono.just("RUN_ID"));
             when(reportMapper.toDTO(saved)).thenReturn(ReportDTO.builder().id("R200").fileName(saved.getFileName()).build());
 
             StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
@@ -379,6 +383,42 @@ class ReportServiceImplTest {
 
             verify(reportRepository).save(captor.capture());
             assertEquals("Report_01022026123045", captor.getValue().getFileName());
+        }
+    }
+    @Test
+    void generateMerchantTransactionsReport_TriggerPipelineError() {
+        ReportRequest request = new ReportRequest();
+        request.setStartPeriod(LocalDateTime.of(2026, 1, 1, 0, 0));
+        request.setEndPeriod(LocalDateTime.of(2026, 1, 31, 23, 59));
+        request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
+
+        MerchantDetailDTO merchant = new MerchantDetailDTO();
+        merchant.setBusinessName("Business");
+
+        LocalDateTime fixedNow = LocalDateTime.of(2026, 2, 1, 12, 30, 45);
+
+        try (MockedStatic<LocalDateTime> mocked = mockStatic(LocalDateTime.class, CALLS_REAL_METHODS)) {
+            mocked.when(LocalDateTime::now).thenReturn(fixedNow);
+
+            when(merchantRestClient.getMerchantDetail(MERCHANT_ID, INITIATIVE_ID))
+                    .thenReturn(Mono.just(merchant));
+
+            Report saved = Report.builder()
+                    .id("R200")
+                    .fileName("Report_01022026123045")
+                    .build();
+
+            Report saved2 = Report.builder()
+                    .id("R200_2")
+                    .build();
+
+            when(reportRepository.save(any())).thenReturn(Mono.just(saved)).thenReturn(Mono.just(saved2));
+            when(dataFactoryServiceMock.triggerTransactionReportPipeline(saved)).thenReturn(Mono.error(new AzureConnectingErrorException("DUMMY_ERROR", new RuntimeException())));
+            when(reportMapper.toDTO(saved2)).thenReturn(ReportDTO.builder().id("R200_2").build());
+
+            StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                    .assertNext(dto -> assertEquals("R200_2", dto.getId()))
+                    .verifyComplete();
         }
     }
 
@@ -508,8 +548,8 @@ class ReportServiceImplTest {
         when(reportRepository.findAllById(anyIterable()))
                 .thenReturn(Flux.just(report1, report2));
 
-        when(dataFactoryServiceMock.generateReport(report1)).thenReturn(Mono.just("RUN1"));
-        when(dataFactoryServiceMock.generateReport(report2)).thenReturn(Mono.just("RUN2"));
+        when(dataFactoryServiceMock.triggerTransactionReportPipeline(report1)).thenReturn(Mono.just("RUN1"));
+        when(dataFactoryServiceMock.triggerTransactionReportPipeline(report2)).thenReturn(Mono.just("RUN2"));
 
         Mono<List<Report2RunDto>> resultMono = service.forceGenerateReports(request);
 
@@ -524,6 +564,6 @@ class ReportServiceImplTest {
                 .verifyComplete();
 
         verify(reportRepository, times(1)).findAllById(anyList());
-        verify(dataFactoryServiceMock, times(2)).generateReport(any());
+        verify(dataFactoryServiceMock, times(2)).triggerTransactionReportPipeline(any());
     }
 }

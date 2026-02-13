@@ -39,9 +39,9 @@ public class DataFactoryServiceImpl implements DataFactoryService{
     }
 
     @Override
-    public Mono<String> generateReport(Report report) {
+    public Mono<String> triggerTransactionReportPipeline(Report report) {
         Mono<String> callMono = Mono.fromCallable(() -> {
-                    log.info("[CALLING_DATA_FACTORY] Running pipeline for report {}", report.getId());
+                    log.info("[CALLING_DATA_FACTORY] Starting pipeline execution for Report {}", report.getId());
                     Response<CreateRunResponse> resp = dataFactoryManager.pipelines().createRunWithResponse(
                             resourceGroup,
                             factoryName,
@@ -62,7 +62,7 @@ public class DataFactoryServiceImpl implements DataFactoryService{
                     if (body == null) {
                         throw new IllegalStateException("ADF createRun returned empty body");
                     }
-                    log.info("[CALLING_DATA_FACTORY] Identification run pipeline {} for report {}", body.runId(), report.getId());
+                    log.info("[CALLING_DATA_FACTORY] Report {} generation request sent successfully. Run ID: {}", report.getId(), body.runId());
                     return body.runId();
                 })
                 .subscribeOn(Schedulers.boundedElastic());
