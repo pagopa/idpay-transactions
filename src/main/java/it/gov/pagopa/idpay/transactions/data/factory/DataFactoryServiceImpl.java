@@ -85,7 +85,7 @@ public class DataFactoryServiceImpl implements DataFactoryService{
         parameters.put("initiativeId", report.getInitiativeId());
         parameters.put("startDate", report.getStartPeriod());
         parameters.put("endDate", report.getEndPeriod());
-        parameters.put("fileName", report.getFileName());
+        parameters.put("reportName", report.getFileName());
 
         return parameters;
     }
