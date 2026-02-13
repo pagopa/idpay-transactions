@@ -2,11 +2,14 @@ package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
+import it.gov.pagopa.idpay.transactions.data.factory.DataFactoryService;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.MerchantDetailDTO;
 import it.gov.pagopa.idpay.transactions.dto.PatchReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ReportMapper;
+import it.gov.pagopa.idpay.transactions.dto.report.Report2RunDto;
+import it.gov.pagopa.idpay.transactions.dto.report.ReportGenerateForce;
 import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
 import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
@@ -26,6 +29,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REPORT_NOT_FOUND;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_REPORT_NOT_FOUND;
@@ -45,6 +49,9 @@ class ReportServiceImplTest {
     @Mock
     private ReportMapper reportMapper;
 
+    @Mock
+    private DataFactoryService dataFactoryServiceMock;
+
     private ReportServiceImpl service;
 
     private static final String MERCHANT_ID = "M1";
@@ -53,7 +60,7 @@ class ReportServiceImplTest {
 
     @BeforeEach
     void setup() {
-        service = new ReportServiceImpl(reportRepository, merchantRestClient, reportMapper);
+        service = new ReportServiceImpl(reportRepository, merchantRestClient, reportMapper, dataFactoryServiceMock);
     }
 
     @Test
@@ -488,4 +495,35 @@ class ReportServiceImplTest {
         verify(reportMapper, never()).toDTO(any());
     }
 
+
+    @Test
+    void forceGenerateReports() {
+        Report report1 = mock(Report.class);
+        when(report1.getId()).thenReturn("R1");
+        Report report2 = mock(Report.class);
+        when(report2.getId()).thenReturn("R2");
+
+        ReportGenerateForce request = new ReportGenerateForce(List.of("R1", "R2"));
+
+        when(reportRepository.findAllById(anyIterable()))
+                .thenReturn(Flux.just(report1, report2));
+
+        when(dataFactoryServiceMock.generateReport(report1)).thenReturn(Mono.just("RUN1"));
+        when(dataFactoryServiceMock.generateReport(report2)).thenReturn(Mono.just("RUN2"));
+
+        Mono<List<Report2RunDto>> resultMono = service.forceGenerateReports(request);
+
+        StepVerifier.create(resultMono)
+                .assertNext(list -> {
+                    assertNotNull(list);
+                    assertEquals(2, list.size());
+
+                    assertTrue(list.stream().anyMatch(d -> "R1".equals(d.getReportId()) && "RUN1".equals(d.getRunId())));
+                    assertTrue(list.stream().anyMatch(d -> "R2".equals(d.getReportId()) && "RUN2".equals(d.getRunId())));
+                })
+                .verifyComplete();
+
+        verify(reportRepository, times(1)).findAllById(anyList());
+        verify(dataFactoryServiceMock, times(2)).generateReport(any());
+    }
 }

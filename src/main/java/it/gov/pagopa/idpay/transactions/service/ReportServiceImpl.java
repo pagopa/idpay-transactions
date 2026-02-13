@@ -2,9 +2,12 @@ package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.dto.PatchReportRequest;
+import it.gov.pagopa.idpay.transactions.data.factory.DataFactoryService;
 import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ReportMapper;
+import it.gov.pagopa.idpay.transactions.dto.report.Report2RunDto;
+import it.gov.pagopa.idpay.transactions.dto.report.ReportGenerateForce;
 import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
 import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
@@ -39,10 +42,13 @@ public class ReportServiceImpl implements ReportService {
 
     private final ReportMapper reportMapper;
 
-    public ReportServiceImpl(ReportRepository reportRepository, MerchantRestClient merchantRestClient, ReportMapper reportMapper) {
+    private final DataFactoryService dataFactoryService;
+
+    public ReportServiceImpl(ReportRepository reportRepository, MerchantRestClient merchantRestClient, ReportMapper reportMapper, DataFactoryService dataFactoryService) {
         this.reportRepository = reportRepository;
         this.merchantRestClient = merchantRestClient;
         this.reportMapper = reportMapper;
+        this.dataFactoryService = dataFactoryService;
     }
 
     private static final List<String> ALLOWED_ROLES = List.of(
@@ -192,5 +198,18 @@ public class ReportServiceImpl implements ReportService {
                 .map(reportMapper::toDTO);
     }
 
+
+    @Override
+    public Mono<List<Report2RunDto>> forceGenerateReports(ReportGenerateForce reportGenerateForce) {
+        log.info("[RUN_GENERATE_REPORT] Request generate report {}", reportGenerateForce.getReportsId());
+        return reportRepository.findAllById(reportGenerateForce.getReportsId())
+                .flatMap(report ->
+                        dataFactoryService.generateReport(report)
+                                .map(runId ->
+                                        Report2RunDto.builder()
+                                                .reportId(report.getId())
+                                                .runId(runId).build()))
+                .collectList();
+    }
 
 }
