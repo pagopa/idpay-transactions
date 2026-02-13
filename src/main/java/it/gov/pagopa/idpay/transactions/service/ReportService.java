@@ -3,10 +3,14 @@ package it.gov.pagopa.idpay.transactions.service;
 import it.gov.pagopa.idpay.transactions.dto.PatchReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
+import it.gov.pagopa.idpay.transactions.dto.report.Report2RunDto;
+import it.gov.pagopa.idpay.transactions.dto.report.ReportGenerateForce;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 public interface ReportService {
     Mono<Page<Report>> getTransactionsReports(String merchantId, String organizationRole, String initiativeId, Pageable pageable);
@@ -19,4 +23,6 @@ public interface ReportService {
     Mono<ReportDTO> patchReport(String initiativeId,
                                 String reportId,
                                 PatchReportRequest request);
+
+    Mono<List<Report2RunDto>> forceGenerateReports(ReportGenerateForce reportGenerateForce);
 }
