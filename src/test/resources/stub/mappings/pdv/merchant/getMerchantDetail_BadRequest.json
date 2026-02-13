@@ -1,0 +1,14 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/idpay/merchant/portal/initiatives/INIT_BADREQUEST_1",
+    "headers": {
+      "x-merchant-id": {
+        "equalTo": "MERCHANT_BADREQUEST_1"
+      }
+    }
+  },
+  "response": {
+    "status": 400
+  }
+}
