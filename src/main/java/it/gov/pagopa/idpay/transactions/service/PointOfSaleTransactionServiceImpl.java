@@ -35,9 +35,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.YearMonth;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 
 import static it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus.*;
@@ -57,8 +55,6 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
   private final RewardBatchRepository rewardBatchRepository;
   private final TransactionErrorNotifierService transactionErrorNotifierService;
   private final TransactionNotifierService transactionNotifierService;
-
-    private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM", Locale.ITALIAN);
 
   protected PointOfSaleTransactionServiceImpl(
           UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository, InvoiceStorageClient invoiceStorageClient, RewardBatchService rewardBatchService,
