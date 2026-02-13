@@ -124,6 +124,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             month)
         .switchIfEmpty(Mono.defer(() ->
             createBatch(merchantId, posType, month, businessName)
+                .doOnSuccess(batch -> log.info("[REWARD_BATCH_REPOSITORY]- findOrCreateBatch - created new batch with id: {}, month: {}",
+                        batch.getId(), batch.getMonth()))
                 .onErrorResume(DuplicateKeyException.class, ex ->
                     rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(merchantId,
                         posType, month))));

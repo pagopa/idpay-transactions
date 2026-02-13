@@ -176,9 +176,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         return rewardTransactionRepository
                 .findTransactionForUpdateInvoice(merchantId, pointOfSaleId, transactionId)
                 .switchIfEmpty(Mono.defer(() -> Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE))))
-                .flatMap(trx -> validateBatchAndUpdateInvoiceFlow(trx, merchantId, pointOfSaleId, transactionId, file, docNumber))
-                .doOnSuccess(v -> log.info("[UPDATE_INVOICE_FILE_SERVICE] - [findTransactionForUpdateInvoice] -  success | trxId={} merchantId={} posId={}",
-                        transactionId, merchantId, pointOfSaleId));
+                .flatMap(trx -> validateBatchAndUpdateInvoiceFlow(trx, merchantId, pointOfSaleId, transactionId, file, docNumber));
     }
 
     private Mono<Void> validateBatchAndUpdateInvoiceFlow(RewardTransaction trx,
@@ -187,9 +185,6 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                          String transactionId,
                                                          FilePart file,
                                                          String docNumber) {
-
-        log.info("[UPDATE_INVOICE_FILE_SERVICE] - [validateBatchAndUpdateInvoiceFlow] - start | trxId={} merchantId={} posId={} docNumber={} filename={}",
-                transactionId, merchantId, pointOfSaleId, docNumber, file != null ? file.filename() : null);
 
         String oldBatchId = requireRewardBatchId(trx);
 
@@ -202,14 +197,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     return updateInvoiceFileAndFields(trx, merchantId, pointOfSaleId, transactionId, file, docNumber)
                             .flatMap(savedTrx -> suspendAndMoveTransaction(savedTrx, oldBatch))
                             .then();
-                })
-                .doOnSuccess(v -> log.info("[UPDATE_INVOICE_FILE_SERVICE] - [validateBatchAndUpdateInvoiceFlow] - end success | trxId={} oldBatchId={}",
-                        transactionId, oldBatchId))
-                .doOnError(e -> log.error("[UPDATE_INVOICE_FILE_SERVICE] - [validateBatchAndUpdateInvoiceFlow] - end fail | trxId={} oldBatchId={} errorType={} message={}",
-                        transactionId, oldBatchId,
-                        e != null ? e.getClass().getSimpleName() : null,
-                        e != null ? e.getMessage() : null,
-                        e));
+                });
     }
 
     private String requireRewardBatchId(RewardTransaction trx) {
@@ -248,9 +236,6 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                                FilePart file,
                                                                String docNumber) {
 
-        log.info("[UPDATE_INVOICE_FILE_SERVICE] - [updateInvoiceFileAndFields] - start | trxId={} merchantId={} posId={} docNumber={} filename={}",
-                transactionId, merchantId, pointOfSaleId, docNumber, file != null ? file.filename() : null);
-
         InvoiceData oldDocumentData = validateTransactionData(trx, merchantId, pointOfSaleId);
 
         return replaceInvoiceFile(file, oldDocumentData, merchantId, pointOfSaleId, transactionId)
@@ -262,23 +247,11 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     trx.setInvoiceUploadDate(LocalDateTime.now());
                     trx.setUpdateDate(LocalDateTime.now());
                     return rewardTransactionRepository.save(trx);
-                }))
-                .doOnNext(saved -> log.info("[UPDATE_INVOICE_FILE_SERVICE] - [updateInvoiceFileAndFields] - end success | trxId={} invoiceFilename={} docNumber={}",
-                        transactionId,
-                        saved != null && saved.getInvoiceData() != null ? saved.getInvoiceData().getFilename() : null,
-                        saved != null && saved.getInvoiceData() != null ? saved.getInvoiceData().getDocNumber() : null))
-                .doOnError(e -> log.error("[UPDATE_INVOICE_FILE_SERVICE] - [updateInvoiceFileAndFields] - end fail | trxId={} errorType={} message={}",
-                        transactionId,
-                        e != null ? e.getClass().getSimpleName() : null,
-                        e != null ? e.getMessage() : null,
-                        e));
+                }));
     }
 
     private Mono<RewardBatch> findOrCreateTargetBatch(RewardTransaction oldTransaction,
                                                       RewardBatch oldBatch) {
-
-        log.info("[UPDATE_INVOICE_FILE_SERVICE] - [findOrCreateTargetBatch] - start | oldBatchId={} trxId={} posType={} businessName={}",
-                oldBatch.getId(), oldTransaction.getId(), oldTransaction.getPointOfSaleType(), oldTransaction.getBusinessName());
 
         PosType posType = oldTransaction.getPointOfSaleType();
         String businessName = oldTransaction.getBusinessName();
@@ -287,26 +260,17 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         YearMonth oldMonth = YearMonth.parse(oldBatch.getMonth());
         YearMonth targetMonth = oldMonth.isAfter(currentMonth) ? oldMonth : currentMonth;
 
-        return rewardBatchService.findOrCreateBatch(oldBatch.getMerchantId(), posType, targetMonth.toString(), businessName)
-                .doOnNext(b -> log.info("[UPDATE_INVOICE_FILE_SERVICE] - [findOrCreateTargetBatch] - end success | targetBatchId={} month={} status={}",
-                        b != null ? b.getId() : null,
-                        b != null ? b.getMonth() : null,
-                        b != null ? b.getStatus() : null))
-                .doOnError(e -> log.error("[UPDATE_INVOICE_FILE_SERVICE] - [findOrCreateTargetBatch] - end fail | errorType={} message={}",
-                        e != null ? e.getClass().getSimpleName() : null,
-                        e != null ? e.getMessage() : null,
-                        e));
+        log.info("[UPDATE_INVOICE_FILE_SERVICE] - [findOrCreateTargetBatch] - start | oldBatchId={} trxId={} targetMonth={}",
+                oldBatch.getId(), oldTransaction.getId(), targetMonth);
+
+        return rewardBatchService.findOrCreateBatch(oldBatch.getMerchantId(), posType, targetMonth.toString(), businessName);
     }
 
     private Mono<RewardTransaction> suspendAndMoveTransaction(
             RewardTransaction oldTransaction, RewardBatch oldBatch) {
 
-        log.info("[UPDATE_INVOICE_FILE_SERVICE] - [suspendAndMoveTransaction] - start | trxId={} oldBatchId={} oldBatchStatus={} trxBatchStatus={}",
-                oldTransaction.getId(), oldBatch.getId(), oldBatch.getStatus(), oldTransaction.getRewardBatchTrxStatus());
-
         if (CREATED.equals(oldBatch.getStatus())) {
-            log.info("[UPDATE_INVOICE_FILE_SERVICE] - [suspendAndMoveTransaction] - end success | no-move (old batch CREATED) | trxId={} oldBatchId={}",
-                    oldTransaction.getId(), oldBatch.getId());
+            log.info("[UPDATE_INVOICE_FILE_SERVICE] - [suspendAndMoveTransaction] - end success | no-move (old batch CREATED)");
             return Mono.just(oldTransaction);
         }
 
@@ -348,9 +312,8 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
         return findOrCreateTargetBatch(oldTransaction, oldBatch)
                 .flatMap(newBatch -> {
-                    log.info("[UPDATE_INVOICE_FILE_SERVICE] - [suspendAndMoveTransaction] - moving trx | trxId={} fromBatchId={} toBatchId={} oldStatus={} newStatus=SUSPENDED oldCounters={} newCounters={}",
+                    log.info("[UPDATE_INVOICE_FILE_SERVICE] - [suspendAndMoveTransaction] - moving trx | trxId={} fromBatchId={} toBatchId={} oldCounters={} newCounters={}",
                             oldTransaction.getId(), oldBatch.getId(), newBatch.getId(),
-                            oldTransaction.getRewardBatchTrxStatus(),
                             oldBatchCounter, newBatchCounter);
 
                     oldTransaction.setRewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED);
@@ -361,14 +324,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                             .then(rewardBatchRepository.updateTotals(oldBatch.getId(), oldBatchCounter))
                             .then(rewardBatchRepository.updateTotals(newBatch.getId(), newBatchCounter))
                             .thenReturn(oldTransaction);
-                })
-                .doOnNext(saved -> log.info("[UPDATE_INVOICE_FILE_SERVICE] - [suspendAndMoveTransaction] - end success | trxId={} rewardBatchId={} trxBatchStatus={}",
-                        saved.getId(), saved.getRewardBatchId(), saved.getRewardBatchTrxStatus()))
-                .doOnError(e -> log.error("[UPDATE_INVOICE_FILE_SERVICE] - [suspendAndMoveTransaction] - end fail | trxId={} oldBatchId={} errorType={} message={}",
-                        oldTransaction.getId(), oldBatch.getId(),
-                        e != null ? e.getClass().getSimpleName() : null,
-                        e != null ? e.getMessage() : null,
-                        e));
+                });
     }
 
     public Mono<Void> reversalTransaction(
