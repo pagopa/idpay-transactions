@@ -447,6 +447,82 @@ class ReportServiceImplTest {
     }
 
     @Test
+    void generateMerchantTransactionsReport_invalidPeriod_startAfterEnd() {
+        ReportRequest request = new ReportRequest();
+        request.setStartPeriod(LocalDateTime.now().minusDays(1));
+        request.setEndPeriod(LocalDateTime.now().minusDays(5)); // start > end
+
+        Mono<ReportDTO> mono =
+                service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request);
+
+        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class, mono::block);
+
+        assertEquals(BAD_REQUEST, ex.getHttpStatus());
+        assertEquals(INVALID_PERIOD, ex.getCode());
+    }
+
+
+    @Test
+    void generateMerchantTransactionsReport_invalidPeriod_endNotBeforeToday() {
+        ReportRequest request = new ReportRequest();
+        request.setStartPeriod(LocalDateTime.now().minusDays(10));
+        request.setEndPeriod(LocalDateTime.now()); // oggi → non valido
+
+        Mono<ReportDTO> mono =
+                service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request);
+
+        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class, mono::block);
+
+        assertEquals(BAD_REQUEST, ex.getHttpStatus());
+        assertEquals(INVALID_PERIOD, ex.getCode());
+    }
+
+    @Test
+    void generateMerchantTransactionsReport_invalidLengthPeriod_exceedsLimit() {
+        ReportRequest request = new ReportRequest();
+        request.setStartPeriod(LocalDateTime.now().minusDays(PERIOD_LENGTH + 5));
+        request.setEndPeriod(LocalDateTime.now().minusDays(1));
+
+        Mono<ReportDTO> mono =
+                service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request);
+
+        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class, mono::block);
+
+        assertEquals(BAD_REQUEST, ex.getHttpStatus());
+        assertEquals(INVALID_LENGTH_PERIOD, ex.getCode());
+    }
+
+
+    @Test
+    void generateMerchantTransactionsReport_validLengthPeriod_equalToLimit() {
+        ReportRequest request = new ReportRequest();
+        request.setStartPeriod(LocalDateTime.now().minusDays(PERIOD_LENGTH));
+        request.setEndPeriod(LocalDateTime.now().minusDays(1));
+
+        MerchantDetailDTO merchant = new MerchantDetailDTO();
+        merchant.setBusinessName("Business");
+
+        when(merchantRestClient.getMerchantDetail(MERCHANT_ID, INITIATIVE_ID))
+                .thenReturn(Mono.just(merchant));
+
+        when(reportRepository.save(any())).thenReturn(Mono.just(
+                Report.builder().id("OK").fileName("Report_test.csv").build()
+        ));
+
+        when(dataFactoryServiceMock.triggerTransactionReportPipeline(any()))
+                .thenReturn(Mono.just("RUN"));
+
+        when(reportMapper.toDTO(any()))
+                .thenReturn(ReportDTO.builder().id("OK").build());
+
+        StepVerifier.create(
+                        service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request)
+                )
+                .assertNext(dto -> assertEquals("OK", dto.getId()))
+                .verifyComplete();
+    }
+
+    @Test
     void patchReport_success_updatesStatus() {
         PatchReportRequest request = PatchReportRequest.builder()
                 .reportStatus(ReportStatus.GENERATED)
