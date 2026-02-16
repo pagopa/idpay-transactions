@@ -81,6 +81,7 @@ microservice-chart:
 
     rest-client:
       PDV_BASE_URL: pdv_decrypt_base_url
+      MERCHANT_BASE_URL: idpay_merchant_host
 
   envSecret:
     MONGODB_URI: mongodb-connection-string

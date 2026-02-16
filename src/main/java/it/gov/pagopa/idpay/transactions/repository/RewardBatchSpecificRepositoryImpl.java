@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.repository;
 
 import com.nimbusds.oauth2.sdk.util.StringUtils;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
+import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -37,7 +38,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   public static final String SUSPENDED_AMOUNT_CENTS = "suspendedAmountCents";
   public static final String NUMBER_OF_TRANSACTIONS_SUSPENDED = "numberOfTransactionsSuspended";
   public static final String NUMBER_OF_TRANSACTIONS_ELABORATED = "numberOfTransactionsElaborated";
-  
+
   
   @Override
   public Flux<RewardBatch> findRewardBatchesCombined(String merchantId, String status, String assigneeLevel, String month, boolean isOperator, Pageable pageable) {
@@ -52,8 +53,9 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     return mongoTemplate.count(Query.query(criteria), RewardBatch.class);
   }
 
+  @Deprecated
   @Override
-  public Mono<RewardBatch> incrementTotals(String batchId, long accruedAmountCents) {
+  public Mono<RewardBatch> incrementTotalAmountCents(String batchId, long accruedAmountCents) {
     return mongoTemplate.findAndModify(
         Query.query(Criteria.where("_id").is(batchId)),
         new Update()
@@ -65,8 +67,9 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     );
   }
 
+  @Deprecated
   @Override
-  public Mono<RewardBatch> decrementTotals(String batchId, long accruedAmountCents) {
+  public Mono<RewardBatch> decrementTotalAmountCents(String batchId, long accruedAmountCents) {
     return mongoTemplate.findAndModify(
         Query.query(Criteria.where("_id").is(batchId)),
         new Update()
@@ -78,41 +81,43 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     );
   }
 
-    @Override
-    public Mono<RewardBatch> moveSuspendToNewBatch(String oldBatchId, String newBatchId, long accruedAmountCents) {
+  public Mono<RewardBatch> moveTrxToNewBatch(String oldBatchId, String newBatchId, long accruedAmountCents, boolean isSuspended){
 
-        Update decOld = new Update()
-                .inc(INITIAL_AMOUNT_CENTS, -accruedAmountCents)
-                .inc(NUMBER_OF_TRANSACTIONS, -1)
-                .inc(SUSPENDED_AMOUNT_CENTS, -accruedAmountCents)
-                .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, -1)
-                .inc(NUMBER_OF_TRANSACTIONS_ELABORATED, -1)
-                .set(RewardBatch.Fields.updateDate, LocalDateTime.now());
+    Update decOld = new Update()
+            .set(RewardBatch.Fields.updateDate, LocalDateTime.now())
+            .inc(INITIAL_AMOUNT_CENTS, -accruedAmountCents)
+            .inc(NUMBER_OF_TRANSACTIONS, -1);
+    Update incNew = new Update()
+            .set(RewardBatch.Fields.updateDate, LocalDateTime.now())
+            .inc(INITIAL_AMOUNT_CENTS, accruedAmountCents)
+            .inc(NUMBER_OF_TRANSACTIONS, 1);
 
-        Update incNew = new Update()
-                .inc(INITIAL_AMOUNT_CENTS, accruedAmountCents)
-                .inc(NUMBER_OF_TRANSACTIONS, 1)
-                .inc(SUSPENDED_AMOUNT_CENTS, accruedAmountCents)
-                .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, 1)
-                .inc(NUMBER_OF_TRANSACTIONS_ELABORATED, 1)
-                .set(RewardBatch.Fields.updateDate, LocalDateTime.now());
+    if(isSuspended){
+      decOld
+              .inc(SUSPENDED_AMOUNT_CENTS, -accruedAmountCents)
+              .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, -1);
 
-        return mongoTemplate.findAndModify(
-                        Query.query(Criteria.where("_id").is(oldBatchId)),
-                        decOld,
-                        FindAndModifyOptions.options().returnNew(true),
-                        RewardBatch.class
-                )
-                .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)))
-                .then(mongoTemplate.findAndModify(
-                        Query.query(Criteria.where("_id").is(newBatchId)),
-                        incNew,
-                        FindAndModifyOptions.options().returnNew(true),
-                        RewardBatch.class
-                ))
-                .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)));
+      incNew
+              .inc(SUSPENDED_AMOUNT_CENTS, accruedAmountCents)
+              .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, 1);
     }
 
+
+    return mongoTemplate.findAndModify(
+                    Query.query(Criteria.where("_id").is(oldBatchId)),
+                    decOld,
+                    FindAndModifyOptions.options().returnNew(true),
+                    RewardBatch.class
+            )
+            .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)))
+            .then(mongoTemplate.findAndModify(
+                    Query.query(Criteria.where("_id").is(newBatchId)),
+                    incNew,
+                    FindAndModifyOptions.options().returnNew(true),
+                    RewardBatch.class
+            ))
+            .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)));
+  }
 
     private Criteria buildCombinedCriteria(String merchantId, String status, String assigneeLevel, String month, boolean isOperator) {
     List<Criteria> subCriteria = new ArrayList<>();
@@ -199,42 +204,37 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Mono<RewardBatch> updateTotals(String rewardBatchId, long elaboratedTrxNumber, long updateAmountCents, long suspendedAmountCents, long rejectedTrxNumber, long suspendedTrxNumber) {
+  public Mono<RewardBatch> updateTotals(String rewardBatchId, BatchCountersDTO acc) {
 
     Update update = new Update();
-    if (elaboratedTrxNumber != 0){
-      update
-              .inc(NUMBER_OF_TRANSACTIONS_ELABORATED, elaboratedTrxNumber);
+    if (acc.getTrxElaborated() != 0) {
+      update.inc(RewardBatch.Fields.numberOfTransactionsElaborated, acc.getTrxElaborated());
     }
-    if (rejectedTrxNumber != 0){
-      update
-       .inc("numberOfTransactionsRejected", rejectedTrxNumber);
+    if (acc.getTrxRejected() != 0) {
+      update.inc(RewardBatch.Fields.numberOfTransactionsRejected, acc.getTrxRejected());
     }
-    if (suspendedTrxNumber != 0){
-      update
-              .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, suspendedTrxNumber);
+    if (acc.getTrxSuspended() != 0) {
+      update.inc(RewardBatch.Fields.numberOfTransactionsSuspended, acc.getTrxSuspended());
     }
-    if (updateAmountCents != 0){
-      update
-              .inc("approvedAmountCents", updateAmountCents);
+    if (acc.getApprovedAmountCents() != 0) {
+      update.inc(RewardBatch.Fields.approvedAmountCents, acc.getApprovedAmountCents());
+    }
+    if (acc.getSuspendedAmountCents() != 0) {
+      update.inc(RewardBatch.Fields.suspendedAmountCents, acc.getSuspendedAmountCents());
+    }
+    if (acc.getInitialAmountCents() != 0) {
+        update.inc(RewardBatch.Fields.initialAmountCents, acc.getInitialAmountCents());
+    }
+    if (acc.getNumberOfTransactions() != 0) {
+        update.inc(RewardBatch.Fields.numberOfTransactions, acc.getNumberOfTransactions());
     }
 
-    if (suspendedAmountCents != 0){
-      update
-              .inc(SUSPENDED_AMOUNT_CENTS, suspendedAmountCents);
-    }
-
-    update
-            .currentDate("updateDate");
+    update.currentDate(RewardBatch.Fields.updateDate);
 
     Query query = Query.query(Criteria.where("_id").is(rewardBatchId));
 
     return mongoTemplate.findAndModify(
-            query,
-            update,
-            FindAndModifyOptions.options().returnNew(true),
-            RewardBatch.class
-    );
+        query, update, FindAndModifyOptions.options().returnNew(true), RewardBatch.class);
   }
 
   private Pageable getPageableRewardBatch(Pageable pageable) {
