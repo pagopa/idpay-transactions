@@ -94,10 +94,12 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
 
     if(isSuspended){
       decOld
+              .inc(NUMBER_OF_TRANSACTIONS_ELABORATED, -1)
               .inc(SUSPENDED_AMOUNT_CENTS, -accruedAmountCents)
               .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, -1);
 
       incNew
+              .inc(NUMBER_OF_TRANSACTIONS_ELABORATED, 1)
               .inc(SUSPENDED_AMOUNT_CENTS, accruedAmountCents)
               .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, 1);
     }

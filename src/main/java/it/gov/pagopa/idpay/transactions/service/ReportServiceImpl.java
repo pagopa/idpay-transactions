@@ -19,9 +19,7 @@ import it.gov.pagopa.idpay.transactions.storage.ReportBlobService;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.http.HttpStatus;
 import reactor.core.publisher.Mono;
@@ -60,6 +58,8 @@ public class ReportServiceImpl implements ReportService {
             "operator1", "operator2", "operator3"
     );
     private static final DateTimeFormatter FILE_NAME_FORMAT = DateTimeFormatter.ofPattern("ddMMyyyyHHmmss");
+
+    private static final String REPORT_TRANSACTIONS_PATH_STORAGE_FORMAT = "initiative/%s/merchant/%s/report/%s";
 
     @Override
     public Mono<Page<Report>> getTransactionsReports(
@@ -105,11 +105,14 @@ public class ReportServiceImpl implements ReportService {
                 merchantId != null ? Utilities.sanitizeString(merchantId) : "null",
                 organizationRole != null ? Utilities.sanitizeString(organizationRole) : "null");
 
+        Pageable sortedPageable = PageRequest.of( pageable.getPageNumber(),
+                pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "requestDate"));
+
         return reportRepository.findReportsCombined(
                         merchantId,
                         organizationRole,
                         initiativeId,
-                        pageable
+                        sortedPageable
                 )
                 .collectList()
                 .zipWith(reportRepository.countReportsCombined(
@@ -117,7 +120,7 @@ public class ReportServiceImpl implements ReportService {
                         organizationRole,
                         initiativeId
                 ))
-                .flatMap(tuple -> Mono.just(new PageImpl<>(tuple.getT1(), pageable, tuple.getT2())));
+                .flatMap(tuple -> Mono.just(new PageImpl<>(tuple.getT1(), sortedPageable, tuple.getT2())));
     }
 
     @Override
@@ -151,7 +154,7 @@ public class ReportServiceImpl implements ReportService {
                 .flatMap(merchant -> {
 
                     String formattedDate = LocalDateTime.now().format(FILE_NAME_FORMAT);
-                    String fileName = String.format("Report_%s", formattedDate);
+                    String fileName = String.format("Report_%s.csv", formattedDate);
 
                     Report reportEntity = Report.builder()
                             .initiativeId(initiativeId)
@@ -296,7 +299,7 @@ public class ReportServiceImpl implements ReportService {
                     }
 
                     String blobPath = String.format(
-                            "/initiative/%s/merchant/%s/report/%s",
+                            REPORT_TRANSACTIONS_PATH_STORAGE_FORMAT,
                             initiativeId,
                             report.getMerchantId(),
                             filename

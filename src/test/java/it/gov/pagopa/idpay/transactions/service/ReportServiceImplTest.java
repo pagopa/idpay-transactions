@@ -28,6 +28,7 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -76,7 +77,10 @@ class ReportServiceImplTest {
 
     @Test
     void getTransactionsReports_returnsPage_success() {
+
         Pageable pageable = PageRequest.of(0, 10);
+        Pageable sortedPageable = PageRequest.of( pageable.getPageNumber(),
+                pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "requestDate"));
 
         Report report = Report.builder()
                 .id("R1")
@@ -90,7 +94,7 @@ class ReportServiceImplTest {
                 eq(MERCHANT_ID),
                 isNull(),
                 eq(INITIATIVE_ID),
-                eq(pageable)
+                eq(sortedPageable)
         )).thenReturn(Flux.just(report));
 
         when(reportRepository.countReportsCombined(
@@ -120,12 +124,15 @@ class ReportServiceImplTest {
     @Test
     void getTransactionsReports_returnsEmpty_whenNoReports() {
         Pageable pageable = PageRequest.of(0, 10);
+        Pageable sortedPageable = PageRequest.of( pageable.getPageNumber(),
+                pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "requestDate"));
+
 
         when(reportRepository.findReportsCombined(
                 eq(MERCHANT_ID),
                 isNull(),
                 eq(INITIATIVE_ID),
-                eq(pageable)
+                eq(sortedPageable)
         )).thenReturn(Flux.empty());
 
         when(reportRepository.countReportsCombined(
@@ -145,6 +152,9 @@ class ReportServiceImplTest {
     @Test
     void getTransactionsReports_onlyOrganizationRole_success() {
         Pageable pageable = PageRequest.of(0, 10);
+        Pageable sortedPageable = PageRequest.of( pageable.getPageNumber(),
+                pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "requestDate"));
+
 
         Report report = Report.builder()
                 .id("R2")
@@ -162,7 +172,7 @@ class ReportServiceImplTest {
                 isNull(),
                 eq(ORGANIZATION_ROLE),
                 eq(INITIATIVE_ID),
-                eq(pageable)
+                eq(sortedPageable)
         )).thenReturn(Flux.just(report));
 
         when(reportRepository.countReportsCombined(
@@ -183,6 +193,9 @@ class ReportServiceImplTest {
     @Test
     void getTransactionsReports_onlyMerchantId_success() {
         Pageable pageable = PageRequest.of(0, 10);
+        Pageable sortedPageable = PageRequest.of( pageable.getPageNumber(),
+                pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "requestDate"));
+
 
         Report report = Report.builder()
                 .id("R3")
@@ -200,7 +213,7 @@ class ReportServiceImplTest {
                 eq(MERCHANT_ID),
                 isNull(),
                 eq(INITIATIVE_ID),
-                eq(pageable)
+                eq(sortedPageable)
         )).thenReturn(Flux.just(report));
 
         when(reportRepository.countReportsCombined(
@@ -392,7 +405,7 @@ class ReportServiceImplTest {
                     .verifyComplete();
 
             verify(reportRepository).save(captor.capture());
-            assertEquals("Report_01022026123045", captor.getValue().getFileName());
+            assertEquals("Report_01022026123045.csv", captor.getValue().getFileName());
         }
     }
     @Test
