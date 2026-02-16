@@ -59,7 +59,7 @@ public class ReportServiceImpl implements ReportService {
     );
     private static final DateTimeFormatter FILE_NAME_FORMAT = DateTimeFormatter.ofPattern("ddMMyyyyHHmmss");
 
-    private static final String REPORT_TRANSACIONS_PATH_STORAGE_FORMAT = "initiative/%s/merchant/%s/report/%s/";
+    private static final String REPORT_TRANSACTIONS_PATH_STORAGE_FORMAT = "initiative/%s/merchant/%s/report/%s";
 
     @Override
     public Mono<Page<Report>> getTransactionsReports(
@@ -299,7 +299,7 @@ public class ReportServiceImpl implements ReportService {
                     }
 
                     String blobPath = String.format(
-                            REPORT_TRANSACIONS_PATH_STORAGE_FORMAT,
+                            REPORT_TRANSACTIONS_PATH_STORAGE_FORMAT,
                             initiativeId,
                             report.getMerchantId(),
                             filename
