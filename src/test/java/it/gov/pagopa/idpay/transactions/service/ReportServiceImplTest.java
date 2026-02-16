@@ -124,12 +124,15 @@ class ReportServiceImplTest {
     @Test
     void getTransactionsReports_returnsEmpty_whenNoReports() {
         Pageable pageable = PageRequest.of(0, 10);
+        Pageable sortedPageable = PageRequest.of( pageable.getPageNumber(),
+                pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "requestDate"));
+
 
         when(reportRepository.findReportsCombined(
                 eq(MERCHANT_ID),
                 isNull(),
                 eq(INITIATIVE_ID),
-                eq(pageable)
+                eq(sortedPageable)
         )).thenReturn(Flux.empty());
 
         when(reportRepository.countReportsCombined(
