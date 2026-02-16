@@ -69,10 +69,11 @@ class ReportServiceImplTest {
     private static final String MERCHANT_ID = "M1";
     private static final String INITIATIVE_ID = "INIT1";
     private static final String ORGANIZATION_ROLE = "operator1";
+    private static final long PERIOD_LENGTH = 90;
 
     @BeforeEach
     void setup() {
-        service = new ReportServiceImpl(reportRepository, merchantRestClient, reportMapper, reportBlobService, dataFactoryServiceMock);
+        service = new ReportServiceImpl(PERIOD_LENGTH, reportRepository, merchantRestClient, reportMapper, reportBlobService, dataFactoryServiceMock);
     }
 
     @Test

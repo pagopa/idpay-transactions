@@ -30,6 +30,8 @@ public final class ExceptionConstants {
         public static final String MERCHANT_ID_AND_ORGANIZATION_ROLE_CANNOT_COEXIST = "MERCHANT_ID_AND_ORGANIZATION_ROLE_CANNOT_COEXIST";
         public static final String INVALID_ORGANIZATION_ROLE = "INVALID_ORGANIZATION_ROLE";
         public static final String REPORT_MISSING_FILENAME = "REPORT_MISSING_FILENAME";
+        public static final String INVALID_PERIOD = "INVALID_PERIOD";
+        public static final String INVALID_LENGTH_PERIOD = "INVALID_LENGTH_PERIOD";
 
         public static final String ROLE_NOT_ALLOWED_FOR_L1_PROMOTION = "ROLE_NOT_ALLOWED_FOR_L1_PROMOTION";
         public static final String ROLE_NOT_ALLOWED_FOR_L2_PROMOTION = "ROLE_NOT_ALLOWED_FOR_L2_PROMOTION";
@@ -62,6 +64,8 @@ public final class ExceptionConstants {
         public static final String ERROR_MESSAGE_MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY = "MerchantId or OrganizationRole must be provided";
         public static final String ERROR_MESSAGE_MERCHANT_ID_AND_ORGANIZATION_ROLE_CANNOT_COEXIST = "Only one between merchantId and organizationRole must be provided";
         public static final String ERROR_MESSAGE_INVALID_ORGANIZATION_ROLE = "The provided organization role is not a valid operator";
+        public static final String ERROR_MESSAGE_INVALID_PERIOD = "The provided period is invalid";
+        public static final String ERROR_MESSAGE_INVALID_LENGTH_PERIOD = "The provided period length is greater than %s";
 
         public static final String REASON_FIELD_IS_MANDATORY = "Reason field is mandatory";
         public static final String ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH = "Reward batch  %s not  found  or  not in  a  valid  state";
