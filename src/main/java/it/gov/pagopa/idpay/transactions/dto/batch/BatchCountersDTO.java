@@ -1,8 +1,10 @@
 package it.gov.pagopa.idpay.transactions.dto.batch;
 
 import lombok.Getter;
+import lombok.ToString;
 
 @Getter
+@ToString
 public class BatchCountersDTO {
   private Long initialAmountCents;
   private Long numberOfTransactions;
@@ -12,14 +14,15 @@ public class BatchCountersDTO {
   private Long trxElaborated;
   private Long trxRejected;
 
+
   private BatchCountersDTO() {
-    this.initialAmountCents = 0L;
-    this.numberOfTransactions = 0L;
-    this.approvedAmountCents = 0L;
-    this.suspendedAmountCents = 0L;
-    this.trxElaborated = 0L;
-    this.trxSuspended = 0L;
-    this.trxRejected = 0L;
+  this.initialAmountCents = 0L;
+  this.numberOfTransactions = 0L;
+  this.approvedAmountCents = 0L;
+  this.suspendedAmountCents = 0L;
+  this.trxElaborated = 0L;
+  this.trxSuspended = 0L;
+  this.trxRejected = 0L;
   }
 
   public static BatchCountersDTO newBatch() {
@@ -31,9 +34,13 @@ public class BatchCountersDTO {
     return this;
   }
 
-
   public BatchCountersDTO incrementNumberOfTransactions(Long number) {
     this.numberOfTransactions = this.numberOfTransactions + number;
+    return this;
+  }
+
+  public BatchCountersDTO decrementNumberOfTransactions() {
+    this.numberOfTransactions = this.numberOfTransactions - 1;
     return this;
   }
 
@@ -57,6 +64,11 @@ public class BatchCountersDTO {
     return this;
   }
 
+  public BatchCountersDTO decrementTrxElaborated() {
+    this.trxElaborated = this.trxElaborated - 1L;
+    return this;
+  }
+
   public BatchCountersDTO incrementTrxElaborated() {
     this.trxElaborated = this.trxElaborated + 1L;
     return this;
@@ -64,6 +76,11 @@ public class BatchCountersDTO {
 
   public BatchCountersDTO incrementTrxElaborated(Long number) {
     this.trxElaborated = this.trxElaborated + number;
+    return this;
+  }
+
+  public BatchCountersDTO decrementTrxElaborated(Long number) {
+    this.trxElaborated = this.trxElaborated - number;
     return this;
   }
 

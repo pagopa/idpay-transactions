@@ -124,6 +124,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             month)
         .switchIfEmpty(Mono.defer(() ->
             createBatch(merchantId, posType, month, businessName)
+                .doOnSuccess(batch -> log.info("[REWARD_BATCH_REPOSITORY]- findOrCreateBatch - created new batch with id: {}, month: {}",
+                        batch.getId(), batch.getMonth()))
                 .onErrorResume(DuplicateKeyException.class, ex ->
                     rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth(merchantId,
                         posType, month))));
@@ -175,20 +177,17 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     return rewardBatchRepository.save(batch);
   }
 
+  @Deprecated
   @Override
   public Mono<RewardBatch> incrementTotalAmountCents(String batchId, long accruedAmountCents) {
     return rewardBatchRepository.incrementTotalAmountCents(batchId, accruedAmountCents);
   }
 
+  @Deprecated
   @Override
   public Mono<RewardBatch> decrementTotalAmountCents(String batchId, long accruedAmountCents) {
     return rewardBatchRepository.decrementTotalAmountCents(batchId, accruedAmountCents);
   }
-
-    @Override
-    public Mono<RewardBatch> moveSuspendToNewBatch(String oldBatchId, String newBatchId, long accruedAmountCents) {
-      return rewardBatchRepository.moveSuspendToNewBatch(oldBatchId, newBatchId, accruedAmountCents);
-    }
 
   @Override
   public Mono<Void> sendRewardBatch(String merchantId, String batchId) {

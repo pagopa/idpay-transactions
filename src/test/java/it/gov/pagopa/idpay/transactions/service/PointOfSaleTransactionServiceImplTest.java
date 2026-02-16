@@ -14,8 +14,8 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionKafkaDTO;
-import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
@@ -92,57 +92,6 @@ class PointOfSaleTransactionServiceImplTest {
         Files.deleteIfExists(srcFile);
     }
 
-    @Test
-    void updateInvoiceTransaction_evaluatingBatch_withRejectionReasons() {
-        FilePart fp = filePartBackedBySrc("invoice.pdf", true);
-
-        RewardTransaction trx = baseInvoicedTrx();
-        trx.setId(TRX_ID);
-        trx.setMerchantId(MERCHANT_ID);
-        trx.setPointOfSaleId(POS_ID);
-        trx.setStatus(SyncTrxStatus.INVOICED.name());
-        trx.setRewardBatchId("OLD");
-        trx.setInvoiceData(InvoiceData.builder().filename("old.pdf").build());
-        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-        trx.setInitiativeId(INITIATIVE_ID);
-        trx.setRejectionReasons(List.of("REASON1", "REASON2"));
-
-        RewardBatch oldBatch = new RewardBatch();
-        oldBatch.setId("OLD");
-        oldBatch.setStatus(RewardBatchStatus.EVALUATING);
-        oldBatch.setMonth("2024-01");
-
-        RewardBatch newBatch = new RewardBatch();
-        newBatch.setId("NEW");
-        newBatch.setStatus(RewardBatchStatus.CREATED);
-        newBatch.setMonth(YearMonth.now().toString());
-
-        @SuppressWarnings("unchecked")
-        Response<BlockBlobItem> uploadResponse = (Response<BlockBlobItem>) mock(Response.class);
-        when(invoiceStorageClient.upload(any(InputStream.class), anyString(), anyString())).thenReturn(uploadResponse);
-
-        when(rewardTransactionRepository.findTransactionForUpdateInvoice(MERCHANT_ID, POS_ID, TRX_ID))
-                .thenReturn(Mono.just(trx))
-                .thenReturn(Mono.just(cloneTrx(trx)));
-
-        when(rewardBatchRepository.findRewardBatchById("OLD")).thenReturn(Mono.just(oldBatch));
-        when(rewardTransactionRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-
-        ArgumentCaptor<TransactionsRequest> reqCaptor = ArgumentCaptor.forClass(TransactionsRequest.class);
-        when(rewardBatchService.suspendTransactions(eq("OLD"), eq(INITIATIVE_ID), reqCaptor.capture()))
-                .thenReturn(Mono.just(oldBatch));
-
-        when(rewardBatchService.findOrCreateBatch(anyString(), any(), anyString(), anyString()))
-                .thenReturn(Mono.just(newBatch));
-        when(rewardBatchService.moveSuspendToNewBatch(anyString(), anyString(), anyLong()))
-                .thenReturn(Mono.just(oldBatch));
-
-        StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
-                .verifyComplete();
-
-        TransactionsRequest capturedReq = reqCaptor.getValue();
-        assertNotNull(capturedReq.getReason());
-    }
     @Test
     void getPointOfSaleTransactions_withFiscalCode_resolvesUserAndReturnsPage() {
         RewardTransaction trx = RewardTransactionFaker.mockInstance(1);
@@ -749,7 +698,7 @@ class PointOfSaleTransactionServiceImplTest {
     }
 
     @Test
-    void updateInvoiceTransaction_rewardBatchStatusNotAllowed_throws() {
+    void updateInvoiceTransaction_rewardBatchStatusNotAllowed_throws1() {
         FilePart fp = mockFilePart("invoice.pdf", true);
 
         RewardTransaction trx = new RewardTransaction();
@@ -773,7 +722,7 @@ class PointOfSaleTransactionServiceImplTest {
     }
 
     @Test
-    void updateInvoiceTransaction_trxApprovedNotAllowed_throws() {
+    void updateInvoiceTransaction_trxApprovedNotAllowed_throws1() {
         FilePart fp = mockFilePart("invoice.pdf", true);
 
         RewardTransaction trx = new RewardTransaction();
@@ -794,138 +743,6 @@ class PointOfSaleTransactionServiceImplTest {
         StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
-    }
-
-    @Test
-    void updateInvoiceTransaction_createdBatch_updatesInvoiceButDoesNotSuspendOrMoveBatch() {
-        FilePart fp = filePartBackedBySrc("invoice.pdf", true);
-
-        RewardTransaction trx = baseInvoicedTrx();
-        trx.setId(TRX_ID);
-        trx.setMerchantId(MERCHANT_ID);
-        trx.setPointOfSaleId(POS_ID);
-        trx.setStatus(SyncTrxStatus.INVOICED.name());
-        trx.setRewardBatchId("B1");
-        trx.setInvoiceData(InvoiceData.builder().filename("old.pdf").build());
-        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-
-        RewardBatch batch = new RewardBatch();
-        batch.setId("B1");
-        batch.setStatus(RewardBatchStatus.CREATED);
-        batch.setMonth("2026-01");
-
-        @SuppressWarnings("unchecked")
-        Response<BlockBlobItem> uploadResponse = (Response<BlockBlobItem>) mock(Response.class);
-        when(invoiceStorageClient.upload(any(InputStream.class), anyString(), anyString()))
-                .thenReturn(uploadResponse);
-
-        when(rewardTransactionRepository.findTransactionForUpdateInvoice(MERCHANT_ID, POS_ID, TRX_ID))
-                .thenReturn(Mono.just(trx));
-        when(rewardBatchRepository.findRewardBatchById("B1"))
-                .thenReturn(Mono.just(batch));
-        when(rewardTransactionRepository.save(any()))
-                .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-
-        when(rewardBatchService.findOrCreateBatch(
-                eq(MERCHANT_ID),
-                any(PosType.class),
-                anyString(),
-                anyString()
-        )).thenReturn(Mono.just(batch));
-
-        StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
-                .verifyComplete();
-
-        verify(rewardBatchService, never())
-                .suspendTransactions(anyString(), anyString(), any(TransactionsRequest.class));
-
-        verify(rewardBatchService, times(1)).findOrCreateBatch(
-                eq(MERCHANT_ID),
-                any(PosType.class),
-                anyString(),
-                anyString()
-        );
-
-        verify(rewardBatchService, never()).moveSuspendToNewBatch(anyString(), anyString(), anyLong());
-        verify(rewardBatchService, never()).decrementTotalAmountCents(anyString(), anyLong());
-        verify(rewardBatchService, never()).incrementTotalAmountCents(anyString(), anyLong());
-
-        verify(invoiceStorageClient).deleteFile(
-                "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/old.pdf"
-        );
-        verify(invoiceStorageClient).upload(
-                any(InputStream.class),
-                eq("invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/invoice.pdf"),
-                eq(APPLICATION_PDF_VALUE)
-        );
-
-        verify(rewardTransactionRepository, atLeastOnce()).save(any());
-    }
-
-
-    @Test
-    void updateInvoiceTransaction_evaluatingBatch_suspendsAndMovesToCurrentMonthBatch() {
-        FilePart fp = filePartBackedBySrc("invoice.pdf", true);
-
-        RewardTransaction trx = baseInvoicedTrx();
-        trx.setId(TRX_ID);
-        trx.setMerchantId(MERCHANT_ID);
-        trx.setPointOfSaleId(POS_ID);
-        trx.setUserId(USER_ID);
-        trx.setStatus(SyncTrxStatus.INVOICED.name());
-        trx.setRewardBatchId("OLD");
-        trx.setInvoiceData(InvoiceData.builder().filename("old.pdf").build());
-        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-        trx.setInitiatives(List.of(INITIATIVE_ID));
-        trx.setBusinessName("Biz");
-        trx.setPointOfSaleType(PosType.PHYSICAL);
-        trx.setRewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(123L).build()));
-        trx.setInitiativeId(INITIATIVE_ID);
-
-        RewardBatch oldBatch = new RewardBatch();
-        oldBatch.setId("OLD");
-        oldBatch.setStatus(RewardBatchStatus.EVALUATING);
-        oldBatch.setMonth("2024-01");
-
-        RewardBatch newBatch = new RewardBatch();
-        newBatch.setId("NEW");
-        newBatch.setStatus(RewardBatchStatus.CREATED);
-        newBatch.setMonth(YearMonth.now().toString());
-
-        @SuppressWarnings("unchecked")
-        Response<BlockBlobItem> uploadResponse = (Response<BlockBlobItem>) mock(Response.class);
-        when(invoiceStorageClient.upload(any(InputStream.class), anyString(), anyString()))
-                .thenReturn(uploadResponse);
-
-        when(rewardTransactionRepository.findTransactionForUpdateInvoice(MERCHANT_ID, POS_ID, TRX_ID))
-                .thenReturn(Mono.just(trx));
-
-        when(rewardBatchRepository.findRewardBatchById("OLD")).thenReturn(Mono.just(oldBatch));
-
-        when(rewardTransactionRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-
-        when(rewardBatchService.suspendTransactions(eq("OLD"), eq(INITIATIVE_ID), any(TransactionsRequest.class)))
-                .thenReturn(Mono.just(oldBatch));
-
-        RewardTransaction suspended = cloneTrx(trx);
-        suspended.setRewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED);
-        suspended.setRewardBatchLastMonthElaborated("2024-01");
-        when(rewardTransactionRepository.findTransactionForUpdateInvoice(MERCHANT_ID, POS_ID, TRX_ID))
-                .thenReturn(Mono.just(trx))
-                .thenReturn(Mono.just(suspended));
-
-        when(rewardBatchService.findOrCreateBatch(eq(MERCHANT_ID), eq(PosType.PHYSICAL), eq(YearMonth.now().toString()), eq("Biz")))
-                .thenReturn(Mono.just(newBatch));
-
-        when(rewardBatchService.moveSuspendToNewBatch("OLD", "NEW", 123L)).thenReturn(Mono.just(oldBatch));
-
-        StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
-                .verifyComplete();
-
-        verify(rewardBatchService).suspendTransactions(eq("OLD"), eq(INITIATIVE_ID), any(TransactionsRequest.class));
-        verify(rewardBatchService).findOrCreateBatch(eq(MERCHANT_ID), eq(PosType.PHYSICAL), eq(YearMonth.now().toString()), eq("Biz"));
-        verify(rewardBatchService).moveSuspendToNewBatch("OLD", "NEW", 123L);
-        verify(rewardTransactionRepository, atLeastOnce()).save(any());
     }
 
     private RewardTransaction baseInvoicedTrx() {
@@ -991,7 +808,124 @@ class PointOfSaleTransactionServiceImplTest {
     }
 
     @Test
-    void updateInvoiceTransaction_evaluatingBatch_alreadySuspended_doesNotSuspendButMovesBatch() {
+    void updateInvoiceTransaction_createdBatch_updatesInvoice_only_noCountersMoves() {
+        FilePart fp = filePartBackedBySrc("invoice.pdf", true);
+
+        RewardTransaction trx = baseInvoicedTrx();
+        trx.setId(TRX_ID);
+        trx.setMerchantId(MERCHANT_ID);
+        trx.setPointOfSaleId(POS_ID);
+        trx.setStatus(SyncTrxStatus.INVOICED.name());
+        trx.setRewardBatchId("B1");
+        trx.setInvoiceData(InvoiceData.builder().filename("old.pdf").build());
+        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
+
+        RewardBatch batch = new RewardBatch();
+        batch.setId("B1");
+        batch.setMerchantId(MERCHANT_ID);
+        batch.setStatus(RewardBatchStatus.CREATED);
+        batch.setMonth("2024-01");
+
+        @SuppressWarnings("unchecked")
+        Response<BlockBlobItem> uploadResponse = (Response<BlockBlobItem>) mock(Response.class);
+        when(invoiceStorageClient.upload(any(InputStream.class), anyString(), anyString()))
+                .thenReturn(uploadResponse);
+
+        when(rewardTransactionRepository.findTransactionForUpdateInvoice(MERCHANT_ID, POS_ID, TRX_ID))
+                .thenReturn(Mono.just(trx));
+        when(rewardBatchRepository.findRewardBatchById("B1"))
+                .thenReturn(Mono.just(batch));
+        when(rewardTransactionRepository.save(any()))
+                .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
+                .verifyComplete();
+
+        // invoice replace + save trx fatta, ma nessun update contatori/move
+        verify(rewardBatchRepository, never()).updateTotals(anyString(), any());
+        verify(rewardBatchService, never()).findOrCreateBatch(anyString(), any(), anyString(), anyString());
+
+        verify(invoiceStorageClient).deleteFile(
+                "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/old.pdf"
+        );
+        verify(invoiceStorageClient).upload(
+                any(InputStream.class),
+                eq("invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/invoice/invoice.pdf"),
+                eq(APPLICATION_PDF_VALUE)
+        );
+
+        verify(rewardTransactionRepository, times(1)).save(any()); // solo update invoice
+    }
+
+    @Test
+    void updateInvoiceTransaction_evaluatingBatch_notSuspended_savesTwice_andUpdatesTotalsOldAndNew() {
+        FilePart fp = filePartBackedBySrc("invoice.pdf", true);
+
+        RewardTransaction trx = baseInvoicedTrx();
+        trx.setId(TRX_ID);
+        trx.setMerchantId(MERCHANT_ID);
+        trx.setPointOfSaleId(POS_ID);
+        trx.setStatus(SyncTrxStatus.INVOICED.name());
+        trx.setRewardBatchId("OLD");
+        trx.setInvoiceData(InvoiceData.builder().filename("old.pdf").build());
+        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
+        trx.setInitiatives(List.of(INITIATIVE_ID));
+        trx.setBusinessName("Biz");
+        trx.setPointOfSaleType(PosType.PHYSICAL);
+        trx.setRewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(123L).build()));
+
+        RewardBatch oldBatch = new RewardBatch();
+        oldBatch.setId("OLD");
+        oldBatch.setMerchantId(MERCHANT_ID);
+        oldBatch.setStatus(RewardBatchStatus.EVALUATING);
+        oldBatch.setMonth("2024-01");
+
+        RewardBatch newBatch = new RewardBatch();
+        newBatch.setId("NEW");
+        newBatch.setMerchantId(MERCHANT_ID);
+        newBatch.setStatus(RewardBatchStatus.CREATED);
+        newBatch.setMonth(YearMonth.now().toString());
+
+        @SuppressWarnings("unchecked")
+        Response<BlockBlobItem> uploadResponse = (Response<BlockBlobItem>) mock(Response.class);
+        when(invoiceStorageClient.upload(any(InputStream.class), anyString(), anyString()))
+                .thenReturn(uploadResponse);
+
+        when(rewardTransactionRepository.findTransactionForUpdateInvoice(MERCHANT_ID, POS_ID, TRX_ID))
+                .thenReturn(Mono.just(trx));
+        when(rewardBatchRepository.findRewardBatchById("OLD"))
+                .thenReturn(Mono.just(oldBatch));
+
+        // save chiamata 2 volte: (1) update invoice (2) set status SUSPENDED
+        ArgumentCaptor<RewardTransaction> trxCaptor = ArgumentCaptor.forClass(RewardTransaction.class);
+        when(rewardTransactionRepository.save(trxCaptor.capture()))
+                .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        when(rewardBatchRepository.updateTotals(eq("OLD"), any(BatchCountersDTO.class)))
+                .thenReturn(Mono.just(oldBatch));
+        when(rewardBatchService.findOrCreateBatch(eq(MERCHANT_ID), eq(PosType.PHYSICAL), anyString(), eq("Biz")))
+                .thenReturn(Mono.just(newBatch));
+        when(rewardBatchRepository.updateTotals(eq("NEW"), any(BatchCountersDTO.class)))
+                .thenReturn(Mono.just(newBatch));
+
+        StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
+                .verifyComplete();
+
+        verify(rewardBatchRepository).updateTotals(eq("OLD"), any(BatchCountersDTO.class));
+        verify(rewardBatchRepository).updateTotals(eq("NEW"), any(BatchCountersDTO.class));
+        verify(rewardBatchService).findOrCreateBatch(eq(MERCHANT_ID), eq(PosType.PHYSICAL), anyString(), eq("Biz"));
+
+        // verifica che almeno una delle save imposti SUSPENDED
+        assertTrue(
+                trxCaptor.getAllValues().stream().anyMatch(t -> t.getRewardBatchTrxStatus() == RewardBatchTrxStatus.SUSPENDED),
+                "Expected a save with RewardBatchTrxStatus=SUSPENDED"
+        );
+        verify(rewardTransactionRepository, times(2)).save(any());
+    }
+
+
+    @Test
+    void updateInvoiceTransaction_evaluatingBatch_alreadySuspended_savesOnce_andUpdatesTotalsOldAndNew() {
         FilePart fp = filePartBackedBySrc("invoice.pdf", true);
 
         RewardTransaction trx = baseInvoicedTrx();
@@ -1006,15 +940,16 @@ class PointOfSaleTransactionServiceImplTest {
         trx.setBusinessName("Biz");
         trx.setPointOfSaleType(PosType.PHYSICAL);
         trx.setRewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(123L).build()));
-        trx.setInitiativeId(INITIATIVE_ID);
 
         RewardBatch oldBatch = new RewardBatch();
         oldBatch.setId("OLD");
+        oldBatch.setMerchantId(MERCHANT_ID);
         oldBatch.setStatus(RewardBatchStatus.EVALUATING);
         oldBatch.setMonth("2024-01");
 
         RewardBatch newBatch = new RewardBatch();
         newBatch.setId("NEW");
+        newBatch.setMerchantId(MERCHANT_ID);
         newBatch.setStatus(RewardBatchStatus.CREATED);
         newBatch.setMonth(YearMonth.now().toString());
 
@@ -1025,241 +960,83 @@ class PointOfSaleTransactionServiceImplTest {
 
         when(rewardTransactionRepository.findTransactionForUpdateInvoice(MERCHANT_ID, POS_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
-
-        when(rewardBatchRepository.findRewardBatchById("OLD")).thenReturn(Mono.just(oldBatch));
-        when(rewardTransactionRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-
-        when(rewardBatchService.findOrCreateBatch(eq(MERCHANT_ID), eq(PosType.PHYSICAL), eq(YearMonth.now().toString()), eq("Biz")))
-                .thenReturn(Mono.just(newBatch));
-
-        when(rewardBatchService.moveSuspendToNewBatch("OLD", "NEW", 123L)).thenReturn(Mono.just(oldBatch));
-
-        StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
-                .verifyComplete();
-
-        verify(rewardBatchService, never()).suspendTransactions(anyString(), anyString(), any(TransactionsRequest.class));
-        verify(rewardBatchService).findOrCreateBatch(eq(MERCHANT_ID), eq(PosType.PHYSICAL), eq(YearMonth.now().toString()), eq("Biz"));
-        verify(rewardBatchService).moveSuspendToNewBatch("OLD", "NEW", 123L);
-    }
-
-    @Test
-    void updateInvoiceTransaction_evaluatingBatch_suspendOkButRefetchEmpty_throws() {
-        FilePart fp = filePartBackedBySrc("invoice.pdf", true);
-
-        RewardTransaction trx = baseInvoicedTrx();
-        trx.setId(TRX_ID);
-        trx.setMerchantId(MERCHANT_ID);
-        trx.setPointOfSaleId(POS_ID);
-        trx.setStatus(SyncTrxStatus.INVOICED.name());
-        trx.setRewardBatchId("OLD");
-        trx.setInvoiceData(InvoiceData.builder().filename("old.pdf").build());
-        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-        trx.setInitiatives(List.of(INITIATIVE_ID));
-        trx.setBusinessName("Biz");
-        trx.setPointOfSaleType(PosType.PHYSICAL);
-        trx.setRewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(123L).build()));
-        trx.setInitiativeId(INITIATIVE_ID);
-
-        RewardBatch oldBatch = new RewardBatch();
-        oldBatch.setId("OLD");
-        oldBatch.setStatus(RewardBatchStatus.EVALUATING);
-        oldBatch.setMonth("2024-01");
-
-        @SuppressWarnings("unchecked")
-        Response<BlockBlobItem> uploadResponse = (Response<BlockBlobItem>) mock(Response.class);
-        when(invoiceStorageClient.upload(any(InputStream.class), anyString(), anyString()))
-                .thenReturn(uploadResponse);
-
-        when(rewardTransactionRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-        when(rewardBatchRepository.findRewardBatchById("OLD")).thenReturn(Mono.just(oldBatch));
-
-        when(rewardTransactionRepository.findTransactionForUpdateInvoice(MERCHANT_ID, POS_ID, TRX_ID))
-                .thenReturn(Mono.just(trx))
-                .thenReturn(Mono.empty());
-
-        when(rewardBatchService.suspendTransactions(eq("OLD"), eq(INITIATIVE_ID), any(TransactionsRequest.class)))
+        when(rewardBatchRepository.findRewardBatchById("OLD"))
                 .thenReturn(Mono.just(oldBatch));
 
-        StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
-                .expectError(ClientExceptionNoBody.class)
-                .verify();
-
-        verify(rewardBatchService).suspendTransactions(eq("OLD"), eq(INITIATIVE_ID), any(TransactionsRequest.class));
-    }
-
-    @Test
-    void updateInvoiceTransaction_evaluatingBatch_newBatchSameAsOld_doesNotMoveCounters() {
-        FilePart fp = filePartBackedBySrc("invoice.pdf", true);
-
-        RewardTransaction trx = baseInvoicedTrx();
-        trx.setId(TRX_ID);
-        trx.setMerchantId(MERCHANT_ID);
-        trx.setPointOfSaleId(POS_ID);
-        trx.setUserId(USER_ID);
-        trx.setStatus(SyncTrxStatus.INVOICED.name());
-        trx.setRewardBatchId("SAME");
-        trx.setInvoiceData(InvoiceData.builder().filename("old.pdf").build());
-        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-        trx.setInitiatives(List.of(INITIATIVE_ID));
-        trx.setBusinessName("Biz");
-        trx.setPointOfSaleType(PosType.PHYSICAL);
-        trx.setRewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(123L).build()));
-        trx.setInitiativeId(INITIATIVE_ID);
-
-        RewardBatch oldBatch = new RewardBatch();
-        oldBatch.setId("SAME");
-        oldBatch.setStatus(RewardBatchStatus.EVALUATING);
-        oldBatch.setMonth("2024-01");
-
-        RewardBatch sameBatch = new RewardBatch();
-        sameBatch.setId("SAME");
-        sameBatch.setStatus(RewardBatchStatus.EVALUATING);
-        sameBatch.setMonth(YearMonth.now().toString());
-
-        @SuppressWarnings("unchecked")
-        Response<BlockBlobItem> uploadResponse = (Response<BlockBlobItem>) mock(Response.class);
-        when(invoiceStorageClient.upload(any(InputStream.class), anyString(), anyString()))
-                .thenReturn(uploadResponse);
-
-        when(rewardTransactionRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-        when(rewardBatchRepository.findRewardBatchById("SAME")).thenReturn(Mono.just(oldBatch));
-
-        RewardTransaction suspended = cloneTrx(trx);
-        suspended.setRewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED);
-
-        when(rewardTransactionRepository.findTransactionForUpdateInvoice(MERCHANT_ID, POS_ID, TRX_ID))
-                .thenReturn(Mono.just(trx))
-                .thenReturn(Mono.just(suspended));
-
-        when(rewardBatchService.suspendTransactions(eq("SAME"), eq(INITIATIVE_ID), any(TransactionsRequest.class)))
-                .thenReturn(Mono.just(oldBatch));
-
-        when(rewardBatchService.findOrCreateBatch(eq(MERCHANT_ID), eq(PosType.PHYSICAL), eq(YearMonth.now().toString()), eq("Biz")))
-                .thenReturn(Mono.just(sameBatch));
-
-        StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
-                .verifyComplete();
-
-        verify(rewardBatchService, never()).moveSuspendToNewBatch(anyString(), anyString(), anyLong());
-        verify(rewardBatchService, never()).decrementTotalAmountCents(anyString(), anyLong());
-        verify(rewardBatchService, never()).incrementTotalAmountCents(anyString(), anyLong());
-    }
-
-    @Test
-    void updateInvoiceTransaction_createdBatch_newBatchDifferent_movesTotalsWithDecrementAndIncrement() {
-        FilePart fp = filePartBackedBySrc("invoice.pdf", true);
-
-        RewardTransaction trx = baseInvoicedTrx();
-        trx.setId(TRX_ID);
-        trx.setMerchantId(MERCHANT_ID);
-        trx.setPointOfSaleId(POS_ID);
-        trx.setStatus(SyncTrxStatus.INVOICED.name());
-        trx.setRewardBatchId("OLD");
-        trx.setInvoiceData(InvoiceData.builder().filename("old.pdf").build());
-        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-        trx.setInitiatives(List.of(INITIATIVE_ID));
-        trx.setBusinessName("Biz");
-        trx.setPointOfSaleType(PosType.PHYSICAL);
-        trx.setRewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(123L).build()));
-        trx.setInitiativeId(INITIATIVE_ID);
-
-        RewardBatch oldBatch = new RewardBatch();
-        oldBatch.setId("OLD");
-        oldBatch.setStatus(RewardBatchStatus.CREATED);
-        oldBatch.setMonth("2024-01");
-
-        RewardBatch newBatch = new RewardBatch();
-        newBatch.setId("NEW");
-        newBatch.setStatus(RewardBatchStatus.CREATED);
-        newBatch.setMonth(YearMonth.now().toString());
-
-        @SuppressWarnings("unchecked")
-        Response<BlockBlobItem> uploadResponse = (Response<BlockBlobItem>) mock(Response.class);
-        when(invoiceStorageClient.upload(any(InputStream.class), anyString(), anyString()))
-                .thenReturn(uploadResponse);
-
-        when(rewardTransactionRepository.findTransactionForUpdateInvoice(MERCHANT_ID, POS_ID, TRX_ID))
-                .thenReturn(Mono.just(trx));
-
-        when(rewardBatchRepository.findRewardBatchById("OLD")).thenReturn(Mono.just(oldBatch));
-        when(rewardTransactionRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-
-        when(rewardBatchService.findOrCreateBatch(eq(MERCHANT_ID), eq(PosType.PHYSICAL), eq(YearMonth.now().toString()), eq("Biz")))
-                .thenReturn(Mono.just(newBatch));
-
-        when(rewardBatchService.decrementTotalAmountCents("OLD", 123L)).thenReturn(Mono.just(oldBatch));
-        when(rewardBatchService.incrementTotalAmountCents("NEW", 123L)).thenReturn(Mono.just(newBatch));
-
-        StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
-                .verifyComplete();
-
-        verify(rewardBatchService, never()).suspendTransactions(anyString(), anyString(), any());
-        verify(rewardBatchService).decrementTotalAmountCents("OLD", 123L);
-        verify(rewardBatchService).incrementTotalAmountCents("NEW", 123L);
-        verify(rewardBatchService, never()).moveSuspendToNewBatch(anyString(), anyString(), anyLong());
-    }
-
-    @Test
-    void updateInvoiceTransaction_evaluatingBatch_onBatchMove_updatesLastMonthElaborated() {
-        FilePart fp = filePartBackedBySrc("invoice.pdf", true);
-
-        RewardTransaction trx = baseInvoicedTrx();
-        trx.setId(TRX_ID);
-        trx.setMerchantId(MERCHANT_ID);
-        trx.setPointOfSaleId(POS_ID);
-        trx.setUserId(USER_ID);
-        trx.setStatus(SyncTrxStatus.INVOICED.name());
-        trx.setRewardBatchId("OLD");
-        trx.setInvoiceData(InvoiceData.builder().filename("old.pdf").build());
-        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-        trx.setInitiatives(List.of(INITIATIVE_ID));
-        trx.setBusinessName("Biz");
-        trx.setPointOfSaleType(PosType.PHYSICAL);
-        trx.setRewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(123L).build()));
-        trx.setInitiativeId(INITIATIVE_ID);
-
-        RewardBatch oldBatch = new RewardBatch();
-        oldBatch.setId("OLD");
-        oldBatch.setStatus(RewardBatchStatus.EVALUATING);
-        oldBatch.setMonth("2024-01");
-
-        RewardBatch newBatch = new RewardBatch();
-        newBatch.setId("NEW");
-        newBatch.setStatus(RewardBatchStatus.CREATED);
-        newBatch.setMonth(YearMonth.now().toString());
-
-        @SuppressWarnings("unchecked")
-        Response<BlockBlobItem> uploadResponse = (Response<BlockBlobItem>) mock(Response.class);
-        when(invoiceStorageClient.upload(any(InputStream.class), anyString(), anyString()))
-                .thenReturn(uploadResponse);
-
-        when(rewardBatchRepository.findRewardBatchById("OLD")).thenReturn(Mono.just(oldBatch));
-
-        when(rewardBatchService.suspendTransactions(eq("OLD"), eq(INITIATIVE_ID), any(TransactionsRequest.class)))
-                .thenReturn(Mono.just(oldBatch));
-
-        RewardTransaction suspended = cloneTrx(trx);
-        suspended.setRewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED);
-        suspended.setRewardBatchLastMonthElaborated("2024-01");
-        when(rewardTransactionRepository.findTransactionForUpdateInvoice(MERCHANT_ID, POS_ID, TRX_ID))
-                .thenReturn(Mono.just(trx))
-                .thenReturn(Mono.just(suspended));
-
-        when(rewardBatchService.findOrCreateBatch(eq(MERCHANT_ID), eq(PosType.PHYSICAL), eq(YearMonth.now().toString()), eq("Biz")))
-                .thenReturn(Mono.just(newBatch));
-
-        when(rewardBatchService.moveSuspendToNewBatch("OLD", "NEW", 123L)).thenReturn(Mono.just(oldBatch));
-
-        ArgumentCaptor<RewardTransaction> captor = ArgumentCaptor.forClass(RewardTransaction.class);
-        when(rewardTransactionRepository.save(captor.capture()))
+        when(rewardTransactionRepository.save(any()))
                 .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
+        when(rewardBatchRepository.updateTotals(eq("OLD"), any(BatchCountersDTO.class)))
+                .thenReturn(Mono.just(oldBatch));
+        when(rewardBatchService.findOrCreateBatch(eq(MERCHANT_ID), eq(PosType.PHYSICAL), anyString(), eq("Biz")))
+                .thenReturn(Mono.just(newBatch));
+        when(rewardBatchRepository.updateTotals(eq("NEW"), any(BatchCountersDTO.class)))
+                .thenReturn(Mono.just(newBatch));
+
         StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
                 .verifyComplete();
 
-        assertTrue(captor.getAllValues().stream().anyMatch(t ->
-                "NEW".equals(t.getRewardBatchId()) &&
-                        t.getRewardBatchLastMonthElaborated() != null
-        ));
+        verify(rewardTransactionRepository, times(2)).save(any());
+
+        verify(rewardBatchRepository).updateTotals(eq("OLD"), any(BatchCountersDTO.class));
+        verify(rewardBatchRepository).updateTotals(eq("NEW"), any(BatchCountersDTO.class));
+        verify(rewardBatchService).findOrCreateBatch(eq(MERCHANT_ID), eq(PosType.PHYSICAL), anyString(), eq("Biz"));
     }
+
+    @Test
+    void updateInvoiceTransaction_rewardBatchStatusNotAllowed_throws() {
+        FilePart fp = mockFilePart("invoice.pdf", true);
+
+        RewardTransaction trx = new RewardTransaction();
+        trx.setRewardBatchId("B1");
+        trx.setMerchantId(MERCHANT_ID);
+        trx.setPointOfSaleId(POS_ID);
+        trx.setInvoiceData(InvoiceData.builder().filename("old.pdf").build());
+        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED);
+
+        RewardBatch batch = new RewardBatch();
+        batch.setId("B1");
+        batch.setStatus(RewardBatchStatus.SENT);
+
+        when(rewardTransactionRepository.findTransactionForUpdateInvoice(MERCHANT_ID, POS_ID, TRX_ID))
+                .thenReturn(Mono.just(trx));
+        when(rewardBatchRepository.findRewardBatchById("B1"))
+                .thenReturn(Mono.just(batch));
+
+        StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+
+        verify(rewardTransactionRepository, never()).save(any());
+        verify(rewardBatchRepository, never()).updateTotals(anyString(), any());
+    }
+
+    @Test
+    void updateInvoiceTransaction_trxApprovedNotAllowed_throws() {
+        FilePart fp = mockFilePart("invoice.pdf", true);
+
+        RewardTransaction trx = new RewardTransaction();
+        trx.setRewardBatchId("B1");
+        trx.setMerchantId(MERCHANT_ID);
+        trx.setPointOfSaleId(POS_ID);
+        trx.setInvoiceData(InvoiceData.builder().filename("old.pdf").build());
+        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED);
+
+        RewardBatch batch = new RewardBatch();
+        batch.setId("B1");
+        batch.setStatus(RewardBatchStatus.EVALUATING);
+
+        when(rewardTransactionRepository.findTransactionForUpdateInvoice(MERCHANT_ID, POS_ID, TRX_ID))
+                .thenReturn(Mono.just(trx));
+        when(rewardBatchRepository.findRewardBatchById("B1"))
+                .thenReturn(Mono.just(batch));
+
+        StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+
+        verify(rewardTransactionRepository, never()).save(any());
+        verify(rewardBatchRepository, never()).updateTotals(anyString(), any());
+    }
+
 }
