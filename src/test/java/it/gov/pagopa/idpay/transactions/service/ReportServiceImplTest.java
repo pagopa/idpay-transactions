@@ -283,7 +283,7 @@ class ReportServiceImplTest {
     void generateMerchantTransactionsReport_success() {
         ReportRequest request = new ReportRequest();
         request.setStartPeriod(LocalDateTime.now().minusDays(5));
-        request.setEndPeriod(LocalDateTime.now());
+        request.setEndPeriod(LocalDateTime.now().minusDays(1));
         request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
 
         MerchantDetailDTO merchant = new MerchantDetailDTO();
@@ -328,7 +328,7 @@ class ReportServiceImplTest {
     void generateMerchantTransactionsReport_merchantDetailError() {
         ReportRequest request = new ReportRequest();
         request.setStartPeriod(LocalDateTime.now().minusDays(5));
-        request.setEndPeriod(LocalDateTime.now());
+        request.setEndPeriod(LocalDateTime.now().minusDays(1));
         request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
 
         RuntimeException remoteError = new RuntimeException("Merchant not found");
@@ -349,7 +349,7 @@ class ReportServiceImplTest {
     void generateMerchantTransactionsReport_saveError() {
         ReportRequest request = new ReportRequest();
         request.setStartPeriod(LocalDateTime.now().minusDays(5));
-        request.setEndPeriod(LocalDateTime.now());
+        request.setEndPeriod(LocalDateTime.now().minusDays(1));
         request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
 
         MerchantDetailDTO merchant = new MerchantDetailDTO();
