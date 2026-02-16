@@ -452,14 +452,17 @@ class ReportServiceImplTest {
         request.setStartPeriod(LocalDateTime.now().minusDays(1));
         request.setEndPeriod(LocalDateTime.now().minusDays(5)); // start > end
 
-        Mono<ReportDTO> mono =
-                service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request);
-
-        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class, mono::block);
+        ClientExceptionWithBody ex = assertThrows(
+                ClientExceptionWithBody.class,
+                () -> service.generateMerchantTransactionsReport(
+                        MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request
+                )
+        );
 
         assertEquals(BAD_REQUEST, ex.getHttpStatus());
         assertEquals(INVALID_PERIOD, ex.getCode());
     }
+
 
 
     @Test
@@ -468,14 +471,18 @@ class ReportServiceImplTest {
         request.setStartPeriod(LocalDateTime.now().minusDays(10));
         request.setEndPeriod(LocalDateTime.now()); // oggi → non valido
 
-        Mono<ReportDTO> mono =
-                service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request);
-
-        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class, mono::block);
+        ClientExceptionWithBody ex = assertThrows(
+                ClientExceptionWithBody.class,
+                () -> service.generateMerchantTransactionsReport(
+                        MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request
+                )
+        );
 
         assertEquals(BAD_REQUEST, ex.getHttpStatus());
         assertEquals(INVALID_PERIOD, ex.getCode());
     }
+
+
 
     @Test
     void generateMerchantTransactionsReport_invalidLengthPeriod_exceedsLimit() {
@@ -483,14 +490,17 @@ class ReportServiceImplTest {
         request.setStartPeriod(LocalDateTime.now().minusDays(PERIOD_LENGTH + 5));
         request.setEndPeriod(LocalDateTime.now().minusDays(1));
 
-        Mono<ReportDTO> mono =
-                service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request);
-
-        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class, mono::block);
+        ClientExceptionWithBody ex = assertThrows(
+                ClientExceptionWithBody.class,
+                () -> service.generateMerchantTransactionsReport(
+                        MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request
+                )
+        );
 
         assertEquals(BAD_REQUEST, ex.getHttpStatus());
         assertEquals(INVALID_LENGTH_PERIOD, ex.getCode());
     }
+
 
 
     @Test
