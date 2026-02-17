@@ -19,13 +19,16 @@ import it.gov.pagopa.idpay.transactions.storage.ReportBlobService;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.http.HttpStatus;
 import reactor.core.publisher.Mono;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
@@ -46,7 +49,16 @@ public class ReportServiceImpl implements ReportService {
 
     private final DataFactoryService dataFactoryService;
 
-    public ReportServiceImpl(ReportRepository reportRepository, MerchantRestClient merchantRestClient, ReportMapper reportMapper, ReportBlobService reportBlobService, DataFactoryService dataFactoryService) {
+    private final long periodLengthTransactionsReport;
+
+    public ReportServiceImpl(
+            @Value("${app.period-length-transactions-report}") long periodLengthTransactionsReport,
+            ReportRepository reportRepository,
+            MerchantRestClient merchantRestClient,
+            ReportMapper reportMapper,
+            ReportBlobService reportBlobService,
+            DataFactoryService dataFactoryService) {
+        this.periodLengthTransactionsReport = periodLengthTransactionsReport;
         this.reportRepository = reportRepository;
         this.merchantRestClient = merchantRestClient;
         this.reportMapper = reportMapper;
@@ -144,6 +156,20 @@ public class ReportServiceImpl implements ReportService {
                                                               String initiativeId,
                                                               ReportRequest request) {
 
+        if(!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay())
+            && request.getStartPeriod().isBefore(request.getEndPeriod()))){
+            throw new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    INVALID_PERIOD,
+                    ERROR_MESSAGE_INVALID_PERIOD);
+        }
+
+        if(ChronoUnit.DAYS.between(request.getStartPeriod(), request.getEndPeriod()) > periodLengthTransactionsReport){
+            throw new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    INVALID_LENGTH_PERIOD,
+                    ERROR_MESSAGE_INVALID_LENGTH_PERIOD.formatted(periodLengthTransactionsReport));
+        }
         RewardBatchAssignee operatorLevel = resolveOperatorLevel(organizationRole);
 
         return merchantRestClient.getMerchantDetail(merchantId, initiativeId)

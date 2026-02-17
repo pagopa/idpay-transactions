@@ -236,3 +236,4 @@ app:
     max-retries: ${DATA_FACTORY_RUN_PIPELINE_MAX_RETRIES:3}
     tenant-id: ${DATA_FACTORY_TENANT_ID:}
     subscription-id: ${DATA_FACTORY_SUBSCRIPTION_ID:}
+  period-length-transactions-report: ${PERIOD_LENGTH_TRANSACTIONS_REPORT:}
