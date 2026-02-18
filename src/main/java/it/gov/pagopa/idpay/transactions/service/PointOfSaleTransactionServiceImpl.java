@@ -346,7 +346,20 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                         rt.getId(), rt.getStatus(), rt.getRewardBatchId()))
                 .flatMap(this::ensureTransactionIsInvoiced)
                 .flatMap(rt -> {
-                    String oldRewardBatchId = rt.getRewardBatchId();
+                    final String oldRewardBatchId = rt.getRewardBatchId();
+                    final RewardBatchTrxStatus oldBatchTrxStatus = rt.getRewardBatchTrxStatus();
+                    final boolean wasSuspended = RewardBatchTrxStatus.SUSPENDED.equals(oldBatchTrxStatus);
+                    String initiativeId = rt.getInitiatives().getFirst();
+                    long accruedRewardCents = rt.getRewards().get(initiativeId).getAccruedRewardCents();
+
+                    BatchCountersDTO counters = BatchCountersDTO.newBatch()
+                            .decrementNumberOfTransactions()
+                            .decrementInitialAmountCents(accruedRewardCents);
+                    if (wasSuspended) {
+                        counters.decrementSuspendedAmountCents(accruedRewardCents)
+                                .decrementTrxSuspended()
+                                .decrementTrxElaborated();
+                    }
 
                     return checkRewardBatchCreatedIfPresent(oldRewardBatchId)
                             .then(Mono.defer(() -> {
@@ -369,21 +382,20 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                     .docNumber(sanitizedDocNumber)
                                                     .build());
 
-                                            String initiativeId = rt.getInitiatives().getFirst();
-                                            long accruedRewardCents = rt.getRewards().get(initiativeId).getAccruedRewardCents();
+
 
                                             Mono<Void> saveTransactionMono = rewardTransactionRepository.save(rt).then();
 
-                                            Mono<Void> decrementRewardBatchMono =
+                                            Mono<Void> updateBatchTotalsMono =
                                                     oldRewardBatchId != null
-                                                            ? rewardBatchRepository.decrementTotalAmountCents(oldRewardBatchId, accruedRewardCents).then()
+                                                            ? rewardBatchRepository.updateTotals(oldRewardBatchId, counters).then()
                                                             : Mono.empty();
 
 
                                             Mono<Void> sendToQueueMono = sendReversedInvoicedTransactionNotification(RewardTransactionKafkaMapper.toDto(rt));
 
                                             return saveTransactionMono
-                                                    .then(decrementRewardBatchMono)
+                                                    .then(updateBatchTotalsMono)
                                                     .then(sendToQueueMono);
                                         }));
                             }));

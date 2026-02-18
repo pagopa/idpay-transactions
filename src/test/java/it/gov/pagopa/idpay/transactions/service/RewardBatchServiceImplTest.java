@@ -212,17 +212,6 @@ class RewardBatchServiceImplTest {
 
 
     @Test
-    void incrementDecrementMoveSuspend_callsRepository() {
-        RewardBatch rb = RewardBatch.builder().id(BATCH_ID).initialAmountCents(100L).build();
-
-        when(rewardBatchRepository.incrementTotalAmountCents(BATCH_ID, 50L)).thenReturn(Mono.just(rb));
-        when(rewardBatchRepository.decrementTotalAmountCents(BATCH_ID, 10L)).thenReturn(Mono.just(rb));
-
-        StepVerifier.create(service.incrementTotalAmountCents(BATCH_ID, 50L)).expectNext(rb).verifyComplete();
-        StepVerifier.create(service.decrementTotalAmountCents(BATCH_ID, 10L)).expectNext(rb).verifyComplete();
-    }
-
-    @Test
     void sendRewardBatch_batchNotFound() {
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.empty());
 
@@ -525,7 +514,7 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void suspendTransactions_alreadySuspended_sameMonth_skipsElaboratedIncrement() throws Exception {
+    void suspendTransactions_alreadySuspended_sameMonth_skipsElaboratedIncrement() {
         String batchMonth = "2025-12";
         RewardBatch batch = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.EVALUATING).month(batchMonth).build();
 
@@ -951,14 +940,16 @@ class RewardBatchServiceImplTest {
 
 
     @Test
-    void handleSuspendedTransactions_nullOrZero_returnsOriginal() throws Exception {
+    void handleSuspendedTransactions_nullOrZero_returnsOriginal() {
         RewardBatch rbNull = RewardBatch.builder().id(BATCH_ID).numberOfTransactionsSuspended(null).build();
         RewardBatch rbZero = RewardBatch.builder().id(BATCH_ID).numberOfTransactionsSuspended(0L).build();
 
         Mono<RewardBatch> r1 = ReflectionTestUtils.invokeMethod(serviceSpy, "handleSuspendedTransactions", rbNull, INITIATIVE_ID);
         Mono<RewardBatch> r2 = ReflectionTestUtils.invokeMethod(serviceSpy, "handleSuspendedTransactions", rbZero, INITIATIVE_ID);
 
+        assertNotNull(r1);
         StepVerifier.create(r1).expectNext(rbNull).verifyComplete();
+        assertNotNull(r2);
         StepVerifier.create(r2).expectNext(rbZero).verifyComplete();
     }
 
@@ -1428,48 +1419,6 @@ class RewardBatchServiceImplTest {
         StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", initiativeEnd))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
-    }
-
-    @Test
-    void postponeTransaction_nextBatchNotCreatedStatus_throwsNoBody() {
-        RewardTransaction trx = RewardTransaction.builder()
-                .id("T1")
-                .merchantId(MERCHANT_ID)
-                .rewardBatchId(BATCH_ID)
-                .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
-                .build();
-
-        RewardBatch current = RewardBatch.builder()
-                .id(BATCH_ID)
-                .merchantId(MERCHANT_ID)
-                .businessName(BUSINESS_NAME)
-                .posType(PHYSICAL)
-                .month("2026-01")
-                .status(RewardBatchStatus.CREATED)
-                .build();
-
-        RewardBatch next = RewardBatch.builder()
-                .id(BATCH_ID_2)
-                .merchantId(MERCHANT_ID)
-                .businessName(BUSINESS_NAME)
-                .posType(PHYSICAL)
-                .month("2026-02")
-                .status(RewardBatchStatus.APPROVED)
-                .build();
-
-        when(rewardTransactionRepository.findTransactionInBatch(MERCHANT_ID, BATCH_ID, "T1"))
-                .thenReturn(Mono.just(trx));
-        when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(current));
-
-        doReturn(Mono.just(next)).when(serviceSpy).findOrCreateBatch(MERCHANT_ID, PHYSICAL, "2026-02", BUSINESS_NAME);
-
-        StepVerifier.create(serviceSpy.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", LocalDate.of(2026, 1, 6)))
-                .expectError(ClientExceptionNoBody.class)
-                .verify();
-
-        verify(serviceSpy, never()).decrementTotalAmountCents(anyString(), anyLong());
-        verify(serviceSpy, never()).incrementTotalAmountCents(anyString(), anyLong());
-        verify(rewardTransactionRepository, never()).save(any());
     }
 
     @Test

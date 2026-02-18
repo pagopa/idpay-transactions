@@ -34,6 +34,11 @@ public class BatchCountersDTO {
     return this;
   }
 
+    public BatchCountersDTO decrementInitialAmountCents(Long amountCents) {
+        this.initialAmountCents = this.initialAmountCents - amountCents;
+        return this;
+    }
+
   public BatchCountersDTO incrementNumberOfTransactions(Long number) {
     this.numberOfTransactions = this.numberOfTransactions + number;
     return this;
@@ -49,9 +54,8 @@ public class BatchCountersDTO {
     return this;
   }
 
-  public BatchCountersDTO decrementApprovedAmountCents(Long amountCents) {
+  public void decrementApprovedAmountCents(Long amountCents) {
     this.approvedAmountCents = this.approvedAmountCents - amountCents;
-    return this;
   }
 
   public BatchCountersDTO incrementSuspendedAmountCents(Long amountCents) {
@@ -69,9 +73,8 @@ public class BatchCountersDTO {
     return this;
   }
 
-  public BatchCountersDTO incrementTrxElaborated() {
+  public void incrementTrxElaborated() {
     this.trxElaborated = this.trxElaborated + 1L;
-    return this;
   }
 
   public BatchCountersDTO incrementTrxElaborated(Long number) {
@@ -84,9 +87,8 @@ public class BatchCountersDTO {
     return this;
   }
 
-  public BatchCountersDTO incrementTrxSuspended() {
+  public void incrementTrxSuspended() {
     this.trxSuspended = this.trxSuspended + 1L;
-    return this;
   }
 
   public BatchCountersDTO incrementTrxSuspended(Long number) {
@@ -104,13 +106,11 @@ public class BatchCountersDTO {
     return this;
   }
 
-  public BatchCountersDTO incrementTrxRejected() {
+  public void incrementTrxRejected() {
     this.trxRejected = this.trxRejected + 1L;
-    return this;
   }
 
-  public BatchCountersDTO decrementTrxRejected() {
+  public void decrementTrxRejected() {
     this.trxRejected = this.trxRejected - 1L;
-    return this;
   }
 }

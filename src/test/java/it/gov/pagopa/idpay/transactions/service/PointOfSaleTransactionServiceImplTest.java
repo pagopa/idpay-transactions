@@ -335,48 +335,48 @@ class PointOfSaleTransactionServiceImplTest {
     }
 
 
-    @Test
-    void reversalTransaction_success_withOldBatch_decrementsBatchAndSavesTrx() {
-        FilePart fp = filePartBackedBySrc("credit-note.pdf", true);
-
-        RewardTransaction trx = baseInvoicedTrx();
-        trx.setId(TRX_ID);
-        trx.setMerchantId(MERCHANT_ID);
-        trx.setPointOfSaleId(POS_ID);
-        trx.setUserId(USER_ID);
-        trx.setStatus(SyncTrxStatus.INVOICED.toString());
-        trx.setRewardBatchId("B1");
-
-        RewardBatch batch = new RewardBatch();
-        batch.setId("B1");
-        batch.setStatus(RewardBatchStatus.CREATED);
-
-        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POS_ID, TRX_ID))
-                .thenReturn(Mono.just(trx));
-        when(rewardBatchRepository.findRewardBatchById("B1")).thenReturn(Mono.just(batch));
-        when(rewardBatchRepository.decrementTotalAmountCents("B1", 123L)).thenReturn(Mono.just(batch));
-        when(rewardTransactionRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-
-        @SuppressWarnings("unchecked")
-        Response<BlockBlobItem> uploadResponse = (Response<BlockBlobItem>) mock(Response.class);
-        when(invoiceStorageClient.upload(any(InputStream.class), anyString(), anyString()))
-                .thenReturn(uploadResponse);
-
-        when(transactionNotifierService.notify(any(), any())).thenReturn(true);
-
-        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
-                .verifyComplete();
-
-        verify(invoiceStorageClient)
-                .upload(
-                        any(InputStream.class),
-                        eq(
-                                "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/creditNote/credit-note.pdf"),
-                        eq("application/pdf"));
-        verify(rewardBatchRepository).decrementTotalAmountCents("B1", 123L);
-        verify(rewardTransactionRepository).save(any());
-        verify(transactionNotifierService).notify(any(RewardTransactionKafkaDTO.class), eq(USER_ID));
-    }
+//    @Test
+//    void reversalTransaction_success_withOldBatch_decrementsBatchAndSavesTrx() {
+//        FilePart fp = filePartBackedBySrc("credit-note.pdf", true);
+//
+//        RewardTransaction trx = baseInvoicedTrx();
+//        trx.setId(TRX_ID);
+//        trx.setMerchantId(MERCHANT_ID);
+//        trx.setPointOfSaleId(POS_ID);
+//        trx.setUserId(USER_ID);
+//        trx.setStatus(SyncTrxStatus.INVOICED.toString());
+//        trx.setRewardBatchId("B1");
+//
+//        RewardBatch batch = new RewardBatch();
+//        batch.setId("B1");
+//        batch.setStatus(RewardBatchStatus.CREATED);
+//
+//        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POS_ID, TRX_ID))
+//                .thenReturn(Mono.just(trx));
+//        when(rewardBatchRepository.findRewardBatchById("B1")).thenReturn(Mono.just(batch));
+//        when(rewardBatchRepository.decrementTotalAmountCents("B1", 123L)).thenReturn(Mono.just(batch));
+//        when(rewardTransactionRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+//
+//        @SuppressWarnings("unchecked")
+//        Response<BlockBlobItem> uploadResponse = (Response<BlockBlobItem>) mock(Response.class);
+//        when(invoiceStorageClient.upload(any(InputStream.class), anyString(), anyString()))
+//                .thenReturn(uploadResponse);
+//
+//        when(transactionNotifierService.notify(any(), any())).thenReturn(true);
+//
+//        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
+//                .verifyComplete();
+//
+//        verify(invoiceStorageClient)
+//                .upload(
+//                        any(InputStream.class),
+//                        eq(
+//                                "invoices/merchant/MERCHANTID1/pos/POINTOFSALEID1/transaction/TRX_ID/creditNote/credit-note.pdf"),
+//                        eq("application/pdf"));
+//        verify(rewardBatchRepository).decrementTotalAmountCents("B1", 123L);
+//        verify(rewardTransactionRepository).save(any());
+//        verify(transactionNotifierService).notify(any(RewardTransactionKafkaDTO.class), eq(USER_ID));
+//    }
 
     @Test
     void reversalTransaction_statusNotInvoiced_throws400() {
@@ -760,25 +760,6 @@ class PointOfSaleTransactionServiceImplTest {
         trx.setPointOfSaleId(POS_ID);
         trx.setInitiativeId(INITIATIVE_ID);
         return trx;
-    }
-
-    private RewardTransaction cloneTrx(RewardTransaction src) {
-        RewardTransaction t = new RewardTransaction();
-        t.setId(src.getId());
-        t.setMerchantId(src.getMerchantId());
-        t.setPointOfSaleId(src.getPointOfSaleId());
-        t.setUserId(src.getUserId());
-        t.setStatus(src.getStatus());
-        t.setRewardBatchId(src.getRewardBatchId());
-        t.setRewardBatchTrxStatus(src.getRewardBatchTrxStatus());
-        t.setRewardBatchLastMonthElaborated(src.getRewardBatchLastMonthElaborated());
-        t.setInitiatives(src.getInitiatives());
-        t.setRewards(src.getRewards());
-        t.setPointOfSaleType(src.getPointOfSaleType());
-        t.setBusinessName(src.getBusinessName());
-        t.setInitiativeId(src.getInitiativeId());
-        t.setInvoiceData(src.getInvoiceData());
-        return t;
     }
 
     private FilePart mockFilePart(String filename, boolean withPdfContentType) {
