@@ -145,10 +145,10 @@ public abstract class BaseKafkaConsumer<T, R> {
     protected void doFinally(Message<String> message, Map<String, Object> ctx) {
         Long startTime = (Long)ctx.get(CONTEXT_KEY_START_TIME);
         String msgId = (String)ctx.get(CONTEXT_KEY_MSG_ID);
-        if(startTime != null){
-            PerformanceLogger.logTiming(getFlowName(), startTime,
-                    "(partition: %s, offset: %s) %s".formatted(getMessagePartitionId(message), getMessageOffset(message), msgId));
-        }
+//        if(startTime != null){
+//            PerformanceLogger.logTiming(getFlowName(), startTime,
+//                    "(partition: %s, offset: %s) %s".formatted(getMessagePartitionId(message), getMessageOffset(message), msgId));
+//        }
     }
 
     /** Name used for logging purpose */
