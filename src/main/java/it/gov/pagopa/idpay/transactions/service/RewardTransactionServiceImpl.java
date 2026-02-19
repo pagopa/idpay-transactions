@@ -10,6 +10,7 @@ import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
@@ -25,6 +26,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Service
 @Slf4j
@@ -206,9 +208,10 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
         String initiativeId = trx.getInitiatives().get(0);
 
-        long accruedRewardCents = trx.getRewards()
-            .get(initiativeId)
-            .getAccruedRewardCents();
+        long accruedRewardCents = Optional.ofNullable(trx.getRewards())
+                .map(r -> r.get(initiativeId))
+                .map(Reward::getAccruedRewardCents)
+                .orElse(0L);
 
         return rewardBatchService.findOrCreateBatch(
                     trx.getMerchantId(),
