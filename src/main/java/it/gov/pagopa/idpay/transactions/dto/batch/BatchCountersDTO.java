@@ -73,8 +73,9 @@ public class BatchCountersDTO {
     return this;
   }
 
-  public void incrementTrxElaborated() {
+  public BatchCountersDTO incrementTrxElaborated() {
     this.trxElaborated = this.trxElaborated + 1L;
+    return this;
   }
 
   public BatchCountersDTO incrementTrxElaborated(Long number) {
@@ -87,8 +88,9 @@ public class BatchCountersDTO {
     return this;
   }
 
-  public void incrementTrxSuspended() {
+  public BatchCountersDTO incrementTrxSuspended() {
     this.trxSuspended = this.trxSuspended + 1L;
+    return this;
   }
 
   public BatchCountersDTO incrementTrxSuspended(Long number) {
