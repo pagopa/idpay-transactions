@@ -3,6 +3,7 @@ package it.gov.pagopa.common.reactive.kafka.consumer;
 import com.fasterxml.jackson.databind.ObjectReader;
 import it.gov.pagopa.common.reactive.kafka.exception.UncommittableError;
 import it.gov.pagopa.common.kafka.utils.KafkaConstants;
+import it.gov.pagopa.common.reactive.utils.PerformanceLogger;
 import it.gov.pagopa.common.utils.CommonUtilities;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.Pair;
@@ -132,11 +133,22 @@ public abstract class BaseKafkaConsumer<T, R> {
                         return Mono.just(defaultAck);
                     }
                 })
+                .doOnNext(r -> doFinally(message, ctx))
 
                 .onErrorResume(e -> {
                     log.info("Retrying after reactive pipeline error: ", e);
                     return executeAcknowledgeAware(message);
                 });
+    }
+
+    /** to perform some operation at the end of business logic execution, thus before to wait for commit. As default, it will perform an INFO logging with performance time */
+    protected void doFinally(Message<String> message, Map<String, Object> ctx) {
+        Long startTime = (Long)ctx.get(CONTEXT_KEY_START_TIME);
+        String msgId = (String)ctx.get(CONTEXT_KEY_MSG_ID);
+        if(startTime != null){
+            PerformanceLogger.logTiming(getFlowName(), startTime,
+                    "(partition: %s, offset: %s) %s".formatted(getMessagePartitionId(message), getMessageOffset(message), msgId));
+        }
     }
 
     /** Name used for logging purpose */

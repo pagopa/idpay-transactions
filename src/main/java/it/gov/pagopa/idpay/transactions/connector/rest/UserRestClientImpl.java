@@ -43,23 +43,19 @@ public class UserRestClientImpl implements UserRestClient {
 
     @Override
     public Mono<UserInfoPDV> retrieveUserInfo(String userId) {
-        return PerformanceLogger.logTimingOnNext(
-                        "PDV_INTEGRATION",
-                        webClient
+        return webClient
                                 .method(HttpMethod.GET)
                                 .uri(URI_DECRYPT, Map.of("token", userId))
                                 .retrieve()
-                                .toEntity(UserInfoPDV.class),
-                        x -> "httpStatus %s".formatted(x.getStatusCode().value())
-                )
-                .map(HttpEntity::getBody)
-                .retryWhen(Retry.fixedDelay(pdvMaxAttempts, Duration.ofMillis(pdvRetryDelay))
-                        .filter(ex -> {
-                            boolean retry = (ex instanceof WebClientResponseException.TooManyRequests) || ex.getMessage().startsWith("Connection refused");
-                            if (retry) {
-                                log.info("[PDV_INTEGRATION] Retrying invocation due to exception: {}: {}", ex.getClass().getSimpleName(), ex.getMessage());
-                            }
-                            return retry;
+                                .toEntity(UserInfoPDV.class)
+                                .map(HttpEntity::getBody)
+                                .retryWhen(Retry.fixedDelay(pdvMaxAttempts, Duration.ofMillis(pdvRetryDelay))
+                                    .filter(ex -> {
+                                        boolean retry = (ex instanceof WebClientResponseException.TooManyRequests) || ex.getMessage().startsWith("Connection refused");
+                                        if (retry) {
+                                            log.info("[PDV_INTEGRATION] Retrying invocation due to exception: {}: {}", ex.getClass().getSimpleName(), ex.getMessage());
+                                        }
+                                        return retry;
                         })
                 )
 
