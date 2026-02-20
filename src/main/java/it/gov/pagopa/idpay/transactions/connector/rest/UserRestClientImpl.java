@@ -43,24 +43,20 @@ public class UserRestClientImpl implements UserRestClient {
 
     @Override
     public Mono<UserInfoPDV> retrieveUserInfo(String userId) {
-        return PerformanceLogger.logTimingOnNext(
-                        "PDV_INTEGRATION",
-                        webClient
-                                .method(HttpMethod.GET)
-                                .uri(URI_DECRYPT, Map.of("token", userId))
-                                .retrieve()
-                                .toEntity(UserInfoPDV.class),
-                        x -> "httpStatus %s".formatted(x.getStatusCode().value())
-                )
-                .map(HttpEntity::getBody)
-                .retryWhen(Retry.fixedDelay(pdvMaxAttempts, Duration.ofMillis(pdvRetryDelay))
-                        .filter(ex -> {
-                            boolean retry = (ex instanceof WebClientResponseException.TooManyRequests) || ex.getMessage().startsWith("Connection refused");
-                            if (retry) {
-                                log.info("[PDV_INTEGRATION] Retrying invocation due to exception: {}: {}", ex.getClass().getSimpleName(), ex.getMessage());
-                            }
-                            return retry;
-                        })
+        return webClient
+                 .method(HttpMethod.GET)
+                 .uri(URI_DECRYPT, Map.of("token", userId))
+                 .retrieve()
+                 .toEntity(UserInfoPDV.class)
+                 .map(HttpEntity::getBody)
+                 .retryWhen(Retry.fixedDelay(pdvMaxAttempts, Duration.ofMillis(pdvRetryDelay))
+                     .filter(ex -> {
+                         boolean retry = (ex instanceof WebClientResponseException.TooManyRequests) || ex.getMessage().startsWith("Connection refused");
+                         if (retry) {
+                             log.info("[PDV_INTEGRATION] Retrying invocation due to exception: {}: {}", ex.getClass().getSimpleName(), ex.getMessage());
+                         }
+                         return retry;
+                 })
                 )
 
                 .onErrorResume(WebClientResponseException.NotFound.class, x -> {
@@ -76,17 +72,13 @@ public class UserRestClientImpl implements UserRestClient {
     @Override
     public Mono<FiscalCodeInfoPDV> retrieveFiscalCodeInfo(String fiscalCode) {
         CFDTO cfdto = new CFDTO(fiscalCode);
-        return PerformanceLogger.logTimingOnNext(
-                        "PDV_INTEGRATION",
-                        webClient
-                                .method(HttpMethod.PUT)
-                                .uri(URI_ENCRYPT).accept(MediaType.APPLICATION_JSON)
-                                .bodyValue(cfdto)
-                                .retrieve()
-                                .toEntity(FiscalCodeInfoPDV.class),
-                        x -> "httpStatus %s".formatted(x.getStatusCode().value())
-                )
-                .map(HttpEntity::getBody)
+        return webClient
+                 .method(HttpMethod.PUT)
+                 .uri(URI_ENCRYPT).accept(MediaType.APPLICATION_JSON)
+                 .bodyValue(cfdto)
+                 .retrieve()
+                 .toEntity(FiscalCodeInfoPDV.class)
+                 .map(HttpEntity::getBody)
                 .retryWhen(Retry.fixedDelay(pdvMaxAttempts, Duration.ofMillis(pdvRetryDelay))
                         .filter(ex -> {
                             boolean retry = (ex instanceof WebClientResponseException.TooManyRequests) || ex.getMessage().startsWith("Connection refused");

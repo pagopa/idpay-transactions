@@ -46,11 +46,21 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
       );
     }
 
-    log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}, Role: {}",
-        merchantId != null ? Utilities.sanitizeString(merchantId) : "null",
-        organizationRole != null ? Utilities.sanitizeString(organizationRole) : "null");
-
     String validMerchantId = merchantId != null ? merchantId : merchantIdFilter;
+
+    if (organizationRole != null) {
+        log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}, Role: {}",
+                validMerchantId != null ? Utilities.sanitizeString(validMerchantId) : "null",
+                Utilities.sanitizeString(organizationRole));
+    } else {
+        log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}",
+                Utilities.sanitizeString(validMerchantId));
+    }
+
+      log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}, Role: {}",
+              validMerchantId != null ? Utilities.sanitizeString(validMerchantId) : "null",
+              organizationRole != null ? Utilities.sanitizeString(organizationRole) : "null");
+
     return rewardBatchService.getRewardBatches(validMerchantId, organizationRole, status, assigneeLevel, month, pageable)
         .flatMap(page ->
             Flux.fromIterable(page.getContent())
