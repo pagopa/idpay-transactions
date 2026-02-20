@@ -112,10 +112,16 @@ public class ReportServiceImpl implements ReportService {
             );
         }
 
-        log.info("[GET_TRANSACTIONS_REPORTS] Fetching reports for initiative: {}, merchant: {}, role: {}",
-                Utilities.sanitizeString(initiativeId),
-                merchantId != null ? Utilities.sanitizeString(merchantId) : "null",
-                organizationRole != null ? Utilities.sanitizeString(organizationRole) : "null");
+        if (merchantId != null) {
+            log.info("[GET_TRANSACTIONS_REPORTS] Fetching reports for initiative: {}, merchant: {}, role: {}",
+                    Utilities.sanitizeString(initiativeId),
+                    Utilities.sanitizeString(merchantId),
+                    Utilities.sanitizeString(organizationRole));
+        } else {
+            log.info("[GET_TRANSACTIONS_REPORTS] Fetching reports for initiative: {}, role: {}",
+                    Utilities.sanitizeString(initiativeId),
+                    Utilities.sanitizeString(organizationRole));
+        }
 
         Pageable sortedPageable = PageRequest.of( pageable.getPageNumber(),
                 pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "requestDate"));
