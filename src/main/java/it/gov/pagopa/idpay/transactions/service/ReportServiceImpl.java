@@ -113,10 +113,9 @@ public class ReportServiceImpl implements ReportService {
         }
 
         if (merchantId != null) {
-            log.info("[GET_TRANSACTIONS_REPORTS] Fetching reports for initiative: {}, merchant: {}, role: {}",
+            log.info("[GET_TRANSACTIONS_REPORTS] Fetching reports for initiative: {}, merchant: {}",
                     Utilities.sanitizeString(initiativeId),
-                    Utilities.sanitizeString(merchantId),
-                    Utilities.sanitizeString(organizationRole));
+                    Utilities.sanitizeString(merchantId));
         } else {
             log.info("[GET_TRANSACTIONS_REPORTS] Fetching reports for initiative: {}, role: {}",
                     Utilities.sanitizeString(initiativeId),
