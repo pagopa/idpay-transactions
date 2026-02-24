@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/idpay/merchant/portal/initiatives/INIT_OK_1",
+    "headers": {
+      "x-merchant-id": {
+        "equalTo": "MERCHANT_OK_1"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "merchantId": "MERCHANT_OK_1",
+      "businessName": "Business name"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

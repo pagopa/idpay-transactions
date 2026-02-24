@@ -4,6 +4,7 @@ import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.*;
+import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionKafkaMapper;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
@@ -34,11 +35,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.YearMonth;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 import static it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus.*;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
@@ -57,8 +55,6 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
   private final RewardBatchRepository rewardBatchRepository;
   private final TransactionErrorNotifierService transactionErrorNotifierService;
   private final TransactionNotifierService transactionNotifierService;
-
-    private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM", Locale.ITALIAN);
 
   protected PointOfSaleTransactionServiceImpl(
           UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository, InvoiceStorageClient invoiceStorageClient, RewardBatchService rewardBatchService,
@@ -168,11 +164,14 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     public Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId,
                                                String pointOfSaleId, FilePart file, String docNumber) {
 
+        log.info("[UPDATE_INVOICE_FILE_SERVICE] - [updateInvoiceTransaction] - start | trxId={} merchantId={} posId={} docNumber={} filename={}",
+                Utilities.sanitizeString(transactionId), Utilities.sanitizeString(merchantId), Utilities.sanitizeString(pointOfSaleId), Utilities.sanitizeString(docNumber), file != null ? Utilities.sanitizeString(file.filename()) : null);
+
         Utilities.checkFileExtensionOrThrow(file);
 
         return rewardTransactionRepository
                 .findTransactionForUpdateInvoice(merchantId, pointOfSaleId, transactionId)
-                .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
+                .switchIfEmpty(Mono.defer(() -> Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE))))
                 .flatMap(trx -> validateBatchAndUpdateInvoiceFlow(trx, merchantId, pointOfSaleId, transactionId, file, docNumber));
     }
 
@@ -186,14 +185,13 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         String oldBatchId = requireRewardBatchId(trx);
 
         return rewardBatchRepository.findRewardBatchById(oldBatchId)
-                .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)))
+                .switchIfEmpty(Mono.defer(() -> Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND))))
                 .flatMap(oldBatch -> {
                     validateOldBatchStatusAllowed(oldBatch);
                     validateTrxBatchStatusNotApproved(trx);
 
                     return updateInvoiceFileAndFields(trx, merchantId, pointOfSaleId, transactionId, file, docNumber)
-                            .flatMap(savedTrx -> suspendIfNeeded(savedTrx, oldBatch, oldBatchId, merchantId, pointOfSaleId, transactionId))
-                            .flatMap(suspendedTrx -> moveToCurrentMonthBatchAndUpdateCounters(suspendedTrx, oldBatch, oldBatchId, merchantId))
+                            .flatMap(savedTrx -> suspendAndMoveTransaction(savedTrx, oldBatch))
                             .then();
                 });
     }
@@ -203,10 +201,10 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         if (oldBatchId == null) {
             throw new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND);
         }
+
         return oldBatchId;
     }
 
-    /** (1) batch deve essere EVALUATING o CREATED */
     private void validateOldBatchStatusAllowed(RewardBatch oldBatch) {
         if (!EVALUATING.equals(oldBatch.getStatus()) && !CREATED.equals(oldBatch.getStatus())) {
             throw new ClientExceptionWithBody(
@@ -215,12 +213,10 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     ERROR_MESSAGE_REWARD_BATCH_STATUS_NOT_ALLOWED
             );
         }
-    }
+}
 
-    /** (2) trx batch status deve essere != APPROVED */
     private void validateTrxBatchStatusNotApproved(RewardTransaction trx) {
-        RewardBatchTrxStatus batchTrxStatus = trx.getRewardBatchTrxStatus();
-        if (batchTrxStatus == RewardBatchTrxStatus.APPROVED) {
+        if (trx.getRewardBatchTrxStatus() == RewardBatchTrxStatus.APPROVED) {
             throw new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
                     TRANSACTION_STATUS_NOT_ALLOWED,
@@ -229,7 +225,6 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         }
     }
 
-    /** (3) replace file + update campi fattura + save trx */
     private Mono<RewardTransaction> updateInvoiceFileAndFields(RewardTransaction trx,
                                                                String merchantId,
                                                                String pointOfSaleId,
@@ -251,111 +246,82 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 }));
     }
 
-    /** (4) DOPO update fattura -> sospende (se non già sospesa). Se batch CREATED non sospendere. */
-    private Mono<RewardTransaction> suspendIfNeeded(RewardTransaction savedTrx,
-                                                    RewardBatch oldBatch,
-                                                    String oldBatchId,
-                                                    String merchantId,
-                                                    String pointOfSaleId,
-                                                    String transactionId) {
+    private Mono<RewardBatch> findOrCreateTargetBatch(RewardTransaction oldTransaction,
+                                                      RewardBatch oldBatch) {
 
-        // Se CREATED non sospendere
-        if (CREATED.equals(oldBatch.getStatus())) {
-            return Mono.just(savedTrx);
-        }
-
-        // Se già suspended non fare nulla
-        if (savedTrx.getRewardBatchTrxStatus() == RewardBatchTrxStatus.SUSPENDED) {
-            return Mono.just(savedTrx);
-        }
-
-        TransactionsRequest req = TransactionsRequest.builder()
-                .transactionIds(List.of(savedTrx.getId()))
-                .reason(savedTrx.getRejectionReasons() != null ? savedTrx.getRejectionReasons().toString() : null)
-                .build();
-
-        return rewardBatchService
-                .suspendTransactions(oldBatchId, savedTrx.getInitiativeId(), req)
-                .then(rewardTransactionRepository.findTransactionForUpdateInvoice(merchantId, pointOfSaleId, transactionId))
-                .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)));
-    }
-
-    /** (5) sposta batch al mese corrente + contatori suspended */
-    private Mono<Void> moveToCurrentMonthBatchAndUpdateCounters(RewardTransaction suspendedTrx,
-                                                                RewardBatch oldBatch,
-                                                                String oldBatchId,
-                                                                String merchantId) {
+        PosType posType = oldTransaction.getPointOfSaleType();
+        String businessName = oldTransaction.getBusinessName();
 
         YearMonth currentMonth = YearMonth.now();
-        PosType posType = suspendedTrx.getPointOfSaleType();
-        String businessName = suspendedTrx.getBusinessName();
+        YearMonth oldMonth = YearMonth.parse(oldBatch.getMonth());
+        YearMonth targetMonth = oldMonth.isAfter(currentMonth) ? oldMonth : currentMonth;
 
-        String initiativeId = suspendedTrx.getInitiatives().getFirst();
-        long accruedRewardCents = suspendedTrx.getRewards().get(initiativeId).getAccruedRewardCents();
+        log.info("[UPDATE_INVOICE_FILE_SERVICE] - [findOrCreateTargetBatch] - start | oldBatchId={} trxId={} targetMonth={}",
+                Utilities.sanitizeString(oldBatch.getId()), Utilities.sanitizeString(oldTransaction.getId()), targetMonth);
 
-        return rewardBatchService.findOrCreateBatch(merchantId, posType, currentMonth.toString(), businessName)
-                .flatMap(newBatch -> {
-                    if (newBatch.getId().equals(oldBatchId)) {
-                        // batch già corretto, salvo solo eventuali updateDate già fatto
-                        return rewardTransactionRepository.save(suspendedTrx).then();
-                    }
-
-                    Mono<Void> moveCounters = computeMoveCounters(oldBatch, oldBatchId, newBatch.getId(), accruedRewardCents);
-
-                    return moveCounters
-                            .then(Mono.fromRunnable(() -> applyBatchMoveToTransaction(
-                                    suspendedTrx,
-                                    oldBatch,
-                                    newBatch
-                            )))
-                            .then(rewardTransactionRepository.save(suspendedTrx))
-                            .then();
-                });
+        return rewardBatchService.findOrCreateBatch(oldBatch.getMerchantId(), posType, targetMonth.toString(), businessName);
     }
 
-    private Mono<Void> computeMoveCounters(RewardBatch oldBatch,
-                                           String oldBatchId,
-                                           String newBatchId,
-                                           long accruedRewardCents) {
+    private Mono<RewardTransaction> suspendAndMoveTransaction(
+            RewardTransaction oldTransaction, RewardBatch oldBatch) {
 
         if (CREATED.equals(oldBatch.getStatus())) {
-            return rewardBatchService.decrementTotals(oldBatchId, accruedRewardCents)
-                    .then(rewardBatchService.incrementTotals(newBatchId, accruedRewardCents))
-                    .then();
+            log.info("[UPDATE_INVOICE_FILE_SERVICE] - [suspendAndMoveTransaction] - end success | no-move (old batch CREATED)");
+            return Mono.just(oldTransaction);
         }
 
-        return rewardBatchService.moveSuspendToNewBatch(oldBatchId, newBatchId, accruedRewardCents)
-                .then();
-    }
+        long accruedRewardCents =
+                oldTransaction
+                        .getRewards()
+                        .get(oldTransaction.getInitiatives().getFirst())
+                        .getAccruedRewardCents();
 
-    private void applyBatchMoveToTransaction(RewardTransaction suspendedTrx,
-                                             RewardBatch oldBatch,
-                                             RewardBatch newBatch) {
+        boolean wasSuspended = oldTransaction.getRewardBatchTrxStatus() == RewardBatchTrxStatus.SUSPENDED;
+        boolean wasRejected = oldTransaction.getRewardBatchTrxStatus() == RewardBatchTrxStatus.REJECTED;
 
-        suspendedTrx.setRewardBatchId(newBatch.getId());
-        suspendedTrx.setUpdateDate(LocalDateTime.now());
+        BatchCountersDTO oldBatchCounter;
+        BatchCountersDTO newBatchCounter;
 
-        if (!CREATED.equals(oldBatch.getStatus())) {
-            updateLastMonthElaboratedOnBatchMove(
-                    suspendedTrx,
-                    oldBatch.getMonth(),
-                    newBatch.getMonth()
-            );
+        if (wasSuspended) {
+            oldBatchCounter = BatchCountersDTO.newBatch()
+                    .decrementNumberOfTransactions()
+                    .decrementTrxElaborated();
+
+            newBatchCounter = BatchCountersDTO.newBatch()
+                    .incrementInitialAmountCents(accruedRewardCents)
+                    .incrementNumberOfTransactions(1L)
+                    .incrementTrxSuspended(1L)
+                    .incrementSuspendedAmountCents(accruedRewardCents)
+                    .incrementTrxElaborated(1L);
+        } else {
+            oldBatchCounter = BatchCountersDTO.newBatch()
+                    .decrementNumberOfTransactions()
+                    .decrementTrxElaborated(wasRejected ? 1L : 0L);
+
+            newBatchCounter = BatchCountersDTO.newBatch()
+                    .incrementInitialAmountCents(accruedRewardCents)
+                    .incrementNumberOfTransactions(1L)
+                    .incrementTrxSuspended(1L)
+                    .incrementSuspendedAmountCents(accruedRewardCents)
+                    .incrementTrxElaborated(1L);
         }
+
+        return findOrCreateTargetBatch(oldTransaction, oldBatch)
+                .flatMap(newBatch -> {
+                    log.info("[UPDATE_INVOICE_FILE_SERVICE] - [suspendAndMoveTransaction] - moving trx | trxId={} fromBatchId={} toBatchId={} oldCounters={} newCounters={}",
+                            Utilities.sanitizeString(oldTransaction.getId()), Utilities.sanitizeString(oldBatch.getId()), Utilities.sanitizeString(newBatch.getId()),
+                            oldBatchCounter, newBatchCounter);
+
+                    oldTransaction.setRewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED);
+                    oldTransaction.setRewardBatchId(newBatch.getId());
+                    oldTransaction.setUpdateDate(LocalDateTime.now());
+
+                    return rewardTransactionRepository.save(oldTransaction)
+                            .then(rewardBatchRepository.updateTotals(oldBatch.getId(), oldBatchCounter))
+                            .then(rewardBatchRepository.updateTotals(newBatch.getId(), newBatchCounter))
+                            .thenReturn(oldTransaction);
+                });
     }
-
-
-    private YearMonth getYearMonth (String yearMonthString){
-        return YearMonth.parse(yearMonthString.toLowerCase(), BATCH_MONTH_FORMAT);
-    }
-
-    private void updateLastMonthElaboratedOnBatchMove(RewardTransaction trx, String oldBatchMonth, String newBatchMonth) {
-        if (trx.getRewardBatchLastMonthElaborated() == null
-                || getYearMonth(trx.getRewardBatchLastMonthElaborated()).isBefore(getYearMonth(newBatchMonth))) {
-            trx.setRewardBatchLastMonthElaborated(oldBatchMonth);
-        }
-    }
-
 
     public Mono<Void> reversalTransaction(
             String transactionId,
@@ -410,7 +376,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
                                             Mono<Void> decrementRewardBatchMono =
                                                     oldRewardBatchId != null
-                                                            ? rewardBatchRepository.decrementTotals(oldRewardBatchId, accruedRewardCents).then()
+                                                            ? rewardBatchRepository.decrementTotalAmountCents(oldRewardBatchId, accruedRewardCents).then()
                                                             : Mono.empty();
 
 

@@ -35,4 +35,19 @@ class BlobStorageClientConfigTest {
     assertNotNull(containerClient);
     assert(containerClient.getBlobContainerName().equals("containerreference"));
   }
+
+  @Test
+  void testReportsContainerClient() {
+    BlobServiceClient serviceClient = blobStorageClientConfig.blobServiceClient();
+
+    BlobStorageProperties properties = new BlobStorageProperties();
+    properties.setReportsContainerReference("reportsContainer");
+
+    BlobStorageClientConfig config = new BlobStorageClientConfig(properties);
+
+    BlobContainerClient reportsClient = config.reportsContainerClient(serviceClient);
+    assertNotNull(reportsClient);
+    assert(reportsClient.getBlobContainerName().equals("reportsContainer"));
+  }
+
 }

@@ -1,0 +1,14 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/idpay/merchant/portal/initiatives/INIT_TOOMANYREQUEST_1",
+    "headers": {
+      "x-merchant-id": {
+        "equalTo": "MERCHANT_TOOMANYREQUEST_1"
+      }
+    }
+  },
+  "response": {
+    "status": 429
+  }
+}

@@ -22,6 +22,7 @@ blobStorage:
   storageAccountName: ${BLOB_STORAGE_ACCOUNT_NAME:}
   containerReference: ${BLOB_STORAGE_CONTAINER_REFERENCE:}
   csvContainerReference: ${BLOB_STORAGE_CSV_CONTAINER_REFERENCE:}
+  reportsContainerReference: ${BLOB_STORAGE_REPORTS_CONTAINER_REFERENCE:}
   invoiceTokenDurationSeconds: ${INVOICE_STORAGE_SAS_DURATION_SECONDS:60}
 
 spring:
@@ -215,7 +216,7 @@ app:
       delay-millis: ${PDV_RETRY_DELAY_MILLIS:2000}
       max-attempts: ${PDV_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:10}}
   merchant:
-    base-url: ${MERCHANT_BASE_URL:http://idpay-merchant}
+    base-url: ${MERCHANT_BASE_URL:}
     retry:
       delay-millis: ${MERCHANT_RETRY_DELAY_MILLIS:2000}
       max-attempts: ${MERCHANT_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:10}}
@@ -228,7 +229,11 @@ app:
     paginationSize: ${DELETE_PAGINATION_SIZE:45}
     delayTime: ${DELETE_DELAY_TIME:1000}
   sampling: ${SAMPLING_HASH_SEED:15121984}
-  transactions:
-    reward-batch:
-      to-evaluating:
-        schedule: ${SCHEDULE_REWARD_BATCH_TO_EVALUATING:0 0 1 * * ?} # each day at 01:00AM
+  data-factory:
+    resource-group: ${DATA_FACTORY_RESOURCE_GROUP:}
+    factory-name: ${DATA_FACTORY_NAME:}
+    pipeline-name: ${DATA_FACTORY_PIPELINE_NAME:idpay_transaction_report}
+    max-retries: ${DATA_FACTORY_RUN_PIPELINE_MAX_RETRIES:3}
+    tenant-id: ${DATA_FACTORY_TENANT_ID:}
+    subscription-id: ${DATA_FACTORY_SUBSCRIPTION_ID:}
+  period-length-transactions-report: ${PERIOD_LENGTH_TRANSACTIONS_REPORT:}

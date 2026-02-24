@@ -42,4 +42,5 @@ public class MerchantTransactionControllerImpl implements MerchantTransactionCon
         return merchantTransactionService.getProcessedTransactionStatuses(
                 organizationRole);
     }
+
 }
