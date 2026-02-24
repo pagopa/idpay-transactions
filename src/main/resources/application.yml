@@ -245,7 +245,7 @@ app:
       grant-type: ${INVITALIA_GRANTTYPE:}
       tenant-id: ${INVITALIA_TENANT_ID:}
     token:
-      base-url: ${INVITALIA_TOKEN_URL:}
+      base-url: ${INVITALIA_TOKEN_BASE_URL:}
       path: ${INVITALIA_TOKEN_URI}
       retry:
         delay-millis: ${INVITALIA_TOKEN_RETRY_DELAY_MILLIS:2000}
