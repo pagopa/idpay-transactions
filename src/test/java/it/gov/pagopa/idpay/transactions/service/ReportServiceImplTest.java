@@ -17,6 +17,7 @@ import it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.repository.ReportRepository;
 import it.gov.pagopa.idpay.transactions.storage.ReportBlobService;
+import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -80,8 +81,11 @@ class ReportServiceImplTest {
     void getTransactionsReports_returnsPage_success() {
 
         Pageable pageable = PageRequest.of(0, 10);
-        Pageable sortedPageable = PageRequest.of( pageable.getPageNumber(),
-                pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "requestDate"));
+        Pageable sortedPageable = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "requestDate")
+        );
 
         Report report = Report.builder()
                 .id("R1")
@@ -104,12 +108,16 @@ class ReportServiceImplTest {
                 eq(INITIATIVE_ID)
         )).thenReturn(Mono.just(1L));
 
-        StepVerifier.create(service.getTransactionsReports(MERCHANT_ID, null, INITIATIVE_ID, pageable))
-                .assertNext(page -> {
-                    assertEquals(1, page.getTotalElements());
-                    assertEquals("R1", page.getContent().get(0).getId());
-                })
-                .verifyComplete();
+        try (MockedStatic<Utilities> utilitiesMock = mockStatic(Utilities.class, CALLS_REAL_METHODS)) {
+            utilitiesMock.when(() -> Utilities.sanitizeString(null)).thenReturn(null);
+
+            StepVerifier.create(service.getTransactionsReports(MERCHANT_ID, null, INITIATIVE_ID, pageable))
+                    .assertNext(page -> {
+                        assertEquals(1, page.getTotalElements());
+                        assertEquals("R1", page.getContent().get(0).getId());
+                    })
+                    .verifyComplete();
+        }
     }
 
     @Test
@@ -125,9 +133,11 @@ class ReportServiceImplTest {
     @Test
     void getTransactionsReports_returnsEmpty_whenNoReports() {
         Pageable pageable = PageRequest.of(0, 10);
-        Pageable sortedPageable = PageRequest.of( pageable.getPageNumber(),
-                pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "requestDate"));
-
+        Pageable sortedPageable = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "requestDate")
+        );
 
         when(reportRepository.findReportsCombined(
                 eq(MERCHANT_ID),
@@ -142,12 +152,16 @@ class ReportServiceImplTest {
                 eq(INITIATIVE_ID)
         )).thenReturn(Mono.just(0L));
 
-        StepVerifier.create(service.getTransactionsReports(MERCHANT_ID, null, INITIATIVE_ID, pageable))
-                .assertNext(page -> {
-                    assertTrue(page.getContent().isEmpty());
-                    assertEquals(0, page.getTotalElements());
-                })
-                .verifyComplete();
+        try (MockedStatic<Utilities> utilitiesMock = mockStatic(Utilities.class, CALLS_REAL_METHODS)) {
+            utilitiesMock.when(() -> Utilities.sanitizeString(null)).thenReturn(null);
+
+            StepVerifier.create(service.getTransactionsReports(MERCHANT_ID, null, INITIATIVE_ID, pageable))
+                    .assertNext(page -> {
+                        assertTrue(page.getContent().isEmpty());
+                        assertEquals(0, page.getTotalElements());
+                    })
+                    .verifyComplete();
+        }
     }
 
     @Test
@@ -194,9 +208,11 @@ class ReportServiceImplTest {
     @Test
     void getTransactionsReports_onlyMerchantId_success() {
         Pageable pageable = PageRequest.of(0, 10);
-        Pageable sortedPageable = PageRequest.of( pageable.getPageNumber(),
-                pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "requestDate"));
-
+        Pageable sortedPageable = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "requestDate")
+        );
 
         Report report = Report.builder()
                 .id("R3")
@@ -223,13 +239,17 @@ class ReportServiceImplTest {
                 eq(INITIATIVE_ID)
         )).thenReturn(Mono.just(1L));
 
-        StepVerifier.create(service.getTransactionsReports(MERCHANT_ID, null, INITIATIVE_ID, pageable))
-                .assertNext(page -> {
-                    assertNotNull(page);
-                    assertEquals(1, page.getTotalElements());
-                    assertEquals("R3", page.getContent().get(0).getId());
-                })
-                .verifyComplete();
+        try (MockedStatic<Utilities> utilitiesMock = mockStatic(Utilities.class, CALLS_REAL_METHODS)) {
+            utilitiesMock.when(() -> Utilities.sanitizeString(null)).thenReturn(null);
+
+            StepVerifier.create(service.getTransactionsReports(MERCHANT_ID, null, INITIATIVE_ID, pageable))
+                    .assertNext(page -> {
+                        assertNotNull(page);
+                        assertEquals(1, page.getTotalElements());
+                        assertEquals("R3", page.getContent().get(0).getId());
+                    })
+                    .verifyComplete();
+        }
     }
 
     @Test
