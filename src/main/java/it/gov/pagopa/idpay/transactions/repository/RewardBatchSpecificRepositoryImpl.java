@@ -177,13 +177,17 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   private EnumSet<RewardBatchStatus> getAllowedStatuses(boolean isOperator) {
+
     EnumSet<RewardBatchStatus> statuses = EnumSet.of(
             RewardBatchStatus.SENT,
             RewardBatchStatus.EVALUATING,
             RewardBatchStatus.APPROVING,
             RewardBatchStatus.APPROVED,
             RewardBatchStatus.TO_APPROVE,
-            RewardBatchStatus.TO_WORK
+            RewardBatchStatus.TO_WORK,
+            RewardBatchStatus.PENDING_REFUND,
+            RewardBatchStatus.REFUNDED,
+            RewardBatchStatus.NOT_REFUNDED
     );
     if (!isOperator) {
       statuses.add(RewardBatchStatus.CREATED);

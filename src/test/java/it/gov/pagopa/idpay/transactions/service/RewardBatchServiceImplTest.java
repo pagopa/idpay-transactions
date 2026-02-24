@@ -730,6 +730,7 @@ class RewardBatchServiceImplTest {
     }
 
 
+
     @Test
     void downloadApprovedRewardBatchFile_invalidRequest_missingHeaders() {
         StepVerifier.create(service.downloadApprovedRewardBatchFile(null, null, INITIATIVE_ID, BATCH_ID))
@@ -767,6 +768,34 @@ class RewardBatchServiceImplTest {
         StepVerifier.create(service.downloadApprovedRewardBatchFile(MERCHANT_ID, OP1, INITIATIVE_ID, BATCH_ID))
                 .expectError(RewardBatchNotApprovedException.class)
                 .verify();
+    }
+
+    @Test
+    void downloadApprovedRewardBatchFile_allowed_whenRefundState() {
+
+        RewardBatch batch = RewardBatch.builder()
+                .id(BATCH_ID)
+                .status(RewardBatchStatus.PENDING_REFUND)
+                .filename("file.csv")
+                .merchantId(MERCHANT_ID)
+                .build();
+
+        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, BATCH_ID))
+                .thenReturn(Mono.just(batch));
+
+        when(approvedRewardBatchBlobService.getFileSignedUrl(anyString()))
+                .thenReturn("signed-refund");
+
+        StepVerifier.create(
+                        service.downloadApprovedRewardBatchFile(
+                                MERCHANT_ID,
+                                OP1,
+                                INITIATIVE_ID,
+                                BATCH_ID
+                        )
+                )
+                .assertNext(r -> assertEquals("signed-refund", r.getApprovedBatchUrl()))
+                .verifyComplete();
     }
 
     @ParameterizedTest
