@@ -335,53 +335,6 @@ class RewardBatchSpecificRepositoryImplTest {
   }
 
   @Test
-  void incrementTotalAmountCents_shouldUpdateFieldsCorrectly() {
-    long increment = 500L;
-
-    RewardBatch updated = rewardBatchSpecificRepository
-        .incrementTotalAmountCents(batch1.getId(), increment)
-        .block();
-
-    assertNotNull(updated);
-    assertEquals(batch1.getInitialAmountCents() + increment, updated.getInitialAmountCents());
-    assertEquals(batch1.getNumberOfTransactions() + 1, updated.getNumberOfTransactions());
-    assertNotNull(updated.getUpdateDate());
-
-    RewardBatch fromDb = rewardBatchRepository.findById(batch1.getId()).block();
-    assertNotNull(fromDb);
-    assertEquals(updated.getInitialAmountCents(), fromDb.getInitialAmountCents());
-    assertEquals(updated.getNumberOfTransactions(), fromDb.getNumberOfTransactions());
-    assertNotNull(fromDb.getUpdateDate());
-  }
-
-  @Test
-  void decrementTotalAmountCents_shouldUpdateFieldsCorrectly() {
-    rewardBatchSpecificRepository
-        .incrementTotalAmountCents(batch1.getId(), 1000L)
-        .block();
-
-    RewardBatch batchBeforeDecrement = rewardBatchRepository.findById(batch1.getId()).block();
-    assertNotNull(batchBeforeDecrement);
-
-    long decrement = 500L;
-
-    RewardBatch updated = rewardBatchSpecificRepository
-        .decrementTotalAmountCents(batch1.getId(), decrement)
-        .block();
-
-    assertNotNull(updated);
-    assertEquals(batchBeforeDecrement.getInitialAmountCents() - decrement, updated.getInitialAmountCents());
-    assertEquals(batchBeforeDecrement.getNumberOfTransactions() - 1, updated.getNumberOfTransactions());
-    assertNotNull(updated.getUpdateDate());
-
-    RewardBatch fromDb = rewardBatchRepository.findById(batch1.getId()).block();
-    assertNotNull(fromDb);
-    assertEquals(updated.getInitialAmountCents(), fromDb.getInitialAmountCents());
-    assertEquals(updated.getNumberOfTransactions(), fromDb.getNumberOfTransactions());
-    assertNotNull(fromDb.getUpdateDate());
-  }
-
-  @Test
   void findRewardBatchByMerchantId_withSpecificStatus_shouldFilterCorrectly() {
     RewardBatch batch3 = RewardBatch.builder()
         .id("batch3")
@@ -807,31 +760,6 @@ class RewardBatchSpecificRepositoryImplTest {
         assertNotNull(updated);
         assertEquals(RewardBatchStatus.APPROVED, updated.getStatus());
         assertEquals(1234L, updated.getApprovedAmountCents());
-        assertNotNull(updated.getUpdateDate());
-    }
-
-
-    @Test
-    void updateTotals_shouldUpdateMultipleFieldsInOneCall() {
-        rewardBatchSpecificRepository.incrementTotalAmountCents(batch1.getId(), 1000L).block();
-        RewardBatch before = rewardBatchRepository.findById(batch1.getId()).block();
-        assertNotNull(before);
-
-        RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
-                batch1.getId(),
-                BatchCountersDTO.newBatch()
-                        .incrementTrxElaborated(5L)
-                        .incrementApprovedAmountCents(700L)
-                        .incrementTrxSuspended(3L)
-                        .incrementTrxRejected(2L)
-        ).block();
-
-        assertNotNull(updated);
-        assertEquals(before.getNumberOfTransactionsElaborated() + 5, updated.getNumberOfTransactionsElaborated());
-        assertEquals(before.getNumberOfTransactionsRejected() + 2, updated.getNumberOfTransactionsRejected());
-        assertEquals(before.getNumberOfTransactionsSuspended() + 3, updated.getNumberOfTransactionsSuspended());
-        assertEquals(before.getApprovedAmountCents() + 700, updated.getApprovedAmountCents());
-        assertEquals(before.getSuspendedAmountCents(), updated.getSuspendedAmountCents());
         assertNotNull(updated.getUpdateDate());
     }
 

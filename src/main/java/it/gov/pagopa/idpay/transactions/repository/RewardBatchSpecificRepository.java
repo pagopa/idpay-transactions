@@ -10,8 +10,6 @@ import reactor.core.publisher.Mono;
 
 
 public interface RewardBatchSpecificRepository {
-  Mono<RewardBatch> incrementTotalAmountCents(String batchId, long accruedAmountCents);
-  Mono<RewardBatch> decrementTotalAmountCents(String batchId, long accruedAmountCents);
   Mono<RewardBatch> moveTrxToNewBatch(String oldBatchId, String newBatchId, long accruedAmountCents, boolean isSuspended);
   Flux<RewardBatch> findRewardBatchesCombined(String merchantId, String status, String assigneeLevel, String month, boolean isOperator, Pageable pageable);
   Mono<Long> getCountCombined(String merchantId, String status, String assigneeLevel, String month, boolean isOperator);

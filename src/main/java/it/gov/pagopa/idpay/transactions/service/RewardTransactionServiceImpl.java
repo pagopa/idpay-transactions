@@ -6,12 +6,14 @@ import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.Exceptio
 
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
+import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 
@@ -36,16 +38,19 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
     private final RewardBatchService rewardBatchService;
     private final MerchantRestClient merchantRestClient;
     private final int seed;
+    private final RewardBatchRepository rewardBatchRepository;
 
 
     public RewardTransactionServiceImpl(RewardTransactionRepository rewardTrxRepository,
-        RewardBatchService rewardBatchService,
-        MerchantRestClient merchantRestClient,
-        @Value(value="${app.sampling}") int seed) {
+                                        RewardBatchService rewardBatchService,
+                                        MerchantRestClient merchantRestClient,
+                                        @Value(value="${app.sampling}") int seed,
+                                        RewardBatchRepository rewardBatchRepository) {
         this.rewardTrxRepository = rewardTrxRepository;
         this.rewardBatchService = rewardBatchService;
         this.merchantRestClient = merchantRestClient;
         this.seed = seed;
+        this.rewardBatchRepository = rewardBatchRepository;
     }
 
     @Override
@@ -206,7 +211,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
         YearMonth trxMonth = YearMonth.from(trxDate);
         String batchMonth = trxMonth.toString();
 
-        String initiativeId = trx.getInitiatives().get(0);
+        String initiativeId = trx.getInitiatives().getFirst();
 
         long accruedRewardCents = Optional.ofNullable(trx.getRewards())
                 .map(r -> r.get(initiativeId))
@@ -225,7 +230,11 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
                 throw new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_STATUS_MISMATCH);
               }
 
-              return rewardBatchService.incrementTotalAmountCents(rewardBatch.getId(), accruedRewardCents)
+                BatchCountersDTO counters = BatchCountersDTO.newBatch()
+                        .incrementInitialAmountCents(accruedRewardCents)
+                        .incrementNumberOfTransactions(1L);
+
+              return rewardBatchRepository.updateTotals(rewardBatch.getId(), counters)
                   .map(batch -> {
                     trx.setRewardBatchId(batch.getId());
                     trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
