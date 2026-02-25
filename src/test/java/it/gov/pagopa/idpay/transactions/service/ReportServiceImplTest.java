@@ -571,7 +571,7 @@ class ReportServiceImplTest {
                 .verifyComplete();
 
         verify(spyService, times(1))
-                .generateMerchantTransactionsReport(null, ORGANIZATION_ROLE, INITIATIVE_ID, request);
+                .generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request);
     }
 
     @Test
@@ -694,38 +694,25 @@ class ReportServiceImplTest {
 
     @Test
     void generateUserDetailsReport_invalidPeriod_startAfterEnd() {
-        ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(1));
-        request.setEndPeriod(LocalDateTime.now().minusDays(5)); // start > end
+        ReportRequest request = new ReportRequest();        request.setStartPeriod(LocalDateTime.now().minusDays(1));
+        request.setEndPeriod(LocalDateTime.now().minusDays(5));
 
-        ClientExceptionWithBody ex = assertThrows(
-                ClientExceptionWithBody.class,
-                () -> service.generateUserDetailsReport(
-                         ORGANIZATION_ROLE, INITIATIVE_ID, request
-                )
-        );
-
-        assertEquals(BAD_REQUEST, ex.getHttpStatus());
-        assertEquals(INVALID_PERIOD, ex.getCode());
+        StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody
+                        && ((ClientExceptionWithBody) throwable).getCode().equals(INVALID_PERIOD))
+                .verify();
     }
-
-
 
     @Test
     void generateUserDetailsReport_invalidPeriod_endNotBeforeToday() {
         ReportRequest request = new ReportRequest();
         request.setStartPeriod(LocalDateTime.now().minusDays(10));
-        request.setEndPeriod(LocalDateTime.now()); // oggi → non valido
+        request.setEndPeriod(LocalDateTime.now());
 
-        ClientExceptionWithBody ex = assertThrows(
-                ClientExceptionWithBody.class,
-                () -> service.generateUserDetailsReport(
-                        ORGANIZATION_ROLE, INITIATIVE_ID, request
-                )
-        );
-
-        assertEquals(BAD_REQUEST, ex.getHttpStatus());
-        assertEquals(INVALID_PERIOD, ex.getCode());
+        StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody
+                        && ((ClientExceptionWithBody) throwable).getCode().equals(INVALID_PERIOD))
+                .verify();
     }
 
 
