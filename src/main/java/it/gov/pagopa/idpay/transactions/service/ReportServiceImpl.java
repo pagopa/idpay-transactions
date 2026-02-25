@@ -169,17 +169,17 @@ public class ReportServiceImpl implements ReportService {
 
         if(!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay())
             && request.getStartPeriod().isBefore(request.getEndPeriod()))){
-            throw new ClientExceptionWithBody(
+            return Mono.error(new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
                     INVALID_PERIOD,
-                    ERROR_MESSAGE_INVALID_PERIOD);
+                    ERROR_MESSAGE_INVALID_PERIOD));
         }
 
         if(ChronoUnit.DAYS.between(request.getStartPeriod(), request.getEndPeriod()) > periodLengthTransactionsReport){
-            throw new ClientExceptionWithBody(
+            return Mono.error(new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
                     INVALID_LENGTH_PERIOD,
-                    ERROR_MESSAGE_INVALID_LENGTH_PERIOD.formatted(periodLengthTransactionsReport));
+                    ERROR_MESSAGE_INVALID_LENGTH_PERIOD.formatted(periodLengthTransactionsReport)));
         }
         RewardBatchAssignee operatorLevel = resolveOperatorLevel(organizationRole);
 

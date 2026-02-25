@@ -470,40 +470,25 @@ class ReportServiceImplTest {
     void generateMerchantTransactionsReport_invalidPeriod_startAfterEnd() {
         ReportRequest request = new ReportRequest();
         request.setStartPeriod(LocalDateTime.now().minusDays(1));
-        request.setEndPeriod(LocalDateTime.now().minusDays(5)); // start > end
+        request.setEndPeriod(LocalDateTime.now().minusDays(5));
 
-        ClientExceptionWithBody ex = assertThrows(
-                ClientExceptionWithBody.class,
-                () -> service.generateMerchantTransactionsReport(
-                        MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request
-                )
-        );
-
-        assertEquals(BAD_REQUEST, ex.getHttpStatus());
-        assertEquals(INVALID_PERIOD, ex.getCode());
+        StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody
+                        && ((ClientExceptionWithBody) throwable).getCode().equals(INVALID_PERIOD))
+                .verify();
     }
-
-
 
     @Test
     void generateMerchantTransactionsReport_invalidPeriod_endNotBeforeToday() {
         ReportRequest request = new ReportRequest();
         request.setStartPeriod(LocalDateTime.now().minusDays(10));
-        request.setEndPeriod(LocalDateTime.now()); // oggi → non valido
+        request.setEndPeriod(LocalDateTime.now());
 
-        ClientExceptionWithBody ex = assertThrows(
-                ClientExceptionWithBody.class,
-                () -> service.generateMerchantTransactionsReport(
-                        MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request
-                )
-        );
-
-        assertEquals(BAD_REQUEST, ex.getHttpStatus());
-        assertEquals(INVALID_PERIOD, ex.getCode());
+        StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody
+                        && ((ClientExceptionWithBody) throwable).getCode().equals(INVALID_PERIOD))
+                .verify();
     }
-
-
-
 
     @Test
     void generateMerchantTransactionsReport_invalidLengthPeriod_exceedsLimit() {
@@ -511,15 +496,10 @@ class ReportServiceImplTest {
         request.setStartPeriod(LocalDateTime.now().minusDays(PERIOD_LENGTH + 5));
         request.setEndPeriod(LocalDateTime.now().minusDays(1));
 
-        ClientExceptionWithBody ex = assertThrows(
-                ClientExceptionWithBody.class,
-                () -> service.generateMerchantTransactionsReport(
-                        MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request
-                )
-        );
-
-        assertEquals(BAD_REQUEST, ex.getHttpStatus());
-        assertEquals(INVALID_LENGTH_PERIOD, ex.getCode());
+        StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody
+                        && ((ClientExceptionWithBody) throwable).getCode().equals(INVALID_LENGTH_PERIOD))
+                .verify();
     }
 
 
