@@ -504,6 +504,7 @@ class ReportServiceImplTest {
 
 
 
+
     @Test
     void generateMerchantTransactionsReport_invalidLengthPeriod_exceedsLimit() {
         ReportRequest request = new ReportRequest();
@@ -520,7 +521,6 @@ class ReportServiceImplTest {
         assertEquals(BAD_REQUEST, ex.getHttpStatus());
         assertEquals(INVALID_LENGTH_PERIOD, ex.getCode());
     }
-
 
 
     @Test
@@ -551,6 +551,183 @@ class ReportServiceImplTest {
                 .assertNext(dto -> assertEquals("OK", dto.getId()))
                 .verifyComplete();
     }
+
+    @Test
+    void generateReport_userDetails_success() {
+        ReportRequest request = new ReportRequest();
+        request.setReportType(ReportType.USER_DETAILS);
+        request.setStartPeriod(LocalDateTime.now().minusDays(10));
+        request.setEndPeriod(LocalDateTime.now());
+
+        ReportDTO expectedDto = ReportDTO.builder().id("R1").build();
+
+        ReportServiceImpl spyService = spy(service);
+        doReturn(Mono.just(expectedDto))
+                .when(spyService)
+                .generateUserDetailsReport(any(), any(), any());
+
+        StepVerifier.create(spyService.generateReport(null, ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                .expectNext(expectedDto)
+                .verifyComplete();
+
+        verify(spyService, times(1))
+                .generateMerchantTransactionsReport(null, ORGANIZATION_ROLE, INITIATIVE_ID, request);
+    }
+
+    @Test
+    void generateUserDetailsReport_success() {
+        ReportRequest request = new ReportRequest();
+        request.setStartPeriod(LocalDateTime.now().minusDays(5));
+        request.setEndPeriod(LocalDateTime.now().minusDays(1));
+        request.setReportType(ReportType.USER_DETAILS);
+
+        Report savedReport = Report.builder()
+                .id("R100")
+                .initiativeId(INITIATIVE_ID)
+                .fileName("Report_01012026120000")
+                .reportStatus(ReportStatus.INSERTED)
+                .build();
+
+        ReportDTO mappedDto = ReportDTO.builder()
+                .id("R100")
+                .fileName(savedReport.getFileName())
+                .businessName(savedReport.getBusinessName())
+                .build();
+
+        when(reportRepository.save(any()))
+                .thenReturn(Mono.just(savedReport));
+
+        when(dataFactoryServiceMock.triggerUserDetailsReportPipeline(savedReport)).thenReturn(Mono.just("RUN_ID"));
+
+        when(reportMapper.toDTO(savedReport))
+                .thenReturn(mappedDto);
+
+        StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                .expectNext(mappedDto)
+                .verifyComplete();
+
+        verify(reportRepository).save(any(Report.class));
+        verify(reportMapper).toDTO(savedReport);
+    }
+
+    @Test
+    void generateUserDetailsReport_saveError() {
+        ReportRequest request = new ReportRequest();
+        request.setStartPeriod(LocalDateTime.now().minusDays(5));
+        request.setEndPeriod(LocalDateTime.now().minusDays(1));
+        request.setReportType(ReportType.USER_DETAILS);
+
+        RuntimeException saveError = new RuntimeException("DB error");
+
+        when(reportRepository.save(any()))
+                .thenReturn(Mono.error(saveError));
+
+        StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                .expectErrorMatches(err -> err instanceof RuntimeException &&
+                        err.getMessage().equals("DB error"))
+                .verify();
+
+        verify(reportRepository).save(any());
+        verifyNoInteractions(reportMapper);
+    }
+    @Test
+    void generateUserDetailsReport_fileNameGeneratedCorrectly() {
+        ReportRequest request = new ReportRequest();
+        request.setStartPeriod(LocalDateTime.of(2026, 1, 1, 0, 0));
+        request.setEndPeriod(LocalDateTime.of(2026, 1, 31, 23, 59));
+        request.setReportType(ReportType.USER_DETAILS);
+
+        LocalDateTime fixedNow = LocalDateTime.of(2026, 2, 1, 12, 30, 45);
+
+        try (MockedStatic<LocalDateTime> mocked = mockStatic(LocalDateTime.class, CALLS_REAL_METHODS)) {
+            mocked.when(LocalDateTime::now).thenReturn(fixedNow);
+
+            ArgumentCaptor<Report> captor = ArgumentCaptor.forClass(Report.class);
+
+            Report saved = Report.builder()
+                    .id("R200")
+                    .fileName("Report_01022026123045")
+                    .build();
+
+            when(reportRepository.save(any())).thenReturn(Mono.just(saved));
+            when(dataFactoryServiceMock.triggerUserDetailsReportPipeline(saved)).thenReturn(Mono.just("RUN_ID"));
+            when(reportMapper.toDTO(saved)).thenReturn(ReportDTO.builder().id("R200").fileName(saved.getFileName()).build());
+
+            StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                    .assertNext(dto -> assertEquals("Report_01022026123045", dto.getFileName()))
+                    .verifyComplete();
+
+            verify(reportRepository).save(captor.capture());
+            assertEquals("Report_01022026123045.csv", captor.getValue().getFileName());
+        }
+    }
+    @Test
+    void generateUserDetailsReport_TriggerPipelineError() {
+        ReportRequest request = new ReportRequest();
+        request.setStartPeriod(LocalDateTime.of(2026, 1, 1, 0, 0));
+        request.setEndPeriod(LocalDateTime.of(2026, 1, 31, 23, 59));
+        request.setReportType(ReportType.USER_DETAILS);
+
+        LocalDateTime fixedNow = LocalDateTime.of(2026, 2, 1, 12, 30, 45);
+
+        try (MockedStatic<LocalDateTime> mocked = mockStatic(LocalDateTime.class, CALLS_REAL_METHODS)) {
+            mocked.when(LocalDateTime::now).thenReturn(fixedNow);
+
+            Report saved = Report.builder()
+                    .id("R200")
+                    .fileName("Report_01022026123045")
+                    .build();
+
+            Report saved2 = Report.builder()
+                    .id("R200_2")
+                    .build();
+
+            when(reportRepository.save(any())).thenReturn(Mono.just(saved)).thenReturn(Mono.just(saved2));
+            when(dataFactoryServiceMock.triggerUserDetailsReportPipeline(saved)).thenReturn(Mono.error(new AzureConnectingErrorException("DUMMY_ERROR", new RuntimeException())));
+            when(reportMapper.toDTO(saved2)).thenReturn(ReportDTO.builder().id("R200_2").build());
+
+            StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                    .assertNext(dto -> assertEquals("R200_2", dto.getId()))
+                    .verifyComplete();
+        }
+    }
+
+    @Test
+    void generateUserDetailsReport_invalidPeriod_startAfterEnd() {
+        ReportRequest request = new ReportRequest();
+        request.setStartPeriod(LocalDateTime.now().minusDays(1));
+        request.setEndPeriod(LocalDateTime.now().minusDays(5)); // start > end
+
+        ClientExceptionWithBody ex = assertThrows(
+                ClientExceptionWithBody.class,
+                () -> service.generateUserDetailsReport(
+                         ORGANIZATION_ROLE, INITIATIVE_ID, request
+                )
+        );
+
+        assertEquals(BAD_REQUEST, ex.getHttpStatus());
+        assertEquals(INVALID_PERIOD, ex.getCode());
+    }
+
+
+
+    @Test
+    void generateUserDetailsReport_invalidPeriod_endNotBeforeToday() {
+        ReportRequest request = new ReportRequest();
+        request.setStartPeriod(LocalDateTime.now().minusDays(10));
+        request.setEndPeriod(LocalDateTime.now()); // oggi → non valido
+
+        ClientExceptionWithBody ex = assertThrows(
+                ClientExceptionWithBody.class,
+                () -> service.generateUserDetailsReport(
+                        ORGANIZATION_ROLE, INITIATIVE_ID, request
+                )
+        );
+
+        assertEquals(BAD_REQUEST, ex.getHttpStatus());
+        assertEquals(INVALID_PERIOD, ex.getCode());
+    }
+
 
     @Test
     void patchReport_success_updatesStatus() {

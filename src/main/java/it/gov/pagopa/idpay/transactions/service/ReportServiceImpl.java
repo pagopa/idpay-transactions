@@ -251,7 +251,7 @@ public class ReportServiceImpl implements ReportService {
 
         return reportRepository.save(reportEntity)
                 .flatMap(report ->
-                        triggerTransactionReportPipeline(report)
+                        triggerUserDetailsReportPipeline(report)
                                 .thenReturn(report)
                                 .onErrorResume(AzureConnectingErrorException.class, ex -> {
                                     log.error("[GENERATE_USER_DETAILS_REPORT] Error triggering pipeline", ex);
@@ -308,6 +308,14 @@ public class ReportServiceImpl implements ReportService {
 
     private Mono<Report2RunDto> triggerTransactionReportPipeline(Report report) {
         return dataFactoryService.triggerTransactionReportPipeline(report)
+                .map(runId ->
+                        Report2RunDto.builder()
+                                .reportId(report.getId())
+                                .runId(runId).build());
+    }
+
+    private Mono<Report2RunDto> triggerUserDetailsReportPipeline(Report report) {
+        return dataFactoryService.triggerUserDetailsReportPipeline(report)
                 .map(runId ->
                         Report2RunDto.builder()
                                 .reportId(report.getId())
