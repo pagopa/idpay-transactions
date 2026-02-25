@@ -1147,7 +1147,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
                         return  rewardBatchRepository.updateTotals(currentBatch.getId(), oldBatchCounters)
                                         .then(rewardBatchRepository.updateTotals(nextBatch.getId(), newBatchCounters))
-                               // rewardBatchRepository.moveTrxToNewBatch(currentBatch.getId(), nextBatch.getId(), accruedRewardCents, isTrxSuspended)
                             .then(Mono.defer(() -> {
 
                               trx.setRewardBatchId(nextBatch.getId());

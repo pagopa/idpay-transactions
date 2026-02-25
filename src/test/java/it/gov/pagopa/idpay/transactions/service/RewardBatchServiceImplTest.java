@@ -45,6 +45,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -1523,4 +1524,75 @@ class RewardBatchServiceImplTest {
 
         verify(reactiveMongoTemplate, never()).remove(any(Query.class), eq(RewardBatch.class));
     }
+
+    @Test
+    void postponeTransaction_whenTransactionIsSuspended_shouldUpdateSuspendedCounters() {
+
+        String merchantId = MERCHANT_ID;
+        String initiativeId = INITIATIVE_ID;
+        String rewardBatchId = BATCH_ID;
+        String transactionId = "TRX_ID";
+
+        LocalDate initiativeEndDate = LocalDate.of(2026, 12, 31);
+
+        long accruedRewardCents = 100L;
+
+        RewardTransaction trx = new RewardTransaction();
+        trx.setId(transactionId);
+        trx.setRewardBatchId(rewardBatchId);
+        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED);
+
+        Reward reward = new Reward();
+        reward.setAccruedRewardCents(accruedRewardCents);
+
+        Map<String, Reward> rewardsMap = new HashMap<>();
+        rewardsMap.put(initiativeId, reward);
+        trx.setRewards(rewardsMap);
+
+        RewardBatch currentBatch = new RewardBatch();
+        currentBatch.setId(rewardBatchId);
+        currentBatch.setStatus(RewardBatchStatus.CREATED);
+        currentBatch.setMonth("2026-01");
+        currentBatch.setMerchantId(merchantId);
+        currentBatch.setBusinessName(BUSINESS_NAME);
+
+        RewardBatch nextBatch = new RewardBatch();
+        nextBatch.setId(BATCH_ID_2);
+        nextBatch.setStatus(RewardBatchStatus.CREATED);
+
+        when(rewardTransactionRepository.findTransactionInBatch(merchantId, rewardBatchId, transactionId))
+                .thenReturn(Mono.just(trx));
+
+        when(rewardBatchRepository.findById(rewardBatchId))
+                .thenReturn(Mono.just(currentBatch));
+
+        doReturn(Mono.just(nextBatch)).when(serviceSpy)
+                .findOrCreateBatch(any(), any(), any(), any());
+
+        when(rewardBatchRepository.updateTotals(eq(rewardBatchId), any()))
+                .thenReturn(Mono.empty());
+
+        when(rewardBatchRepository.updateTotals(eq(BATCH_ID_2), any()))
+                .thenReturn(Mono.empty());
+
+        when(rewardTransactionRepository.save(any()))
+                .thenReturn(Mono.just(trx));
+
+        StepVerifier.create(
+                        serviceSpy.postponeTransaction(
+                                merchantId,
+                                initiativeId,
+                                rewardBatchId,
+                                transactionId,
+                                initiativeEndDate
+                        )
+                )
+                .verifyComplete();
+
+        verify(rewardBatchRepository, times(2))
+                .updateTotals(anyString(), any(BatchCountersDTO.class));
+
+        verify(rewardTransactionRepository).save(trx);
+    }
+
 }
