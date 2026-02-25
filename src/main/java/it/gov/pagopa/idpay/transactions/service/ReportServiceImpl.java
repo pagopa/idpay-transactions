@@ -146,12 +146,18 @@ public class ReportServiceImpl implements ReportService {
                                    String initiativeId,
                                    ReportRequest request){
         if (ReportType.MERCHANT_TRANSACTIONS.equals(request.getReportType())) {
-            log.info("[GET_MERCHANT_REPORT] Requested report with MerchantId = {}, startPeriod = {}, endPeriod = {}",
+            log.info("[GENERATE_MERCHANT_TRANSACTIONS_REPORT] Requested report with MerchantId = {}, startPeriod = {}, endPeriod = {}",
                     Utilities.sanitizeString(merchantId),
                     request.getStartPeriod(),
                     request.getEndPeriod());
             return generateMerchantTransactionsReport(merchantId, organizationRole, initiativeId, request);
     }
+        if (ReportType.USER_DETAILS.equals(request.getReportType())) {
+            log.info("[GENERATE_USER_DETAILS_REPORT] Requested report with startPeriod = {}, endPeriod = {}",
+                    request.getStartPeriod(),
+                    request.getEndPeriod());
+            return generateUserDetailsReport(organizationRole, initiativeId, request);
+        }
         return Mono.empty();
 }
 
@@ -211,10 +217,53 @@ public class ReportServiceImpl implements ReportService {
                                 })
                 )
                 .map(reportMapper::toDTO)
-                .doOnSuccess(saved -> log.info("[GENERATE_REPORT] Saved report {} for merchant {}",
+                .doOnSuccess(saved -> log.info("[GENERATE_MERCHANT_TRANSACTIONS_REPORT] Saved report {} for merchant {}",
                         saved.getFileName(), Utilities.sanitizeString(merchantId)));
 
     }
+
+    public Mono<ReportDTO> generateUserDetailsReport(String organizationRole,
+                                                     String initiativeId,
+                                                     ReportRequest request) {
+
+        if (!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay())
+                && request.getStartPeriod().isBefore(request.getEndPeriod()))) {
+            return Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    INVALID_PERIOD,
+                    ERROR_MESSAGE_INVALID_PERIOD));
+        }
+
+        RewardBatchAssignee operatorLevel = resolveOperatorLevel(organizationRole);
+        String formattedDate = LocalDateTime.now().format(FILE_NAME_FORMAT);
+        String fileName = String.format("Report_%s.csv", formattedDate);
+
+        Report reportEntity = Report.builder()
+                .initiativeId(initiativeId)
+                .reportStatus(ReportStatus.INSERTED)
+                .startPeriod(request.getStartPeriod())
+                .endPeriod(request.getEndPeriod())
+                .requestDate(LocalDateTime.now())
+                .operatorLevel(operatorLevel)
+                .fileName(fileName)
+                .reportType(request.getReportType())
+                .build();
+
+        return reportRepository.save(reportEntity)
+                .flatMap(report ->
+                        triggerTransactionReportPipeline(report)
+                                .thenReturn(report)
+                                .onErrorResume(AzureConnectingErrorException.class, ex -> {
+                                    log.error("[GENERATE_USER_DETAILS_REPORT] Error triggering pipeline", ex);
+                                    report.setReportStatus(ReportStatus.FAILED);
+                                    return reportRepository.save(report);
+                                })
+                )
+                .map(reportMapper::toDTO)
+                .doOnSuccess(saved -> log.info("[GENERATE_USER_DETAILS_REPORT] Saved report {} for initiative {}",
+                        saved.getFileName(), Utilities.sanitizeString(initiativeId)));
+    }
+
 
     private RewardBatchAssignee resolveOperatorLevel(String organizationRole) {
         if ("operator1".equals(organizationRole)) return RewardBatchAssignee.L1;
