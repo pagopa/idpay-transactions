@@ -48,6 +48,15 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
 
     String validMerchantId = merchantId != null ? merchantId : merchantIdFilter;
 
+    if (organizationRole != null) {
+        log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}, Role: {}",
+                validMerchantId != null ? Utilities.sanitizeString(validMerchantId) : "null",
+                Utilities.sanitizeString(organizationRole));
+    } else {
+        log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}",
+                Utilities.sanitizeString(validMerchantId));
+    }
+
       log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}, Role: {}",
               validMerchantId != null ? Utilities.sanitizeString(validMerchantId) : "null",
               organizationRole != null ? Utilities.sanitizeString(organizationRole) : "null");
