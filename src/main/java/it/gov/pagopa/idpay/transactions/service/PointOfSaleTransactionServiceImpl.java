@@ -106,7 +106,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
   @Override
   public Mono<DownloadInvoiceResponseDTO> downloadTransactionInvoice(
           String merchantId, String pointOfSaleId, String transactionId) {
-      return rewardTransactionRepository.findTransaction(merchantId, pointOfSaleId, transactionId)
+      return rewardTransactionRepository.findTransaction(merchantId, transactionId)
               .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
               .handle((rewardTransaction, sink) -> {
                 String status = rewardTransaction.getStatus();
@@ -326,27 +326,24 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     public Mono<Void> reversalTransaction(
             String transactionId,
             String merchantId,
-            String pointOfSaleId,
             FilePart file,
             String docNumber
     ) {
         String sanitizedTransactionId = Utilities.sanitizeString(transactionId);
-        String sanitizedPointOfSaleId = Utilities.sanitizeString(pointOfSaleId);
         String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
         String sanitizedDocNumber = Utilities.sanitizeString(docNumber);
 
         Utilities.checkFileExtensionOrThrow(file);
 
-        log.info("[REVERSAL-TRANSACTION-SERVICE] Start reversalTransaction transactionId={}, merchantId={}, posId={}, docNumber={}",
-                sanitizedTransactionId, sanitizedMerchantId, sanitizedPointOfSaleId, sanitizedDocNumber);
+        log.info("[REVERSAL-TRANSACTION-SERVICE] Start reversalTransaction transactionId={}, merchantId={}, docNumber={}",
+                sanitizedTransactionId, sanitizedMerchantId, sanitizedDocNumber);
 
-        //cambiare ricerca senza pointOfSaleId o levarlo dai Criteria se == null lasciando lo stesso metodo?
-        return rewardTransactionRepository.findTransaction(sanitizedMerchantId, sanitizedPointOfSaleId, sanitizedTransactionId)
+        return rewardTransactionRepository.findTransaction(sanitizedMerchantId, sanitizedTransactionId)
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
                 .doOnNext(rt -> log.info("[REVERSAL-TRANSACTION-SERVICE] Found transaction id={}, status={}, rewardBatchId={}",
                         rt.getId(), rt.getStatus(), rt.getRewardBatchId()))
                 //mettere anche rewarded tra gli stati ammessi
-                .flatMap(this::ensureTransactionIsInvoiced)
+                .flatMap(this::transactionIsInvoicedOrRewarded)
                 .flatMap(rt -> {
                     final String oldRewardBatchId = rt.getRewardBatchId();
                     final RewardBatchTrxStatus oldBatchTrxStatus = rt.getRewardBatchTrxStatus();
@@ -372,7 +369,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                             .then(Mono.defer(() -> {
                                 log.info("[REVERSAL-TRANSACTION-SERVICE] Uploading credit note BEFORE DB updates for trxId={}", rt.getId());
 
-                                return uploadCreditNoteOrThrow(file, sanitizedMerchantId, sanitizedPointOfSaleId, sanitizedTransactionId, rt.getId())
+                                return uploadCreditNoteOrThrow(file, sanitizedMerchantId, rt.getPointOfSaleId(), sanitizedTransactionId, rt.getId())
                                         .then(Mono.defer(() -> {
                                             log.info("[REVERSAL-TRANSACTION-SERVICE] Upload OK. Applying DB updates for trxId={}", rt.getId());
 
@@ -412,7 +409,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .then();
     }
 
-    private Mono<RewardTransaction> ensureTransactionIsInvoiced(RewardTransaction rt) {
+    private Mono<RewardTransaction> transactionIsInvoicedOrRewarded(RewardTransaction rt) {
         if (!SyncTrxStatus.INVOICED.toString().equals(rt.getStatus())) {
             log.warn("[REVERSAL-TRANSACTION-SERVICE] Transaction id={} has invalid status={} (expected INVOICED)",
                     rt.getId(), rt.getStatus());
