@@ -686,12 +686,12 @@ class PointOfSaleTransactionServiceImplTest {
     }
 
     @Test
-    void reversalTransaction_statusNotInvoiced_throws400() {
+    void reversalTransaction_statusNotInvoicedOrRewarded_throws400() {
         FilePart fp = mockFilePart("credit-note.pdf", true);
 
         RewardTransaction trx = baseInvoicedTrx();
         trx.setId(TRX_ID);
-        trx.setStatus(SyncTrxStatus.REWARDED.toString());
+        trx.setStatus(SyncTrxStatus.AUTHORIZED.toString());
 
         when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
