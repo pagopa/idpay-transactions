@@ -78,6 +78,225 @@ class ReportServiceImplTest {
     }
 
     @Test
+    void getUserDetailsReports_success() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Pageable sortedPageable = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "requestDate")
+        );
+
+        Report report = Report.builder()
+                .id("R30")
+                .initiativeId(INITIATIVE_ID)
+                .reportStatus(ReportStatus.INSERTED)
+                .operatorLevel(RewardBatchAssignee.L1)
+                .build();
+
+        when(reportRepository.findReportsCombined(
+                isNull(),
+                eq(ORGANIZATION_ROLE),
+                eq(INITIATIVE_ID),
+                eq(ReportType.USER_DETAILS),
+                eq(sortedPageable)
+        )).thenReturn(Flux.just(report));
+
+        when(reportRepository.countReportsCombined(
+                isNull(),
+                eq(ORGANIZATION_ROLE),
+                eq(INITIATIVE_ID),
+                eq(ReportType.USER_DETAILS)
+        )).thenReturn(Mono.just(1L));
+
+        StepVerifier.create(service.getUserDetailsReports(
+                        ORGANIZATION_ROLE,
+                        INITIATIVE_ID,
+                        pageable))
+                .assertNext(page -> {
+                    assertEquals(1, page.getTotalElements());
+                    assertEquals("R30", page.getContent().get(0).getId());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void getReports_withMerchantId_overridesReportType() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Pageable sortedPageable = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "requestDate")
+        );
+
+        Report report = Report.builder()
+                .id("R10")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
+                .reportStatus(ReportStatus.INSERTED)
+                .build();
+
+        when(reportRepository.findReportsCombined(
+                eq(MERCHANT_ID),
+                isNull(),
+                eq(INITIATIVE_ID),
+                eq(ReportType.MERCHANT_TRANSACTIONS),
+                eq(sortedPageable)
+        )).thenReturn(Flux.just(report));
+
+        when(reportRepository.countReportsCombined(
+                eq(MERCHANT_ID),
+                isNull(),
+                eq(INITIATIVE_ID),
+                eq(ReportType.MERCHANT_TRANSACTIONS)
+        )).thenReturn(Mono.just(1L));
+
+        StepVerifier.create(service.getReports(
+                        MERCHANT_ID,
+                        null,
+                        INITIATIVE_ID,
+                        ReportType.USER_DETAILS,
+                        pageable))
+                .assertNext(page -> {
+                    assertEquals(1, page.getTotalElements());
+                    assertEquals("R10", page.getContent().get(0).getId());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void getReports_throwsBadRequest_whenReportTypeNullAndNoMerchantId() {
+        Pageable pageable = PageRequest.of(0, 10);
+
+        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class,
+                () -> service.getReports(
+                        null,
+                        ORGANIZATION_ROLE,
+                        INITIATIVE_ID,
+                        null,
+                        pageable
+                ));
+
+        assertEquals(400, ex.getHttpStatus().value());
+    }
+
+    @Test
+    void getReports_userDetailsBranch_success() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Pageable sortedPageable = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "requestDate")
+        );
+
+        Report report = Report.builder()
+                .id("R20")
+                .initiativeId(INITIATIVE_ID)
+                .reportStatus(ReportStatus.INSERTED)
+                .operatorLevel(RewardBatchAssignee.L1)
+                .build();
+
+        when(reportRepository.findReportsCombined(
+                isNull(),
+                eq(ORGANIZATION_ROLE),
+                eq(INITIATIVE_ID),
+                eq(ReportType.USER_DETAILS),
+                eq(sortedPageable)
+        )).thenReturn(Flux.just(report));
+
+        when(reportRepository.countReportsCombined(
+                isNull(),
+                eq(ORGANIZATION_ROLE),
+                eq(INITIATIVE_ID),
+                eq(ReportType.USER_DETAILS)
+        )).thenReturn(Mono.just(1L));
+
+        StepVerifier.create(service.getReports(
+                        null,
+                        ORGANIZATION_ROLE,
+                        INITIATIVE_ID,
+                        ReportType.USER_DETAILS,
+                        pageable))
+                .assertNext(page -> {
+                    assertEquals(1, page.getTotalElements());
+                    assertEquals("R20", page.getContent().get(0).getId());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void getUserDetailsReports_throwsBadRequest_whenRoleBlank() {
+        Pageable pageable = PageRequest.of(0, 10);
+
+        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class,
+                () -> service.getUserDetailsReports(
+                        "",
+                        INITIATIVE_ID,
+                        pageable
+                ));
+
+        assertEquals(400, ex.getHttpStatus().value());
+    }
+
+    @Test
+    void getUserDetailsReports_throwsBadRequest_whenInvalidRole() {
+        Pageable pageable = PageRequest.of(0, 10);
+
+        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class,
+                () -> service.getUserDetailsReports(
+                        "admin",
+                        INITIATIVE_ID,
+                        pageable
+                ));
+
+        assertEquals(400, ex.getHttpStatus().value());
+        assertEquals("INVALID_ORGANIZATION_ROLE", ex.getCode());
+    }
+
+    @Test
+    void getReports_withBlankMerchantId_doesNotOverrideReportType() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Pageable sortedPageable = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "requestDate")
+        );
+
+        Report report = Report.builder()
+                .id("RB1")
+                .initiativeId(INITIATIVE_ID)
+                .reportStatus(ReportStatus.INSERTED)
+                .operatorLevel(RewardBatchAssignee.L1)
+                .build();
+
+        when(reportRepository.findReportsCombined(
+                isNull(),
+                eq(ORGANIZATION_ROLE),
+                eq(INITIATIVE_ID),
+                eq(ReportType.USER_DETAILS),
+                eq(sortedPageable)
+        )).thenReturn(Flux.just(report));
+
+        when(reportRepository.countReportsCombined(
+                isNull(),
+                eq(ORGANIZATION_ROLE),
+                eq(INITIATIVE_ID),
+                eq(ReportType.USER_DETAILS)
+        )).thenReturn(Mono.just(1L));
+
+        StepVerifier.create(service.getReports(
+                        "   ",
+                        ORGANIZATION_ROLE,
+                        INITIATIVE_ID,
+                        ReportType.USER_DETAILS,
+                        pageable))
+                .assertNext(page -> {
+                    assertEquals(1, page.getTotalElements());
+                    assertEquals("RB1", page.getContent().get(0).getId());
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void getTransactionsReports_returnsPage_success() {
 
         Pageable pageable = PageRequest.of(0, 10);
@@ -99,13 +318,15 @@ class ReportServiceImplTest {
                 eq(MERCHANT_ID),
                 isNull(),
                 eq(INITIATIVE_ID),
+                eq(ReportType.MERCHANT_TRANSACTIONS),
                 eq(sortedPageable)
         )).thenReturn(Flux.just(report));
 
         when(reportRepository.countReportsCombined(
                 eq(MERCHANT_ID),
                 isNull(),
-                eq(INITIATIVE_ID)
+                eq(INITIATIVE_ID),
+                eq(ReportType.MERCHANT_TRANSACTIONS)
         )).thenReturn(Mono.just(1L));
 
         try (MockedStatic<Utilities> utilitiesMock = mockStatic(Utilities.class, CALLS_REAL_METHODS)) {
@@ -143,13 +364,15 @@ class ReportServiceImplTest {
                 eq(MERCHANT_ID),
                 isNull(),
                 eq(INITIATIVE_ID),
+                eq(ReportType.MERCHANT_TRANSACTIONS),
                 eq(sortedPageable)
         )).thenReturn(Flux.empty());
 
         when(reportRepository.countReportsCombined(
                 eq(MERCHANT_ID),
                 isNull(),
-                eq(INITIATIVE_ID)
+                eq(INITIATIVE_ID),
+                eq(ReportType.MERCHANT_TRANSACTIONS)
         )).thenReturn(Mono.just(0L));
 
         try (MockedStatic<Utilities> utilitiesMock = mockStatic(Utilities.class, CALLS_REAL_METHODS)) {
@@ -187,13 +410,15 @@ class ReportServiceImplTest {
                 isNull(),
                 eq(ORGANIZATION_ROLE),
                 eq(INITIATIVE_ID),
+                eq(ReportType.MERCHANT_TRANSACTIONS),
                 eq(sortedPageable)
         )).thenReturn(Flux.just(report));
 
         when(reportRepository.countReportsCombined(
                 isNull(),
                 eq(ORGANIZATION_ROLE),
-                eq(INITIATIVE_ID)
+                eq(INITIATIVE_ID),
+                eq(ReportType.MERCHANT_TRANSACTIONS)
         )).thenReturn(Mono.just(1L));
 
         StepVerifier.create(service.getTransactionsReports(null, ORGANIZATION_ROLE, INITIATIVE_ID, pageable))
@@ -230,13 +455,15 @@ class ReportServiceImplTest {
                 eq(MERCHANT_ID),
                 isNull(),
                 eq(INITIATIVE_ID),
+                eq(ReportType.MERCHANT_TRANSACTIONS),
                 eq(sortedPageable)
         )).thenReturn(Flux.just(report));
 
         when(reportRepository.countReportsCombined(
                 eq(MERCHANT_ID),
                 isNull(),
-                eq(INITIATIVE_ID)
+                eq(INITIATIVE_ID),
+                eq(ReportType.MERCHANT_TRANSACTIONS)
         )).thenReturn(Mono.just(1L));
 
         try (MockedStatic<Utilities> utilitiesMock = mockStatic(Utilities.class, CALLS_REAL_METHODS)) {
@@ -274,8 +501,6 @@ class ReportServiceImplTest {
         assertEquals("INVALID_ORGANIZATION_ROLE", ex.getCode());
         assertEquals("The provided organization role is not a valid operator", ex.getMessage());
     }
-
-
 
     @Test
     void generateReport_merchantTransactions_success() {
@@ -470,39 +695,25 @@ class ReportServiceImplTest {
     void generateMerchantTransactionsReport_invalidPeriod_startAfterEnd() {
         ReportRequest request = new ReportRequest();
         request.setStartPeriod(LocalDateTime.now().minusDays(1));
-        request.setEndPeriod(LocalDateTime.now().minusDays(5)); // start > end
+        request.setEndPeriod(LocalDateTime.now().minusDays(5));
 
-        ClientExceptionWithBody ex = assertThrows(
-                ClientExceptionWithBody.class,
-                () -> service.generateMerchantTransactionsReport(
-                        MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request
-                )
-        );
-
-        assertEquals(BAD_REQUEST, ex.getHttpStatus());
-        assertEquals(INVALID_PERIOD, ex.getCode());
+        StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody
+                        && ((ClientExceptionWithBody) throwable).getCode().equals(INVALID_PERIOD))
+                .verify();
     }
-
-
 
     @Test
     void generateMerchantTransactionsReport_invalidPeriod_endNotBeforeToday() {
         ReportRequest request = new ReportRequest();
         request.setStartPeriod(LocalDateTime.now().minusDays(10));
-        request.setEndPeriod(LocalDateTime.now()); // oggi → non valido
+        request.setEndPeriod(LocalDateTime.now());
 
-        ClientExceptionWithBody ex = assertThrows(
-                ClientExceptionWithBody.class,
-                () -> service.generateMerchantTransactionsReport(
-                        MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request
-                )
-        );
-
-        assertEquals(BAD_REQUEST, ex.getHttpStatus());
-        assertEquals(INVALID_PERIOD, ex.getCode());
+        StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody
+                        && ((ClientExceptionWithBody) throwable).getCode().equals(INVALID_PERIOD))
+                .verify();
     }
-
-
 
     @Test
     void generateMerchantTransactionsReport_invalidLengthPeriod_exceedsLimit() {
@@ -510,17 +721,11 @@ class ReportServiceImplTest {
         request.setStartPeriod(LocalDateTime.now().minusDays(PERIOD_LENGTH + 5));
         request.setEndPeriod(LocalDateTime.now().minusDays(1));
 
-        ClientExceptionWithBody ex = assertThrows(
-                ClientExceptionWithBody.class,
-                () -> service.generateMerchantTransactionsReport(
-                        MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request
-                )
-        );
-
-        assertEquals(BAD_REQUEST, ex.getHttpStatus());
-        assertEquals(INVALID_LENGTH_PERIOD, ex.getCode());
+        StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody
+                        && ((ClientExceptionWithBody) throwable).getCode().equals(INVALID_LENGTH_PERIOD))
+                .verify();
     }
-
 
 
     @Test
@@ -551,6 +756,170 @@ class ReportServiceImplTest {
                 .assertNext(dto -> assertEquals("OK", dto.getId()))
                 .verifyComplete();
     }
+
+    @Test
+    void generateReport_userDetails_success() {
+        ReportRequest request = new ReportRequest();
+        request.setReportType(ReportType.USER_DETAILS);
+        request.setStartPeriod(LocalDateTime.now().minusDays(10));
+        request.setEndPeriod(LocalDateTime.now());
+
+        ReportDTO expectedDto = ReportDTO.builder().id("R1").build();
+
+        ReportServiceImpl spyService = spy(service);
+        doReturn(Mono.just(expectedDto))
+                .when(spyService)
+                .generateUserDetailsReport(any(), any(), any());
+
+        StepVerifier.create(spyService.generateReport(null, ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                .expectNext(expectedDto)
+                .verifyComplete();
+
+        verify(spyService, times(1))
+                .generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request);
+    }
+
+    @Test
+    void generateUserDetailsReport_success() {
+        ReportRequest request = new ReportRequest();
+        request.setStartPeriod(LocalDateTime.now().minusDays(5));
+        request.setEndPeriod(LocalDateTime.now().minusDays(1));
+        request.setReportType(ReportType.USER_DETAILS);
+
+        Report savedReport = Report.builder()
+                .id("R100")
+                .initiativeId(INITIATIVE_ID)
+                .fileName("Report_01012026120000")
+                .reportStatus(ReportStatus.INSERTED)
+                .build();
+
+        ReportDTO mappedDto = ReportDTO.builder()
+                .id("R100")
+                .fileName(savedReport.getFileName())
+                .businessName(savedReport.getBusinessName())
+                .build();
+
+        when(reportRepository.save(any()))
+                .thenReturn(Mono.just(savedReport));
+
+        when(dataFactoryServiceMock.triggerUserDetailsReportPipeline(savedReport)).thenReturn(Mono.just("RUN_ID"));
+
+        when(reportMapper.toDTO(savedReport))
+                .thenReturn(mappedDto);
+
+        StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                .expectNext(mappedDto)
+                .verifyComplete();
+
+        verify(reportRepository).save(any(Report.class));
+        verify(reportMapper).toDTO(savedReport);
+    }
+
+    @Test
+    void generateUserDetailsReport_saveError() {
+        ReportRequest request = new ReportRequest();
+        request.setStartPeriod(LocalDateTime.now().minusDays(5));
+        request.setEndPeriod(LocalDateTime.now().minusDays(1));
+        request.setReportType(ReportType.USER_DETAILS);
+
+        RuntimeException saveError = new RuntimeException("DB error");
+
+        when(reportRepository.save(any()))
+                .thenReturn(Mono.error(saveError));
+
+        StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                .expectErrorMatches(err -> err instanceof RuntimeException &&
+                        err.getMessage().equals("DB error"))
+                .verify();
+
+        verify(reportRepository).save(any());
+        verifyNoInteractions(reportMapper);
+    }
+    @Test
+    void generateUserDetailsReport_fileNameGeneratedCorrectly() {
+        ReportRequest request = new ReportRequest();
+        request.setStartPeriod(LocalDateTime.of(2026, 1, 1, 0, 0));
+        request.setEndPeriod(LocalDateTime.of(2026, 1, 31, 23, 59));
+        request.setReportType(ReportType.USER_DETAILS);
+
+        LocalDateTime fixedNow = LocalDateTime.of(2026, 2, 1, 12, 30, 45);
+
+        try (MockedStatic<LocalDateTime> mocked = mockStatic(LocalDateTime.class, CALLS_REAL_METHODS)) {
+            mocked.when(LocalDateTime::now).thenReturn(fixedNow);
+
+            ArgumentCaptor<Report> captor = ArgumentCaptor.forClass(Report.class);
+
+            Report saved = Report.builder()
+                    .id("R200")
+                    .fileName("Report_01022026123045")
+                    .build();
+
+            when(reportRepository.save(any())).thenReturn(Mono.just(saved));
+            when(dataFactoryServiceMock.triggerUserDetailsReportPipeline(saved)).thenReturn(Mono.just("RUN_ID"));
+            when(reportMapper.toDTO(saved)).thenReturn(ReportDTO.builder().id("R200").fileName(saved.getFileName()).build());
+
+            StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                    .assertNext(dto -> assertEquals("Report_01022026123045", dto.getFileName()))
+                    .verifyComplete();
+
+            verify(reportRepository).save(captor.capture());
+            assertEquals("Report_01022026123045.csv", captor.getValue().getFileName());
+        }
+    }
+    @Test
+    void generateUserDetailsReport_TriggerPipelineError() {
+        ReportRequest request = new ReportRequest();
+        request.setStartPeriod(LocalDateTime.of(2026, 1, 1, 0, 0));
+        request.setEndPeriod(LocalDateTime.of(2026, 1, 31, 23, 59));
+        request.setReportType(ReportType.USER_DETAILS);
+
+        LocalDateTime fixedNow = LocalDateTime.of(2026, 2, 1, 12, 30, 45);
+
+        try (MockedStatic<LocalDateTime> mocked = mockStatic(LocalDateTime.class, CALLS_REAL_METHODS)) {
+            mocked.when(LocalDateTime::now).thenReturn(fixedNow);
+
+            Report saved = Report.builder()
+                    .id("R200")
+                    .fileName("Report_01022026123045")
+                    .build();
+
+            Report saved2 = Report.builder()
+                    .id("R200_2")
+                    .build();
+
+            when(reportRepository.save(any())).thenReturn(Mono.just(saved)).thenReturn(Mono.just(saved2));
+            when(dataFactoryServiceMock.triggerUserDetailsReportPipeline(saved)).thenReturn(Mono.error(new AzureConnectingErrorException("DUMMY_ERROR", new RuntimeException())));
+            when(reportMapper.toDTO(saved2)).thenReturn(ReportDTO.builder().id("R200_2").build());
+
+            StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                    .assertNext(dto -> assertEquals("R200_2", dto.getId()))
+                    .verifyComplete();
+        }
+    }
+
+    @Test
+    void generateUserDetailsReport_invalidPeriod_startAfterEnd() {
+        ReportRequest request = new ReportRequest();        request.setStartPeriod(LocalDateTime.now().minusDays(1));
+        request.setEndPeriod(LocalDateTime.now().minusDays(5));
+
+        StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody
+                        && ((ClientExceptionWithBody) throwable).getCode().equals(INVALID_PERIOD))
+                .verify();
+    }
+
+    @Test
+    void generateUserDetailsReport_invalidPeriod_endNotBeforeToday() {
+        ReportRequest request = new ReportRequest();
+        request.setStartPeriod(LocalDateTime.now().minusDays(10));
+        request.setEndPeriod(LocalDateTime.now());
+
+        StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
+                .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody
+                        && ((ClientExceptionWithBody) throwable).getCode().equals(INVALID_PERIOD))
+                .verify();
+    }
+
 
     @Test
     void patchReport_success_updatesStatus() {

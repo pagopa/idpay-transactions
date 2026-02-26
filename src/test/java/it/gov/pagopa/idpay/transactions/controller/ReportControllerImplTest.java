@@ -87,10 +87,11 @@ class ReportControllerImplTest {
                 .totalPages(1)
                 .build();
 
-        when(reportService.getTransactionsReports(
+        when(reportService.getReports(
                 eq(MERCHANT_ID),
                 isNull(),
                 eq(INITIATIVE_ID),
+                eq(ReportType.MERCHANT_TRANSACTIONS),
                 any(Pageable.class)
         )).thenReturn(Mono.just(servicePage));
 
@@ -101,6 +102,7 @@ class ReportControllerImplTest {
                         .path("/idpay/merchant/portal/initiatives/{initiativeId}/reports")
                         .queryParam("page", 0)
                         .queryParam("size", 10)
+                        .queryParam("reportType", ReportType.MERCHANT_TRANSACTIONS)
                         .build(INITIATIVE_ID))
                 .header("x-merchant-id", MERCHANT_ID)
                 .exchange()
@@ -121,16 +123,23 @@ class ReportControllerImplTest {
                 });
 
         verify(reportService, times(1))
-                .getTransactionsReports(eq(MERCHANT_ID), isNull(), eq(INITIATIVE_ID), any(Pageable.class));
+                .getReports(
+                        eq(MERCHANT_ID),
+                        isNull(),
+                        eq(INITIATIVE_ID),
+                        eq(ReportType.MERCHANT_TRANSACTIONS),
+                        any(Pageable.class)
+                );
         verify(reportMapper, times(1)).toListDTO(servicePage);
     }
 
     @Test
     void getReports_ServiceFails_InternalServerError() {
-        when(reportService.getTransactionsReports(
+        when(reportService.getReports(
                 eq(MERCHANT_ID),
                 isNull(),
                 eq(INITIATIVE_ID),
+                eq(ReportType.MERCHANT_TRANSACTIONS),
                 any(Pageable.class)
         )).thenReturn(Mono.error(new RuntimeException("Service failure")));
 
@@ -139,13 +148,20 @@ class ReportControllerImplTest {
                         .path("/idpay/merchant/portal/initiatives/{initiativeId}/reports")
                         .queryParam("page", 0)
                         .queryParam("size", 10)
+                        .queryParam("reportType", ReportType.MERCHANT_TRANSACTIONS)
                         .build(INITIATIVE_ID))
                 .header("x-merchant-id", MERCHANT_ID)
                 .exchange()
                 .expectStatus().is5xxServerError();
 
         verify(reportService, times(1))
-                .getTransactionsReports(eq(MERCHANT_ID), isNull(), eq(INITIATIVE_ID), any(Pageable.class));
+                .getReports(
+                        eq(MERCHANT_ID),
+                        isNull(),
+                        eq(INITIATIVE_ID),
+                        eq(ReportType.MERCHANT_TRANSACTIONS),
+                        any(Pageable.class)
+                );
     }
 
     @Test
