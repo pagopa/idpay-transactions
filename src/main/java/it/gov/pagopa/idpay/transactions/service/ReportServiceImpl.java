@@ -74,6 +74,46 @@ public class ReportServiceImpl implements ReportService {
     private static final String REPORT_TRANSACTIONS_PATH_STORAGE_FORMAT = "initiative/%s/merchant/%s/report/%s";
 
     @Override
+    public Mono<Page<Report>> getReports(
+            String merchantId,
+            String organizationRole,
+            String initiativeId,
+            ReportType reportType,
+            Pageable pageable
+    ) {
+
+        //For backward compatibility for the merchant portal
+        if (merchantId != null && !merchantId.isBlank()) {
+            reportType = ReportType.MERCHANT_TRANSACTIONS;
+        }
+
+        if (reportType == null) {
+            log.warn("[GET_REPORTS] Missing mandatory filters: reportType null");
+            throw new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    REPORT_TYPE_REQUIRED,
+                    ERROR_MESSAGE_REPORT_TYPE_REQUIRED
+            );
+        }
+
+        return switch (reportType) {
+            case MERCHANT_TRANSACTIONS -> getTransactionsReports(
+                        merchantId,
+                        organizationRole,
+                        initiativeId,
+                        pageable
+                );
+
+            case USER_DETAILS -> getUserDetailsReports(
+                        organizationRole,
+                        initiativeId,
+                        pageable
+                );
+
+        };
+    }
+
+    @Override
     public Mono<Page<Report>> getTransactionsReports(
             String merchantId,
             String organizationRole,
@@ -113,13 +153,9 @@ public class ReportServiceImpl implements ReportService {
         }
 
         if (merchantId != null) {
-            log.info("[GET_TRANSACTIONS_REPORTS] Fetching reports for initiative: {}, merchant: {}",
-                    Utilities.sanitizeString(initiativeId),
-                    Utilities.sanitizeString(merchantId));
+            log.info("[GET_TRANSACTIONS_REPORTS] Fetching reports for initiative: {}, merchant: {}", Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(merchantId));
         } else {
-            log.info("[GET_TRANSACTIONS_REPORTS] Fetching reports for initiative: {}, role: {}",
-                    Utilities.sanitizeString(initiativeId),
-                    Utilities.sanitizeString(organizationRole));
+            log.info("[GET_TRANSACTIONS_REPORTS] Fetching reports for initiative: {}, role: {}", Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(organizationRole));
         }
 
         Pageable sortedPageable = PageRequest.of( pageable.getPageNumber(),
@@ -129,15 +165,69 @@ public class ReportServiceImpl implements ReportService {
                         merchantId,
                         organizationRole,
                         initiativeId,
+                        ReportType.MERCHANT_TRANSACTIONS,
                         sortedPageable
+
                 )
                 .collectList()
                 .zipWith(reportRepository.countReportsCombined(
                         merchantId,
                         organizationRole,
-                        initiativeId
+                        initiativeId,
+                        ReportType.MERCHANT_TRANSACTIONS
                 ))
                 .flatMap(tuple -> Mono.just(new PageImpl<>(tuple.getT1(), sortedPageable, tuple.getT2())));
+    }
+
+    @Override
+    public Mono<Page<Report>> getUserDetailsReports(
+            String organizationRole,
+            String initiativeId,
+            Pageable pageable
+    ) {
+
+        if (organizationRole == null || organizationRole.isBlank()) {
+            log.warn("[GET_USER_DETAILS_REPORTS] Missing mandatory filter: organizationRole is null or blank");
+
+            throw new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY,
+                    ERROR_MESSAGE_MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY
+            );
+        }
+
+        if (ALLOWED_ROLES.stream().noneMatch(role -> role.equalsIgnoreCase(organizationRole))) {
+
+            log.warn("[GET_USER_DETAILS_REPORTS] Invalid organizationRole: {}", Utilities.sanitizeString(organizationRole));
+            throw new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    INVALID_ORGANIZATION_ROLE,
+                    ERROR_MESSAGE_INVALID_ORGANIZATION_ROLE
+            );
+        }
+
+        log.info("[GET_USER_DETAILS_REPORTS] Fetching USER_DETAILS reports for initiative: {}, role: {}", Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(organizationRole));
+        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "requestDate"));
+
+        return reportRepository.findReportsCombined(
+                        null,
+                        organizationRole,
+                        initiativeId,
+                        ReportType.USER_DETAILS,
+                        sortedPageable
+                )
+                .collectList()
+                .zipWith(reportRepository.countReportsCombined(
+                        null,
+                        organizationRole,
+                        initiativeId,
+                        ReportType.USER_DETAILS
+                ))
+                .map(tuple -> new PageImpl<>(
+                        tuple.getT1(),
+                        sortedPageable,
+                        tuple.getT2()
+                ));
     }
 
     @Override

@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
+import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
@@ -22,24 +23,25 @@ public class ReportSpecificRepositoryImpl implements ReportSpecificRepository {
     }
 
     @Override
-    public Flux<Report> findReportsCombined(String merchantId, String organizationRole, String initiativeId, Pageable pageable) {
+    public Flux<Report> findReportsCombined(String merchantId, String organizationRole, String initiativeId, ReportType reportType, Pageable pageable) {
 
-        Criteria criteria = buildCombinedCriteria(merchantId, organizationRole, initiativeId);
+        Criteria criteria = buildCombinedCriteria(merchantId, organizationRole, initiativeId, reportType);
         Query query = Query.query(criteria).with(pageable);
         return mongoTemplate.find(query, Report.class);
     }
 
     @Override
-    public Mono<Long> countReportsCombined(String merchantId, String organizationRole, String initiativeId) {
+    public Mono<Long> countReportsCombined(String merchantId, String organizationRole, String initiativeId, ReportType reportType) {
 
-        Criteria criteria = buildCombinedCriteria(merchantId, organizationRole, initiativeId);
+        Criteria criteria = buildCombinedCriteria(merchantId, organizationRole, initiativeId, reportType);
         return mongoTemplate.count(Query.query(criteria), Report.class);
     }
 
     private Criteria buildCombinedCriteria(
             String merchantId,
             String organizationRole,
-            String initiativeId
+            String initiativeId,
+            ReportType reportType
     ) {
 
         List<Criteria> subCriteria = new ArrayList<>();
@@ -47,6 +49,12 @@ public class ReportSpecificRepositoryImpl implements ReportSpecificRepository {
         if (initiativeId != null && !initiativeId.isBlank()) {
             subCriteria.add(
                     Criteria.where(Report.Fields.initiativeId).is(initiativeId)
+            );
+        }
+
+        if (reportType != null) {
+            subCriteria.add(
+                    Criteria.where(Report.Fields.reportType).is(reportType)
             );
         }
 
