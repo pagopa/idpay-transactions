@@ -340,15 +340,18 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         log.info("[REVERSAL-TRANSACTION-SERVICE] Start reversalTransaction transactionId={}, merchantId={}, posId={}, docNumber={}",
                 sanitizedTransactionId, sanitizedMerchantId, sanitizedPointOfSaleId, sanitizedDocNumber);
 
+        //cambiare ricerca senza pointOfSaleId o levarlo dai Criteria se == null lasciando lo stesso metodo?
         return rewardTransactionRepository.findTransaction(sanitizedMerchantId, sanitizedPointOfSaleId, sanitizedTransactionId)
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
                 .doOnNext(rt -> log.info("[REVERSAL-TRANSACTION-SERVICE] Found transaction id={}, status={}, rewardBatchId={}",
                         rt.getId(), rt.getStatus(), rt.getRewardBatchId()))
+                //mettere anche rewarded tra gli stati ammessi
                 .flatMap(this::ensureTransactionIsInvoiced)
                 .flatMap(rt -> {
                     final String oldRewardBatchId = rt.getRewardBatchId();
                     final RewardBatchTrxStatus oldBatchTrxStatus = rt.getRewardBatchTrxStatus();
                     final boolean wasSuspended = RewardBatchTrxStatus.SUSPENDED.equals(oldBatchTrxStatus);
+                    final boolean wasRejected = RewardBatchTrxStatus.REJECTED.equals(oldBatchTrxStatus);
                     String initiativeId = rt.getInitiatives().getFirst();
                     long accruedRewardCents = rt.getRewards().get(initiativeId).getAccruedRewardCents();
 
@@ -358,6 +361,10 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     if (wasSuspended) {
                         counters.decrementSuspendedAmountCents(accruedRewardCents)
                                 .decrementTrxSuspended()
+                                .decrementTrxElaborated();
+                    }
+                    if (wasRejected) {
+                        counters.decrementTrxRejected()
                                 .decrementTrxElaborated();
                     }
 
