@@ -33,7 +33,7 @@ public interface ReportController {
     );
 
     @PostMapping("/initiatives/{initiativeId}/reports")
-    Mono<ReportDTO> generateReport(@RequestHeader("x-merchant-id") String merchantId,
+    Mono<ReportDTO> generateReport(@RequestHeader(value = "x-merchant-id", required = false) String merchantId,
                                                        @RequestHeader(value = "x-organization-role", required = false) String organizationRole,
                                                        @PathVariable("initiativeId") String initiativeId,
                                                        @RequestBody @Valid ReportRequest request);

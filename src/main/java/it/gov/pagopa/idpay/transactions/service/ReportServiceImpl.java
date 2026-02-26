@@ -235,7 +235,14 @@ public class ReportServiceImpl implements ReportService {
                                    String organizationRole,
                                    String initiativeId,
                                    ReportRequest request){
+
         if (ReportType.MERCHANT_TRANSACTIONS.equals(request.getReportType())) {
+            if(merchantId == null){
+                return Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.BAD_REQUEST,
+                        MERCHANT_ID_REQUIRED,
+                        ERROR_MESSAGE_MERCHANT_ID_MANDATORY));
+            }
             log.info("[GENERATE_MERCHANT_TRANSACTIONS_REPORT] Requested report with MerchantId = {}, startPeriod = {}, endPeriod = {}",
                     Utilities.sanitizeString(merchantId),
                     request.getStartPeriod(),
