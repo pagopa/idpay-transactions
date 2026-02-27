@@ -16,6 +16,8 @@ import it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.repository.ReportRepository;
 import it.gov.pagopa.idpay.transactions.storage.ReportBlobService;
+import it.gov.pagopa.idpay.transactions.storage.ReportTransactionsBlobServiceImpl;
+import it.gov.pagopa.idpay.transactions.storage.ReportUserDetailsBlobServiceImpl;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +47,8 @@ public class ReportServiceImpl implements ReportService {
 
     private final ReportMapper reportMapper;
 
-    private final ReportBlobService reportBlobService;
+    private final ReportTransactionsBlobServiceImpl reportTransactionsBlobService;
+    private final ReportUserDetailsBlobServiceImpl reportUserDetailsBlobService;
 
     private final DataFactoryService dataFactoryService;
 
@@ -56,13 +59,15 @@ public class ReportServiceImpl implements ReportService {
             ReportRepository reportRepository,
             MerchantRestClient merchantRestClient,
             ReportMapper reportMapper,
-            ReportBlobService reportBlobService,
+            ReportTransactionsBlobServiceImpl reportTransactionsBlobService,
+            ReportUserDetailsBlobServiceImpl reportUserDetailsBlobService,
             DataFactoryService dataFactoryService) {
         this.periodLengthTransactionsReport = periodLengthTransactionsReport;
         this.reportRepository = reportRepository;
         this.merchantRestClient = merchantRestClient;
         this.reportMapper = reportMapper;
-        this.reportBlobService = reportBlobService;
+        this.reportTransactionsBlobService = reportTransactionsBlobService;
+        this.reportUserDetailsBlobService = reportUserDetailsBlobService;
         this.dataFactoryService = dataFactoryService;
     }
 
@@ -586,13 +591,17 @@ public class ReportServiceImpl implements ReportService {
             );
         }
 
-        return Mono.just(
-                DownloadReportResponseDTO.builder()
-                        .reportUrl(
-                                reportBlobService.getFileSignedUrl(blobPath)
-                        )
-                        .build()
-        );
+        ReportBlobService reportBlobService = ReportType.MERCHANT_TRANSACTIONS.equals(report.getReportType())
+                                                ? reportTransactionsBlobService
+                                                : reportUserDetailsBlobService;
+            return Mono.just(
+                    DownloadReportResponseDTO.builder()
+                            .reportUrl(
+                                    reportBlobService.getFileSignedUrl(blobPath)
+                            )
+                            .build()
+            );
+
     }
 
 }

@@ -41,7 +41,7 @@ class BlobStorageClientConfigTest {
     BlobServiceClient serviceClient = blobStorageClientConfig.blobServiceClient();
 
     BlobStorageProperties properties = new BlobStorageProperties();
-    properties.setReportsContainerReference("reportsContainer");
+    properties.setReportsTransactionsContainerReference("reportsContainer");
 
     BlobStorageClientConfig config = new BlobStorageClientConfig(properties);
 
