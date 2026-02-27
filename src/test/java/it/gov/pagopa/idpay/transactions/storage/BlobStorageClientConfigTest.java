@@ -37,17 +37,31 @@ class BlobStorageClientConfigTest {
   }
 
   @Test
-  void testReportsContainerClient() {
+  void testReportsTransactionsContainerClient() {
     BlobServiceClient serviceClient = blobStorageClientConfig.blobServiceClient();
 
     BlobStorageProperties properties = new BlobStorageProperties();
-    properties.setReportsTransactionsContainerReference("reportsContainer");
+    properties.setReportsTransactionsContainerReference("reportsTransactionsContainer");
 
     BlobStorageClientConfig config = new BlobStorageClientConfig(properties);
 
-    BlobContainerClient reportsClient = config.reportsContainerClient(serviceClient);
+    BlobContainerClient reportsClient = config.reportsTransactionsContainerClient(serviceClient);
     assertNotNull(reportsClient);
-    assert(reportsClient.getBlobContainerName().equals("reportsContainer"));
+    assert(reportsClient.getBlobContainerName().equals("reportsTransactionsContainer"));
+  }
+
+  @Test
+  void testReportsUserDetailsContainerClient() {
+    BlobServiceClient serviceClient = blobStorageClientConfig.blobServiceClient();
+
+    BlobStorageProperties properties = new BlobStorageProperties();
+    properties.setReportsUserDetailsContainerReference("reportsUserDetailsContainer");
+
+    BlobStorageClientConfig config = new BlobStorageClientConfig(properties);
+
+    BlobContainerClient reportsClient = config.reportsUserDetailsContainerClient(serviceClient);
+    assertNotNull(reportsClient);
+    assert(reportsClient.getBlobContainerName().equals("reportsUserDetailsContainer"));
   }
 
 }

@@ -17,7 +17,8 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.repository.ReportRepository;
-import it.gov.pagopa.idpay.transactions.storage.ReportBlobService;
+import it.gov.pagopa.idpay.transactions.storage.ReportTransactionsBlobServiceImpl;
+import it.gov.pagopa.idpay.transactions.storage.ReportUserDetailsBlobServiceImpl;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -67,7 +68,10 @@ class ReportServiceImplTest {
     private ReportServiceImpl service;
 
     @Mock
-    private ReportBlobService reportBlobService;
+    private ReportTransactionsBlobServiceImpl reportTransactionsBlobService;
+
+    @Mock
+    private ReportUserDetailsBlobServiceImpl reportUserDetailsBlobService;
 
 
     private static final String MERCHANT_ID = "M1";
@@ -77,7 +81,7 @@ class ReportServiceImplTest {
 
     @BeforeEach
     void setup() {
-        service = new ReportServiceImpl(PERIOD_LENGTH, reportRepository, merchantRestClient, reportMapper, reportBlobService, dataFactoryServiceMock);
+        service = new ReportServiceImpl(PERIOD_LENGTH, reportRepository, merchantRestClient, reportMapper, reportTransactionsBlobService, reportUserDetailsBlobService, dataFactoryServiceMock);
     }
 
     @Test
@@ -1190,7 +1194,7 @@ class ReportServiceImplTest {
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
 
-        verifyNoInteractions(reportBlobService);
+        verifyNoInteractions(reportTransactionsBlobService);
     }
 
     @Test
@@ -1232,13 +1236,14 @@ class ReportServiceImplTest {
                 .merchantId(MERCHANT_ID)
                 .reportStatus(ReportStatus.GENERATED)
                 .fileName(fileName)
+                .reportType(ReportType.MERCHANT_TRANSACTIONS)
                 .build();
 
         when(reportRepository.findByIdAndInitiativeIdAndMerchantId(
                 reportId, INITIATIVE_ID, MERCHANT_ID))
                 .thenReturn(Mono.just(report));
 
-        when(reportBlobService.getFileSignedUrl(anyString()))
+        when(reportTransactionsBlobService.getFileSignedUrl(anyString()))
                 .thenReturn(expectedUrl);
 
         StepVerifier.create(
@@ -1254,7 +1259,48 @@ class ReportServiceImplTest {
                 })
                 .verifyComplete();
 
-        verify(reportBlobService).getFileSignedUrl(contains(fileName));
+        verify(reportTransactionsBlobService).getFileSignedUrl(contains(fileName));
+    }
+
+    @Test
+    void downloadUserDetailsReport_success() {
+
+        String reportId = "R2";
+        String fileName = "UserDetails_01012026120000";
+        String expectedUrl = "https://signed-user-details-url";
+
+        Report report = Report.builder()
+                .id(reportId)
+                .initiativeId(INITIATIVE_ID)
+                .reportStatus(ReportStatus.GENERATED)
+                .fileName(fileName)
+                .reportType(ReportType.USER_DETAILS)
+                .build();
+
+        when(reportRepository.findByIdAndInitiativeId(
+                reportId, INITIATIVE_ID))
+                .thenReturn(Mono.just(report));
+
+        when(reportUserDetailsBlobService.getFileSignedUrl(anyString()))
+                .thenReturn(expectedUrl);
+
+        StepVerifier.create(
+                        service.downloadUserDetailsReports(
+                                "operator1",
+                                INITIATIVE_ID,
+                                reportId
+                        )
+                )
+                .assertNext(response -> {
+                    assertEquals(expectedUrl, response.getReportUrl());
+                })
+                .verifyComplete();
+
+        verify(reportUserDetailsBlobService)
+                .getFileSignedUrl(contains(fileName));
+
+        verify(reportTransactionsBlobService, never())
+                .getFileSignedUrl(anyString());
     }
 
     @Test
@@ -1435,7 +1481,7 @@ class ReportServiceImplTest {
         when(reportRepository.findByIdAndInitiativeId("R1", INITIATIVE_ID))
                 .thenReturn(Mono.just(report));
 
-        when(reportBlobService.getFileSignedUrl(anyString()))
+        when(reportUserDetailsBlobService.getFileSignedUrl(anyString()))
                 .thenReturn("signed-url");
 
         StepVerifier.create(
@@ -1503,7 +1549,7 @@ class ReportServiceImplTest {
         when(reportRepository.findByIdAndInitiativeId(reportId, INITIATIVE_ID))
                 .thenReturn(Mono.just(report));
 
-        when(reportBlobService.getFileSignedUrl(anyString()))
+        when(reportUserDetailsBlobService.getFileSignedUrl(anyString()))
                 .thenReturn(expectedUrl);
 
         StepVerifier.create(
