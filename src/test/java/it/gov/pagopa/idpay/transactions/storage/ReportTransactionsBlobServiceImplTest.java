@@ -23,7 +23,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class ReportBlobServiceImplTest {
+class ReportTransactionsBlobServiceImplTest {
 
     @Mock
     private BlobClient blobClientMock;
@@ -37,7 +37,7 @@ class ReportBlobServiceImplTest {
     @Mock
     private BlobStorageProperties propertiesMock;
 
-    private ReportBlobServiceImpl reportService;
+    private ReportTransactionsBlobServiceImpl reportService;
 
     @BeforeEach
     void init() {
@@ -46,7 +46,7 @@ class ReportBlobServiceImplTest {
         lenient().when(reportsContainerClient.getBlobClient(anyString()))
                 .thenReturn(blobClientMock);
 
-        reportService = new ReportBlobServiceImpl(
+        reportService = new ReportTransactionsBlobServiceImpl(
                 blobServiceClient,
                 reportsContainerClient,
                 propertiesMock
