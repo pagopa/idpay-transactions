@@ -34,8 +34,13 @@ public class BlobStorageClientConfig {
     return blobServiceClient.getBlobContainerClient(properties.getCsvContainerReference());
   }
 
-  @Bean("reportsContainerClient")
-  public BlobContainerClient reportsContainerClient(BlobServiceClient blobServiceClient){
-    return blobServiceClient.getBlobContainerClient(properties.getReportsContainerReference());
+  @Bean("reportsTransactionsContainerClient")
+  public BlobContainerClient reportsTransactionsContainerClient(BlobServiceClient blobServiceClient){
+    return blobServiceClient.getBlobContainerClient(properties.getReportsTransactionsContainerReference());
+  }
+
+  @Bean("reportsUserDetailsContainerClient")
+  public BlobContainerClient reportsUserDetailsContainerClient(BlobServiceClient blobServiceClient){
+    return blobServiceClient.getBlobContainerClient(properties.getReportsUserDetailsContainerReference());
   }
 }
