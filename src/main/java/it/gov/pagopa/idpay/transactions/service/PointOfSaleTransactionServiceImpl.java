@@ -7,6 +7,7 @@ import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionKafkaMapper;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
@@ -342,8 +343,8 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
                 .doOnNext(rt -> log.info("[REVERSAL-TRANSACTION-SERVICE] Found transaction id={}, status={}, rewardBatchId={}",
                         rt.getId(), rt.getStatus(), rt.getRewardBatchId()))
-                //mettere anche rewarded tra gli stati ammessi
                 .flatMap(this::transactionIsInvoicedOrRewarded)
+                .flatMap(this::rewardBatchAlowedStatus)
                 .flatMap(rt -> {
                     final String oldRewardBatchId = rt.getRewardBatchId();
                     final RewardBatchTrxStatus oldBatchTrxStatus = rt.getRewardBatchTrxStatus();
@@ -421,6 +422,38 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
             ));
         }
         return Mono.just(rt);
+    }
+
+    private Mono<RewardTransaction> rewardBatchAlowedStatus(RewardTransaction rt) {
+
+        return rewardBatchRepository.findById(rt.getRewardBatchId())
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.warn("[REVERSAL-TRANSACTION-SERVICE] RewardBatch id={} not found",
+                            rt.getRewardBatchId());
+                    return Mono.error(new ClientExceptionWithBody(
+                            HttpStatus.NOT_FOUND,
+                            GENERIC_ERROR,
+                            REWARD_BATCH_NOT_FOUND
+                    ));
+                }))
+                .flatMap(rewardBatch -> {
+                    String status = rewardBatch.getStatus().toString();
+
+                    if (!RewardBatchStatus.APPROVED.toString().equals(status)
+                            && !RewardBatchStatus.EVALUATING.toString().equals(status)
+                            && !RewardBatchStatus.CREATED.toString().equals(status)) {
+
+                        log.warn("[REVERSAL-TRANSACTION-SERVICE] RewardBatch id={} has invalid status={} (expected APPROVED, EVALUATING or CREATED)",
+                                rewardBatch.getId(), status);
+
+                        return Mono.error(new ClientExceptionWithBody(
+                                HttpStatus.BAD_REQUEST,
+                                GENERIC_ERROR,
+                                REWARD_BATCH_STATUS_NOT_ALLOWED
+                        ));
+                    }
+                    return Mono.just(rt);
+                });
     }
 
     private Mono<Void> checkRewardBatchCreatedIfPresent(String rewardBatchId) {
