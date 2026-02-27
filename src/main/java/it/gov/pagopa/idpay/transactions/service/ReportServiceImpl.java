@@ -73,6 +73,48 @@ public class ReportServiceImpl implements ReportService {
 
     private static final String REPORT_TRANSACTIONS_PATH_STORAGE_FORMAT = "initiative/%s/merchant/%s/report/%s";
 
+    private static final String REPORT_USER_DETAILS_PATH_STORAGE_FORMAT = "initiative/%s/report/%s";
+
+    @Override
+    public Mono<Page<Report>> getReports(
+            String merchantId,
+            String organizationRole,
+            String initiativeId,
+            ReportType reportType,
+            Pageable pageable
+    ) {
+
+        //For backward compatibility for the merchant portal
+        if (merchantId != null && !merchantId.isBlank()) {
+            reportType = ReportType.MERCHANT_TRANSACTIONS;
+        }
+
+        if (reportType == null) {
+            log.warn("[GET_REPORTS] Missing mandatory filters: reportType null");
+            throw new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    REPORT_TYPE_REQUIRED,
+                    ERROR_MESSAGE_REPORT_TYPE_REQUIRED
+            );
+        }
+
+        return switch (reportType) {
+            case MERCHANT_TRANSACTIONS -> getTransactionsReports(
+                        merchantId,
+                        organizationRole,
+                        initiativeId,
+                        pageable
+                );
+
+            case USER_DETAILS -> getUserDetailsReports(
+                        organizationRole,
+                        initiativeId,
+                        pageable
+                );
+
+        };
+    }
+
     @Override
     public Mono<Page<Report>> getTransactionsReports(
             String merchantId,
@@ -113,13 +155,9 @@ public class ReportServiceImpl implements ReportService {
         }
 
         if (merchantId != null) {
-            log.info("[GET_TRANSACTIONS_REPORTS] Fetching reports for initiative: {}, merchant: {}",
-                    Utilities.sanitizeString(initiativeId),
-                    Utilities.sanitizeString(merchantId));
+            log.info("[GET_TRANSACTIONS_REPORTS] Fetching reports for initiative: {}, merchant: {}", Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(merchantId));
         } else {
-            log.info("[GET_TRANSACTIONS_REPORTS] Fetching reports for initiative: {}, role: {}",
-                    Utilities.sanitizeString(initiativeId),
-                    Utilities.sanitizeString(organizationRole));
+            log.info("[GET_TRANSACTIONS_REPORTS] Fetching reports for initiative: {}, role: {}", Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(organizationRole));
         }
 
         Pageable sortedPageable = PageRequest.of( pageable.getPageNumber(),
@@ -129,15 +167,69 @@ public class ReportServiceImpl implements ReportService {
                         merchantId,
                         organizationRole,
                         initiativeId,
+                        ReportType.MERCHANT_TRANSACTIONS,
                         sortedPageable
+
                 )
                 .collectList()
                 .zipWith(reportRepository.countReportsCombined(
                         merchantId,
                         organizationRole,
-                        initiativeId
+                        initiativeId,
+                        ReportType.MERCHANT_TRANSACTIONS
                 ))
                 .flatMap(tuple -> Mono.just(new PageImpl<>(tuple.getT1(), sortedPageable, tuple.getT2())));
+    }
+
+    @Override
+    public Mono<Page<Report>> getUserDetailsReports(
+            String organizationRole,
+            String initiativeId,
+            Pageable pageable
+    ) {
+
+        if (organizationRole == null || organizationRole.isBlank()) {
+            log.warn("[GET_USER_DETAILS_REPORTS] Missing mandatory filter: organizationRole is null or blank");
+
+            throw new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY,
+                    ERROR_MESSAGE_MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY
+            );
+        }
+
+        if (ALLOWED_ROLES.stream().noneMatch(role -> role.equalsIgnoreCase(organizationRole))) {
+
+            log.warn("[GET_USER_DETAILS_REPORTS] Invalid organizationRole: {}", Utilities.sanitizeString(organizationRole));
+            throw new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    INVALID_ORGANIZATION_ROLE,
+                    ERROR_MESSAGE_INVALID_ORGANIZATION_ROLE
+            );
+        }
+
+        log.info("[GET_USER_DETAILS_REPORTS] Fetching USER_DETAILS reports for initiative: {}, role: {}", Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(organizationRole));
+        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "requestDate"));
+
+        return reportRepository.findReportsCombined(
+                        null,
+                        organizationRole,
+                        initiativeId,
+                        ReportType.USER_DETAILS,
+                        sortedPageable
+                )
+                .collectList()
+                .zipWith(reportRepository.countReportsCombined(
+                        null,
+                        organizationRole,
+                        initiativeId,
+                        ReportType.USER_DETAILS
+                ))
+                .map(tuple -> new PageImpl<>(
+                        tuple.getT1(),
+                        sortedPageable,
+                        tuple.getT2()
+                ));
     }
 
     @Override
@@ -145,13 +237,26 @@ public class ReportServiceImpl implements ReportService {
                                    String organizationRole,
                                    String initiativeId,
                                    ReportRequest request){
+
         if (ReportType.MERCHANT_TRANSACTIONS.equals(request.getReportType())) {
-            log.info("[GET_MERCHANT_REPORT] Requested report with MerchantId = {}, startPeriod = {}, endPeriod = {}",
+            if(merchantId == null){
+                return Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.BAD_REQUEST,
+                        MERCHANT_ID_REQUIRED,
+                        ERROR_MESSAGE_MERCHANT_ID_MANDATORY));
+            }
+            log.info("[GENERATE_MERCHANT_TRANSACTIONS_REPORT] Requested report with MerchantId = {}, startPeriod = {}, endPeriod = {}",
                     Utilities.sanitizeString(merchantId),
                     request.getStartPeriod(),
                     request.getEndPeriod());
             return generateMerchantTransactionsReport(merchantId, organizationRole, initiativeId, request);
     }
+        if (ReportType.USER_DETAILS.equals(request.getReportType())) {
+            log.info("[GENERATE_USER_DETAILS_REPORT] Requested report with startPeriod = {}, endPeriod = {}",
+                    request.getStartPeriod(),
+                    request.getEndPeriod());
+            return generateUserDetailsReport(organizationRole, initiativeId, request);
+        }
         return Mono.empty();
 }
 
@@ -163,17 +268,17 @@ public class ReportServiceImpl implements ReportService {
 
         if(!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay())
             && request.getStartPeriod().isBefore(request.getEndPeriod()))){
-            throw new ClientExceptionWithBody(
+            return Mono.error(new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
                     INVALID_PERIOD,
-                    ERROR_MESSAGE_INVALID_PERIOD);
+                    ERROR_MESSAGE_INVALID_PERIOD));
         }
 
         if(ChronoUnit.DAYS.between(request.getStartPeriod(), request.getEndPeriod()) > periodLengthTransactionsReport){
-            throw new ClientExceptionWithBody(
+            return Mono.error(new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
                     INVALID_LENGTH_PERIOD,
-                    ERROR_MESSAGE_INVALID_LENGTH_PERIOD.formatted(periodLengthTransactionsReport));
+                    ERROR_MESSAGE_INVALID_LENGTH_PERIOD.formatted(periodLengthTransactionsReport)));
         }
         RewardBatchAssignee operatorLevel = resolveOperatorLevel(organizationRole);
 
@@ -211,10 +316,53 @@ public class ReportServiceImpl implements ReportService {
                                 })
                 )
                 .map(reportMapper::toDTO)
-                .doOnSuccess(saved -> log.info("[GENERATE_REPORT] Saved report {} for merchant {}",
+                .doOnSuccess(saved -> log.info("[GENERATE_MERCHANT_TRANSACTIONS_REPORT] Saved report {} for merchant {}",
                         saved.getFileName(), Utilities.sanitizeString(merchantId)));
 
     }
+
+    public Mono<ReportDTO> generateUserDetailsReport(String organizationRole,
+                                                     String initiativeId,
+                                                     ReportRequest request) {
+
+        if (!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay())
+                && request.getStartPeriod().isBefore(request.getEndPeriod()))) {
+            return Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    INVALID_PERIOD,
+                    ERROR_MESSAGE_INVALID_PERIOD));
+        }
+
+        RewardBatchAssignee operatorLevel = resolveOperatorLevel(organizationRole);
+        String formattedDate = LocalDateTime.now().format(FILE_NAME_FORMAT);
+        String fileName = String.format("Report_%s.csv", formattedDate);
+
+        Report reportEntity = Report.builder()
+                .initiativeId(initiativeId)
+                .reportStatus(ReportStatus.INSERTED)
+                .startPeriod(request.getStartPeriod())
+                .endPeriod(request.getEndPeriod())
+                .requestDate(LocalDateTime.now())
+                .operatorLevel(operatorLevel)
+                .fileName(fileName)
+                .reportType(request.getReportType())
+                .build();
+
+        return reportRepository.save(reportEntity)
+                .flatMap(report ->
+                        triggerUserDetailsReportPipeline(report)
+                                .thenReturn(report)
+                                .onErrorResume(AzureConnectingErrorException.class, ex -> {
+                                    log.error("[GENERATE_USER_DETAILS_REPORT] Error triggering pipeline", ex);
+                                    report.setReportStatus(ReportStatus.FAILED);
+                                    return reportRepository.save(report);
+                                })
+                )
+                .map(reportMapper::toDTO)
+                .doOnSuccess(saved -> log.info("[GENERATE_USER_DETAILS_REPORT] Saved report {} for initiative {}",
+                        saved.getFileName(), Utilities.sanitizeString(initiativeId)));
+    }
+
 
     private RewardBatchAssignee resolveOperatorLevel(String organizationRole) {
         if ("operator1".equals(organizationRole)) return RewardBatchAssignee.L1;
@@ -264,6 +412,56 @@ public class ReportServiceImpl implements ReportService {
                                 .reportId(report.getId())
                                 .runId(runId).build());
     }
+
+    private Mono<Report2RunDto> triggerUserDetailsReportPipeline(Report report) {
+        return dataFactoryService.triggerUserDetailsReportPipeline(report)
+                .map(runId ->
+                        Report2RunDto.builder()
+                                .reportId(report.getId())
+                                .runId(runId).build());
+    }
+
+    @Override
+    public Mono<DownloadReportResponseDTO> downloadReports(
+            String merchantId,
+            String organizationRole,
+            String initiativeId,
+            String reportId
+    ) {
+
+        return reportRepository.findByIdAndInitiativeId(reportId, initiativeId)
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.NOT_FOUND,
+                        REPORT_NOT_FOUND,
+                        ERROR_MESSAGE_REPORT_NOT_FOUND.formatted(reportId, initiativeId)
+                )))
+                .flatMap(report -> {
+
+                    if (ReportType.MERCHANT_TRANSACTIONS.equals(report.getReportType())) {
+                        return downloadTransactionsReport(
+                                merchantId,
+                                organizationRole,
+                                initiativeId,
+                                reportId
+                        );
+                    }
+
+                    if (ReportType.USER_DETAILS.equals(report.getReportType())) {
+                        return downloadUserDetailsReports(
+                                organizationRole,
+                                initiativeId,
+                                reportId
+                        );
+                    }
+
+                    return Mono.error(new ClientExceptionWithBody(
+                            HttpStatus.BAD_REQUEST,
+                            REPORT_TYPE_REQUIRED,
+                            ERROR_MESSAGE_REPORT_TYPE_REQUIRED
+                    ));
+                });
+    }
+
     @Override
     public Mono<DownloadReportResponseDTO> downloadTransactionsReport(
             String merchantId,
@@ -312,34 +510,89 @@ public class ReportServiceImpl implements ReportService {
                 )))
                 .map(report -> {
 
-                    if (!ReportStatus.GENERATED.equals(report.getReportStatus())) {
-                        throw new ClientExceptionWithBody(
-                                HttpStatus.BAD_REQUEST,
-                                REPORT_NOT_GENERATED,
-                                ERROR_MESSAGE_REPORT_NOT_GENERATED.formatted(reportId)
-                        );
-                    }
-
-                    String filename = report.getFileName();
-                    if (filename == null || filename.isBlank()) {
-                        throw new ClientExceptionWithBody(
-                                HttpStatus.INTERNAL_SERVER_ERROR,
-                                REPORT_MISSING_FILENAME,
-                                ERROR_MESSAGE_REPORT_MISSING_FILENAME.formatted(reportId)
-                        );
-                    }
-
                     String blobPath = String.format(
                             REPORT_TRANSACTIONS_PATH_STORAGE_FORMAT,
                             initiativeId,
                             report.getMerchantId(),
-                            filename
+                            report.getFileName()
                     );
 
-                    return DownloadReportResponseDTO.builder()
-                            .reportUrl(reportBlobService.getFileSignedUrl(blobPath))
-                            .build();
-                });
+                    return buildDownloadResponse(report, blobPath);
+
+                }).flatMap(mono -> mono);
+    }
+
+    @Override
+    public Mono<DownloadReportResponseDTO> downloadUserDetailsReports(
+            String organizationRole,
+            String initiativeId,
+            String reportId
+    ) {
+
+        if (organizationRole == null || organizationRole.isBlank()) {
+            return Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY,
+                    ERROR_MESSAGE_MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY
+            ));
+        }
+
+        if (ALLOWED_ROLES.stream().noneMatch(role -> role.equalsIgnoreCase(organizationRole))) {
+            return Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    INVALID_ORGANIZATION_ROLE,
+                    ERROR_MESSAGE_INVALID_ORGANIZATION_ROLE
+            ));
+        }
+
+        return reportRepository.findByIdAndInitiativeId(reportId, initiativeId)
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.NOT_FOUND,
+                        REPORT_NOT_FOUND,
+                        ERROR_MESSAGE_REPORT_NOT_FOUND.formatted(reportId, initiativeId)
+                )))
+                .map(report -> {
+
+                    String blobPath = String.format(
+                            REPORT_USER_DETAILS_PATH_STORAGE_FORMAT,
+                            initiativeId,
+                            report.getFileName()
+                    );
+
+                    return buildDownloadResponse(report, blobPath);
+
+                }).flatMap(mono -> mono);
+    }
+
+    private Mono<DownloadReportResponseDTO> buildDownloadResponse(
+            Report report,
+            String blobPath
+    ) {
+
+        if (!ReportStatus.GENERATED.equals(report.getReportStatus())) {
+            throw new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    REPORT_NOT_GENERATED,
+                    ERROR_MESSAGE_REPORT_NOT_GENERATED.formatted(report.getId())
+            );
+        }
+
+        String filename = report.getFileName();
+        if (filename == null || filename.isBlank()) {
+            throw new ClientExceptionWithBody(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    REPORT_MISSING_FILENAME,
+                    ERROR_MESSAGE_REPORT_MISSING_FILENAME.formatted(report.getId())
+            );
+        }
+
+        return Mono.just(
+                DownloadReportResponseDTO.builder()
+                        .reportUrl(
+                                reportBlobService.getFileSignedUrl(blobPath)
+                        )
+                        .build()
+        );
     }
 
 }

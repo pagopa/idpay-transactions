@@ -32,6 +32,9 @@ public final class ExceptionConstants {
         public static final String REPORT_MISSING_FILENAME = "REPORT_MISSING_FILENAME";
         public static final String INVALID_PERIOD = "INVALID_PERIOD";
         public static final String INVALID_LENGTH_PERIOD = "INVALID_LENGTH_PERIOD";
+        public static final String INVALID_REPORT_TYPE = "INVALID_REPORT_TYPE";
+        public static final String REPORT_TYPE_REQUIRED = "REPORT_TYPE_REQUIRED";
+        public static final String MERCHANT_ID_REQUIRED = "MERCHANT_ID_REQUIRED";
 
         public static final String ROLE_NOT_ALLOWED_FOR_L1_PROMOTION = "ROLE_NOT_ALLOWED_FOR_L1_PROMOTION";
         public static final String ROLE_NOT_ALLOWED_FOR_L2_PROMOTION = "ROLE_NOT_ALLOWED_FOR_L2_PROMOTION";
@@ -75,7 +78,7 @@ public final class ExceptionConstants {
         public static final String ERROR_MESSAGE_REWARD_BATCH_NOT_APPROVED = "Reward batch  %s not APPROVED";
         public static final String ERROR_MESSAGE_REWARD_BATCH_MISSING_FILENAME = "Reward batch  %s missing file name";
         public static final String MERCHANT_OR_OPERATOR_HEADER_MANDATORY = "Merchant or operator information is missing";
-
+        public static final String ERROR_MESSAGE_MERCHANT_ID_MANDATORY = "Merchant information is missing";
         public static final String ERROR_MESSAGE_PREVIOUS_BATCH_TO_APPROVE = "Is not possible to approve batch %s because there are previous Batch to approve";
         public static final String ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT = "No reward batches found with status SENT";
         public static final String ERROR_MESSAGE_REWARD_BATCH_ALREADY_SENT = "Reward batch has already been sent";
@@ -89,5 +92,7 @@ public final class ExceptionConstants {
         public static final String  ERROR_MESSAGE_MERCHANT_NOT_FOUND = "Merchant %s not found for initiative %s ";
         public static final String ERROR_MESSAGE_REPORT_MISSING_FILENAME = "The report %s does not have an associated file name and cannot be downloaded";
         public static final String ERROR_MESSAGE_REPORT_NOT_GENERATED = "The report %s is not generated yet and cannot be downloaded";
+        public static final String ERROR_MESSAGE_INVALID_REPORT_TYPE = "Unsupported ReportType";
+        public static final String ERROR_MESSAGE_REPORT_TYPE_REQUIRED = "ReportType is mandatory when merchantId is not provided";
     }
 }

@@ -77,8 +77,6 @@ public class RewardTransactionMapper {
             rewardTrx.setVoucherAmountCents(rewardTrxDto.getVoucherAmountCents());
             rewardTrx.setChecksError(rewardTrxDto.getChecksError());
             rewardTrx.setUpdateDate(rewardTrxDto.getUpdateDate() != null ? toLocalDateTime(rewardTrxDto.getUpdateDate()) : null);
-
-
         }
 
         return rewardTrx;

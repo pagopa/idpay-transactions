@@ -23,18 +23,21 @@ public class DataFactoryServiceImpl implements DataFactoryService{
     private final DataFactoryManager dataFactoryManager;
     private final String resourceGroup;
     private final String factoryName;
-    private final String pipelineName;
+    private final String pipelineTransactionReportName;
+    private final String pipelineUserDetailsReportName;
     private final int maxRetries;
 
     public DataFactoryServiceImpl(DataFactoryManager dataFactoryManager,
                                   @Value("${app.data-factory.resource-group}") String resourceGroup,
                                   @Value("${app.data-factory.factory-name}") String factoryName,
-                                  @Value("${app.data-factory.pipeline-name}") String pipelineName,
+                                  @Value("${app.data-factory.pipeline-transaction-report-name}") String pipelineTransactionReportName,
+                                  @Value("${app.data-factory.pipeline-user-details-report-name}") String pipelineUserDetailsReportName,
                                   @Value("${app.data-factory.max-retries}") int maxRetries) {
         this.dataFactoryManager = dataFactoryManager;
         this.resourceGroup = resourceGroup;
         this.factoryName = factoryName;
-        this.pipelineName = pipelineName;
+        this.pipelineTransactionReportName = pipelineTransactionReportName;
+        this.pipelineUserDetailsReportName = pipelineUserDetailsReportName;
         this.maxRetries = maxRetries;
     }
 
@@ -45,7 +48,47 @@ public class DataFactoryServiceImpl implements DataFactoryService{
                     Response<CreateRunResponse> resp = dataFactoryManager.pipelines().createRunWithResponse(
                             resourceGroup,
                             factoryName,
-                            pipelineName,
+                            pipelineTransactionReportName,
+                            null,
+                            false,
+                            null,
+                            false,
+                            createPipelineParameters(report),
+                            Context.NONE);
+
+                    int status = resp.getStatusCode();
+                    if (status < 200 || status >= 300) {
+                        throw new IllegalStateException("ADF createRun failed. HTTP status: " + status);
+                    }
+
+                    CreateRunResponse body = resp.getValue();
+                    if (body == null) {
+                        throw new IllegalStateException("ADF createRun returned empty body");
+                    }
+                    log.info("[CALLING_DATA_FACTORY] Report {} generation request sent successfully. Run ID: {}", report.getId(), body.runId());
+                    return body.runId();
+                })
+                .subscribeOn(Schedulers.boundedElastic());
+
+        return callMono
+                .retryWhen(Retry.fixedDelay(maxRetries, Duration.ofSeconds(1))
+                        .onRetryExhaustedThrow((spec, signal) ->
+                                new AzureConnectingErrorException(
+                                        "Failed to trigger ADF pipeline after " + (maxRetries + 1) + " attempts",
+                                        signal.failure()
+                                )
+                        )
+                );
+    }
+
+    @Override
+    public Mono<String> triggerUserDetailsReportPipeline(Report report) {
+        Mono<String> callMono = Mono.fromCallable(() -> {
+                    log.info("[CALLING_DATA_FACTORY] Starting pipeline execution for Report {}", report.getId());
+                    Response<CreateRunResponse> resp = dataFactoryManager.pipelines().createRunWithResponse(
+                            resourceGroup,
+                            factoryName,
+                            pipelineUserDetailsReportName,
                             null,
                             false,
                             null,
