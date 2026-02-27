@@ -71,11 +71,13 @@ public class RewardTransactionMapper {
             rewardTrx.setPointOfSaleType(rewardTrxDto.getPointOfSaleType());
             rewardTrx.setBusinessName(rewardTrxDto.getBusinessName());
             if(SyncTrxStatus.INVOICED.name().equals(rewardTrxDto.getStatus())){
-              rewardTrx.setInvoiceUploadDate(rewardTrxDto.getUpdateDate());
+                rewardTrx.setInvoiceUploadDate(rewardTrxDto.getUpdateDate());
             }
             rewardTrx.setExtendedAuthorization(rewardTrxDto.getExtendedAuthorization());
             rewardTrx.setVoucherAmountCents(rewardTrxDto.getVoucherAmountCents());
             rewardTrx.setChecksError(rewardTrxDto.getChecksError());
+            rewardTrx.setUpdateDate(rewardTrxDto.getUpdateDate());
+
 
         }
 
