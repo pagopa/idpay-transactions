@@ -25,7 +25,7 @@ public interface ReportController {
     );
 
     @GetMapping("/initiatives/{initiativeId}/reports/{reportId}/download")
-    Mono<DownloadReportResponseDTO> downloadTransactionsReport(
+    Mono<DownloadReportResponseDTO> downloadReports(
             @RequestHeader(value = "x-merchant-id", required = false) String merchantId,
             @RequestHeader(value = "x-organization-role", required = false) String organizationRole,
             @PathVariable("initiativeId") String initiativeId,

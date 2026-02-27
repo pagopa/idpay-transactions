@@ -44,8 +44,21 @@ public interface ReportService {
                                 String reportId,
                                 PatchReportRequest request);
 
+    Mono<DownloadReportResponseDTO> downloadReports(
+            String merchantId,
+            String organizationRole,
+            String initiativeId,
+            String reportId
+    );
+
     Mono<DownloadReportResponseDTO> downloadTransactionsReport(
             String merchantId,
+            String organizationRole,
+            String initiativeId,
+            String reportId
+    );
+
+    Mono<DownloadReportResponseDTO> downloadUserDetailsReports(
             String organizationRole,
             String initiativeId,
             String reportId
