@@ -103,7 +103,6 @@ class PointOfSaleTransactionServiceImplTest {
     void setup() throws Exception {
         srcFile = Files.createTempFile("src-", ".pdf");
         Files.write(srcFile, "content".getBytes());
-                when(reversalPolicy.validate(any())).thenReturn(Mono.empty());
     }
 
     @AfterEach
