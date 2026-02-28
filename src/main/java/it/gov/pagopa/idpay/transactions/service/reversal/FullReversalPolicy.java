@@ -25,6 +25,7 @@ public class FullReversalPolicy implements ReversalPolicy {
     if (SyncTrxStatus.INVOICED.name().equalsIgnoreCase(status) || SyncTrxStatus.REWARDED.name().equalsIgnoreCase(status)) {
       return Mono.empty();
     }
+    // TODO confirm the return status code and message with the team, maybe 400 Bad Request is more appropriate than 422 Unprocessable Entity
     return Mono.error(new ClientExceptionWithBody(HttpStatus.UNPROCESSABLE_ENTITY, TRANSACTION_STATUS_NOT_ALLOWED, "Transaction status not allowed for full reversal"));
   }
 }
