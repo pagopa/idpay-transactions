@@ -253,7 +253,8 @@ class PointOfSaleTransactionControllerImplTest {
         eq(MERCHANT_ID),
         eq(POINT_OF_SALE_ID),
         any(FilePart.class),
-        eq("DOC456")
+        eq("DOC456"),
+        any(it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicy.class)
     )).thenReturn(Mono.empty());
 
     MultipartBodyBuilder builder = new MultipartBodyBuilder();
@@ -266,6 +267,7 @@ class PointOfSaleTransactionControllerImplTest {
         .uri("/idpay/transactions/{id}/reversal-invoiced", TRX_ID)
         .header("x-merchant-id", MERCHANT_ID)
         .header("x-point-of-sale-id", POINT_OF_SALE_ID)
+        .header("Authorization", "Bearer eyJhbGciOiJub25lIn0.eyJzY29wZSI6ImFwaTpzdG9ybzpiYXNpYyJ9.sig")
         .contentType(MediaType.MULTIPART_FORM_DATA)
         .body(BodyInserters.fromMultipartData(builder.build()))
         .exchange()
@@ -276,7 +278,8 @@ class PointOfSaleTransactionControllerImplTest {
         eq(MERCHANT_ID),
         eq(POINT_OF_SALE_ID),
         any(FilePart.class),
-        eq("DOC456")
+        eq("DOC456"),
+        any(it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicy.class)
     );
   }
 

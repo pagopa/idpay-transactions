@@ -18,6 +18,9 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicy;
+import it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicyFactory;
+import it.gov.pagopa.idpay.transactions.util.JwtUtils;
 
 @RestController
 @Slf4j
@@ -121,16 +124,21 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
       return pointOfSaleTransactionService.getDistinctFranchiseAndPosByRewardBatchId(sanitizedRewardBatchId);
     }
 
-    public Mono<Void> reversalTransactionInvoiced(String transactionId, String merchantId, String pointOfSaleId, FilePart file, String docNumber) {
+    public Mono<Void> reversalTransactionInvoiced(String transactionId, String merchantId, String pointOfSaleId, String authorization, FilePart file, String docNumber) {
 
         final String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
         final String sanitizedTrxCode = Utilities.sanitizeString(transactionId);
         final String sanitizedPointOfSaleId = Utilities.sanitizeString(pointOfSaleId);
 
         log.info(
-                "[REVERSAL_TRANSACTION] The merchant {} is requesting a reversal for the transactionId {} at POS {}",
-                sanitizedMerchantId, sanitizedTrxCode, sanitizedPointOfSaleId
+          "[REVERSAL_TRANSACTION] The merchant {} is requesting a reversal for the transactionId {} at POS {}",
+          sanitizedMerchantId, sanitizedTrxCode, sanitizedPointOfSaleId
         );
-        return pointOfSaleTransactionService.reversalTransaction(transactionId, merchantId, pointOfSaleId, file, docNumber);
+
+        List<String> scopes = JwtUtils.extractScopesOrThrow(authorization);
+
+        ReversalPolicy policy = ReversalPolicyFactory.fromScopes(scopes);
+
+        return pointOfSaleTransactionService.reversalTransaction(transactionId, merchantId, pointOfSaleId, file, docNumber, policy);
     }
 }

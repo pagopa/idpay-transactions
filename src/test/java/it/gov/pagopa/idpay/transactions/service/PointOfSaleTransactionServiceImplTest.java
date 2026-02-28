@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.http.MediaType.APPLICATION_PDF_VALUE;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
 
 import com.azure.core.http.rest.Response;
 import com.azure.storage.blob.models.BlockBlobItem;
@@ -65,9 +66,10 @@ class PointOfSaleTransactionServiceImplTest {
     @Mock private RewardTransactionRepository rewardTransactionRepository;
     @Mock private InvoiceStorageClient invoiceStorageClient;
     @Mock private RewardBatchRepository rewardBatchRepository;
-    @Mock private TransactionErrorNotifierService transactionErrorNotifierService;
+        @Mock private TransactionErrorNotifierService transactionErrorNotifierService;
     @Mock private TransactionNotifierService transactionNotifierService;
     @Mock private RewardBatchService rewardBatchService;
+        @Mock private it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicy reversalPolicy;
 
     @InjectMocks private PointOfSaleTransactionServiceImpl service;
 
@@ -88,6 +90,7 @@ class PointOfSaleTransactionServiceImplTest {
     void setup() throws Exception {
         srcFile = Files.createTempFile("src-", ".pdf");
         Files.write(srcFile, "content".getBytes());
+                when(reversalPolicy.validate(any())).thenReturn(Mono.empty());
     }
 
     @AfterEach
@@ -680,7 +683,7 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POS_ID, TRX_ID))
                 .thenReturn(Mono.empty());
 
-        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
+        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER, reversalPolicy))
                 .expectError(ClientExceptionNoBody.class)
                 .verify();
     }
@@ -696,7 +699,9 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POS_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
 
-        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
+        // make policy reject when status not allowed
+        when(reversalPolicy.validate(any())).thenReturn(Mono.error(new ClientExceptionWithBody(HttpStatus.UNPROCESSABLE_ENTITY, TRANSACTION_STATUS_NOT_ALLOWED, "Transaction status not allowed")));
+        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER, reversalPolicy))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
 
@@ -718,7 +723,9 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardBatchRepository.findRewardBatchById("B404"))
                 .thenReturn(Mono.empty());
 
-        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
+        // restore policy to allow
+        when(reversalPolicy.validate(any())).thenReturn(Mono.empty());
+        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER, reversalPolicy))
                 .expectError(ClientExceptionNoBody.class)
                 .verify();
 
@@ -744,7 +751,7 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardBatchRepository.findRewardBatchById("B1"))
                 .thenReturn(Mono.just(batch));
 
-        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
+        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER, reversalPolicy))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
     }
@@ -768,7 +775,7 @@ class PointOfSaleTransactionServiceImplTest {
         when(transactionNotifierService.notify(any(), any()))
                 .thenReturn(true);
 
-        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
+        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER, reversalPolicy))
                 .verifyComplete();
 
         verify(rewardBatchRepository, never()).updateTotals(anyString(), any());
@@ -813,7 +820,7 @@ class PointOfSaleTransactionServiceImplTest {
         when(transactionNotifierService.notify(any(), any()))
                 .thenReturn(true);
 
-        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
+        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER, reversalPolicy))
                 .verifyComplete();
 
         verify(rewardBatchRepository).updateTotals(eq("B1"), argThat(c ->
@@ -852,7 +859,7 @@ class PointOfSaleTransactionServiceImplTest {
         when(transactionNotifierService.notify(any(), any()))
                 .thenReturn(true);
 
-        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
+        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER, reversalPolicy))
                 .verifyComplete();
 
         verify(rewardBatchRepository).updateTotals(eq("B1"), argThat(c ->
@@ -877,7 +884,7 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardTransactionRepository.findTransaction(MERCHANT_ID, POS_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
 
-        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
+        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER, reversalPolicy))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
 
@@ -906,7 +913,7 @@ class PointOfSaleTransactionServiceImplTest {
         when(transactionNotifierService.buildMessage(any(), any()))
                 .thenReturn(message);
 
-        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER))
+        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER, reversalPolicy))
                 .expectError(IllegalStateException.class)
                 .verify();
 

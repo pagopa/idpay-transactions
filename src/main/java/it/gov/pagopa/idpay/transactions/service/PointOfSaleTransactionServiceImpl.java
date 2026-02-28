@@ -36,6 +36,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.YearMonth;
 import java.util.List;
+import it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicy;
 import java.util.Objects;
 
 import static it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus.*;
@@ -323,13 +324,14 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 });
     }
 
-    public Mono<Void> reversalTransaction(
+        public Mono<Void> reversalTransaction(
             String transactionId,
             String merchantId,
             String pointOfSaleId,
             FilePart file,
-            String docNumber
-    ) {
+            String docNumber,
+            ReversalPolicy policy
+        ) {
         String sanitizedTransactionId = Utilities.sanitizeString(transactionId);
         String sanitizedPointOfSaleId = Utilities.sanitizeString(pointOfSaleId);
         String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
@@ -344,7 +346,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
                 .doOnNext(rt -> log.info("[REVERSAL-TRANSACTION-SERVICE] Found transaction id={}, status={}, rewardBatchId={}",
                         rt.getId(), rt.getStatus(), rt.getRewardBatchId()))
-                .flatMap(this::ensureTransactionIsInvoiced)
+                .flatMap(rt -> policy.validate(rt).thenReturn(rt))
                 .flatMap(rt -> {
                     final String oldRewardBatchId = rt.getRewardBatchId();
                     final RewardBatchTrxStatus oldBatchTrxStatus = rt.getRewardBatchTrxStatus();
