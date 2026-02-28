@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
@@ -15,11 +17,11 @@ import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
+import it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicy;
 import it.gov.pagopa.idpay.transactions.test.fakers.PointOfSaleTransactionDTOFaker;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
-import java.util.List;
-
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
@@ -254,7 +256,7 @@ class PointOfSaleTransactionControllerImplTest {
         eq(POINT_OF_SALE_ID),
         any(FilePart.class),
         eq("DOC456"),
-        any(it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicy.class)
+        any(ReversalPolicy.class)
     )).thenReturn(Mono.empty());
 
     MultipartBodyBuilder builder = new MultipartBodyBuilder();
@@ -279,7 +281,7 @@ class PointOfSaleTransactionControllerImplTest {
         eq(POINT_OF_SALE_ID),
         any(FilePart.class),
         eq("DOC456"),
-        any(it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicy.class)
+        any(ReversalPolicy.class)
     );
   }
 
