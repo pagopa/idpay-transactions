@@ -417,19 +417,6 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .then();
     }
 
-    private Mono<RewardTransaction> ensureTransactionIsInvoiced(RewardTransaction rt) {
-        if (!SyncTrxStatus.INVOICED.toString().equals(rt.getStatus())) {
-            log.warn("[REVERSAL-TRANSACTION-SERVICE] Transaction id={} has invalid status={} (expected INVOICED)",
-                    rt.getId(), rt.getStatus());
-            return Mono.error(new ClientExceptionWithBody(
-                    HttpStatus.BAD_REQUEST,
-                    GENERIC_ERROR,
-                    TRANSACTION_NOT_STATUS_INVOICED
-            ));
-        }
-        return Mono.just(rt);
-    }
-
     private Mono<Void> checkRewardBatchCreatedIfPresent(String rewardBatchId) {
         if (rewardBatchId == null) {
             return Mono.empty();
