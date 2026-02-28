@@ -1,22 +1,26 @@
 package it.gov.pagopa.idpay.transactions.util;
 
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.interfaces.DecodedJWT;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.Base64;
 import java.util.List;
 
 public final class JwtUtils {
 
+  // Thread-safe, instantiate once to save memory/CPU
+  private static final ObjectMapper MAPPER = new ObjectMapper();
+
   private JwtUtils() {}
 
   /**
-   * Decode the JWT token without performing any verification and extract scopes.
-   * Throws ResponseStatusException with 403 if header missing or scopes absent.
+   * Decodes the JWT payload to extract scopes without verifying the signature.
+   * Throws ResponseStatusException with 403 if header is missing or scopes are absent.
    */
   public static List<String> extractScopesOrThrow(String authorization) {
     if (authorization == null || authorization.isBlank()) {
@@ -24,53 +28,62 @@ public final class JwtUtils {
     }
 
     String token = authorization.trim();
+
     if (token.toLowerCase().startsWith("bearer ")) {
       token = token.substring(7).trim();
     }
+
     if (token.isEmpty()) {
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bearer token missing");
     }
 
     try {
-      DecodedJWT jwt = JWT.decode(token); // no verification performed
-
-      List<String> scopes = new ArrayList<>();
-      // TODO check the specification to understand if 'scope' or 'scp' is the standard claim for scopes and if both are allowed
-      // First try 'scope' claim
-      if (jwt.getClaim("scope") != null && !jwt.getClaim("scope").isNull()) {
-        try {
-          String[] arr = jwt.getClaim("scope").asArray(String.class);
-          if (arr != null) Collections.addAll(scopes, arr);
-        } catch (Exception e) {
-          String scopeStr = jwt.getClaim("scope").asString();
-          if (scopeStr != null && !scopeStr.isBlank()) {
-            scopes.addAll(Arrays.asList(scopeStr.split(" ")));
-          }
-        }
+      // JWT format is header.payload.signature
+      String[] chunks = token.split("\\.");
+      if (chunks.length < 2) {
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid JWT structure");
       }
 
-      // Then try 'scp' claim if still empty
-      if (scopes.isEmpty() && jwt.getClaim("scp") != null && !jwt.getClaim("scp").isNull()) {
-        try {
-          String[] arr = jwt.getClaim("scp").asArray(String.class);
-          if (arr != null) Collections.addAll(scopes, arr);
-        } catch (Exception e) {
-          String scpStr = jwt.getClaim("scp").asString();
-          if (scpStr != null && !scpStr.isBlank()) {
-            scopes.addAll(Arrays.asList(scpStr.split(" ")));
-          }
-        }
-      }
+      // Decode only the payload (the second chunk)
+      byte[] decodedPayload = Base64.getUrlDecoder().decode(chunks[1]);
+      JsonNode root = MAPPER.readTree(new String(decodedPayload, StandardCharsets.UTF_8));
+
+      // Extract claim 'scope' (RFC standard)
+      List<String> scopes = extractClaimAsList(root, "scope");
 
       if (scopes.isEmpty()) {
-        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "scope claim missing");
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Scope claim missing");
       }
 
       return scopes;
+
     } catch (ResponseStatusException ex) {
-      throw ex;
+      throw ex; // Rethrow HTTP exceptions so they don't get swallowed
     } catch (Exception e) {
-      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "invalid token format");
+      // Catch Base64 or Jackson parsing errors
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid token format");
     }
+  }
+
+  /**
+   * Helper method to parse a claim that might be a String or a JSON Array.
+   */
+  private static List<String> extractClaimAsList(JsonNode root, String claimName) {
+    List<String> result = new ArrayList<>();
+
+    if (root.has(claimName) && !root.get(claimName).isNull()) {
+      JsonNode node = root.get(claimName);
+
+      if (node.isArray()) {
+        node.forEach(n -> result.add(n.asText()));
+      } else if (node.isTextual()) {
+        String text = node.asText();
+        if (!text.isBlank()) {
+          result.addAll(Arrays.asList(text.split(" ")));
+        }
+      }
+    }
+
+    return result;
   }
 }
