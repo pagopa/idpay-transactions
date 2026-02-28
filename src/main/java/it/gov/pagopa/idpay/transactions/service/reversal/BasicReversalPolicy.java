@@ -12,7 +12,7 @@ import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.Exceptio
 
 public class BasicReversalPolicy implements ReversalPolicy {
 
-  private static final String SCOPE = "api:storno:basic";
+  private static final String SCOPE = "transaction:reversal:basic";
 
   @Override
   public boolean supports(List<String> scopes) {

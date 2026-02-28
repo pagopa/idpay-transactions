@@ -13,7 +13,7 @@ import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.Exceptio
 
 public class FullReversalPolicy implements ReversalPolicy {
 
-  private static final String SCOPE = "api:storno:full";
+  private static final String SCOPE = "transaction:reversal:full";
 
   @Override
   public boolean supports(List<String> scopes) {
