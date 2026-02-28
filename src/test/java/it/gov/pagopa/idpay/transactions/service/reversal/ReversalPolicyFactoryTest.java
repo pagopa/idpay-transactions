@@ -11,24 +11,26 @@ class ReversalPolicyFactoryTest {
 
   @Test
   void nullOrEmptyScopesThrows() {
+    List<String> emptyScopes = List.of();
     assertThrows(ClientExceptionWithBody.class, () -> ReversalPolicyFactory.fromScopes(null));
-    assertThrows(ClientExceptionWithBody.class, () -> ReversalPolicyFactory.fromScopes(List.of()));
+    assertThrows(ClientExceptionWithBody.class, () -> ReversalPolicyFactory.fromScopes(emptyScopes));
   }
 
   @Test
   void selectsFullWhenPresent() {
     ReversalPolicy p = ReversalPolicyFactory.fromScopes(List.of("api:storno:basic", "api:storno:full"));
-    assertTrue(p instanceof FullReversalPolicy);
+    assertInstanceOf(FullReversalPolicy.class, p);
   }
 
   @Test
   void selectsBasicWhenOnlyBasicPresent() {
     ReversalPolicy p = ReversalPolicyFactory.fromScopes(List.of("api:storno:basic"));
-    assertTrue(p instanceof BasicReversalPolicy);
+    assertInstanceOf(BasicReversalPolicy.class, p);
   }
 
   @Test
   void unsupportedScopesThrows() {
-    assertThrows(ClientExceptionWithBody.class, () -> ReversalPolicyFactory.fromScopes(List.of("some:other:scope")));
+    var scopes = List.of("some:other:scope");
+    assertThrows(ClientExceptionWithBody.class, () -> ReversalPolicyFactory.fromScopes(scopes));
   }
 }
