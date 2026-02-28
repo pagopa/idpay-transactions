@@ -16,7 +16,7 @@ public class BasicReversalPolicy implements ReversalPolicy {
 
   @Override
   public boolean supports(List<String> scopes) {
-    return scopes != null && scopes.stream().anyMatch(s -> SCOPE.equals(s));
+    return scopes != null && scopes.stream().anyMatch(SCOPE::equals);
   }
 
   @Override
