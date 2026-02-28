@@ -35,7 +35,7 @@ public final class JwtUtils {
       DecodedJWT jwt = JWT.decode(token); // no verification performed
 
       List<String> scopes = new ArrayList<>();
-
+      // TODO check the specification to understand if 'scope' or 'scp' is the standard claim for scopes and if both are allowed
       // First try 'scope' claim
       if (jwt.getClaim("scope") != null && !jwt.getClaim("scope").isNull()) {
         try {
