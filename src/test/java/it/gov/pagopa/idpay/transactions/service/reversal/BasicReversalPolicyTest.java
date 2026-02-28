@@ -1,34 +1,29 @@
 package it.gov.pagopa.idpay.transactions.service.reversal;
 
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
+import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
-public class BasicReversalPolicyTest {
+class BasicReversalPolicyTest {
 
   private final BasicReversalPolicy policy = new BasicReversalPolicy();
 
   @Test
-  void allowsInvoiced() {
-    RewardTransaction rt = new RewardTransaction();
-    rt.setStatus("INVOICED");
+  void allowsOnlyInvoiced() {
+    RewardTransaction invoiced = RewardTransaction.builder().status(SyncTrxStatus.INVOICED.name()).build();
+    StepVerifier.create(policy.validate(invoiced)).verifyComplete();
 
-    StepVerifier.create(policy.validate(rt)).verifyComplete();
-  }
-
-  @Test
-  void rejectsRewarded() {
-    RewardTransaction rt = new RewardTransaction();
-    rt.setStatus("REWARDED");
-
-    StepVerifier.create(policy.validate(rt)).expectError().verify();
+    RewardTransaction rewarded = RewardTransaction.builder().status(SyncTrxStatus.REWARDED.name()).build();
+    StepVerifier.create(policy.validate(rewarded))
+        .expectError(ClientExceptionWithBody.class)
+        .verify();
   }
 
   @Test
   void rejectsOtherStatuses() {
-    RewardTransaction rt = new RewardTransaction();
-    rt.setStatus("REFUNDED");
-
-    StepVerifier.create(policy.validate(rt)).expectError().verify();
+    RewardTransaction rt = RewardTransaction.builder().status(SyncTrxStatus.REFUNDED.name()).build();
+    StepVerifier.create(policy.validate(rt)).expectError(ClientExceptionWithBody.class).verify();
   }
 }

@@ -5,25 +5,30 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 
-public class ReversalPolicyFactoryTest {
+class ReversalPolicyFactoryTest {
 
   @Test
-  void selectsFullPolicyWhenScopePresent() {
-    ReversalPolicy p = ReversalPolicyFactory.fromScopes(List.of("api:storno:full"));
+  void nullOrEmptyScopesThrows() {
+    assertThrows(ClientExceptionWithBody.class, () -> ReversalPolicyFactory.fromScopes(null));
+    assertThrows(ClientExceptionWithBody.class, () -> ReversalPolicyFactory.fromScopes(List.of()));
+  }
+
+  @Test
+  void selectsFullWhenPresent() {
+    ReversalPolicy p = ReversalPolicyFactory.fromScopes(List.of("api:storno:basic", "api:storno:full"));
     assertTrue(p instanceof FullReversalPolicy);
   }
 
   @Test
-  void selectsBasicPolicyWhenScopePresent() {
+  void selectsBasicWhenOnlyBasicPresent() {
     ReversalPolicy p = ReversalPolicyFactory.fromScopes(List.of("api:storno:basic"));
     assertTrue(p instanceof BasicReversalPolicy);
   }
 
   @Test
-  void forbiddenWhenNoScopes() {
-    assertThrows(ClientExceptionWithBody.class, () -> ReversalPolicyFactory.fromScopes(List.of()));
+  void unsupportedScopesThrows() {
+    assertThrows(ClientExceptionWithBody.class, () -> ReversalPolicyFactory.fromScopes(List.of("some:other:scope")));
   }
 }

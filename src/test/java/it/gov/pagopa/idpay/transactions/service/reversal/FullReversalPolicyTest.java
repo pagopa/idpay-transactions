@@ -45,7 +45,7 @@ class FullReversalPolicyTest {
         .verify();
   }
 
-  // 3. Testa la regola: Se il BatchStatus è APPROVED, fallisce sempre
+  // 3. Test that when BatchStatus is APPROVED, it always fails
   @ParameterizedTest(name = "Should block reversal when BatchStatus is APPROVED, even if TrxStatus is {0}")
   @EnumSource(value = SyncTrxStatus.class, names = {"INVOICED", "REWARDED"})
   void validate_whenBatchStatusIsApproved_shouldBlock(SyncTrxStatus validTrxStatus) {
@@ -56,7 +56,7 @@ class FullReversalPolicyTest {
         .verify();
   }
 
-  // Metodi di utilità per mantenere i test puliti
+  // Utility methods
   private RewardTransaction createTransaction(SyncTrxStatus trxStatus,
       RewardBatchTrxStatus batchStatus) {
     RewardTransaction rt = new RewardTransaction();
