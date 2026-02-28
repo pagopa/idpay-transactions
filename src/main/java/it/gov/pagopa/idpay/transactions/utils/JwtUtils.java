@@ -1,4 +1,4 @@
-package it.gov.pagopa.idpay.transactions.util;
+package it.gov.pagopa.idpay.transactions.utils;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

@@ -20,7 +20,7 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 import it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicy;
 import it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicyFactory;
-import it.gov.pagopa.idpay.transactions.util.JwtUtils;
+import it.gov.pagopa.idpay.transactions.utils.JwtUtils;
 
 @RestController
 @Slf4j
