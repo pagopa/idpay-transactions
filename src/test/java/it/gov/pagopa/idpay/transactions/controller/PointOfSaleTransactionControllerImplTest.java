@@ -21,6 +21,8 @@ import it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicy;
 import it.gov.pagopa.idpay.transactions.test.fakers.PointOfSaleTransactionDTOFaker;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -69,7 +71,6 @@ class PointOfSaleTransactionControllerImplTest {
 
     PointOfSaleTransactionDTO dto = PointOfSaleTransactionDTOFaker
         .mockInstance(trx, INITIATIVE_ID, FISCAL_CODE);
-
 
     when(pointOfSaleTransactionService.getPointOfSaleTransactions(
         eq(MERCHANT_ID),
@@ -269,7 +270,7 @@ class PointOfSaleTransactionControllerImplTest {
         .uri("/idpay/transactions/{id}/reversal-invoiced", TRX_ID)
         .header("x-merchant-id", MERCHANT_ID)
         .header("x-point-of-sale-id", POINT_OF_SALE_ID)
-        .header("Authorization", "Bearer eyJhbGciOiJub25lIn0.eyJzY29wZSI6ImFwaTpzdG9ybzpiYXNpYyJ9.sig")
+        .header("Authorization", buildBearerTokenWithScope("api:storno:basic"))
         .contentType(MediaType.MULTIPART_FORM_DATA)
         .body(BodyInserters.fromMultipartData(builder.build()))
         .exchange()
@@ -283,6 +284,14 @@ class PointOfSaleTransactionControllerImplTest {
         eq("DOC456"),
         any(ReversalPolicy.class)
     );
+  }
+
+  private static String buildBearerTokenWithScope(String scope) {
+    String header = Base64.getUrlEncoder().withoutPadding()
+        .encodeToString("{\"alg\":\"none\"}".getBytes(StandardCharsets.UTF_8));
+    String payload = Base64.getUrlEncoder().withoutPadding()
+        .encodeToString(("{\"scope\":\"" + scope + "\"}").getBytes(StandardCharsets.UTF_8));
+    return "Bearer " + header + "." + payload + ".sig";
   }
 
 }
