@@ -274,7 +274,8 @@ class PointOfSaleTransactionControllerImplTest {
         .contentType(MediaType.MULTIPART_FORM_DATA)
         .body(BodyInserters.fromMultipartData(builder.build()))
         .exchange()
-        .expectStatus().isNoContent();
+        .expectStatus().isNoContent()
+        .expectBody().isEmpty();
 
     verify(pointOfSaleTransactionService).reversalTransaction(
         eq(TRX_ID),
