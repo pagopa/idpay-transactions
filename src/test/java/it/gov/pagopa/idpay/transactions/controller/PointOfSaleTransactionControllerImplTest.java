@@ -270,7 +270,7 @@ class PointOfSaleTransactionControllerImplTest {
         .uri("/idpay/transactions/{id}/reversal-invoiced", TRX_ID)
         .header("x-merchant-id", MERCHANT_ID)
         .header("x-point-of-sale-id", POINT_OF_SALE_ID)
-        .header("Authorization", buildBearerTokenWithScope("api:storno:basic"))
+        .header("Authorization", buildBearerTokenWithScope("transaction:reversal:basic"))
         .contentType(MediaType.MULTIPART_FORM_DATA)
         .body(BodyInserters.fromMultipartData(builder.build()))
         .exchange()

@@ -18,13 +18,13 @@ class ReversalPolicyFactoryTest {
 
   @Test
   void selectsFullWhenPresent() {
-    ReversalPolicy p = ReversalPolicyFactory.fromScopes(List.of("api:storno:basic", "api:storno:full"));
+    ReversalPolicy p = ReversalPolicyFactory.fromScopes(List.of("transaction:reversal:full", "transaction:reversal:basic"));
     assertInstanceOf(FullReversalPolicy.class, p);
   }
 
   @Test
   void selectsBasicWhenOnlyBasicPresent() {
-    ReversalPolicy p = ReversalPolicyFactory.fromScopes(List.of("api:storno:basic"));
+    ReversalPolicy p = ReversalPolicyFactory.fromScopes(List.of("transaction:reversal:basic"));
     assertInstanceOf(BasicReversalPolicy.class, p);
   }
 
