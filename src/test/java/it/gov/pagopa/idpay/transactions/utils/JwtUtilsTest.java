@@ -78,10 +78,10 @@ class JwtUtilsTest {
   void extractScopesOrThrow_invalidJwtStructure_throwsForbidden() {
     // Token without dots
     ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-        () -> JwtUtils.extractScopesOrThrow("Bearer not.a.real.jwt"));
+        () -> JwtUtils.extractScopesOrThrow("Bearer notarealjwt"));
 
     assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
-    assertEquals("Invalid token format", ex.getReason());
+    assertEquals("Invalid JWT structure", ex.getReason());
   }
 
   @Test
