@@ -345,7 +345,11 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .doOnNext(rt -> log.info("[REVERSAL-TRANSACTION-SERVICE] Found transaction id={}, status={}, rewardBatchId={}",
                         rt.getId(), rt.getStatus(), rt.getRewardBatchId()))
                 .flatMap(this::transactionIsInvoicedOrRewarded)
-                .flatMap(this::rewardBatchAllowedStatus)
+                .flatMap(rt ->
+                        rt.getRewardBatchId() != null
+                                ? rewardBatchAllowedStatus(rt)
+                                : Mono.just(rt)
+                )
                 .flatMap(rt -> {
                     final String oldRewardBatchId = rt.getRewardBatchId();
                     final RewardBatchTrxStatus oldBatchTrxStatus = rt.getRewardBatchTrxStatus();

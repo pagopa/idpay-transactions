@@ -717,8 +717,7 @@ class PointOfSaleTransactionServiceImplTest {
                 .thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findById("B404"))
                 .thenReturn(Mono.empty());
-        when(rewardBatchRepository.findRewardBatchById("B404"))
-                .thenReturn(Mono.empty());
+
 
         StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER))
                 .expectError(ClientExceptionWithBody.class)
@@ -744,8 +743,6 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findById("B1"))
-                .thenReturn(Mono.just(batch));
-        when(rewardBatchRepository.findRewardBatchById("B1"))
                 .thenReturn(Mono.just(batch));
 
         StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER))
@@ -884,8 +881,6 @@ class PointOfSaleTransactionServiceImplTest {
 
         when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
-        when(rewardBatchRepository.findById((String) isNull()))
-                .thenReturn(Mono.empty());
 
         StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER))
                 .expectError(ClientExceptionWithBody.class)
@@ -923,6 +918,8 @@ class PointOfSaleTransactionServiceImplTest {
                 .thenReturn(false);
         when(transactionNotifierService.buildMessage(any(), any()))
                 .thenReturn(message);
+        when(rewardBatchRepository.updateTotals(eq("B1"), any()))
+                .thenReturn(Mono.empty());
 
         StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER))
                 .expectError(IllegalStateException.class)
