@@ -313,6 +313,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                             Utilities.sanitizeString(oldTransaction.getId()), Utilities.sanitizeString(oldBatch.getId()), Utilities.sanitizeString(newBatch.getId()),
                             oldBatchCounter, newBatchCounter);
 
+                    oldTransaction.setStatus(SyncTrxStatus.INVOICED.name());
                     oldTransaction.setRewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED);
                     oldTransaction.setRewardBatchId(newBatch.getId());
                     oldTransaction.setUpdateDate(LocalDateTime.now());
@@ -344,7 +345,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .doOnNext(rt -> log.info("[REVERSAL-TRANSACTION-SERVICE] Found transaction id={}, status={}, rewardBatchId={}",
                         rt.getId(), rt.getStatus(), rt.getRewardBatchId()))
                 .flatMap(this::transactionIsInvoicedOrRewarded)
-                .flatMap(this::rewardBatchAlowedStatus)
+                .flatMap(this::rewardBatchAllowedStatus)
                 .flatMap(rt -> {
                     final String oldRewardBatchId = rt.getRewardBatchId();
                     final RewardBatchTrxStatus oldBatchTrxStatus = rt.getRewardBatchTrxStatus();
@@ -424,7 +425,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         return Mono.just(rt);
     }
 
-    private Mono<RewardTransaction> rewardBatchAlowedStatus(RewardTransaction rt) {
+    private Mono<RewardTransaction> rewardBatchAllowedStatus(RewardTransaction rt) {
 
         return rewardBatchRepository.findById(rt.getRewardBatchId())
                 .switchIfEmpty(Mono.defer(() -> {
