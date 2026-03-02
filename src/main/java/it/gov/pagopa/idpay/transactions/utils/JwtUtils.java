@@ -79,7 +79,14 @@ public final class JwtUtils {
       } else if (node.isTextual()) {
         String text = node.asText();
         if (!text.isBlank()) {
-          result.addAll(Arrays.asList(text.split(" ")));
+          String trimmed = text.trim();
+          if (!trimmed.isEmpty()) {
+            for (String scope : trimmed.split("\\s+")) {
+              if (!scope.isEmpty()) {
+                result.add(scope);
+              }
+            }
+          }
         }
       }
     }
