@@ -807,9 +807,6 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardTransactionRepository.save(any()))
                 .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        when(rewardBatchRepository.findRewardBatchById("B1"))
-                .thenReturn(Mono.just(batch));
-
         when(rewardBatchRepository.updateTotals(eq("B1"), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(batch));
 
@@ -848,8 +845,6 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardTransactionRepository.save(any()))
                 .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        when(rewardBatchRepository.findRewardBatchById("B1"))
-                .thenReturn(Mono.just(batch));
 
         when(rewardBatchRepository.updateTotals(eq("B1"), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(batch));
@@ -908,7 +903,6 @@ class PointOfSaleTransactionServiceImplTest {
         batch.setStatus(RewardBatchStatus.CREATED);
 
         when(rewardBatchRepository.findById("B1")).thenReturn(Mono.just(batch));
-        when(rewardBatchRepository.findRewardBatchById("B1")).thenReturn(Mono.just(batch));
         when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
         when(rewardTransactionRepository.save(any()))

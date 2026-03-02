@@ -371,8 +371,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                 .decrementTrxElaborated();
                     }
 
-                    return checkRewardBatchCreatedIfPresent(oldRewardBatchId)
-                            .then(Mono.defer(() -> {
+                    return Mono.defer(() -> {
                                 log.info("[REVERSAL-TRANSACTION-SERVICE] Uploading credit note BEFORE DB updates for trxId={}", rt.getId());
 
                                 return uploadCreditNoteOrThrow(file, sanitizedMerchantId, rt.getPointOfSaleId(), sanitizedTransactionId, rt.getId())
@@ -408,7 +407,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                     .then(updateBatchTotalsMono)
                                                     .then(sendToQueueMono);
                                         }));
-                            }));
+                            });
                 })
                 .doOnError(e -> log.error("[REVERSAL-TRANSACTION-SERVICE] Error during reversalTransaction [transactionId={}, merchantId={}]",
                         sanitizedTransactionId, sanitizedMerchantId, e))
@@ -461,28 +460,6 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 });
     }
 
-    private Mono<Void> checkRewardBatchCreatedIfPresent(String rewardBatchId) {
-        if (rewardBatchId == null) {
-            return Mono.empty();
-        }
-
-        return rewardBatchRepository.findRewardBatchById(rewardBatchId)
-                .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)))
-                .doOnNext(rb -> log.info("[REVERSAL-TRANSACTION-SERVICE] Found reward batch id={} with status={}",
-                        rb.getId(), rb.getStatus()))
-                .flatMap(rb -> {
-                    if (!CREATED.equals(rb.getStatus())) {
-                        log.warn("[REVERSAL-TRANSACTION-SERVICE] Reward batch id={} not in CREATED status={}",
-                                rb.getId(), rb.getStatus());
-                        return Mono.error(new ClientExceptionWithBody(
-                                HttpStatus.BAD_REQUEST,
-                                REWARD_BATCH_ALREADY_SENT,
-                                ERROR_MESSAGE_REWARD_BATCH_ALREADY_SENT
-                        ));
-                    }
-                    return Mono.<Void>empty();
-                });
-    }
 
     private Mono<Void> uploadCreditNoteOrThrow(
             FilePart file,
