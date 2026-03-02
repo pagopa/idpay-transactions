@@ -302,13 +302,13 @@ class ReportControllerImplTest {
     }
 
     @Test
-    void downloadTransactionsReport_WithMerchantId_Success() {
+    void downloadReports_WithMerchantId_Success() {
 
         DownloadReportResponseDTO responseDTO = DownloadReportResponseDTO.builder()
                 .reportUrl("http://localhost/report.csv?sasToken")
                 .build();
 
-        when(reportService.downloadTransactionsReport(
+        when(reportService.downloadReports(
                 eq(MERCHANT_ID),
                 isNull(),
                 eq(INITIATIVE_ID),
@@ -328,17 +328,17 @@ class ReportControllerImplTest {
                 });
 
         verify(reportService, times(1))
-                .downloadTransactionsReport(eq(MERCHANT_ID), isNull(), eq(INITIATIVE_ID), eq("report123"));
+                .downloadReports(eq(MERCHANT_ID), isNull(), eq(INITIATIVE_ID), eq("report123"));
     }
 
     @Test
-    void downloadTransactionsReport_WithOrganizationRole_Success() {
+    void downloadReports_WithOrganizationRole_Success() {
 
         DownloadReportResponseDTO responseDTO = DownloadReportResponseDTO.builder()
                 .reportUrl("http://localhost/report.csv?sasToken")
                 .build();
 
-        when(reportService.downloadTransactionsReport(
+        when(reportService.downloadReports(
                 isNull(),
                 eq("ADMIN"),
                 eq(INITIATIVE_ID),
@@ -358,13 +358,13 @@ class ReportControllerImplTest {
                 });
 
         verify(reportService, times(1))
-                .downloadTransactionsReport(isNull(), eq("ADMIN"), eq(INITIATIVE_ID), eq("report123"));
+                .downloadReports(isNull(), eq("ADMIN"), eq(INITIATIVE_ID), eq("report123"));
     }
 
     @Test
-    void downloadTransactionsReport_NotFound() {
+    void downloadReports_NotFound() {
 
-        when(reportService.downloadTransactionsReport(
+        when(reportService.downloadReports(
                 eq(MERCHANT_ID),
                 isNull(),
                 eq(INITIATIVE_ID),
@@ -383,13 +383,13 @@ class ReportControllerImplTest {
                 .expectStatus().isNotFound();
 
         verify(reportService, times(1))
-                .downloadTransactionsReport(eq(MERCHANT_ID), isNull(), eq(INITIATIVE_ID), eq("missingReport"));
+                .downloadReports(eq(MERCHANT_ID), isNull(), eq(INITIATIVE_ID), eq("missingReport"));
     }
 
     @Test
-    void downloadTransactionsReport_ServiceFails_InternalServerError() {
+    void downloadReports_ServiceFails_InternalServerError() {
 
-        when(reportService.downloadTransactionsReport(
+        when(reportService.downloadReports(
                 eq(MERCHANT_ID),
                 isNull(),
                 eq(INITIATIVE_ID),
@@ -404,7 +404,7 @@ class ReportControllerImplTest {
                 .expectStatus().is5xxServerError();
 
         verify(reportService, times(1))
-                .downloadTransactionsReport(eq(MERCHANT_ID), isNull(), eq(INITIATIVE_ID), eq("report123"));
+                .downloadReports(eq(MERCHANT_ID), isNull(), eq(INITIATIVE_ID), eq("report123"));
     }
 
 

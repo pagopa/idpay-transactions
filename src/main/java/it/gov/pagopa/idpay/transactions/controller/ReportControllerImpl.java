@@ -41,17 +41,17 @@ public class ReportControllerImpl implements ReportController {
     }
 
     @Override
-    public Mono<DownloadReportResponseDTO> downloadTransactionsReport(
+    public Mono<DownloadReportResponseDTO> downloadReports(
             String merchantId,
             String organizationRole,
             String initiativeId,
             String reportId
     ) {
-        log.info("[DOWNLOAD_TRANSACTIONS_REPORT] Request received for initiative: {}, reportId: {}",
+        log.info("[DOWNLOAD_REPORT] Request received for initiative: {}, reportId: {}",
                 Utilities.sanitizeString(initiativeId),
                 Utilities.sanitizeString(reportId));
 
-        return reportService.downloadTransactionsReport(
+        return reportService.downloadReports(
                 merchantId,
                 organizationRole,
                 initiativeId,
