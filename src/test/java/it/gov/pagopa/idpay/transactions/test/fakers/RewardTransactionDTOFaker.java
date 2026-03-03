@@ -1,7 +1,6 @@
 package it.gov.pagopa.idpay.transactions.test.fakers;
 
-import com.github.javafaker.service.FakeValuesService;
-import com.github.javafaker.service.RandomService;
+
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.model.RefundInfo;
 import it.gov.pagopa.idpay.transactions.model.Reward;
@@ -21,19 +20,13 @@ public class RewardTransactionDTOFaker {
         return bias == null ? randomGenerator : new Random(bias);
     }
 
-    private static int getRandomPositiveNumber(Integer bias) {
-        return Math.abs(getRandom(bias).nextInt());
-    }
+
 
     private static int getRandomPositiveNumber(Integer bias, int bound) {
         return Math.abs(getRandom(bias).nextInt(bound));
     }
 
-    private static final FakeValuesService fakeValuesServiceGlobal = new FakeValuesService(Locale.ITALIAN, new RandomService(null));
 
-    private static FakeValuesService getFakeValuesService(Integer bias) {
-        return bias == null ? fakeValuesServiceGlobal : new FakeValuesService(Locale.ITALIAN, new RandomService(getRandom(bias)));
-    }
 
     /**
      * It will return an example of {@link RewardTransactionDTO}. Providing a bias, it will return a pseudo-casual object
@@ -51,9 +44,7 @@ public class RewardTransactionDTOFaker {
 
         out.idTrxAcquirer("IDTRXACQUIRER%d".formatted(bias));
         out.acquirerCode("ACQUIRERCODE%d".formatted(bias));
-        out.trxDate(OffsetDateTime.of(
-                trxDateTime,
-                ZoneId.of("Europe/Rome").getRules().getOffset(trxDateTime)));
+        out.trxDate(trxDateTime);
         out.hpan("HPAN%s".formatted(bias));
         out.operationType("OPERATIONTYPE%d".formatted(bias));
         out.circuitType("CIRCUITTYPE%d".formatted(bias));
@@ -88,7 +79,7 @@ public class RewardTransactionDTOFaker {
         out.setStatus("STATUS%d".formatted(bias));
         String initiativeId = "INITIATIVEID%d".formatted(bias);
         out.setInitiatives(List.of(initiativeId));
-        out.setElaborationDateTime(OffsetDateTime.now());
+        out.setElaborationDateTime(LocalDateTime.now());
 
         Map<String, Reward> reward = new HashMap<>();
 
@@ -111,13 +102,13 @@ public class RewardTransactionDTOFaker {
                 .build();
         reward.put(initiativeId,rewardElement);
         out.setRewards(reward);
-        out.setTrxChargeDate(OffsetDateTime.now());
+        out.setTrxChargeDate(LocalDateTime.now());
 
         TransactionProcessed transactionProcessed = TransactionProcessed.builder()
                 .id(out.getId())
                 .idTrxAcquirer(out.getIdTrxAcquirer())
                 .acquirerCode(out.getAcquirerCode())
-                .trxDate(out.getTrxDate().toLocalDateTime())
+                .trxDate(out.getTrxDate())
                 .operationType(out.getOperationType())
                 .acquirerId(out.getAcquirerId())
                 .userId(out.getUserId())
@@ -126,7 +117,7 @@ public class RewardTransactionDTOFaker {
                 .amountCents(1000L)
                 .rewards(out.getRewards())
                 .effectiveAmountCents(1000L)
-                .trxChargeDate(out.getTrxChargeDate().toLocalDateTime())
+                .trxChargeDate(out.getTrxChargeDate())
                 .operationTypeTranscoded(out.getOperationTypeTranscoded())
                 .timestamp(LocalDateTime.now())
                 .build();
@@ -144,12 +135,12 @@ public class RewardTransactionDTOFaker {
         RewardTransactionDTO out = mockInstanceBuilder(bias).build();
         out.setStatus("REJECTED");
         out.setRejectionReasons(List.of("ERROR"));
-        out.setTrxChargeDate(OffsetDateTime.now());
+        out.setTrxChargeDate(LocalDateTime.now());
 
         Map<String, List<String>> initiativeRejectionsReason = new HashMap<>();
         initiativeRejectionsReason.put("initiative", List.of("Error initiative"));
         out.setInitiativeRejectionReasons(initiativeRejectionsReason);
-        out.setElaborationDateTime(OffsetDateTime.now());
+        out.setElaborationDateTime(LocalDateTime.now());
 
         return out;
     }

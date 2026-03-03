@@ -121,16 +121,16 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
       return pointOfSaleTransactionService.getDistinctFranchiseAndPosByRewardBatchId(sanitizedRewardBatchId);
     }
 
-    public Mono<Void> reversalTransactionInvoiced(String transactionId, String merchantId, String pointOfSaleId, FilePart file, String docNumber) {
+    @Override
+    public Mono<Void> reversalTransactionInvoiced(String transactionId, String merchantId, FilePart file, String docNumber) {
 
         final String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
         final String sanitizedTrxCode = Utilities.sanitizeString(transactionId);
-        final String sanitizedPointOfSaleId = Utilities.sanitizeString(pointOfSaleId);
 
         log.info(
-                "[REVERSAL_TRANSACTION] The merchant {} is requesting a reversal for the transactionId {} at POS {}",
-                sanitizedMerchantId, sanitizedTrxCode, sanitizedPointOfSaleId
+                "[REVERSAL_TRANSACTION] The merchant {} is requesting a reversal for the transactionId {}",
+                sanitizedMerchantId, sanitizedTrxCode
         );
-        return pointOfSaleTransactionService.reversalTransaction(transactionId, merchantId, pointOfSaleId, file, docNumber);
+        return pointOfSaleTransactionService.reversalTransaction(transactionId, merchantId, file, docNumber);
     }
 }

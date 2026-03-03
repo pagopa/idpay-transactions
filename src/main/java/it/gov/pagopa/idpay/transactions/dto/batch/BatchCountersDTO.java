@@ -112,7 +112,8 @@ public class BatchCountersDTO {
     this.trxRejected = this.trxRejected + 1L;
   }
 
-  public void decrementTrxRejected() {
+  public BatchCountersDTO decrementTrxRejected() {
     this.trxRejected = this.trxRejected - 1L;
+    return this;
   }
 }

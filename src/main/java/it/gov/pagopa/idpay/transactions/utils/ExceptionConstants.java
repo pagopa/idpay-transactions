@@ -57,7 +57,7 @@ public final class ExceptionConstants {
         public static final String TRANSACTIONS_MISSING_MANDATORY_FILTERS = "Mandatory filters are missing. Insert one of the following options: 1) idTrxIssuer 2) userId, trxDateStart and trxDateEnd";
         public static final String TRANSACTION_MISSING_INVOICE = "Invoice missing from transaction for which download was required";
         public static final String TRANSACTION_NOT_FOUND = "Transaction not found for ID: %s";
-        public static final String TRANSACTION_NOT_STATUS_INVOICED = "Transaction is not in invoiced status";
+        public static final String TRANSACTION_NOT_STATUS_INVOICED_OR_REWARDED = "Transaction is not in invoiced or rewarded status";
         public static final String TRANSACTION_NOT_STATUS_APPROVED = "Transaction is not in approved status";
         public static final String REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED = "Transaction can be postponed only until the end of the month following the initiative end date";
         public static final String ERROR_ON_GET_FILE_URL_REQUEST = "Error occurred while attempting to get file url";
