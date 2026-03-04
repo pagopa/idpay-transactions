@@ -211,10 +211,9 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
   @Override
   public Mono<RewardTransaction> findTransaction(
-      String merchantId, String pointOfSaleId, String transactionId) {
+      String merchantId, String transactionId) {
     Criteria criteria = Criteria
         .where(Fields.merchantId).is(merchantId)
-        .and(Fields.pointOfSaleId).is(pointOfSaleId)
         .and(Fields.id).is(transactionId)
         .and(Fields.status)
         .in(SyncTrxStatus.REWARDED, SyncTrxStatus.REFUNDED, SyncTrxStatus.INVOICED);

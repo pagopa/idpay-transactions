@@ -74,6 +74,7 @@ public class RewardTransactionDTO {
     private String franchiseName;
     private PosType pointOfSaleType;
     private String businessName;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime updateDate;
 
     private Boolean extendedAuthorization;

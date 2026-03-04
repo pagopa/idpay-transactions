@@ -6,16 +6,25 @@ from datetime import datetime, timezone
 # --- CONFIGURAZIONE ---
 CLIENT_ID = "IL_TUO_CLIENT_ID"
 CLIENT_SECRET = "IL_TUO_CLIENT_SECRET"
-#BASE_URL_UAT = "https://dev-apim-misure.azure-api.net/pagopa/ce/v1"
+# BASE_URL_UAT = "https://dev-apim-misure.azure-api.net/pagopa/ce/v1"
 BASE_URL = "https://prod-apim-misure.azure-api.net/pagopa/ce/v1"
 TOKEN_URL = "https://login.microsoftonline.com/afd0a75c-8671-4cce-9061-2ca0d92e422f/oauth2/v2.0/token"
 SELFCARE_URL = "https://api.selfcare.pagopa.it/external/v2/institutions"
 SELFCARE_API_KEY = "SELFCARE-MERCHANT-API-KEY"
 CSV_FILE = "dati.csv"
-OUTPUT_JSON_FILE = "risposte_api.json"
+OUTPUT_JSON_FILE = "risposte_api"  # L'estensione .jsonl verrà aggiunta automaticamente
 
 # Cache per le informazioni anagrafiche recuperate da SelfCare
 selfcare_cache = {}
+
+
+def append_log(log_entry, filename):
+  """
+  Appende un singolo dizionario come stringa JSON su una nuova riga (Formato JSONL).
+  Viene aperto in modalità 'a' (append).
+  """
+  with open(filename, 'a', encoding='utf-8') as f_out:
+    f_out.write(json.dumps(log_entry, ensure_ascii=False) + '\n')
 
 
 def get_bearer_token():
@@ -44,7 +53,7 @@ def get_bearer_token():
 def format_date(date_str):
   """
   Converte la data dal formato CSV '09/12/2025, 09:56:41,029'
-  [cite_start]al formato ISO 8601 'yyyyMMddTHH:mm:ssZ' richiesto[cite: 132, 133].
+  al formato ISO 8601 'yyyyMMddTHH:mm:ssZ' richiesto.
   """
   try:
     clean_date = date_str.split(',')[0] + " " + date_str.split(',')[1].strip()
@@ -55,12 +64,10 @@ def format_date(date_str):
     return date_str
 
 
-def get_institution_data(tax_code, all_responses_log):
+def get_institution_data(tax_code, output_filename):
   """
   Recupera i dati anagrafici da SelfCare tramite taxCode.
   Utilizza una cache interna per evitare chiamate ripetute.
-
-  Ritorna un dizionario con cap, indirizzo, localita, provincia, pec oppure None in caso di errore.
   """
   # Controlla se il dato è già in cache
   if tax_code in selfcare_cache:
@@ -72,10 +79,12 @@ def get_institution_data(tax_code, all_responses_log):
   }
 
   try:
-    response = requests.get(SELFCARE_URL, headers=headers, params={'taxCode': tax_code})
+    response = requests.get(SELFCARE_URL, headers=headers,
+                            params={'taxCode': tax_code})
 
     if response.status_code != 200:
-      print(f"Errore chiamata SelfCare per taxCode {tax_code}: HTTP {response.status_code}")
+      print(
+          f"Errore chiamata SelfCare per taxCode {tax_code}: HTTP {response.status_code}")
       response_data = {
         "service": "selfcare",
         "taxCode": tax_code,
@@ -86,14 +95,15 @@ def get_institution_data(tax_code, all_responses_log):
         response_data["api_response"] = response.json()
       except json.JSONDecodeError:
         response_data["api_response"] = response.text
-      all_responses_log.append(response_data)
+      append_log(response_data, output_filename)
       return None
 
     data = response.json()
     institutions = data.get('institutions', [])
 
     if len(institutions) != 1:
-      print(f"Errore: SelfCare ha restituito {len(institutions)} risultati per taxCode {tax_code} (atteso 1)")
+      print(
+          f"Errore: SelfCare ha restituito {len(institutions)} risultati per taxCode {tax_code} (atteso 1)")
       response_data = {
         "service": "selfcare",
         "taxCode": tax_code,
@@ -102,7 +112,7 @@ def get_institution_data(tax_code, all_responses_log):
         "error": f"Numero di risultati non valido: {len(institutions)} (atteso 1)",
         "api_response": data
       }
-      all_responses_log.append(response_data)
+      append_log(response_data, output_filename)
       return None
 
     institution = institutions[0]
@@ -126,7 +136,7 @@ def get_institution_data(tax_code, all_responses_log):
       "timestamp": datetime.now().isoformat(),
       "error": str(e)
     }
-    all_responses_log.append(response_data)
+    append_log(response_data, output_filename)
     return None
 
 
@@ -139,16 +149,15 @@ def process_csv():
 
   url_erogazioni = f"{BASE_URL}/erogazioni"
 
-  # Lista per accumulare tutte le risposte
-  all_responses_log = []
-
-  # Nome file output univoco con timestamp UTC
-  output_json_file = OUTPUT_JSON_FILE
-  if output_json_file.lower().endswith('.json'):
-    output_json_file = output_json_file[:-5]
+  # Nome file output univoco con estensione .jsonl (JSON Lines)
+  output_base_name = OUTPUT_JSON_FILE
+  if output_base_name.lower().endswith('.json'):
+    output_base_name = output_base_name[:-5]
+  elif output_base_name.lower().endswith('.jsonl'):
+    output_base_name = output_base_name[:-6]
 
   timestamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
-  output_json_file = f"{output_json_file}_{timestamp}.json"
+  output_json_file = f"{output_base_name}_{timestamp}.jsonl"
 
   try:
     with open(CSV_FILE, mode='r', encoding='utf-8-sig') as f:
@@ -156,15 +165,14 @@ def process_csv():
 
       for row in reader:
         try:
-          # Recupero dati anagrafici da SelfCare
           tax_code = row['codiceFiscaleCliente']
-          institution_data = get_institution_data(tax_code, all_responses_log)
+          institution_data = get_institution_data(tax_code, output_json_file)
 
           if institution_data is None:
-            print(f"Salto riga ID {row['id']}: impossibile recuperare dati da SelfCare per taxCode {tax_code}")
+            print(
+                f"Salto riga ID {row['id']}: impossibile recuperare dati da SelfCare per taxCode {tax_code}")
             continue
 
-          # Conversione importo: da centesimi (int) a euro (float)
           importo_centesimi = float(row['importo'])
           importo_reale = importo_centesimi / 100
 
@@ -191,15 +199,15 @@ def process_csv():
           }
 
           print(f"payload {payload}")
-
           headers['Request-Id'] = row['id']
-
-          print(f"Invio pratica {row['id']}:{row['idPratica']} (Importo: {importo_reale})...")
+          print(
+              f"Invio pratica {row['id']}:{row['idPratica']} (Importo: {importo_reale})...")
 
           # Chiamata POST
-          response = requests.post(url_erogazioni, headers=headers, json=payload)
+          response = requests.post(url_erogazioni, headers=headers,
+                                   json=payload)
 
-          # Gestione risposta
+          # Composizione dell'oggetto di log per questa specifica riga
           response_data = {
             "csv_id": row['id'],
             "idPratica": row['idPratica'],
@@ -208,16 +216,14 @@ def process_csv():
             "payload_sent": payload
           }
 
-          # Tentativo di parsing JSON della risposta, altrimenti testo semplice
           try:
             response_data["api_response"] = response.json()
           except json.JSONDecodeError:
             response_data["api_response"] = response.text
 
-          # Aggiungo alla lista cumulativa
-          all_responses_log.append(response_data)
+          # Scrittura in append sul file JSONL
+          append_log(response_data, output_json_file)
 
-          # Verifica successo (Qualsiasi 2xx)
           if 200 <= response.status_code < 300:
             print(f"--> SUCCESSO ({response.status_code})")
           else:
@@ -225,20 +231,19 @@ def process_csv():
 
         except Exception as e:
           print(f"Errore elaborazione riga ID {row.get('id', 'N/A')}: {e}")
-          all_responses_log.append({
+          error_data = {
             "csv_id": row.get('id', 'unknown'),
-            "error": str(e)
-          })
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+          }
+          append_log(error_data, output_json_file)
 
   except FileNotFoundError:
     print(f"File {CSV_FILE} non trovato.")
     return
 
-  # Salvataggio unico file JSON finale
-  with open(output_json_file, 'w', encoding='utf-8') as f_out:
-    json.dump(all_responses_log, f_out, indent=4, ensure_ascii=False)
-
-  print(f"\nElaborazione completata. Risposte salvate in '{output_json_file}'")
+  print(
+      f"\nElaborazione completata. Risposte salvate in '{output_json_file}' (Formato JSON Lines)")
 
 
 if __name__ == "__main__":
