@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
+import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
@@ -53,6 +54,7 @@ class ReportSpecificRepositoryImplTest {
                 .merchantId(MERCHANT_ID)
                 .businessName("Business1")
                 .reportStatus(ReportStatus.INSERTED)
+                .reportType(ReportType.MERCHANT_TRANSACTIONS)
                 .operatorLevel(null)
                 .fileName("file1.csv")
                 .startPeriod(LocalDateTime.of(2026, 2, 1, 0, 0))
@@ -65,7 +67,7 @@ class ReportSpecificRepositoryImplTest {
 
         Pageable pageable = PageRequest.of(0, 10);
 
-        StepVerifier.create(reportSpecificRepository.findReportsCombined(MERCHANT_ID, null, INITIATIVE_ID, pageable))
+        StepVerifier.create(reportSpecificRepository.findReportsCombined(MERCHANT_ID, null, INITIATIVE_ID, ReportType.MERCHANT_TRANSACTIONS, pageable))
                 .assertNext(r -> {
                     assertEquals("R1", r.getId());
                     assertEquals(MERCHANT_ID, r.getMerchantId());
@@ -78,26 +80,26 @@ class ReportSpecificRepositoryImplTest {
     void findReportsCombined_shouldReturnEmpty_whenNoMatch() {
         Pageable pageable = PageRequest.of(0, 10);
 
-        StepVerifier.create(reportSpecificRepository.findReportsCombined(MERCHANT_ID, null, INITIATIVE_ID, pageable))
+        StepVerifier.create(reportSpecificRepository.findReportsCombined(MERCHANT_ID, null, INITIATIVE_ID, ReportType.MERCHANT_TRANSACTIONS, pageable))
                 .expectNextCount(0)
                 .verifyComplete();
     }
 
     @Test
     void countReportsCombined_shouldReturnCorrectCount() {
-        Report report1 = Report.builder().id("R1").merchantId(MERCHANT_ID).initiativeId(INITIATIVE_ID).build();
-        Report report2 = Report.builder().id("R2").merchantId(MERCHANT_ID).initiativeId(INITIATIVE_ID).build();
+        Report report1 = Report.builder().id("R1").merchantId(MERCHANT_ID).reportType(ReportType.USER_DETAILS).initiativeId(INITIATIVE_ID).build();
+        Report report2 = Report.builder().id("R2").merchantId(MERCHANT_ID).reportType(ReportType.USER_DETAILS).initiativeId(INITIATIVE_ID).build();
 
         reportRepository.saveAll(List.of(report1, report2)).collectList().block();
 
-        StepVerifier.create(reportSpecificRepository.countReportsCombined(MERCHANT_ID, null, INITIATIVE_ID))
+        StepVerifier.create(reportSpecificRepository.countReportsCombined(MERCHANT_ID, null, INITIATIVE_ID, ReportType.USER_DETAILS))
                 .assertNext(count -> assertEquals(2L, count))
                 .verifyComplete();
     }
 
     @Test
     void countReportsCombined_shouldReturnZero_whenNoMatch() {
-        StepVerifier.create(reportSpecificRepository.countReportsCombined(MERCHANT_ID, null, INITIATIVE_ID))
+        StepVerifier.create(reportSpecificRepository.countReportsCombined(MERCHANT_ID, null, INITIATIVE_ID, ReportType.USER_DETAILS))
                 .assertNext(count -> assertEquals(0L, count))
                 .verifyComplete();
     }
@@ -110,6 +112,7 @@ class ReportSpecificRepositoryImplTest {
                 .merchantId(MERCHANT_ID)
                 .initiativeId(INITIATIVE_ID)
                 .operatorLevel(null)
+                .reportType(ReportType.MERCHANT_TRANSACTIONS)
                 .build();
 
         Report report2 = Report.builder()
@@ -117,6 +120,7 @@ class ReportSpecificRepositoryImplTest {
                 .merchantId(MERCHANT_ID)
                 .initiativeId(INITIATIVE_ID)
                 .operatorLevel(RewardBatchAssignee.L1)
+                .reportType(ReportType.USER_DETAILS)
                 .build();
 
         reportRepository.saveAll(List.of(report1, report2))
@@ -130,6 +134,7 @@ class ReportSpecificRepositoryImplTest {
                                 MERCHANT_ID,
                                 null,
                                 INITIATIVE_ID,
+                                ReportType.MERCHANT_TRANSACTIONS,
                                 pageable
                         )
                 )
@@ -145,6 +150,7 @@ class ReportSpecificRepositoryImplTest {
                 .merchantId(MERCHANT_ID)
                 .initiativeId(INITIATIVE_ID)
                 .operatorLevel(null)
+                .reportType(ReportType.MERCHANT_TRANSACTIONS)
                 .build();
 
         Report report2 = Report.builder()
@@ -152,11 +158,10 @@ class ReportSpecificRepositoryImplTest {
                 .merchantId(MERCHANT_ID)
                 .initiativeId(INITIATIVE_ID)
                 .operatorLevel(RewardBatchAssignee.L1)
+                .reportType(ReportType.USER_DETAILS)
                 .build();
 
-        reportRepository.saveAll(List.of(report1, report2))
-                .collectList()
-                .block();
+        reportRepository.saveAll(List.of(report1, report2)).blockLast();
 
         Pageable pageable = PageRequest.of(0, 10);
 
@@ -165,6 +170,7 @@ class ReportSpecificRepositoryImplTest {
                                 null,
                                 "Operator1",
                                 INITIATIVE_ID,
+                                ReportType.USER_DETAILS,
                                 pageable
                         )
                 )
@@ -179,6 +185,7 @@ class ReportSpecificRepositoryImplTest {
                 .id("R1")
                 .initiativeId(INITIATIVE_ID)
                 .operatorLevel(RewardBatchAssignee.L1)
+                .reportType(ReportType.USER_DETAILS)
                 .build();
 
         reportRepository.save(report).block();
@@ -188,12 +195,81 @@ class ReportSpecificRepositoryImplTest {
         StepVerifier.create(
                         reportSpecificRepository.findReportsCombined(
                                 null,
-                                "Operator1",
+                                RewardBatchAssignee.L1.name(),
                                 INITIATIVE_ID,
+                                ReportType.USER_DETAILS,
                                 pageable
                         )
                 )
                 .expectNextMatches(r -> r.getId().equals("R1"))
+                .verifyComplete();
+    }
+
+    @Test
+    void findReportsCombined_shouldFilterByReportTypeMerchantTransactions() {
+
+        Report report1 = Report.builder()
+                .id("R1")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
+                .reportType(ReportType.MERCHANT_TRANSACTIONS)
+                .operatorLevel(null)
+                .build();
+
+        Report report2 = Report.builder()
+                .id("R2")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
+                .reportType(ReportType.USER_DETAILS)
+                .operatorLevel(null)
+                .build();
+
+        reportRepository.saveAll(List.of(report1, report2)).blockLast();
+
+        Pageable pageable = PageRequest.of(0, 10);
+
+        StepVerifier.create(
+                        reportSpecificRepository.findReportsCombined(
+                                MERCHANT_ID,
+                                null,
+                                INITIATIVE_ID,
+                                ReportType.MERCHANT_TRANSACTIONS,
+                                pageable
+                        ))
+                .assertNext(r -> assertEquals(ReportType.MERCHANT_TRANSACTIONS, r.getReportType()))
+                .verifyComplete();
+    }
+
+    @Test
+    void findReportsCombined_shouldFilterByReportTypeUserDetails() {
+
+        Report report1 = Report.builder()
+                .id("R1")
+                .initiativeId(INITIATIVE_ID)
+                .operatorLevel(RewardBatchAssignee.L1)
+                .reportType(ReportType.USER_DETAILS)
+                .build();
+
+        Report report2 = Report.builder()
+                .id("R2")
+                .initiativeId(INITIATIVE_ID)
+                .operatorLevel(RewardBatchAssignee.L1)
+                .reportType(ReportType.MERCHANT_TRANSACTIONS)
+                .build();
+
+        reportRepository.saveAll(List.of(report1, report2)).blockLast();
+
+        Pageable pageable = PageRequest.of(0, 10);
+
+        StepVerifier.create(
+                        reportSpecificRepository.findReportsCombined(
+                                null,
+                                "Operator1",
+                                INITIATIVE_ID,
+                                ReportType.USER_DETAILS,
+                                pageable
+                        ))
+                .assertNext(r -> assertEquals(ReportType.USER_DETAILS, r.getReportType()))
                 .verifyComplete();
     }
 

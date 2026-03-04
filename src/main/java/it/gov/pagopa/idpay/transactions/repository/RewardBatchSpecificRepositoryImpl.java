@@ -53,34 +53,6 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     return mongoTemplate.count(Query.query(criteria), RewardBatch.class);
   }
 
-  @Deprecated
-  @Override
-  public Mono<RewardBatch> incrementTotalAmountCents(String batchId, long accruedAmountCents) {
-    return mongoTemplate.findAndModify(
-        Query.query(Criteria.where("_id").is(batchId)),
-        new Update()
-            .inc(INITIAL_AMOUNT_CENTS, accruedAmountCents)
-            .inc(NUMBER_OF_TRANSACTIONS, 1)
-            .set(RewardBatch.Fields.updateDate, LocalDateTime.now()),
-        FindAndModifyOptions.options().returnNew(true),
-        RewardBatch.class
-    );
-  }
-
-  @Deprecated
-  @Override
-  public Mono<RewardBatch> decrementTotalAmountCents(String batchId, long accruedAmountCents) {
-    return mongoTemplate.findAndModify(
-        Query.query(Criteria.where("_id").is(batchId)),
-        new Update()
-            .inc(INITIAL_AMOUNT_CENTS, -accruedAmountCents)
-            .inc(NUMBER_OF_TRANSACTIONS, -1)
-            .set(RewardBatch.Fields.updateDate, LocalDateTime.now()),
-        FindAndModifyOptions.options().returnNew(true),
-        RewardBatch.class
-    );
-  }
-
   public Mono<RewardBatch> moveTrxToNewBatch(String oldBatchId, String newBatchId, long accruedAmountCents, boolean isSuspended){
 
     Update decOld = new Update()

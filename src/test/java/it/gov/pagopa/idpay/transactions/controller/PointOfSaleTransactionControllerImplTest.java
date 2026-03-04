@@ -251,7 +251,6 @@ class PointOfSaleTransactionControllerImplTest {
     when(pointOfSaleTransactionService.reversalTransaction(
         eq(TRX_ID),
         eq(MERCHANT_ID),
-        eq(POINT_OF_SALE_ID),
         any(FilePart.class),
         eq("DOC456")
     )).thenReturn(Mono.empty());
@@ -274,7 +273,6 @@ class PointOfSaleTransactionControllerImplTest {
     verify(pointOfSaleTransactionService).reversalTransaction(
         eq(TRX_ID),
         eq(MERCHANT_ID),
-        eq(POINT_OF_SALE_ID),
         any(FilePart.class),
         eq("DOC456")
     );

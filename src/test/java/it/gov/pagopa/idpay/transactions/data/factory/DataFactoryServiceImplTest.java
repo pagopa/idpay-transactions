@@ -42,7 +42,8 @@ class DataFactoryServiceImplTest {
                 dataFactoryManager,
                 "resourceGroup",
                 "factoryName",
-                "pipelineName",
+                "pipelineTransactionReportname",
+                "pipelineUserDetailsReportname",
                 0
         );
     }

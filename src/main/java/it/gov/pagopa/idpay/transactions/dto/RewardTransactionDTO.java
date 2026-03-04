@@ -74,7 +74,8 @@ public class RewardTransactionDTO {
     private String franchiseName;
     private PosType pointOfSaleType;
     private String businessName;
-    private LocalDateTime updateDate;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    private OffsetDateTime updateDate;
 
     private Boolean extendedAuthorization;
     private Long voucherAmountCents;

@@ -177,18 +177,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     return rewardBatchRepository.save(batch);
   }
 
-  @Deprecated
-  @Override
-  public Mono<RewardBatch> incrementTotalAmountCents(String batchId, long accruedAmountCents) {
-    return rewardBatchRepository.incrementTotalAmountCents(batchId, accruedAmountCents);
-  }
-
-  @Deprecated
-  @Override
-  public Mono<RewardBatch> decrementTotalAmountCents(String batchId, long accruedAmountCents) {
-    return rewardBatchRepository.decrementTotalAmountCents(batchId, accruedAmountCents);
-  }
-
   @Override
   public Mono<Void> sendRewardBatch(String merchantId, String batchId) {
     return rewardBatchRepository.findById(batchId)
@@ -1138,8 +1126,27 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
 
                         boolean isTrxSuspended = RewardBatchTrxStatus.SUSPENDED.equals(trx.getRewardBatchTrxStatus());
+                        BatchCountersDTO oldBatchCounters = BatchCountersDTO.newBatch()
+                                .decrementInitialAmountCents(accruedRewardCents)
+                                .decrementNumberOfTransactions();
+                        BatchCountersDTO newBatchCounters = BatchCountersDTO.newBatch()
+                                .incrementInitialAmountCents(accruedRewardCents)
+                                .incrementNumberOfTransactions(1L);
+                        if(isTrxSuspended){
 
-                        return rewardBatchRepository.moveTrxToNewBatch(currentBatch.getId(), nextBatch.getId(), accruedRewardCents, isTrxSuspended)
+                            oldBatchCounters
+                                    .decrementSuspendedAmountCents(accruedRewardCents)
+                                    .decrementTrxElaborated()
+                                    .decrementTrxSuspended();
+
+                            newBatchCounters
+                                    .incrementSuspendedAmountCents(accruedRewardCents)
+                                    .incrementTrxElaborated()
+                                    .incrementTrxSuspended();
+                        }
+
+                        return  rewardBatchRepository.updateTotals(currentBatch.getId(), oldBatchCounters)
+                                        .then(rewardBatchRepository.updateTotals(nextBatch.getId(), newBatchCounters))
                             .then(Mono.defer(() -> {
 
                               trx.setRewardBatchId(nextBatch.getId());
