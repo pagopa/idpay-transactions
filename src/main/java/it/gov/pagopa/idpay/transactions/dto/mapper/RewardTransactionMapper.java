@@ -6,79 +6,90 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+
 
 @Service
 public class RewardTransactionMapper {
-    public RewardTransaction mapFromDTO(RewardTransactionDTO rewardTrxDto) {
-        RewardTransaction rewardTrx = null;
 
-        if (rewardTrxDto != null) {
-            rewardTrx = RewardTransaction.builder().build();
+    public RewardTransaction mapFromDTO(RewardTransactionDTO dto) {
 
-            if (StringUtils.isEmpty(rewardTrxDto.getId())) {
-                rewardTrx.setId(rewardTrxDto.getIdTrxAcquirer()
-                        .concat(rewardTrxDto.getAcquirerCode())
-                        .concat(String.valueOf(rewardTrxDto.getTrxDate()))
-                        .concat(rewardTrxDto.getOperationType())
-                        .concat(rewardTrxDto.getAcquirerId()));
-            } else {
-                rewardTrx.setId(rewardTrxDto.getId());
-            }
-            rewardTrx.setIdTrxAcquirer(rewardTrxDto.getIdTrxAcquirer());
-            rewardTrx.setAcquirerCode(rewardTrxDto.getAcquirerCode());
-            rewardTrx.setTrxDate(rewardTrxDto.getTrxDate());
-            rewardTrx.setHpan(rewardTrxDto.getHpan());
-            rewardTrx.setOperationType(rewardTrxDto.getOperationType());
-            rewardTrx.setCircuitType(rewardTrxDto.getCircuitType());
-            rewardTrx.setIdTrxIssuer(rewardTrxDto.getIdTrxIssuer());
-            rewardTrx.setCorrelationId(rewardTrxDto.getCorrelationId());
-            rewardTrx.setAmountCents(rewardTrxDto.getAmountCents());
-            rewardTrx.setAmountCurrency(rewardTrxDto.getAmountCurrency());
-            rewardTrx.setMcc(rewardTrxDto.getMcc());
-            rewardTrx.setAcquirerId(rewardTrxDto.getAcquirerId());
-            rewardTrx.setMerchantId(rewardTrxDto.getMerchantId());
-            rewardTrx.setPointOfSaleId(rewardTrxDto.getPointOfSaleId());
-            rewardTrx.setTerminalId(rewardTrxDto.getTerminalId());
-            rewardTrx.setBin(rewardTrxDto.getBin());
-            rewardTrx.setSenderCode(rewardTrxDto.getSenderCode());
-            rewardTrx.setFiscalCode(rewardTrxDto.getFiscalCode());
-            rewardTrx.setVat(rewardTrxDto.getVat());
-            rewardTrx.setPosType(rewardTrxDto.getPosType());
-            rewardTrx.setPar(rewardTrxDto.getPar());
-            rewardTrx.setStatus(rewardTrxDto.getStatus());
-            rewardTrx.setRejectionReasons(rewardTrxDto.getRejectionReasons());
-            rewardTrx.setInitiativeRejectionReasons(rewardTrxDto.getInitiativeRejectionReasons());
-            rewardTrx.setInitiatives(rewardTrxDto.getInitiatives());
-            rewardTrx.setRewards(rewardTrxDto.getRewards());
-            rewardTrx.setUserId(rewardTrxDto.getUserId());
-            rewardTrx.setMaskedPan(rewardTrxDto.getMaskedPan());
-            rewardTrx.setBrandLogo(rewardTrxDto.getBrandLogo());
-            rewardTrx.setOperationTypeTranscoded(rewardTrxDto.getOperationTypeTranscoded());
-            rewardTrx.setEffectiveAmountCents(rewardTrxDto.getEffectiveAmountCents());
-            rewardTrx.setTrxChargeDate(rewardTrxDto.getTrxChargeDate());
-            rewardTrx.setRefundInfo(rewardTrxDto.getRefundInfo());
-
-            rewardTrx.setElaborationDateTime(rewardTrxDto.getElaborationDateTime());
-            rewardTrx.setChannel(rewardTrxDto.getChannel());
-            rewardTrx.setAdditionalProperties(rewardTrxDto.getAdditionalProperties());
-            rewardTrx.setInvoiceData(rewardTrxDto.getInvoiceData());
-            rewardTrx.setCreditNoteData(rewardTrxDto.getCreditNoteData());
-            rewardTrx.setTrxCode((rewardTrxDto.getTrxCode()));
-            rewardTrx.setFranchiseName((rewardTrxDto.getFranchiseName()));
-            rewardTrx.setPointOfSaleType(rewardTrxDto.getPointOfSaleType());
-            rewardTrx.setBusinessName(rewardTrxDto.getBusinessName());
-            if(SyncTrxStatus.INVOICED.name().equals(rewardTrxDto.getStatus())){
-                rewardTrx.setInvoiceUploadDate(rewardTrxDto.getUpdateDate());
-            }
-            rewardTrx.setExtendedAuthorization(rewardTrxDto.getExtendedAuthorization());
-            rewardTrx.setVoucherAmountCents(rewardTrxDto.getVoucherAmountCents());
-            rewardTrx.setChecksError(rewardTrxDto.getChecksError());
-            rewardTrx.setUpdateDate(rewardTrxDto.getUpdateDate());
-
-
+        if (dto == null) {
+            return null;
         }
+
+        RewardTransaction rewardTrx = RewardTransaction.builder().build();
+
+        if (StringUtils.isEmpty(dto.getId())) {
+            rewardTrx.setId(dto.getIdTrxAcquirer()
+                    .concat(dto.getAcquirerCode())
+                    .concat(String.valueOf(dto.getTrxDate()))
+                    .concat(dto.getOperationType())
+                    .concat(dto.getAcquirerId()));
+        } else {
+            rewardTrx.setId(dto.getId());
+        }
+
+        rewardTrx.setIdTrxAcquirer(dto.getIdTrxAcquirer());
+        rewardTrx.setAcquirerCode(dto.getAcquirerCode());
+
+        rewardTrx.setTrxDate(dto.getTrxDate() != null ? toLocalDateTime(dto.getTrxDate()) : null);
+        rewardTrx.setTrxChargeDate(dto.getTrxChargeDate() != null ? toLocalDateTime(dto.getTrxChargeDate()) : null);
+        rewardTrx.setElaborationDateTime( dto.getElaborationDateTime()!= null ? toLocalDateTime(dto.getElaborationDateTime()): null);
+        rewardTrx.setUpdateDate(dto.getUpdateDate() != null ?  toLocalDateTime(dto.getUpdateDate()): null);
+
+        rewardTrx.setHpan(dto.getHpan());
+        rewardTrx.setOperationType(dto.getOperationType());
+        rewardTrx.setCircuitType(dto.getCircuitType());
+        rewardTrx.setIdTrxIssuer(dto.getIdTrxIssuer());
+        rewardTrx.setCorrelationId(dto.getCorrelationId());
+        rewardTrx.setAmountCents(dto.getAmountCents());
+        rewardTrx.setAmountCurrency(dto.getAmountCurrency());
+        rewardTrx.setMcc(dto.getMcc());
+        rewardTrx.setAcquirerId(dto.getAcquirerId());
+        rewardTrx.setMerchantId(dto.getMerchantId());
+        rewardTrx.setPointOfSaleId(dto.getPointOfSaleId());
+        rewardTrx.setTerminalId(dto.getTerminalId());
+        rewardTrx.setBin(dto.getBin());
+        rewardTrx.setSenderCode(dto.getSenderCode());
+        rewardTrx.setFiscalCode(dto.getFiscalCode());
+        rewardTrx.setVat(dto.getVat());
+        rewardTrx.setPosType(dto.getPosType());
+        rewardTrx.setPar(dto.getPar());
+        rewardTrx.setStatus(dto.getStatus());
+        rewardTrx.setRejectionReasons(dto.getRejectionReasons());
+        rewardTrx.setInitiativeRejectionReasons(dto.getInitiativeRejectionReasons());
+        rewardTrx.setInitiatives(dto.getInitiatives());
+        rewardTrx.setRewards(dto.getRewards());
+        rewardTrx.setUserId(dto.getUserId());
+        rewardTrx.setMaskedPan(dto.getMaskedPan());
+        rewardTrx.setBrandLogo(dto.getBrandLogo());
+        rewardTrx.setOperationTypeTranscoded(dto.getOperationTypeTranscoded());
+        rewardTrx.setEffectiveAmountCents(dto.getEffectiveAmountCents());
+        rewardTrx.setRefundInfo(dto.getRefundInfo());
+        rewardTrx.setChannel(dto.getChannel());
+        rewardTrx.setAdditionalProperties(dto.getAdditionalProperties());
+        rewardTrx.setInvoiceData(dto.getInvoiceData());
+        rewardTrx.setCreditNoteData(dto.getCreditNoteData());
+        rewardTrx.setTrxCode(dto.getTrxCode());
+        rewardTrx.setFranchiseName(dto.getFranchiseName());
+        rewardTrx.setPointOfSaleType(dto.getPointOfSaleType());
+        rewardTrx.setBusinessName(dto.getBusinessName());
+
+        if (SyncTrxStatus.INVOICED.name().equals(dto.getStatus())) {
+            rewardTrx.setInvoiceUploadDate(dto.getUpdateDate() != null ? toLocalDateTime(dto.getUpdateDate()) : null);
+        }
+
+        rewardTrx.setExtendedAuthorization(dto.getExtendedAuthorization());
+        rewardTrx.setVoucherAmountCents(dto.getVoucherAmountCents());
+        rewardTrx.setChecksError(dto.getChecksError());
 
         return rewardTrx;
     }
 
+    private LocalDateTime toLocalDateTime(OffsetDateTime offsetDateTime) {
+        return offsetDateTime.atZoneSameInstant(ZoneId.of("Europe/Rome")).toLocalDateTime();
+    }
 }

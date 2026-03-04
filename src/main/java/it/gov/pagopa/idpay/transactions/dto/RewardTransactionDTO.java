@@ -10,7 +10,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -25,7 +25,7 @@ public class RewardTransactionDTO {
     private String idTrxAcquirer;
     private String acquirerCode;
     
-    private LocalDateTime trxDate;
+    private OffsetDateTime trxDate;
     private String hpan;
     private String operationType;
     private String circuitType;
@@ -59,11 +59,11 @@ public class RewardTransactionDTO {
     private String operationTypeTranscoded;
     private Long effectiveAmountCents;
     
-    private LocalDateTime trxChargeDate;
+    private OffsetDateTime trxChargeDate;
     private RefundInfo refundInfo;
 
     
-    private LocalDateTime elaborationDateTime;
+    private OffsetDateTime elaborationDateTime;
     private String channel;
     private Map<String, String> additionalProperties;
     private InvoiceData invoiceData;
@@ -73,7 +73,7 @@ public class RewardTransactionDTO {
     private PosType pointOfSaleType;
     private String businessName;
     
-    private LocalDateTime updateDate;
+    private OffsetDateTime updateDate;
 
     private Boolean extendedAuthorization;
     private Long voucherAmountCents;
