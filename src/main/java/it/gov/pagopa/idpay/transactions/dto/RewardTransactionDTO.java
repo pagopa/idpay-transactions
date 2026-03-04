@@ -9,8 +9,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -24,8 +26,8 @@ public class RewardTransactionDTO {
     private String id;
     private String idTrxAcquirer;
     private String acquirerCode;
-    
-    private LocalDateTime trxDate;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    private OffsetDateTime trxDate;
     private String hpan;
     private String operationType;
     private String circuitType;
@@ -58,11 +60,11 @@ public class RewardTransactionDTO {
 
     private String operationTypeTranscoded;
     private Long effectiveAmountCents;
-    
-    private LocalDateTime trxChargeDate;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    private OffsetDateTime trxChargeDate;
     private RefundInfo refundInfo;
 
-    
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime elaborationDateTime;
     private String channel;
     private Map<String, String> additionalProperties;
@@ -72,7 +74,7 @@ public class RewardTransactionDTO {
     private String franchiseName;
     private PosType pointOfSaleType;
     private String businessName;
-    
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime updateDate;
 
     private Boolean extendedAuthorization;
