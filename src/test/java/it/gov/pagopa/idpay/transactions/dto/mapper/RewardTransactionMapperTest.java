@@ -13,6 +13,7 @@ import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionDTOFaker;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.time.ZoneId;
 import java.util.Map;
 
 
@@ -82,7 +83,7 @@ class RewardTransactionMapperTest {
 
         String expectedId = rewardTrx.getIdTrxAcquirer()
                 .concat(rewardTrx.getAcquirerCode())
-                .concat(String.valueOf(rewardTrx.getTrxDate()))
+                .concat(String.valueOf(rewardTrx.getTrxDate().atZoneSameInstant(ZoneId.of("Europe/Rome")).toLocalDateTime()))
                 .concat(rewardTrx.getOperationType())
                 .concat(rewardTrx.getAcquirerId());
 
@@ -120,7 +121,7 @@ class RewardTransactionMapperTest {
     private void assertCommonFields(RewardTransaction result, RewardTransactionDTO rewardTrx) {
         Assertions.assertSame(result.getIdTrxAcquirer(), rewardTrx.getIdTrxAcquirer());
         Assertions.assertSame(result.getAcquirerCode(), rewardTrx.getAcquirerCode());
-        assertEquals(result.getTrxDate(), rewardTrx.getTrxDate());
+        assertEquals(result.getTrxDate(), rewardTrx.getTrxDate().toLocalDateTime());
         Assertions.assertSame(result.getHpan(), rewardTrx.getHpan());
         Assertions.assertSame(result.getOperationType(), rewardTrx.getOperationType());
         Assertions.assertSame(result.getCircuitType(), rewardTrx.getCircuitType());
@@ -151,7 +152,7 @@ class RewardTransactionMapperTest {
     private void assertRefundFields(RewardTransaction resultRefunded, RewardTransactionDTO refundedTrx) {
         Assertions.assertSame(resultRefunded.getOperationTypeTranscoded(), refundedTrx.getOperationTypeTranscoded());
         Assertions.assertSame(resultRefunded.getEffectiveAmountCents(), refundedTrx.getEffectiveAmountCents());
-        assertEquals(resultRefunded.getTrxChargeDate(), refundedTrx.getTrxChargeDate());
+        assertEquals(resultRefunded.getTrxChargeDate(), refundedTrx.getTrxChargeDate().toLocalDateTime());
         Assertions.assertSame(resultRefunded.getRefundInfo(), refundedTrx.getRefundInfo());
         Assertions.assertSame(resultRefunded.getRewards(), refundedTrx.getRewards());
         checkNotNullRewardField(resultRefunded.getRewards());
