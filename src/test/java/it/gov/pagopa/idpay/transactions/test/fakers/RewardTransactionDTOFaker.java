@@ -88,7 +88,7 @@ public class RewardTransactionDTOFaker {
         out.setStatus("STATUS%d".formatted(bias));
         String initiativeId = "INITIATIVEID%d".formatted(bias);
         out.setInitiatives(List.of(initiativeId));
-        out.setElaborationDateTime(OffsetDateTime.now());
+        out.setElaborationDateTime(LocalDateTime.now());
 
         Map<String, Reward> reward = new HashMap<>();
 
@@ -149,7 +149,7 @@ public class RewardTransactionDTOFaker {
         Map<String, List<String>> initiativeRejectionsReason = new HashMap<>();
         initiativeRejectionsReason.put("initiative", List.of("Error initiative"));
         out.setInitiativeRejectionReasons(initiativeRejectionsReason);
-        out.setElaborationDateTime(OffsetDateTime.now());
+        out.setElaborationDateTime(LocalDateTime.now());
 
         return out;
     }
