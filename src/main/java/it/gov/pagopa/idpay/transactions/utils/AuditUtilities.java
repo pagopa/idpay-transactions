@@ -46,12 +46,6 @@ public class AuditUtilities {
     }
     //endregion
 
-    //region selfcare
-    public void logErrorSelfcare(String message) {
-        AuditLogger.logAuditString(CEF_BASE_PATTERN, message);
-    }
-    //endregion
-
     //region utils
     private List<String> extractTrueChecks(ChecksErrorDTO dto) {
         if (dto == null) {

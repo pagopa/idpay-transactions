@@ -248,7 +248,7 @@ app:
       tenant-id: ${INVITALIA_TENANT_ID:}
     token:
       base-url: ${INVITALIA_TOKEN_BASE_URL:}
-      path: ${INVITALIA_TOKEN_URI}
+      path: ${INVITALIA_TOKEN_URI:}
       retry:
         delay-millis: ${INVITALIA_TOKEN_RETRY_DELAY_MILLIS:2000}
         max-attempts: ${INVITALIA_TOKEN_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:3}}
