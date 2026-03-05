@@ -17,5 +17,5 @@ public class InstitutionDTO {
     private String taxCode; //partita iva
     private String city; //localita
     private String county; //provincia
-    private String country; //paese "IT"
+    private String country; //paese
 }

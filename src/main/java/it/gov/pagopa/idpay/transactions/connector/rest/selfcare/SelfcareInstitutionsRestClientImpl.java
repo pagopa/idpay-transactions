@@ -2,8 +2,7 @@ package it.gov.pagopa.idpay.transactions.connector.rest.selfcare;
 
 import it.gov.pagopa.common.reactive.utils.PerformanceLogger;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionList;
-import it.gov.pagopa.idpay.transactions.exception.InvitaliaConnectingErrorException;
-import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
+import it.gov.pagopa.idpay.transactions.exception.SelfcareConnectingErrorException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
@@ -13,52 +12,66 @@ import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 @Service
 @Slf4j
 public class SelfcareInstitutionsRestClientImpl implements SelfcareInstitutionsRestClient {
 
+    private static final String OCP_APIM_SUBSCRIPTION_KEY_HEADER = "Ocp-Apim-Subscription-Key";
+    private static final String TAX_CODE_QUERY_PARAM = "taxCode";
+
+    private final ConcurrentMap<String, Mono<InstitutionList>> institutionsCache = new ConcurrentHashMap<>();
+
+
     private final Integer maxAttempts;
     private final Integer retryDelay;
+    private final String merchantApiKey;
 
     private final WebClient webClient;
 
-    private final AuditUtilities auditUtilities;
 
     public SelfcareInstitutionsRestClientImpl(@Value("${app.selfcare.retry.max-attempts}") Integer maxAttempts,
                                               @Value("${app.selfcare.retry.delay-millis}") Integer retryDelay,
-                                              @Value("${app.selfcare.institutions-url}") String instituitionsUrl,
-                                              WebClient.Builder webClientBuilder, AuditUtilities auditUtilities) {
+                                              @Value("${app.selfcare.api-key}") String merchantApiKey,
+                                              @Value("${app.selfcare.institutions-url}") String institutionsUrl,
+                                              WebClient.Builder webClientBuilder) {
         this.maxAttempts = maxAttempts;
         this.retryDelay = retryDelay;
-        this.auditUtilities = auditUtilities;
+        this.merchantApiKey = merchantApiKey;
         this.webClient = webClientBuilder.clone()
-                .baseUrl(instituitionsUrl)
+                .baseUrl(institutionsUrl)
                 .build();
     }
 
     @Override
     public Mono<InstitutionList> getInstitutions(String merchantFiscalCode) {
-        return PerformanceLogger.logTimingOnNext(
-                "SELFCARE_GET_INSTITUTIONS",
-                webClient.method(HttpMethod.GET)
-                        .uri(uriBuilder -> uriBuilder
-                                .queryParam("taxCode", merchantFiscalCode)
-                                .build()
-                        )
-                        .retrieve()
-                        .bodyToMono(InstitutionList.class).retryWhen(Retry.fixedDelay(maxAttempts, Duration.ofMillis(retryDelay))
-                                .onRetryExhaustedThrow((spec, signal) -> {
+
+        return institutionsCache.computeIfAbsent(merchantFiscalCode, k ->
+                PerformanceLogger.logTimingOnNext(
+                        "SELFCARE_GET_INSTITUTIONS",
+                        webClient.method(HttpMethod.GET)
+                                .uri(uriBuilder -> uriBuilder
+                                        .queryParam(TAX_CODE_QUERY_PARAM, k)
+                                        .build()
+                                )
+                                .header(OCP_APIM_SUBSCRIPTION_KEY_HEADER, merchantApiKey)
+                                .retrieve()
+                                .bodyToMono(InstitutionList.class)
+                                .retryWhen(Retry.fixedDelay(maxAttempts, Duration.ofMillis(retryDelay))
+                                        .onRetryExhaustedThrow((spec, signal) -> {
                                             Throwable failure = signal.failure();
-                                            auditUtilities.logErrorSelfcare("[SELFCARE_GET_INSTITUTIONS] Error to retrieve merchant information: %s".formatted(failure.getMessage()));
-                                            return new InvitaliaConnectingErrorException(
+                                            log.error("[SELFCARE_GET_INSTITUTIONS] Error to retrieve merchant information: {}", failure.getMessage());
+                                            return new SelfcareConnectingErrorException(
                                                     "Failed to retrieve merchant information after " + (maxAttempts + 1) + " attempts",
                                                     failure
                                             );
-                                        }
+                                        })
                                 )
-                        ),
-                null
+                                .cache(Duration.ofHours(1)),
+                        null
+                )
         );
     }
 }
