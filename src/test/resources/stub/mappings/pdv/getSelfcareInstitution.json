@@ -1,0 +1,63 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/",
+    "queryParameters": {
+      "taxCode": {
+        "matches": "TAXCODE_OK_[0-9]+"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "institutions": [
+        {
+          "id": "ID",
+          "externalId": "000000",
+          "origin": "PDND_INFOCAMERE",
+          "originId": "000000",
+          "description": "MERCHANT - SOCIETA' A RESPONSABILITA' LIMITATA",
+          "institutionType": "PRV",
+          "digitalAddress": "MERCHANT@PEC.IT",
+          "address": "VIA ROMA, 39",
+          "zipCode": "00040",
+          "taxCode": "000000",
+          "city": "ROMA",
+          "county": "RM",
+          "country": "IT",
+          "istatCode": "000000",
+          "geographicTaxonomies": [
+            {
+              "code": "ITA",
+              "desc": "ITALIA"
+            }
+          ],
+          "onboarding": [
+            {
+              "productId": "idpay-merchant",
+              "tokenId": "token-id",
+              "status": "ACTIVE",
+              "billing": {
+                "vatNumber": "000000",
+                "publicServices": false
+              },
+              "createdAt": "2026-02-24T15:00:10.044195033Z",
+              "institutionType": "PRV",
+              "origin": "PDND_INFOCAMERE",
+              "originId": "000000"
+            }
+          ],
+          "rea": "RM-000000",
+          "businessRegisterPlace": "Roma",
+          "imported": false,
+          "createdAt": "2026-02-24T15:00:09.751649844Z",
+          "updatedAt": "2026-02-24T15:00:10.070537658Z",
+          "delegation": false,
+          "legalForm": "SOCIETA' A RESPONSABILITA' LIMITATA"
+  }
+]
+},
+    "headers": { "Content-Type": "application/json" }
+  }
+}

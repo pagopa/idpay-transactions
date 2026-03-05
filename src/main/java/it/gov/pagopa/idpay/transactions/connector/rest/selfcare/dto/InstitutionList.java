@@ -6,5 +6,5 @@ import java.util.List;
 
 @Data
 public class InstitutionList {
-    List<InstitutionDTO> intitutions;
+    List<InstitutionDTO> institutions;
 }
