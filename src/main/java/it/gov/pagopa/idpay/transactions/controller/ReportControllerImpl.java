@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.controller;
 import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.report.Report2RunDto;
 import it.gov.pagopa.idpay.transactions.dto.report.ReportGenerateForce;
+import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.service.ReportService;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ReportMapper;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
@@ -26,30 +27,31 @@ public class ReportControllerImpl implements ReportController {
     }
 
     @Override
-    public Mono<ReportListDTO> getTransactionsReports(
+    public Mono<ReportListDTO> getReports(
             String merchantId,
             String organizationRole,
             String initiativeId,
+            ReportType reportType,
             Pageable pageable
     ) {
-        log.info("[GET_TRANSACTIONS_REPORTS] Request received for initiative: {}", Utilities.sanitizeString(initiativeId));
+        log.info("[GET_REPORTS] Request received for initiative: {}", Utilities.sanitizeString(initiativeId));
 
-        return reportService.getTransactionsReports(merchantId, organizationRole, initiativeId, pageable)
+        return reportService.getReports(merchantId, organizationRole, initiativeId, reportType, pageable)
                 .flatMap(page -> Mono.just(reportMapper.toListDTO(page)));
     }
 
     @Override
-    public Mono<DownloadReportResponseDTO> downloadTransactionsReport(
+    public Mono<DownloadReportResponseDTO> downloadReports(
             String merchantId,
             String organizationRole,
             String initiativeId,
             String reportId
     ) {
-        log.info("[DOWNLOAD_TRANSACTIONS_REPORT] Request received for initiative: {}, reportId: {}",
+        log.info("[DOWNLOAD_REPORT] Request received for initiative: {}, reportId: {}",
                 Utilities.sanitizeString(initiativeId),
                 Utilities.sanitizeString(reportId));
 
-        return reportService.downloadTransactionsReport(
+        return reportService.downloadReports(
                 merchantId,
                 organizationRole,
                 initiativeId,

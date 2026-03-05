@@ -26,5 +26,5 @@ public interface PointOfSaleTransactionService {
 
 
   Mono<List<FranchisePointOfSaleDTO>> getDistinctFranchiseAndPosByRewardBatchId(String rewardBatchId);
-  Mono<Void> reversalTransaction(String transactionId, String merchantId, String pointOfSaleId, FilePart file, String docNumber);
+  Mono<Void> reversalTransaction(String transactionId, String merchantId, FilePart file, String docNumber);
 }

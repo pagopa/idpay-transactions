@@ -8,11 +8,11 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
-public class ReportBlobServiceImpl extends AbstractBlobStorageClient implements ReportBlobService {
+public class ReportTransactionsBlobServiceImpl extends AbstractBlobStorageClient implements ReportBlobService {
 
-    public ReportBlobServiceImpl(
+    public ReportTransactionsBlobServiceImpl(
             BlobServiceClient blobServiceClient,
-            @Qualifier("reportsContainerClient") BlobContainerClient reportsContainerClient,
+            @Qualifier("reportsTransactionsContainerClient") BlobContainerClient reportsContainerClient,
             BlobStorageProperties properties) {
 
         super(blobServiceClient, reportsContainerClient, properties.getInvoiceTokenDurationSeconds());
