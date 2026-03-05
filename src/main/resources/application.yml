@@ -239,3 +239,20 @@ app:
     tenant-id: ${DATA_FACTORY_TENANT_ID:}
     subscription-id: ${DATA_FACTORY_SUBSCRIPTION_ID:}
   period-length-transactions-report: ${PERIOD_LENGTH_TRANSACTIONS_REPORT:}
+  invitalia:
+    credentials:
+      client-id: ${INVITALIA_CLIENT_ID:}
+      client-secret: ${INVITALIA_CLIENT_SECRET:}
+      scope: ${INVITALIA_SCOPE:}
+      grant-type: ${INVITALIA_GRANTTYPE:}
+      tenant-id: ${INVITALIA_TENANT_ID:}
+    token:
+      base-url: ${INVITALIA_TOKEN_BASE_URL:}
+      path: ${INVITALIA_TOKEN_URI}
+      retry:
+        delay-millis: ${INVITALIA_TOKEN_RETRY_DELAY_MILLIS:2000}
+        max-attempts: ${INVITALIA_TOKEN_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:3}}
+      refresh-before-expiry: ${INVITALIA_TOKEN_REFRESH_BEFORE_EXPIRY_MILLIS:120000}
+
+  selfcare:
+    institutions-url: ${SELFCARE_INSTITUTIONS_URL:}
