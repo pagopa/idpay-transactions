@@ -56,6 +56,11 @@ public interface MerchantRewardBatchController {
           @PathVariable("initiativeId") String initiativeId,
           @RequestBody  RewardBatchesRequest request);
 
+  @PostMapping("/initiatives/{initiativeId}/reward-batches/delivery")
+  Mono<Void>  rewardBatchDeliveryBatch(
+          @PathVariable("initiativeId") String initiativeId,
+          @RequestBody  RewardBatchesRequest request);
+
   @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/generateAndSaveCsv")
   Mono<String>  generateAndSaveCsv(
           @PathVariable("initiativeId") String initiativeId,

@@ -27,7 +27,8 @@ public class SelfcareInstitutionsRestClientImpl implements SelfcareInstitutionsR
 
     public SelfcareInstitutionsRestClientImpl(@Value("${app.selfcare.retry.max-attempts}") Integer maxAttempts,
                                               @Value("${app.selfcare.retry.delay-millis}") Integer retryDelay,
-                                              @Value("${app.selfcare.institutions-url}") String instituitionsUrl, WebClient.Builder webClientBuilder, AuditUtilities auditUtilities) {
+                                              @Value("${app.selfcare.institutions-url}") String instituitionsUrl,
+                                              WebClient.Builder webClientBuilder, AuditUtilities auditUtilities) {
         this.maxAttempts = maxAttempts;
         this.retryDelay = retryDelay;
         this.auditUtilities = auditUtilities;

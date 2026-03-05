@@ -47,11 +47,13 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import reactor.util.retry.Retry;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.NumberFormat;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -61,6 +63,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.LongFunction;
 
@@ -636,54 +639,101 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .flatMap(rewardBatchRepository::save);
     }
 
+    //@Override
+//public Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds) {
+//    if (rewardBatchIds != null && !rewardBatchIds.isEmpty()) {
+//        return Flux.fromIterable(rewardBatchIds)
+//                .doOnNext(rewardBatchId ->
+//                        log.info("Processing batch {}", rewardBatchId)
+//                )
+//                .concatMap(rewardBatchId ->
+//                        this.processSingleBatchSafe(rewardBatchId, initiativeId, "CONFIRMATION")
+//                )
 
+//                .then();
+
+//    } else {
+//        return rewardBatchRepository.findRewardBatchByStatus(RewardBatchStatus.APPROVING)
+//                .collectList()
+//                .flatMapMany(batchList -> {
+//                    if (batchList.isEmpty()) {
+//                        log.warn("No batches found with status APPROVING to process.");
+//                        return Flux.empty();
+//                    } else {
+//                        log.info("Found {} batches with status APPROVING to process.", batchList.size());
+//                        return Flux.fromIterable(batchList);
+//                    }
+//                })
+//                .doOnNext(rewardBatch ->
+//                        log.info("Processing batch {}",
+//                                rewardBatch.getId())
+//                )
+//                .concatMap(rewardBatch -> {
+//                    String rewardBatchId = rewardBatch.getId();
+//                    return processSingleBatchSafe(rewardBatchId, initiativeId, "CONFIRMATION");
+//                })
+//                .then();
+//    }
+//}
+
+//public Mono<RewardBatch> processSingleBatchSafe(String rewardBatchId, String initiativeId, String batchType) {
+//    return this.processSingleBatch(rewardBatchId, initiativeId)
+//            .onErrorResume(error -> {
+//                log.error("Failed to process batch {}: {}", rewardBatchId, error.getMessage(), error);
+//                return Mono.empty();
+//            });
+//}
 
     @Override
     public Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds) {
+        return processBatchesOrchestrator(initiativeId, rewardBatchIds,
+                RewardBatchStatus.APPROVING, this::processSingleBatchConfirmation);
+    }
+
+    @Override
+    public Mono<Void> rewardBatchDeliveryBatch(String initiativeId, List<String> rewardBatchIds) {
+        return processBatchesOrchestrator(initiativeId, rewardBatchIds,
+                RewardBatchStatus.APPROVED, this::processSingleBatchDelivery);
+    }
+
+    private Mono<Void> processBatchesOrchestrator(
+            String initiativeId,
+            List<String> rewardBatchIds,
+            RewardBatchStatus statusIfEmpty,
+            BiFunction<String, String, Mono<?>> businessLogic) {
+
+        Flux<String> idsFlux;
+
         if (rewardBatchIds != null && !rewardBatchIds.isEmpty()) {
-            return Flux.fromIterable(rewardBatchIds)
-                    .doOnNext(rewardBatchId ->
-                            log.info("Processing batch {}", rewardBatchId)
-                    )
-                    .concatMap(rewardBatchId ->
-                            this.processSingleBatchSafe(rewardBatchId, initiativeId)
-                    )
-
-                    .then();
-
+            idsFlux = Flux.fromIterable(rewardBatchIds);
         } else {
-            return rewardBatchRepository.findRewardBatchByStatus(RewardBatchStatus.APPROVING)
+            idsFlux = rewardBatchRepository.findRewardBatchByStatus(statusIfEmpty)
                     .collectList()
                     .flatMapMany(batchList -> {
                         if (batchList.isEmpty()) {
-                            log.warn("No batches found with status APPROVING to process.");
+                            log.warn("No batches found with status {} to process.", statusIfEmpty);
                             return Flux.empty();
-                        } else {
-                            log.info("Found {} batches with status APPROVING to process.", batchList.size());
-                            return Flux.fromIterable(batchList);
                         }
+                        log.info("Found {} batches with status {} to process.", batchList.size(), statusIfEmpty);
+                        return Flux.fromIterable(batchList);
                     })
-                    .doOnNext(rewardBatch ->
-                            log.info("Processing batch {}",
-                                    rewardBatch.getId())
-                    )
-                    .concatMap(rewardBatch -> {
-                        String rewardBatchId = rewardBatch.getId();
-                        return processSingleBatchSafe(rewardBatchId, initiativeId);
-                    })
-                    .then();
+                    .map(RewardBatch::getId);
         }
+
+        // FASE 2: Esecuzione Logica + Gestione Errore (Il tuo "Safe")
+        return idsFlux
+                .doOnNext(id -> log.info("Processing batch {}", id))
+                .concatMap(id -> businessLogic.apply(id, initiativeId)
+                        .onErrorResume(error -> {
+                            log.error("Failed to process batch {}: {}", id, error.getMessage(), error);
+                            return Mono.empty(); // Qui rendiamo l'esecuzione "Safe"
+                        })
+                )
+                .then();
     }
 
 
-    public Mono<RewardBatch> processSingleBatchSafe(String rewardBatchId, String initiativeId) {
-        return this.processSingleBatch(rewardBatchId, initiativeId)
-                .onErrorResume(error -> {
-                    log.error("Failed to process batch {}: {}", rewardBatchId, error.getMessage(), error);
-                    return Mono.empty();
-                });
-    }
-    public Mono<RewardBatch> processSingleBatch(String rewardBatchId, String initiativeId) {
+    public Mono<RewardBatch> processSingleBatchConfirmation(String rewardBatchId, String initiativeId) {
         return rewardBatchRepository.findRewardBatchById(rewardBatchId)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
                         NOT_FOUND,
@@ -719,9 +769,70 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 );
     }
 
+    public Mono<RewardBatch> processSingleBatchDelivery(String rewardBatchId, String initiativeId) {
+        return rewardBatchRepository.findRewardBatchById(rewardBatchId)
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        NOT_FOUND,
+                        REWARD_BATCH_NOT_FOUND,
+                        ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
+
+                .filter(rewardBatch -> rewardBatch.getStatus().equals(RewardBatchStatus.APPROVED))
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        BAD_REQUEST,
+                        REWARD_BATCH_INVALID_REQUEST,
+                        ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
+                )))
+
+                // Step 1: Chiamata a SelfCare con Retry
+                .flatMap(rewardBatch ->
+                        this.fetchAnagraficaFromSelfCare(rewardBatch)
+                                .retryWhen(Retry.fixedDelay(3, Duration.ofSeconds(10)) // Esempio: 3 tentativi ogni 2 secondi
+                                        .doBeforeRetry(retrySignal ->
+                                                log.warn("Retrying SelfCare call for batch {}. Attempt: {}",
+                                                        rewardBatchId, retrySignal.totalRetries() + 1)
+                                        )
+                                )
+                                // Una volta ottenuti i dati (o terminati i tentativi con successo), proseguiamo
+                                .thenReturn(rewardBatch)
+                )
+                // Step 1: Chiamata a Erogazione con Retry
+                .flatMap(rewardBatch ->
+                        this.fetchErogazione(rewardBatch)
+                                .retryWhen(Retry.fixedDelay(3, Duration.ofSeconds(10)) // Esempio: 3 tentativi ogni 2 secondi
+                                        .doBeforeRetry(retrySignal ->
+                                                log.warn("Retrying SelfCare call for batch {}. Attempt: {}",
+                                                        rewardBatchId, retrySignal.totalRetries() + 1)
+                                        )
+                                )
+                                // Una volta ottenuti i dati (o terminati i tentativi con successo), proseguiamo
+                                .thenReturn(rewardBatch)
+                )
+
+                // Step 2: Aggiornamento Stato e Salvataggio
+                .flatMap(originalBatch -> {
+                    originalBatch.setStatus(RewardBatchStatus.PENDING_REFUND);
+                    originalBatch.setDeliveryDateRequest(LocalDateTime.now());
+                    // Qui potresti anche settare i dati anagrafici ricevuti se necessario
+                    return rewardBatchRepository.save(originalBatch);
+                });
+    }
+
+    private Mono<String> fetchAnagraficaFromSelfCare(RewardBatch batch) {
+        // Simulazione chiamata a servizio esterno
+        log.info("Fetching data from SelfCare for batch {}", batch.getId());
+        return Mono.just("Dati Anagrafici Mock");
+        // In caso di errore reale, il retryWhen configurato sopra entrerà in azione
+    }
+
+    private Mono<String> fetchErogazione(RewardBatch batch) {
+        // Simulazione chiamata a servizio esterno
+        log.info("Fetching data from SelfCare for batch {}", batch.getId());
+        return Mono.just("Dati Anagrafici Mock");
+        // In caso di errore reale, il retryWhen configurato sopra entrerà in azione
+    }
 
 
-    private Mono<RewardBatch> handleSuspendedTransactions(RewardBatch originalBatch, String initiativeId) {
+        private Mono<RewardBatch> handleSuspendedTransactions(RewardBatch originalBatch, String initiativeId) {
         if (originalBatch.getNumberOfTransactionsSuspended() == null || originalBatch.getNumberOfTransactionsSuspended() <= 0) {
             log.info("numberOfTransactionSuspended = 0 for batch {}", originalBatch.getId());
             return Mono.just(originalBatch);
