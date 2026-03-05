@@ -256,6 +256,7 @@ app:
 
   selfcare:
     institutions-url: ${SELFCARE_INSTITUTIONS_URL:}
+    api-key: ${SELFCARE_MERCHANT_API_KEY:}
     retry:
       delay-millis: ${SELFCARE_RETRY_DELAY_MILLIS:2000}
       max-attempts: ${SELFCARE_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:3}}

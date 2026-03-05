@@ -19,21 +19,27 @@ import java.util.concurrent.ConcurrentMap;
 @Slf4j
 public class SelfcareInstitutionsRestClientImpl implements SelfcareInstitutionsRestClient {
 
+    private static final String OCP_APIM_SUBSCRIPTION_KEY_HEADER = "Ocp-Apim-Subscription-Key";
+    private static final String TAX_CODE_QUERY_PARAM = "taxCode";
+
     private final ConcurrentMap<String, Mono<InstitutionList>> institutionsCache = new ConcurrentHashMap<>();
 
 
     private final Integer maxAttempts;
     private final Integer retryDelay;
+    private final String merchantApiKey;
 
     private final WebClient webClient;
 
 
     public SelfcareInstitutionsRestClientImpl(@Value("${app.selfcare.retry.max-attempts}") Integer maxAttempts,
                                               @Value("${app.selfcare.retry.delay-millis}") Integer retryDelay,
+                                              @Value("${app.selfcare.api-key}") String merchantApiKey,
                                               @Value("${app.selfcare.institutions-url}") String institutionsUrl,
                                               WebClient.Builder webClientBuilder) {
         this.maxAttempts = maxAttempts;
         this.retryDelay = retryDelay;
+        this.merchantApiKey = merchantApiKey;
         this.webClient = webClientBuilder.clone()
                 .baseUrl(institutionsUrl)
                 .build();
@@ -47,9 +53,10 @@ public class SelfcareInstitutionsRestClientImpl implements SelfcareInstitutionsR
                         "SELFCARE_GET_INSTITUTIONS",
                         webClient.method(HttpMethod.GET)
                                 .uri(uriBuilder -> uriBuilder
-                                        .queryParam("taxCode", k)
+                                        .queryParam(TAX_CODE_QUERY_PARAM, k)
                                         .build()
                                 )
+                                .header(OCP_APIM_SUBSCRIPTION_KEY_HEADER, merchantApiKey)
                                 .retrieve()
                                 .bodyToMono(InstitutionList.class)
                                 .retryWhen(Retry.fixedDelay(maxAttempts, Duration.ofMillis(retryDelay))
