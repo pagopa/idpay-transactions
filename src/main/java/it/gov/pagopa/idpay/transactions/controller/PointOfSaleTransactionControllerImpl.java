@@ -97,18 +97,18 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
   }
 
   @Override
-  public Mono<Void> updateInvoiceFile(String transactionId, String merchantId, String pointOfSaleId,
-                                      FilePart file, String docNumber) {
+  public Mono<Void> updateInvoiceFile(String transactionId,
+                                      String merchantId,
+                                      FilePart file,
+                                      String docNumber) {
     final String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
     final String sanitizedTrxCode = Utilities.sanitizeString(transactionId);
-    final String sanitizedPointOfSaleId = Utilities.sanitizeString(pointOfSaleId);
 
     log.info(
-        "[UPDATE_INVOICE_TRANSACTION] The merchant {} is requesting a invoice update for the transactionId {} at POS {}",
-        sanitizedMerchantId, sanitizedTrxCode, sanitizedPointOfSaleId
+        "[UPDATE_INVOICE_TRANSACTION] The merchant {} is requesting a invoice update for the transactionId {}",
+        sanitizedMerchantId, sanitizedTrxCode
     );
-    return pointOfSaleTransactionService.updateInvoiceTransaction(transactionId, merchantId,
-        pointOfSaleId, file, docNumber);
+    return pointOfSaleTransactionService.updateInvoiceTransaction(transactionId, merchantId, file, docNumber);
   }
 
     @Override
