@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.connector.rest.erogazioni;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.InvitaliaTokenProviderService;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
 import it.gov.pagopa.idpay.transactions.exception.ErogazioniConnectingErrorException; // Assicurati che esista o usa una generica
+import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -47,7 +48,8 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
         deliveryRequest.setAutorizzatore(this.autorizzatore);
 
         log.info("[SEND_EROGAZIONE] Sending delivery request for batchId: {} and idPratica: {}",
-                deliveryRequest.getId(), deliveryRequest.getIdPratica());
+                Utilities.sanitizeString(deliveryRequest.getId()),
+                Utilities.sanitizeString(deliveryRequest.getIdPratica()));
 
         return tokenProvider.retrieveToken() // Recupero il token Invitalia
                 .flatMap(token -> webClient.post()
@@ -61,12 +63,14 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
                         .retryWhen(Retry.fixedDelay(maxAttempts, Duration.ofMillis(retryDelay))
                                 .filter(ex -> !(ex instanceof org.springframework.web.reactive.function.client.WebClientResponseException.BadRequest))
                                 .onRetryExhaustedThrow((spec, signal) -> {
-                                    log.error("[SEND_EROGAZIONE] Max attempts reached for id: {}", deliveryRequest.getId());
+                                    log.error("[SEND_EROGAZIONE] Max attempts reached for id: {}",
+                                            Utilities.sanitizeString(deliveryRequest.getId()));
                                     return new RuntimeException("Error sending erogazione after retry", signal.failure());
                                 })
                         )
                 )
-                .doOnSuccess(v -> log.info("[SEND_EROGAZIONE] Successfully sent request for id: {}", deliveryRequest.getId()))
+                .doOnSuccess(v -> log.info("[SEND_EROGAZIONE] Successfully sent request for id: {}",
+                        Utilities.sanitizeString(deliveryRequest.getId())))
                 .then();
     }
 
