@@ -6,15 +6,16 @@ import com.azure.storage.blob.models.BlockBlobItem;
 import com.mongodb.client.result.DeleteResult;
 import com.nimbusds.jose.util.Pair;
 import it.gov.pagopa.common.web.exception.*;
+import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
-import it.gov.pagopa.idpay.transactions.dto.ChecksErrorDTO;
-import it.gov.pagopa.idpay.transactions.dto.DownloadRewardBatchResponseDTO;
+import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.SelfcareInstitutionsRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionDTO;
+import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
-import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
-import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.dto.batch.TrxSuspendedBatchInfo;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
@@ -47,13 +48,11 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
-import reactor.util.retry.Retry;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.NumberFormat;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -84,6 +83,9 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   private final ChecksErrorMapper checksErrorMapper;
 
   private final AuditUtilities auditUtilities;
+  private final MerchantRestClient merchantRestClient;
+  private final SelfcareInstitutionsRestClient selfcareInstitutionsRestClient;
+  private final ErogazioniRestClient erogazioniRestClient;
 
 
     private static final String OPERATOR_1 = "operator1";
@@ -111,7 +113,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "%s_%s_%s.csv";
   private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM", Locale.ITALIAN);
 
-  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService, ReactiveMongoTemplate reactiveMongoTemplate, ChecksErrorMapper checksErrorMapper, AuditUtilities auditUtilities) {
+  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService, ReactiveMongoTemplate reactiveMongoTemplate, ChecksErrorMapper checksErrorMapper, AuditUtilities auditUtilities, MerchantRestClient merchantRestClient, SelfcareInstitutionsRestClient selfcareInstitutionsRestClient, ErogazioniRestClient erogazioniRestClient) {
     this.rewardBatchRepository = rewardBatchRepository;
     this.rewardTransactionRepository = rewardTransactionRepository;
       this.userRestClient = userRestClient;
@@ -119,6 +121,9 @@ public class RewardBatchServiceImpl implements RewardBatchService {
       this.reactiveMongoTemplate = reactiveMongoTemplate;
       this.checksErrorMapper = checksErrorMapper;
       this.auditUtilities = auditUtilities;
+      this.merchantRestClient = merchantRestClient;
+      this.selfcareInstitutionsRestClient = selfcareInstitutionsRestClient;
+      this.erogazioniRestClient = erogazioniRestClient;
   }
 
   @Override
@@ -777,67 +782,82 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 );
     }
 
+
     public Mono<RewardBatch> processSingleBatchDelivery(String rewardBatchId, String initiativeId) {
+        DeliveryRequest deliveryRequest = DeliveryRequest.builder()
+                .id(rewardBatchId)
+                .idPratica(rewardBatchId)
+                .build();
+
         return rewardBatchRepository.findRewardBatchById(rewardBatchId)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
                         NOT_FOUND,
                         REWARD_BATCH_NOT_FOUND,
                         ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
-
-                .filter(rewardBatch -> rewardBatch.getStatus().equals(RewardBatchStatus.APPROVED))
+                .filter(rewardBatch -> RewardBatchStatus.APPROVED.equals(rewardBatch.getStatus()))
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
                         BAD_REQUEST,
                         REWARD_BATCH_INVALID_REQUEST,
-                        ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
-                )))
+                        ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId))))
+                .flatMap(rewardBatch -> {
+                    // 1. Setto i dati dal RewardBatch
+                    deliveryRequest.setImporto(rewardBatch.getApprovedAmountCents());
+                    deliveryRequest.setDataAmmissione(rewardBatch.getApprovalDate());
 
-                // Step 1: Chiamata a SelfCare con Retry
-                .flatMap(rewardBatch ->
-                        this.fetchAnagraficaFromSelfCare(rewardBatch)
-                                .retryWhen(Retry.fixedDelay(3, Duration.ofSeconds(10)) // Esempio: 3 tentativi ogni 2 secondi
-                                        .doBeforeRetry(retrySignal ->
-                                                log.warn("Retrying SelfCare call for batch {}. Attempt: {}",
-                                                        rewardBatchId, retrySignal.totalRetries() + 1)
-                                        )
-                                )
-                                // Una volta ottenuti i dati (o terminati i tentativi con successo), proseguiamo
-                                .thenReturn(rewardBatch)
-                )
-                // Step 1: Chiamata a Erogazione con Retry
-                .flatMap(rewardBatch ->
-                        this.fetchErogazione(rewardBatch)
-                                .retryWhen(Retry.fixedDelay(3, Duration.ofSeconds(10)) // Esempio: 3 tentativi ogni 2 secondi
-                                        .doBeforeRetry(retrySignal ->
-                                                log.warn("Retrying SelfCare call for batch {}. Attempt: {}",
-                                                        rewardBatchId, retrySignal.totalRetries() + 1)
-                                        )
-                                )
-                                // Una volta ottenuti i dati (o terminati i tentativi con successo), proseguiamo
-                                .thenReturn(rewardBatch)
-                )
+                    // 2. Richiamo il Merchant Detail
+                    return merchantRestClient.getMerchantDetail(rewardBatch.getMerchantId(), initiativeId)
+                            // 3. Gestione Empty Merchant
+                            .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                                    HttpStatus.NOT_FOUND,
+                                    MERCHANT_NOT_FOUND,
+                                    ERROR_MESSAGE_MERCHANT_NOT_FOUND.formatted(rewardBatch.getMerchantId()))))
+                            .flatMap(merchantDetail -> {
+                                // 4. Setto i dati dal Merchant Detail
+                                deliveryRequest.setPartitaIvaCliente(merchantDetail.getVatNumber());
+                                deliveryRequest.setCodiceFiscaleCliente(merchantDetail.getFiscalCode());
+                                deliveryRequest.setRagioneSocialeIntestatario(merchantDetail.getBusinessName());
+                                deliveryRequest.setIbanBeneficiario(merchantDetail.getIban());
+                                deliveryRequest.setIntestatarioContoCorrente(merchantDetail.getIbanHolder());
 
-                // Step 2: Aggiornamento Stato e Salvataggio
-                .flatMap(originalBatch -> {
-                    originalBatch.setStatus(RewardBatchStatus.PENDING_REFUND);
-                    originalBatch.setDeliveryDateRequest(LocalDateTime.now());
-                    // Qui potresti anche settare i dati anagrafici ricevuti se necessario
-                    return rewardBatchRepository.save(originalBatch);
+                                // 5. Richiamo le istituzioni usando il Fiscal Code del Merchant
+                                return selfcareInstitutionsRestClient.getInstitutions(merchantDetail.getFiscalCode())
+                                        // Il client sopra potrebbe restituire una lista vuata con HTTP 200.
+                                        // Dobbiamo validare noi il contenuto:
+                                        .flatMap(institutionList -> {
+
+                                            // Caso A: Lista null o vuota (Equivale a "non trovato" nello script)
+                                            if (institutionList.getInstitutions() == null || institutionList.getInstitutions().isEmpty()) {
+                                                return Mono.error(new ClientExceptionWithBody(
+                                                        HttpStatus.NOT_FOUND,
+                                                        MERCHANT_NOT_FOUND_IN_SELFCARE,
+                                                        ERROR_MESSAGE_MERCHANT_NOT_FOUND_IN_SELFCARE.formatted(merchantDetail.getFiscalCode())));
+                                            }
+
+                                            // Caso B: Più di un risultato (L'errore "inventato" che rimpiazza len != 1)
+                                            if (institutionList.getInstitutions().size() > 1) {
+                                                return Mono.error(new ClientExceptionWithBody(
+                                                        HttpStatus.CONFLICT,
+                                                        AMBIGUOUS_MERCHANT_DATA_IN_SELFCARE,
+                                                        ERROR_MESSAGE_AMBIGUOUS_MERCHANT_DATA_IN_SELFCARE.formatted(merchantDetail.getFiscalCode())));
+                                            }
+
+                                            // Caso C: Esattamente 1 (Successo)
+                                            InstitutionDTO institution = institutionList.getInstitutions().get(0);
+
+                                            // Popoliamo i campi geografici/PEC
+                                            deliveryRequest.setCap(institution.getZipCode());
+                                            deliveryRequest.setIndirizzo(institution.getAddress());
+                                            deliveryRequest.setLocalita(institution.getCity());
+                                            deliveryRequest.setProvincia(institution.getCounty());
+                                            deliveryRequest.setPec(institution.getDigitalAddress());
+
+                                            return erogazioniRestClient.sendErogazione(deliveryRequest)
+                                                    .thenReturn(rewardBatch);
+                                        });
+                            });
                 });
     }
 
-    private Mono<String> fetchAnagraficaFromSelfCare(RewardBatch batch) {
-        // Simulazione chiamata a servizio esterno
-        log.info("Fetching data from SelfCare for batch {}", batch.getId());
-        return Mono.just("Dati Anagrafici Mock");
-        // In caso di errore reale, il retryWhen configurato sopra entrerà in azione
-    }
-
-    private Mono<String> fetchErogazione(RewardBatch batch) {
-        // Simulazione chiamata a servizio esterno
-        log.info("Fetching data from SelfCare for batch {}", batch.getId());
-        return Mono.just("Dati Anagrafici Mock");
-        // In caso di errore reale, il retryWhen configurato sopra entrerà in azione
-    }
 
 
         private Mono<RewardBatch> handleSuspendedTransactions(RewardBatch originalBatch, String initiativeId) {

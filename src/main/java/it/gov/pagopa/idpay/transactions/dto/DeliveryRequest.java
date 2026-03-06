@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class DeliveryRequest {
 
-  String id;
+  String id; //rewardBatchId
   String partitaIvaCliente; //recuperare da Merchant.vatNumber Se è un CF da 16, valorizzare con 11 zeri.
   String codiceFiscaleCliente; //recuperare da Merchant.fiscalCode
   String ragioneSocialeIntestatario; //recuperare da Merchant.businessName
@@ -23,7 +23,7 @@ public class DeliveryRequest {
   String localita; //selfCare
   String provincia; //selfCare
   String pec; //selfCare
-  String idPratica; //??????????
+  String idPratica; //rewardBatchId
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   private LocalDateTime dataAmmissione; //approvalDate di rewardBatch
   String ibanBeneficiario;  //recuperare da Merchant.iban
