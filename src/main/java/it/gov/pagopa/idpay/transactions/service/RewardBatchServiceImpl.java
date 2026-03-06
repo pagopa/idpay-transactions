@@ -810,7 +810,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
                                     HttpStatus.NOT_FOUND,
                                     MERCHANT_NOT_FOUND,
-                                    ERROR_MESSAGE_MERCHANT_NOT_FOUND.formatted(rewardBatch.getMerchantId()))))
+                                    ERROR_MESSAGE_MERCHANT_NOT_FOUND.formatted(rewardBatch.getMerchantId(), initiativeId))))
                             .flatMap(merchantDetail -> {
                                 // 4. Setto i dati dal Merchant Detail
                                 deliveryRequest.setPartitaIvaCliente(merchantDetail.getVatNumber());

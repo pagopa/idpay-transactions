@@ -973,7 +973,7 @@ class RewardBatchServiceImplTest {
         when(erogazioniRestClient.sendErogazione(any(DeliveryRequest.class))).thenReturn(Mono.empty());
 
         // When
-        StepVerifier.create(service.rewardBatchDeliveryBatch(initiativeId, List.of(batchId)))
+        StepVerifier.create(serviceSpy.rewardBatchDeliveryBatch(initiativeId, List.of(batchId)))
                 .verifyComplete();
 
         // Then
@@ -996,6 +996,11 @@ class RewardBatchServiceImplTest {
 
         MerchantDetailDTO merchantDetail = new MerchantDetailDTO();
         merchantDetail.setFiscalCode(fiscalCode);
+        merchantDetail.setVatNumber("VAT123");
+        merchantDetail.setBusinessName("Business");
+        merchantDetail.setIban("IT00TEST");
+        merchantDetail.setIbanHolder("Holder");
+
 
         // Lista con 2 istituzioni (caso errore richiesto)
         InstitutionList instList = new InstitutionList(List.of(new InstitutionDTO(), new InstitutionDTO()));
