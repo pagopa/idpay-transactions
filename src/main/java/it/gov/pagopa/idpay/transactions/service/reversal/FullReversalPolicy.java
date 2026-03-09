@@ -21,7 +21,7 @@ public class FullReversalPolicy implements ReversalPolicy {
   }
 
   @Override
-  public Mono<Void> validate(RewardTransaction trx) {
+  public Mono<RewardTransaction> validate(RewardTransaction trx) {
     String status = trx.getStatus();
     RewardBatchTrxStatus batchTrxStatus = trx.getRewardBatchTrxStatus();
 
@@ -31,9 +31,11 @@ public class FullReversalPolicy implements ReversalPolicy {
     boolean batchTrxNotApproved = !RewardBatchTrxStatus.APPROVED.equals(batchTrxStatus);
 
     if (statusAllowed && batchTrxNotApproved) {
-      return Mono.empty();
+      return Mono.just(trx);
     }
+
     // TODO confirm the return status code and message with the team, maybe 400 Bad Request is more appropriate than 422 Unprocessable Entity
-    return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, TRANSACTION_STATUS_NOT_ALLOWED, "Transaction status not allowed for full reversal"));
+    return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, TRANSACTION_STATUS_NOT_ALLOWED,
+            "Transaction status not allowed for full reversal"));
   }
 }

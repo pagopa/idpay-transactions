@@ -14,5 +14,5 @@ public interface ReversalPolicy {
   /**
    * Validate the transaction according to the policy. Returns Mono.empty() when allowed, or Mono.error when not allowed.
    */
-  Mono<Void> validate(RewardTransaction trx);
+  Mono<RewardTransaction> validate(RewardTransaction trx);
 }

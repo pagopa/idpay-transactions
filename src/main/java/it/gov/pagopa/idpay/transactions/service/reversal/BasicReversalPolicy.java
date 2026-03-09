@@ -20,11 +20,12 @@ public class BasicReversalPolicy implements ReversalPolicy {
   }
 
   @Override
-  public Mono<Void> validate(RewardTransaction trx) {
+  public Mono<RewardTransaction> validate(RewardTransaction trx) {
     String status = trx.getStatus();
     if (SyncTrxStatus.INVOICED.name().equalsIgnoreCase(status)) {
-      return Mono.empty();
+      return Mono.just(trx);
     }
-    return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, TRANSACTION_STATUS_NOT_ALLOWED, "Transaction status not allowed for basic reversal"));
+    return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, TRANSACTION_STATUS_NOT_ALLOWED,
+            "Transaction status not allowed for basic reversal"));
   }
 }
