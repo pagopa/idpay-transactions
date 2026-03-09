@@ -328,6 +328,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 });
     }
 
+    @Override
     public Mono<Void> reversalTransaction(
             String transactionId,
             String merchantId,
@@ -348,7 +349,12 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
                 .doOnNext(rt -> log.info("[REVERSAL-TRANSACTION-SERVICE] Found transaction id={}, status={}, rewardBatchId={}",
                         rt.getId(), rt.getStatus(), rt.getRewardBatchId()))
-                .flatMap(rt -> policy.validate(rt))
+                .flatMap(rt -> policy.validate(rt)) // TODO refactor this with following step
+                .flatMap(rt ->
+                        rt.getRewardBatchId() != null
+                                ? rewardBatchAllowedStatus(rt)
+                                : Mono.just(rt)
+                )
                 .flatMap(rt -> {
                     final String oldRewardBatchId = rt.getRewardBatchId();
                     final RewardBatchTrxStatus oldBatchTrxStatus = rt.getRewardBatchTrxStatus();
@@ -428,7 +434,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     }
 
     private Mono<RewardTransaction> rewardBatchAllowedStatus(RewardTransaction rt) {
-
+        // TODO: this must be merged with policy logic
         return rewardBatchRepository.findById(rt.getRewardBatchId())
                 .switchIfEmpty(Mono.defer(() -> {
                     log.warn("[REVERSAL-TRANSACTION-SERVICE] RewardBatch id={} not found",

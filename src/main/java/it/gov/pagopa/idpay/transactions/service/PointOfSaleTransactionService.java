@@ -6,7 +6,6 @@ import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicy;
 import java.util.List;
-import it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.codec.multipart.FilePart;
@@ -25,7 +24,7 @@ public interface PointOfSaleTransactionService {
 
   Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId, FilePart file, String docNumber);
 
-
   Mono<List<FranchisePointOfSaleDTO>> getDistinctFranchiseAndPosByRewardBatchId(String rewardBatchId);
+
   Mono<Void> reversalTransaction(String transactionId, String merchantId, FilePart file, String docNumber, ReversalPolicy policy);
 }

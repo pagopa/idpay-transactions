@@ -12,6 +12,7 @@ class BasicReversalPolicyTest {
 
   @Test
   void allowsOnlyInvoiced() {
+    // TODO: check this test after using policy
     RewardTransaction invoiced = RewardTransaction.builder().status(SyncTrxStatus.INVOICED.name()).build();
     StepVerifier.create(policy.validate(invoiced)).verifyComplete();
 
