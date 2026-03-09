@@ -18,23 +18,26 @@ import java.time.Duration;
 @Service
 @Slf4j
 public class ErogazioniRestClientImpl implements ErogazioniRestClient {
+    private static final String URI_EROGAZIONI = "/erogazioni";
 
     private final InvitaliaTokenProviderService tokenProvider;
     private final WebClient webClient;
 
     private final Integer maxAttempts;
     private final Integer retryDelay;
+    private final String erogazioniBaseUrl;
     private final String autorizzatore;
 
     public ErogazioniRestClientImpl(InvitaliaTokenProviderService tokenProvider,
                                     @Value("${app.erogazioni.retry.max-attempts:3}") Integer maxAttempts,
                                     @Value("${app.erogazioni.retry.delay-millis:500}") Integer retryDelay,
-                                    @Value("${app.erogazioni.base-url}") String erogazioniBaseUrl,
-                                    @Value("${app.erogazioni.autorizzatore:gianluca fiorillo}") String autorizzatore,
+                                    @Value("${app.erogazioni.erogazioni-url}") String erogazioniBaseUrl,
+                                    @Value("${app.erogazioni.authorizer:}") String autorizzatore,
                                     WebClient.Builder webClientBuilder) {
         this.tokenProvider = tokenProvider;
         this.maxAttempts = maxAttempts;
         this.retryDelay = retryDelay;
+        this.erogazioniBaseUrl = erogazioniBaseUrl;
         this.autorizzatore = autorizzatore;
         this.webClient = webClientBuilder.clone()
                 .baseUrl(erogazioniBaseUrl)
@@ -47,13 +50,12 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
         deliveryRequest.setPartitaIvaCliente(formatPartitaIva(deliveryRequest.getPartitaIvaCliente()));
         deliveryRequest.setAutorizzatore(this.autorizzatore);
 
-        log.info("[SEND_EROGAZIONE] Sending delivery request for batchId: {} and idPratica: {}",
-                Utilities.sanitizeString(deliveryRequest.getId()),
-                Utilities.sanitizeString(deliveryRequest.getIdPratica()));
+        log.info("[SEND_EROGAZIONE] Sending delivery request for batchId: {}",
+                Utilities.sanitizeString(deliveryRequest.getId()));
 
         return tokenProvider.retrieveToken() // Recupero il token Invitalia
                 .flatMap(token -> webClient.post()
-                        .uri("/erogazioni") // Endpoint visto nello script
+                        .uri(URI_EROGAZIONI) // Endpoint visto nello script
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                         .header("Request-Id", deliveryRequest.getId()) // Come nello script Python
                         .contentType(MediaType.APPLICATION_JSON)
