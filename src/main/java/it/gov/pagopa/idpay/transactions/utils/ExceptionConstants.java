@@ -17,6 +17,7 @@ public final class ExceptionConstants {
         public static final String REWARD_BATCH_MISSING_FILENAME = "REWARD_BATCH_MISSING_FILENAME";
         public static final String REWARD_BATCH_INVALID_MERCHANT = "REWARD_BATCH_INVALID_MERCHANT";
         public static final String ROLE_NOT_ALLOWED = "ROLE_NOT_ALLOWED";
+        public static final String REWARD_BATCH_NOT_APPROVED_OR_REFUNDABLE = "REWARD_BATCH_NOT_APPROVED_OR_REFUNDABLE";
 
         public static final String REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE = "REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE";
         public static final String REWARD_BATCH_ALREADY_APPROVED = "REWARD_BATCH_ALREADY_APPROVED";
@@ -57,7 +58,7 @@ public final class ExceptionConstants {
         public static final String TRANSACTIONS_MISSING_MANDATORY_FILTERS = "Mandatory filters are missing. Insert one of the following options: 1) idTrxIssuer 2) userId, trxDateStart and trxDateEnd";
         public static final String TRANSACTION_MISSING_INVOICE = "Invoice missing from transaction for which download was required";
         public static final String TRANSACTION_NOT_FOUND = "Transaction not found for ID: %s";
-        public static final String TRANSACTION_NOT_STATUS_INVOICED = "Transaction is not in invoiced status";
+        public static final String TRANSACTION_NOT_STATUS_INVOICED_OR_REWARDED = "Transaction is not in invoiced or rewarded status";
         public static final String TRANSACTION_NOT_STATUS_APPROVED = "Transaction is not in approved status";
         public static final String REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED = "Transaction can be postponed only until the end of the month following the initiative end date";
         public static final String ERROR_ON_GET_FILE_URL_REQUEST = "Error occurred while attempting to get file url";
@@ -78,6 +79,8 @@ public final class ExceptionConstants {
         public static final String ERROR_MESSAGE_REWARD_BATCH_NOT_APPROVED = "Reward batch  %s not APPROVED";
         public static final String ERROR_MESSAGE_REWARD_BATCH_MISSING_FILENAME = "Reward batch  %s missing file name";
         public static final String MERCHANT_OR_OPERATOR_HEADER_MANDATORY = "Merchant or operator information is missing";
+        public static final String ERROR_MESSAGE_REWARD_BATCH_NOT_APPROVED_OR_REFUNDABLE = "Reward batch  %s not APPROVED or REFUNDABLE";
+
         public static final String ERROR_MESSAGE_MERCHANT_ID_MANDATORY = "Merchant information is missing";
         public static final String ERROR_MESSAGE_PREVIOUS_BATCH_TO_APPROVE = "Is not possible to approve batch %s because there are previous Batch to approve";
         public static final String ERROR_MESSAGE_NOT_FOUND_REWARD_BATCH_SENT = "No reward batches found with status SENT";

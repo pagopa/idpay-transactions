@@ -547,10 +547,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         );
                     }
 
-                    if (!RewardBatchStatus.APPROVED.equals(batch.getStatus())) {
+                    if (!RewardBatchStatus.APPROVED.equals(batch.getStatus()) && !isRefundState(batch.getStatus())) {
                         throw new RewardBatchNotApprovedException(
-                                REWARD_BATCH_NOT_APPROVED,
-                                ERROR_MESSAGE_REWARD_BATCH_NOT_APPROVED.formatted(rewardBatchId)
+                                REWARD_BATCH_NOT_APPROVED_OR_REFUNDABLE,
+                                ERROR_MESSAGE_REWARD_BATCH_NOT_APPROVED_OR_REFUNDABLE.formatted(rewardBatchId)
                         );
                     }
 
@@ -582,6 +582,14 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         return OPERATOR_1.equals(organizationRole)
                 || OPERATOR_2.equals(organizationRole)
                 || OPERATOR_3.equals(organizationRole);
+    }
+
+    private boolean isRefundState(RewardBatchStatus status) {
+        return Set.of(
+                RewardBatchStatus.PENDING_REFUND,
+                RewardBatchStatus.NOT_REFUNDED,
+                RewardBatchStatus.REFUNDED
+        ).contains(status);
     }
 
     private String buildBatchName(YearMonth month) {

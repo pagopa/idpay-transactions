@@ -61,7 +61,7 @@ public class RewardTransactionMapper {
             rewardTrx.setTrxChargeDate(rewardTrxDto.getTrxChargeDate() != null ? toLocalDateTime(rewardTrxDto.getTrxChargeDate()) : null);
             rewardTrx.setRefundInfo(rewardTrxDto.getRefundInfo());
 
-            rewardTrx.setElaborationDateTime(rewardTrxDto.getElaborationDateTime() != null ? toLocalDateTime(rewardTrxDto.getElaborationDateTime()) : null);
+            rewardTrx.setElaborationDateTime(rewardTrxDto.getElaborationDateTime() != null ? rewardTrxDto.getElaborationDateTime() : null);
             rewardTrx.setChannel(rewardTrxDto.getChannel());
             rewardTrx.setAdditionalProperties(rewardTrxDto.getAdditionalProperties());
             rewardTrx.setInvoiceData(rewardTrxDto.getInvoiceData());
@@ -71,12 +71,11 @@ public class RewardTransactionMapper {
             rewardTrx.setPointOfSaleType(rewardTrxDto.getPointOfSaleType());
             rewardTrx.setBusinessName(rewardTrxDto.getBusinessName());
             if(SyncTrxStatus.INVOICED.name().equals(rewardTrxDto.getStatus())){
-                rewardTrx.setInvoiceUploadDate(rewardTrxDto.getUpdateDate() != null ? toLocalDateTime(rewardTrxDto.getUpdateDate()) : null);
+                rewardTrx.setInvoiceUploadDate(rewardTrxDto.getUpdateDate() != null ? rewardTrxDto.getUpdateDate() : null);
             }
             rewardTrx.setExtendedAuthorization(rewardTrxDto.getExtendedAuthorization());
             rewardTrx.setVoucherAmountCents(rewardTrxDto.getVoucherAmountCents());
             rewardTrx.setChecksError(rewardTrxDto.getChecksError());
-            rewardTrx.setUpdateDate(rewardTrxDto.getUpdateDate() != null ? toLocalDateTime(rewardTrxDto.getUpdateDate()) : null);
         }
 
         return rewardTrx;

@@ -1,27 +1,9 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import static it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus.CREATED;
-import static it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus.EVALUATING;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.GENERIC_ERROR;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_ALREADY_SENT;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_STATUS_NOT_ALLOWED;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.TRANSACTION_STATUS_NOT_ALLOWED;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_REWARD_BATCH_ALREADY_SENT;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_REWARD_BATCH_STATUS_NOT_ALLOWED;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.TRANSACTION_MISSING_INVOICE;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.TRANSACTION_NOT_STATUS_APPROVED;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.TRANSACTION_NOT_STATUS_INVOICED;
-
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
-import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
-import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
-import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
-import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
-import it.gov.pagopa.idpay.transactions.dto.RewardTransactionKafkaDTO;
-import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionKafkaMapper;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
@@ -34,16 +16,8 @@ import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicy;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
-import it.gov.pagopa.idpay.transactions.utils.Utilities;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
-import java.util.List;
-import java.util.Objects;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.Page;
@@ -53,6 +27,22 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+import it.gov.pagopa.idpay.transactions.utils.Utilities;
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.YearMonth;
+import java.util.List;
+import java.util.Objects;
+
+import static it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus.*;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.GENERIC_ERROR;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.*;
 
 
 @Service
@@ -117,7 +107,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
   @Override
   public Mono<DownloadInvoiceResponseDTO> downloadTransactionInvoice(
           String merchantId, String pointOfSaleId, String transactionId) {
-      return rewardTransactionRepository.findTransaction(merchantId, pointOfSaleId, transactionId)
+      return rewardTransactionRepository.findTransaction(merchantId, transactionId)
               .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
               .handle((rewardTransaction, sink) -> {
                 String status = rewardTransaction.getStatus();
@@ -173,22 +163,21 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     }
 
     public Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId,
-                                               String pointOfSaleId, FilePart file, String docNumber) {
+                                               FilePart file, String docNumber) {
 
-        log.info("[UPDATE_INVOICE_FILE_SERVICE] - [updateInvoiceTransaction] - start | trxId={} merchantId={} posId={} docNumber={} filename={}",
-                Utilities.sanitizeString(transactionId), Utilities.sanitizeString(merchantId), Utilities.sanitizeString(pointOfSaleId), Utilities.sanitizeString(docNumber), file != null ? Utilities.sanitizeString(file.filename()) : null);
+        log.info("[UPDATE_INVOICE_FILE_SERVICE] - [updateInvoiceTransaction] - start | trxId={} merchantId={} docNumber={} filename={}",
+                Utilities.sanitizeString(transactionId), Utilities.sanitizeString(merchantId), Utilities.sanitizeString(docNumber), file != null ? Utilities.sanitizeString(file.filename()) : null);
 
         Utilities.checkFileExtensionOrThrow(file);
 
         return rewardTransactionRepository
-                .findTransactionForUpdateInvoice(merchantId, pointOfSaleId, transactionId)
+                .findTransaction(merchantId, transactionId)
                 .switchIfEmpty(Mono.defer(() -> Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE))))
-                .flatMap(trx -> validateBatchAndUpdateInvoiceFlow(trx, merchantId, pointOfSaleId, transactionId, file, docNumber));
+                .flatMap(trx -> validateBatchAndUpdateInvoiceFlow(trx, merchantId, transactionId, file, docNumber));
     }
 
     private Mono<Void> validateBatchAndUpdateInvoiceFlow(RewardTransaction trx,
                                                          String merchantId,
-                                                         String pointOfSaleId,
                                                          String transactionId,
                                                          FilePart file,
                                                          String docNumber) {
@@ -200,8 +189,9 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .flatMap(oldBatch -> {
                     validateOldBatchStatusAllowed(oldBatch);
                     validateTrxBatchStatusNotApproved(trx);
+                    transactionIsInvoicedOrRewarded(trx);
 
-                    return updateInvoiceFileAndFields(trx, merchantId, pointOfSaleId, transactionId, file, docNumber)
+                    return updateInvoiceFileAndFields(trx, merchantId, trx.getPointOfSaleId(), transactionId, file, docNumber)
                             .flatMap(savedTrx -> suspendAndMoveTransaction(savedTrx, oldBatch))
                             .then();
                 });
@@ -217,7 +207,9 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     }
 
     private void validateOldBatchStatusAllowed(RewardBatch oldBatch) {
-        if (!EVALUATING.equals(oldBatch.getStatus()) && !CREATED.equals(oldBatch.getStatus())) {
+        if (!EVALUATING.equals(oldBatch.getStatus())
+                && !CREATED.equals(oldBatch.getStatus())
+                && !APPROVED.equals(oldBatch.getStatus())) {
             throw new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
                     REWARD_BATCH_STATUS_NOT_ALLOWED,
@@ -323,6 +315,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                             Utilities.sanitizeString(oldTransaction.getId()), Utilities.sanitizeString(oldBatch.getId()), Utilities.sanitizeString(newBatch.getId()),
                             oldBatchCounter, newBatchCounter);
 
+                    oldTransaction.setStatus(SyncTrxStatus.INVOICED.name());
                     oldTransaction.setRewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED);
                     oldTransaction.setRewardBatchId(newBatch.getId());
                     oldTransaction.setUpdateDate(LocalDateTime.now());
@@ -334,25 +327,23 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 });
     }
 
-        public Mono<Void> reversalTransaction(
+    public Mono<Void> reversalTransaction(
             String transactionId,
             String merchantId,
-            String pointOfSaleId,
             FilePart file,
             String docNumber,
             ReversalPolicy policy
-        ) {
+    ) {
         String sanitizedTransactionId = Utilities.sanitizeString(transactionId);
-        String sanitizedPointOfSaleId = Utilities.sanitizeString(pointOfSaleId);
         String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
         String sanitizedDocNumber = Utilities.sanitizeString(docNumber);
 
         Utilities.checkFileExtensionOrThrow(file);
 
-        log.info("[REVERSAL-TRANSACTION-SERVICE] Start reversalTransaction transactionId={}, merchantId={}, posId={}, docNumber={}",
-                sanitizedTransactionId, sanitizedMerchantId, sanitizedPointOfSaleId, sanitizedDocNumber);
+        log.info("[REVERSAL-TRANSACTION-SERVICE] Start reversalTransaction transactionId={}, merchantId={}, docNumber={}",
+                sanitizedTransactionId, sanitizedMerchantId, sanitizedDocNumber);
 
-        return rewardTransactionRepository.findTransaction(sanitizedMerchantId, sanitizedPointOfSaleId, sanitizedTransactionId)
+        return rewardTransactionRepository.findTransaction(sanitizedMerchantId, sanitizedTransactionId)
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
                 .doOnNext(rt -> log.info("[REVERSAL-TRANSACTION-SERVICE] Found transaction id={}, status={}, rewardBatchId={}",
                         rt.getId(), rt.getStatus(), rt.getRewardBatchId()))
@@ -361,6 +352,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     final String oldRewardBatchId = rt.getRewardBatchId();
                     final RewardBatchTrxStatus oldBatchTrxStatus = rt.getRewardBatchTrxStatus();
                     final boolean wasSuspended = RewardBatchTrxStatus.SUSPENDED.equals(oldBatchTrxStatus);
+                    final boolean wasRejected = RewardBatchTrxStatus.REJECTED.equals(oldBatchTrxStatus);
                     String initiativeId = rt.getInitiatives().getFirst();
                     long accruedRewardCents = rt.getRewards().get(initiativeId).getAccruedRewardCents();
 
@@ -372,12 +364,15 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                 .decrementTrxSuspended()
                                 .decrementTrxElaborated();
                     }
+                    if (wasRejected) {
+                        counters.decrementTrxRejected()
+                                .decrementTrxElaborated();
+                    }
 
-                    return checkRewardBatchCreatedIfPresent(oldRewardBatchId)
-                            .then(Mono.defer(() -> {
+                    return Mono.defer(() -> {
                                 log.info("[REVERSAL-TRANSACTION-SERVICE] Uploading credit note BEFORE DB updates for trxId={}", rt.getId());
 
-                                return uploadCreditNoteOrThrow(file, sanitizedMerchantId, sanitizedPointOfSaleId, sanitizedTransactionId, rt.getId())
+                                return uploadCreditNoteOrThrow(file, sanitizedMerchantId, rt.getPointOfSaleId(), sanitizedTransactionId, rt.getId())
                                         .then(Mono.defer(() -> {
                                             log.info("[REVERSAL-TRANSACTION-SERVICE] Upload OK. Applying DB updates for trxId={}", rt.getId());
 
@@ -410,35 +405,59 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                     .then(updateBatchTotalsMono)
                                                     .then(sendToQueueMono);
                                         }));
-                            }));
+                            });
                 })
                 .doOnError(e -> log.error("[REVERSAL-TRANSACTION-SERVICE] Error during reversalTransaction [transactionId={}, merchantId={}]",
                         sanitizedTransactionId, sanitizedMerchantId, e))
                 .then();
     }
 
-    private Mono<Void> checkRewardBatchCreatedIfPresent(String rewardBatchId) {
-        if (rewardBatchId == null) {
-            return Mono.empty();
+    private Mono<RewardTransaction> transactionIsInvoicedOrRewarded(RewardTransaction rt) {
+        if (!SyncTrxStatus.INVOICED.toString().equals(rt.getStatus())
+                && !SyncTrxStatus.REWARDED.toString().equals(rt.getStatus())) {
+            log.warn("[REVERSAL-TRANSACTION-SERVICE] Transaction id={} has invalid status={} (expected INVOICED or REWARDED)",
+                    rt.getId(), rt.getStatus());
+            return Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    GENERIC_ERROR,
+                    TRANSACTION_NOT_STATUS_INVOICED_OR_REWARDED
+            ));
         }
+        return Mono.just(rt);
+    }
 
-        return rewardBatchRepository.findRewardBatchById(rewardBatchId)
-                .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)))
-                .doOnNext(rb -> log.info("[REVERSAL-TRANSACTION-SERVICE] Found reward batch id={} with status={}",
-                        rb.getId(), rb.getStatus()))
-                .flatMap(rb -> {
-                    if (!CREATED.equals(rb.getStatus())) {
-                        log.warn("[REVERSAL-TRANSACTION-SERVICE] Reward batch id={} not in CREATED status={}",
-                                rb.getId(), rb.getStatus());
+    private Mono<RewardTransaction> rewardBatchAllowedStatus(RewardTransaction rt) {
+
+        return rewardBatchRepository.findById(rt.getRewardBatchId())
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.warn("[REVERSAL-TRANSACTION-SERVICE] RewardBatch id={} not found",
+                            rt.getRewardBatchId());
+                    return Mono.error(new ClientExceptionWithBody(
+                            HttpStatus.NOT_FOUND,
+                            GENERIC_ERROR,
+                            REWARD_BATCH_NOT_FOUND
+                    ));
+                }))
+                .flatMap(rewardBatch -> {
+                    String status = rewardBatch.getStatus().toString();
+
+                    if (!RewardBatchStatus.APPROVED.toString().equals(status)
+                            && !RewardBatchStatus.EVALUATING.toString().equals(status)
+                            && !RewardBatchStatus.CREATED.toString().equals(status)) {
+
+                        log.warn("[REVERSAL-TRANSACTION-SERVICE] RewardBatch id={} has invalid status={} (expected APPROVED, EVALUATING or CREATED)",
+                                rewardBatch.getId(), status);
+
                         return Mono.error(new ClientExceptionWithBody(
                                 HttpStatus.BAD_REQUEST,
-                                REWARD_BATCH_ALREADY_SENT,
-                                ERROR_MESSAGE_REWARD_BATCH_ALREADY_SENT
+                                GENERIC_ERROR,
+                                REWARD_BATCH_STATUS_NOT_ALLOWED
                         ));
                     }
-                    return Mono.<Void>empty();
+                    return Mono.just(rt);
                 });
     }
+
 
     private Mono<Void> uploadCreditNoteOrThrow(
             FilePart file,
