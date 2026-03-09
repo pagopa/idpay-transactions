@@ -91,15 +91,14 @@ class MerchantRewardBatchControllerImplTest {
                 .rewardBatchIds(null)
                 .build();
 
-        Mockito.when(rewardBatchService.rewardBatchDeliveryBatch(Mockito.anyString(), Mockito.anyList()))
+        Mockito.when(rewardBatchService.rewardBatchDeliveryBatch(INITIATIVE_ID, List.of()))
                 .thenReturn(Mono.empty());
 
         webClient.post()
-                .uri("idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/delivery", INITIATIVE_ID)
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/delivery", INITIATIVE_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .exchange()
-                // Then
                 .expectStatus().isOk();
 
         Mockito.verify(rewardBatchService).rewardBatchDeliveryBatch(INITIATIVE_ID, List.of());
