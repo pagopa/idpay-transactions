@@ -652,50 +652,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .flatMap(rewardBatchRepository::save);
     }
 
-    //@Override
-//public Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds) {
-//    if (rewardBatchIds != null && !rewardBatchIds.isEmpty()) {
-//        return Flux.fromIterable(rewardBatchIds)
-//                .doOnNext(rewardBatchId ->
-//                        log.info("Processing batch {}", rewardBatchId)
-//                )
-//                .concatMap(rewardBatchId ->
-//                        this.processSingleBatchSafe(rewardBatchId, initiativeId, "CONFIRMATION")
-//                )
-
-//                .then();
-
-//    } else {
-//        return rewardBatchRepository.findRewardBatchByStatus(RewardBatchStatus.APPROVING)
-//                .collectList()
-//                .flatMapMany(batchList -> {
-//                    if (batchList.isEmpty()) {
-//                        log.warn("No batches found with status APPROVING to process.");
-//                        return Flux.empty();
-//                    } else {
-//                        log.info("Found {} batches with status APPROVING to process.", batchList.size());
-//                        return Flux.fromIterable(batchList);
-//                    }
-//                })
-//                .doOnNext(rewardBatch ->
-//                        log.info("Processing batch {}",
-//                                rewardBatch.getId())
-//                )
-//                .concatMap(rewardBatch -> {
-//                    String rewardBatchId = rewardBatch.getId();
-//                    return processSingleBatchSafe(rewardBatchId, initiativeId, "CONFIRMATION");
-//                })
-//                .then();
-//    }
-//}
-
-//public Mono<RewardBatch> processSingleBatchSafe(String rewardBatchId, String initiativeId, String batchType) {
-//    return this.processSingleBatch(rewardBatchId, initiativeId)
-//            .onErrorResume(error -> {
-//                log.error("Failed to process batch {}: {}", rewardBatchId, error.getMessage(), error);
-//                return Mono.empty();
-//            });
-//}
 
     @Override
     public Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds) {
@@ -733,13 +689,12 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                     .map(RewardBatch::getId);
         }
 
-        // FASE 2: Esecuzione Logica + Gestione Errore (Il tuo "Safe")
         return idsFlux
                 .doOnNext(id -> log.info("Processing batch {}", id))
                 .concatMap(id -> businessLogic.apply(id, initiativeId)
                         .onErrorResume(error -> {
                             log.error("Failed to process batch {}: {}", id, error.getMessage(), error);
-                            return Mono.empty(); // Qui rendiamo l'esecuzione "Safe"
+                            return Mono.empty();
                         })
                 )
                 .then();
@@ -762,7 +717,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
                 )))
                 .flatMap(originalBatch -> {
-                    //setta ad approved le trx in stato TO_CHECK e CONSULTABLE
                     Mono<Void> transactionsUpdate = updateAndSaveRewardTransactionsToApprove(rewardBatchId, initiativeId);
                     return transactionsUpdate.thenReturn(originalBatch);
                 })
@@ -800,40 +754,29 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         REWARD_BATCH_INVALID_REQUEST,
                         ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId))))
                 .flatMap(rewardBatch -> {
-                    // 1. Setto i dati dal RewardBatch
                     deliveryRequest.setImporto(rewardBatch.getApprovedAmountCents());
                     deliveryRequest.setDataAmmissione(rewardBatch.getApprovalDate());
 
-                    // 2. Richiamo il Merchant Detail
                     return merchantRestClient.getMerchantDetail(rewardBatch.getMerchantId(), initiativeId)
-                            // 3. Gestione Empty Merchant
                             .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
                                     HttpStatus.NOT_FOUND,
                                     MERCHANT_NOT_FOUND,
                                     ERROR_MESSAGE_MERCHANT_NOT_FOUND.formatted(rewardBatch.getMerchantId(), initiativeId))))
                             .flatMap(merchantDetail -> {
-                                // 4. Setto i dati dal Merchant Detail
                                 deliveryRequest.setPartitaIvaCliente(merchantDetail.getVatNumber());
                                 deliveryRequest.setCodiceFiscaleCliente(merchantDetail.getFiscalCode());
                                 deliveryRequest.setRagioneSocialeIntestatario(merchantDetail.getBusinessName());
                                 deliveryRequest.setIbanBeneficiario(merchantDetail.getIban());
                                 deliveryRequest.setIntestatarioContoCorrente(merchantDetail.getIbanHolder());
 
-                                // 5. Richiamo le istituzioni usando il Fiscal Code del Merchant
                                 return selfcareInstitutionsRestClient.getInstitutions(merchantDetail.getFiscalCode())
-                                        // Il client sopra potrebbe restituire una lista vuata con HTTP 200.
-                                        // Dobbiamo validare noi il contenuto:
                                         .flatMap(institutionList -> {
-
-                                            // Caso A: Lista null o vuota (Equivale a "non trovato" nello script)
                                             if (institutionList.getInstitutions() == null || institutionList.getInstitutions().isEmpty()) {
                                                 return Mono.error(new ClientExceptionWithBody(
                                                         HttpStatus.NOT_FOUND,
                                                         MERCHANT_NOT_FOUND_IN_SELFCARE,
                                                         ERROR_MESSAGE_MERCHANT_NOT_FOUND_IN_SELFCARE.formatted(merchantDetail.getFiscalCode())));
                                             }
-
-                                            // Caso B: Più di un risultato (L'errore "inventato" che rimpiazza len != 1)
                                             if (institutionList.getInstitutions().size() > 1) {
                                                 return Mono.error(new ClientExceptionWithBody(
                                                         HttpStatus.CONFLICT,
@@ -841,10 +784,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                                         ERROR_MESSAGE_AMBIGUOUS_MERCHANT_DATA_IN_SELFCARE.formatted(merchantDetail.getFiscalCode())));
                                             }
 
-                                            // Caso C: Esattamente 1 (Successo)
                                             InstitutionDTO institution = institutionList.getInstitutions().get(0);
 
-                                            // Popoliamo i campi geografici/PEC
                                             deliveryRequest.setCap(institution.getZipCode());
                                             deliveryRequest.setIndirizzo(institution.getAddress());
                                             deliveryRequest.setLocalita(institution.getCity());

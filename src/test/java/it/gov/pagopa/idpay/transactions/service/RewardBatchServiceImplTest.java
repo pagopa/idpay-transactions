@@ -899,8 +899,6 @@ class RewardBatchServiceImplTest {
 
     @Test
     void rewardBatchConfirmationBatch_withIds_processesEach() {
-        // Mockiamo la logica di business specifica (processSingleBatchConfirmation)
-        // Usiamo doReturn perché serviceSpy è uno spy
         doReturn(Mono.just(new RewardBatch())).when(serviceSpy).processSingleBatchConfirmation(eq(BATCH_ID), anyString());
         doReturn(Mono.just(new RewardBatch())).when(serviceSpy).processSingleBatchConfirmation(eq(BATCH_ID_2), anyString());
 
@@ -929,24 +927,20 @@ class RewardBatchServiceImplTest {
 
     @Test
     void processBatchesOrchestrator_shouldContinueOnSingleBatchError() {
-        // Simuliamo che il primo batch fallisca e il secondo abbia successo
         doReturn(Mono.error(new RuntimeException("Error Batch 1")))
                 .when(serviceSpy).processSingleBatchDelivery(eq(BATCH_ID), anyString());
         doReturn(Mono.just(new RewardBatch()))
                 .when(serviceSpy).processSingleBatchDelivery(eq(BATCH_ID_2), anyString());
 
-        // L'orchestratore deve completare senza lanciare eccezioni (grazie a onErrorResume)
         StepVerifier.create(serviceSpy.rewardBatchDeliveryBatch(INITIATIVE_ID, List.of(BATCH_ID, BATCH_ID_2)))
                 .verifyComplete();
 
-        // Verifichiamo che entrambi siano stati tentati
         verify(serviceSpy).processSingleBatchDelivery(BATCH_ID, INITIATIVE_ID);
         verify(serviceSpy).processSingleBatchDelivery(BATCH_ID_2, INITIATIVE_ID);
     }
 
     @Test
     void rewardBatchDeliveryBatch_Success() {
-        // Given
         String initiativeId = "INIT_1";
         String batchId = "BATCH_1";
         String merchantId = "MERCHANT_1";
@@ -972,11 +966,9 @@ class RewardBatchServiceImplTest {
         when(selfcareInstitutionsRestClient.getInstitutions(fiscalCode)).thenReturn(Mono.just(instList));
         when(erogazioniRestClient.sendErogazione(any(DeliveryRequest.class))).thenReturn(Mono.empty());
 
-        // When
         StepVerifier.create(serviceSpy.rewardBatchDeliveryBatch(initiativeId, List.of(batchId)))
                 .verifyComplete();
 
-        // Then
         verify(erogazioniRestClient).sendErogazione(argThat(req ->
                 req.getId().equals(batchId) && req.getCap().equals("00100")
         ));
@@ -1001,16 +993,12 @@ class RewardBatchServiceImplTest {
         merchantDetail.setIban("IT00TEST");
         merchantDetail.setIbanHolder("Holder");
 
-
-        // Lista con 2 istituzioni (caso errore richiesto)
         InstitutionList instList = new InstitutionList(List.of(new InstitutionDTO(), new InstitutionDTO()));
 
         when(rewardBatchRepository.findRewardBatchById(batchId)).thenReturn(Mono.just(batch));
         when(merchantRestClient.getMerchantDetail(anyString(), anyString())).thenReturn(Mono.just(merchantDetail));
         when(selfcareInstitutionsRestClient.getInstitutions(fiscalCode)).thenReturn(Mono.just(instList));
 
-        // When & Then
-        // L'orchestratore logga l'errore e continua (onErrorResume), quindi il flusso completa
         StepVerifier.create(service.rewardBatchDeliveryBatch(initiativeId, List.of(batchId)))
                 .verifyComplete();
 
