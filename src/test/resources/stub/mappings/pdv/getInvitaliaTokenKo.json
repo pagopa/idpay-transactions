@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/TENANT_KO_[0-9]+/path",
+    "headers": {
+      "Content-Type": {
+        "matches": "application/x-www-form-urlencoded.*"
+      }
+    }
+  },
+  "response": {
+    "status": 400,
+    "jsonBody": {
+      "error": "bad_reques",
+      "error_description": "Tenant not found"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}
