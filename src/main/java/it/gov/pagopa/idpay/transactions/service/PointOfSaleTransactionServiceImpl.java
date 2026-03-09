@@ -163,22 +163,21 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     }
 
     public Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId,
-                                               String pointOfSaleId, FilePart file, String docNumber) {
+                                               FilePart file, String docNumber) {
 
-        log.info("[UPDATE_INVOICE_FILE_SERVICE] - [updateInvoiceTransaction] - start | trxId={} merchantId={} posId={} docNumber={} filename={}",
-                Utilities.sanitizeString(transactionId), Utilities.sanitizeString(merchantId), Utilities.sanitizeString(pointOfSaleId), Utilities.sanitizeString(docNumber), file != null ? Utilities.sanitizeString(file.filename()) : null);
+        log.info("[UPDATE_INVOICE_FILE_SERVICE] - [updateInvoiceTransaction] - start | trxId={} merchantId={} docNumber={} filename={}",
+                Utilities.sanitizeString(transactionId), Utilities.sanitizeString(merchantId), Utilities.sanitizeString(docNumber), file != null ? Utilities.sanitizeString(file.filename()) : null);
 
         Utilities.checkFileExtensionOrThrow(file);
 
         return rewardTransactionRepository
-                .findTransactionForUpdateInvoice(merchantId, pointOfSaleId, transactionId)
+                .findTransaction(merchantId, transactionId)
                 .switchIfEmpty(Mono.defer(() -> Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE))))
-                .flatMap(trx -> validateBatchAndUpdateInvoiceFlow(trx, merchantId, pointOfSaleId, transactionId, file, docNumber));
+                .flatMap(trx -> validateBatchAndUpdateInvoiceFlow(trx, merchantId, transactionId, file, docNumber));
     }
 
     private Mono<Void> validateBatchAndUpdateInvoiceFlow(RewardTransaction trx,
                                                          String merchantId,
-                                                         String pointOfSaleId,
                                                          String transactionId,
                                                          FilePart file,
                                                          String docNumber) {
@@ -190,8 +189,9 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .flatMap(oldBatch -> {
                     validateOldBatchStatusAllowed(oldBatch);
                     validateTrxBatchStatusNotApproved(trx);
+                    transactionIsInvoicedOrRewarded(trx);
 
-                    return updateInvoiceFileAndFields(trx, merchantId, pointOfSaleId, transactionId, file, docNumber)
+                    return updateInvoiceFileAndFields(trx, merchantId, trx.getPointOfSaleId(), transactionId, file, docNumber)
                             .flatMap(savedTrx -> suspendAndMoveTransaction(savedTrx, oldBatch))
                             .then();
                 });
@@ -207,7 +207,9 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     }
 
     private void validateOldBatchStatusAllowed(RewardBatch oldBatch) {
-        if (!EVALUATING.equals(oldBatch.getStatus()) && !CREATED.equals(oldBatch.getStatus())) {
+        if (!EVALUATING.equals(oldBatch.getStatus())
+                && !CREATED.equals(oldBatch.getStatus())
+                && !APPROVED.equals(oldBatch.getStatus())) {
             throw new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
                     REWARD_BATCH_STATUS_NOT_ALLOWED,
