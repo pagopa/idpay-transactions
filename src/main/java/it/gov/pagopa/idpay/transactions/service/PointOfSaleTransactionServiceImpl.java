@@ -183,7 +183,6 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                          String docNumber) {
 
         String oldBatchId = requireRewardBatchId(trx);
-        transactionIsInvoicedOrRewarded(trx);
 
         return rewardBatchRepository.findRewardBatchById(oldBatchId)
                 .switchIfEmpty(Mono.defer(() -> Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND))))
