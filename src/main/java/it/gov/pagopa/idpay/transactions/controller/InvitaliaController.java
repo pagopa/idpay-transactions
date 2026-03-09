@@ -1,6 +1,9 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import reactor.core.publisher.Mono;
 
@@ -8,4 +11,8 @@ import reactor.core.publisher.Mono;
 public interface InvitaliaController {
     @GetMapping("/token")
     Mono<String> getToken();
+    @PostMapping("/erogazioni")
+    Mono<Void> postErogazione(
+            @RequestBody DeliveryRequest deliveryRequest
+    );
 }

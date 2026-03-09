@@ -964,12 +964,12 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findRewardBatchById(batchId)).thenReturn(Mono.just(batch));
         when(merchantRestClient.getMerchantDetail(merchantId, initiativeId)).thenReturn(Mono.just(merchantDetail));
         when(selfcareInstitutionsRestClient.getInstitutions(fiscalCode)).thenReturn(Mono.just(instList));
-        when(erogazioniRestClient.sendErogazione(any(DeliveryRequest.class))).thenReturn(Mono.empty());
+        when(erogazioniRestClient.postErogazione(any(DeliveryRequest.class))).thenReturn(Mono.empty());
 
         StepVerifier.create(serviceSpy.rewardBatchDeliveryBatch(initiativeId, List.of(batchId)))
                 .verifyComplete();
 
-        verify(erogazioniRestClient).sendErogazione(argThat(req ->
+        verify(erogazioniRestClient).postErogazione(argThat(req ->
                 req.getId().equals(batchId) && req.getCap().equals("00100")
         ));
     }
@@ -1002,7 +1002,7 @@ class RewardBatchServiceImplTest {
         StepVerifier.create(service.rewardBatchDeliveryBatch(initiativeId, List.of(batchId)))
                 .verifyComplete();
 
-        verify(erogazioniRestClient, never()).sendErogazione(any());
+        verify(erogazioniRestClient, never()).postErogazione(any());
     }
 
     @Test

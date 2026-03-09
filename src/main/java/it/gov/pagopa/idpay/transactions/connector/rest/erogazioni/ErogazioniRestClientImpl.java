@@ -45,19 +45,18 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
     }
 
     @Override
-    public Mono<Void> sendErogazione(DeliveryRequest deliveryRequest) {
-        // Logica specifica richiesta: se P.IVA è un CF da 16, metti 11 zeri
+    public Mono<Void> postErogazione(DeliveryRequest deliveryRequest) {
         deliveryRequest.setPartitaIvaCliente(formatPartitaIva(deliveryRequest.getPartitaIvaCliente()));
         deliveryRequest.setAutorizzatore(this.autorizzatore);
 
         log.info("[SEND_EROGAZIONE] Sending delivery request for batchId: {}",
                 Utilities.sanitizeString(deliveryRequest.getId()));
 
-        return tokenProvider.retrieveToken() // Recupero il token Invitalia
+        return tokenProvider.retrieveToken()
                 .flatMap(token -> webClient.post()
-                        .uri(URI_EROGAZIONI) // Endpoint visto nello script
+                        .uri(URI_EROGAZIONI)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                        .header("Request-Id", deliveryRequest.getId()) // Come nello script Python
+                        .header("Request-Id", deliveryRequest.getId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(deliveryRequest)
                         .retrieve()
@@ -78,7 +77,7 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
 
     private String formatPartitaIva(String piva) {
         if (piva != null && piva.length() == 16) {
-            return "00000000000"; // 11 zeri come richiesto
+            return "00000000000";
         }
         return piva;
     }

@@ -792,7 +792,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                             deliveryRequest.setProvincia(institution.getCounty());
                                             deliveryRequest.setPec(institution.getDigitalAddress());
 
-                                            return erogazioniRestClient.sendErogazione(deliveryRequest)
+                                            return erogazioniRestClient.postErogazione(deliveryRequest)
                                                     .thenReturn(rewardBatch);
                                         });
                             });
