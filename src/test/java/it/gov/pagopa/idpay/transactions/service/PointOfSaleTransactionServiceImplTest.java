@@ -725,7 +725,7 @@ class PointOfSaleTransactionServiceImplTest {
 
         // restore policy to allow
         when(reversalPolicy.validate(any())).thenReturn(Mono.empty());
-        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, POS_ID, fp, DOC_NUMBER, reversalPolicy))
+        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, reversalPolicy))
                 .expectError(ClientExceptionNoBody.class)
                 .verify();
 
