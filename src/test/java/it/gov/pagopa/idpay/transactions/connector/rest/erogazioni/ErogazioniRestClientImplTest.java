@@ -2,7 +2,9 @@ package it.gov.pagopa.idpay.transactions.connector.rest.erogazioni;
 
 
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.InvitaliaTokenProviderService;
+import it.gov.pagopa.idpay.transactions.dto.AnagraficaDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
+import it.gov.pagopa.idpay.transactions.dto.ErogazioneDTO;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -78,20 +80,24 @@ class ErogazioniRestClientImplTest extends BaseWireMockTest {
         Mockito.when(invitaliaTokenProviderService.retrieveToken())
                 .thenReturn(Mono.just("MOCK_TOKEN"));
 
+
         erogazioniRestClient.postErogazione(request).block();
 
-        assertEquals("00000000000", request.getPartitaIvaCliente());
-        assertEquals("TEST_AUTH", request.getAutorizzatore());
+        assertEquals("00000000000", request.getAnagrafica().getPartitaIvaCliente());
+        assertEquals("GIANLUCA FIORILLO", request.getErogazione().getAutorizzatore());
     }
-
 
     private DeliveryRequest createRequest(String id, String piva) {
         return DeliveryRequest.builder()
                 .id(id)
-                .idPratica(id)
-                .partitaIvaCliente(piva)
-                .importo(1000L)
-                .dataAmmissione(LocalDateTime.now())
+                .anagrafica(AnagraficaDTO.builder()
+                        .partitaIvaCliente(piva)
+                        .build())
+                .erogazione(ErogazioneDTO.builder()
+                        .idPratica(id)
+                        .importo(10.0)
+                        .dataAmmissione(LocalDateTime.now())
+                        .build())
                 .build();
     }
 }
