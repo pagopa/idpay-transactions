@@ -2,12 +2,8 @@ package it.gov.pagopa.idpay.transactions.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
@@ -18,13 +14,17 @@ import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
 import it.gov.pagopa.idpay.transactions.service.invoiceLifeCycle.InvoiceLifeCyclePolicy;
+import it.gov.pagopa.idpay.transactions.service.invoiceLifeCycle.ReversalPolicyFactory;
 import it.gov.pagopa.idpay.transactions.test.fakers.PointOfSaleTransactionDTOFaker;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
+
+import it.gov.pagopa.idpay.transactions.utils.JwtUtils;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.data.domain.Page;
@@ -39,6 +39,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.reactive.function.BodyInserters;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 @WebFluxTest(controllers = PointOfSaleTransactionControllerImpl.class)
 class PointOfSaleTransactionControllerImplTest {
@@ -197,40 +198,46 @@ class PointOfSaleTransactionControllerImplTest {
         });
   }
 
-  @Test
-  void updateInvoiceFileOk() {
+    @Test
+    void updateInvoiceFileOk() {
 
-    when(pointOfSaleTransactionService.updateInvoiceTransaction(
-        eq(TRX_ID),
-        eq(MERCHANT_ID),
-        any(FilePart.class),
-        eq("DOC123"),
-        any(InvoiceLifeCyclePolicy.class)
-    )).thenReturn(Mono.empty());
+        String authorization =
+                "Bearer eyJhbGciOiJub25lIn0." +
+                        "eyJzY29wZSI6InRyYW5zYWN0aW9uOmludm9pY2VsaWZlY3ljbGU6ZnVsbCJ9." +
+                        "sig";
 
-    MultipartBodyBuilder builder = new MultipartBodyBuilder();
-    builder.part("file", "dummycontent".getBytes())
-        .filename("invoice.pdf")
-        .contentType(MediaType.APPLICATION_OCTET_STREAM);
-    builder.part("docNumber", "DOC123");
+        when(pointOfSaleTransactionService.updateInvoiceTransaction(
+                eq(TRX_ID),
+                eq(MERCHANT_ID),
+                any(FilePart.class),
+                eq("DOC123"),
+                any(InvoiceLifeCyclePolicy.class)
+        )).thenReturn(Mono.empty());
 
-    webClient.put()
-        .uri("/idpay/transactions/{id}/invoice/update", TRX_ID)
-        .header("x-merchant-id", MERCHANT_ID)
-        .header("x-point-of-sale-id", POINT_OF_SALE_ID)
-        .contentType(MediaType.MULTIPART_FORM_DATA)
-        .body(BodyInserters.fromMultipartData(builder.build()))
-        .exchange()
-        .expectStatus().isNoContent();
+        MultipartBodyBuilder builder = new MultipartBodyBuilder();
+        builder.part("file", "dummycontent".getBytes())
+                .filename("invoice.pdf")
+                .contentType(MediaType.APPLICATION_OCTET_STREAM);
+        builder.part("docNumber", "DOC123");
 
-    verify(pointOfSaleTransactionService).updateInvoiceTransaction(
-        eq(TRX_ID),
-        eq(MERCHANT_ID),
-        any(FilePart.class),
-        eq("DOC123"),
-        any(InvoiceLifeCyclePolicy.class)
-    );
-  }
+        webClient.put()
+                .uri("/idpay/transactions/{id}/invoice/update", TRX_ID)
+                .header("x-merchant-id", MERCHANT_ID)
+                .header("x-point-of-sale-id", POINT_OF_SALE_ID)
+                .header("Authorization", authorization)
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(builder.build()))
+                .exchange()
+                .expectStatus().isNoContent();
+
+        verify(pointOfSaleTransactionService).updateInvoiceTransaction(
+                eq(TRX_ID),
+                eq(MERCHANT_ID),
+                any(FilePart.class),
+                eq("DOC123"),
+                any(InvoiceLifeCyclePolicy.class)
+        );
+    }
 
   @Test
   void updateInvoiceFileBadRequestWhenMissingMerchantId() {
@@ -269,7 +276,7 @@ class PointOfSaleTransactionControllerImplTest {
         .uri("/idpay/transactions/{id}/reversal-invoiced", TRX_ID)
         .header("x-merchant-id", MERCHANT_ID)
         .header("x-point-of-sale-id", POINT_OF_SALE_ID)
-        .header("Authorization", buildBearerTokenWithScope("transaction:reversal:basic"))
+        .header("Authorization", buildBearerTokenWithScope("transaction:invoicelifecycle:basic"))
         .contentType(MediaType.MULTIPART_FORM_DATA)
         .body(BodyInserters.fromMultipartData(builder.build()))
         .exchange()
