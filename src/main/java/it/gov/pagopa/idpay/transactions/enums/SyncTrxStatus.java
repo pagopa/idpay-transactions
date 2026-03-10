@@ -9,6 +9,5 @@ public enum SyncTrxStatus {
   REJECTED,
   CANCELLED,
   REFUNDED,
-  INVOICED,
-  CAPTURED
+  INVOICED
 }

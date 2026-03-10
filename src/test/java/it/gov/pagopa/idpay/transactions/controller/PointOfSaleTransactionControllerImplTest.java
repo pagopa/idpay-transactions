@@ -5,9 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
@@ -17,13 +15,11 @@ import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
-import it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicy;
 import it.gov.pagopa.idpay.transactions.test.fakers.PointOfSaleTransactionDTOFaker;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
-import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.List;
+
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
@@ -71,6 +67,7 @@ class PointOfSaleTransactionControllerImplTest {
 
     PointOfSaleTransactionDTO dto = PointOfSaleTransactionDTOFaker
         .mockInstance(trx, INITIATIVE_ID, FISCAL_CODE);
+
 
     when(pointOfSaleTransactionService.getPointOfSaleTransactions(
         eq(MERCHANT_ID),
@@ -203,6 +200,7 @@ class PointOfSaleTransactionControllerImplTest {
     when(pointOfSaleTransactionService.updateInvoiceTransaction(
         eq(TRX_ID),
         eq(MERCHANT_ID),
+        eq(POINT_OF_SALE_ID),
         any(FilePart.class),
         eq("DOC123")
     )).thenReturn(Mono.empty());
@@ -225,6 +223,7 @@ class PointOfSaleTransactionControllerImplTest {
     verify(pointOfSaleTransactionService).updateInvoiceTransaction(
         eq(TRX_ID),
         eq(MERCHANT_ID),
+        eq(POINT_OF_SALE_ID),
         any(FilePart.class),
         eq("DOC123")
     );
@@ -253,8 +252,7 @@ class PointOfSaleTransactionControllerImplTest {
         eq(TRX_ID),
         eq(MERCHANT_ID),
         any(FilePart.class),
-        eq("DOC456"),
-        any(ReversalPolicy.class)
+        eq("DOC456")
     )).thenReturn(Mono.empty());
 
     MultipartBodyBuilder builder = new MultipartBodyBuilder();
@@ -267,28 +265,17 @@ class PointOfSaleTransactionControllerImplTest {
         .uri("/idpay/transactions/{id}/reversal-invoiced", TRX_ID)
         .header("x-merchant-id", MERCHANT_ID)
         .header("x-point-of-sale-id", POINT_OF_SALE_ID)
-        .header("Authorization", buildBearerTokenWithScope("transaction:reversal:basic"))
         .contentType(MediaType.MULTIPART_FORM_DATA)
         .body(BodyInserters.fromMultipartData(builder.build()))
         .exchange()
-        .expectStatus().isNoContent()
-        .expectBody().isEmpty();
+        .expectStatus().isNoContent();
 
     verify(pointOfSaleTransactionService).reversalTransaction(
         eq(TRX_ID),
         eq(MERCHANT_ID),
         any(FilePart.class),
-        eq("DOC456"),
-        any(ReversalPolicy.class)
+        eq("DOC456")
     );
-  }
-
-  private static String buildBearerTokenWithScope(String scope) {
-    String header = Base64.getUrlEncoder().withoutPadding()
-        .encodeToString("{\"alg\":\"none\"}".getBytes(StandardCharsets.UTF_8));
-    String payload = Base64.getUrlEncoder().withoutPadding()
-        .encodeToString(("{\"scope\":\"" + scope + "\"}").getBytes(StandardCharsets.UTF_8));
-    return "Bearer " + header + "." + payload + ".sig";
   }
 
 }

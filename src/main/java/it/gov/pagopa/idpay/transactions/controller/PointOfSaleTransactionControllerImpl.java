@@ -7,10 +7,7 @@ import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionsListDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
-import it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicy;
-import it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicyFactory;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
-import it.gov.pagopa.idpay.transactions.utils.JwtUtils;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
@@ -100,22 +97,18 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
   }
 
   @Override
-  public Mono<Void> updateInvoiceFile(String transactionId, String merchantId,
-                                      FilePart file, String docNumber, String authorization) {
+  public Mono<Void> updateInvoiceFile(String transactionId, String merchantId, String pointOfSaleId,
+                                      FilePart file, String docNumber) {
     final String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
     final String sanitizedTrxCode = Utilities.sanitizeString(transactionId);
+    final String sanitizedPointOfSaleId = Utilities.sanitizeString(pointOfSaleId);
 
     log.info(
-        "[UPDATE_INVOICE_TRANSACTION] The merchant {} is requesting a invoice update for the transactionId {}",
-        sanitizedMerchantId, sanitizedTrxCode
+        "[UPDATE_INVOICE_TRANSACTION] The merchant {} is requesting a invoice update for the transactionId {} at POS {}",
+        sanitizedMerchantId, sanitizedTrxCode, sanitizedPointOfSaleId
     );
-
-      List<String> scopes = JwtUtils.extractScopesOrThrow(authorization);
-
-      ReversalPolicy policy = ReversalPolicyFactory.fromScopes(scopes);
-
     return pointOfSaleTransactionService.updateInvoiceTransaction(transactionId, merchantId,
-        file, docNumber, policy);
+        pointOfSaleId, file, docNumber);
   }
 
     @Override
@@ -129,7 +122,7 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
     }
 
     @Override
-    public Mono<Void> reversalTransactionInvoiced(String transactionId, String merchantId, String authorization, FilePart file, String docNumber) {
+    public Mono<Void> reversalTransactionInvoiced(String transactionId, String merchantId, FilePart file, String docNumber) {
 
         final String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
         final String sanitizedTrxCode = Utilities.sanitizeString(transactionId);
@@ -138,11 +131,6 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
                 "[REVERSAL_TRANSACTION] The merchant {} is requesting a reversal for the transactionId {}",
                 sanitizedMerchantId, sanitizedTrxCode
         );
-
-        List<String> scopes = JwtUtils.extractScopesOrThrow(authorization);
-
-        ReversalPolicy policy = ReversalPolicyFactory.fromScopes(scopes);
-
-        return pointOfSaleTransactionService.reversalTransaction(transactionId, merchantId, file, docNumber, policy);
+        return pointOfSaleTransactionService.reversalTransaction(transactionId, merchantId, file, docNumber);
     }
 }
