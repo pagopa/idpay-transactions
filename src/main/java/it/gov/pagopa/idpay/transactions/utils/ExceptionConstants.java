@@ -43,6 +43,7 @@ public final class ExceptionConstants {
         public static final String INVALID_BATCH_STATE_FOR_PROMOTION = "INVALID_BATCH_STATE_FOR_PROMOTION";
         public static final String REWARD_BATCH_ALREADY_SENT = "REWARD_BATCH_ALREADY_SENT";
         public static final String REWARD_BATCH_STATUS_NOT_ALLOWED = "REWARD_BATCH_STATUS_NOT_ALLOWED";
+        public static final String REWARD_BATCH_TRX_STATUS_NOT_ALLOWED = "REWARD_BATCH_TRX_STATUS_NOT_ALLOWED";
         public static final String REWARD_BATCH_PREVIOUS_NOT_SENT = "REWARD_BATCH_PREVIOUS_NOT_SENT";
         public static final String INVALID_CHECKS_ERROR = "INVALID_CHECKS_ERROR";
         public static final String REPORT_NOT_FOUND = "REPORT_NOT_FOUND";

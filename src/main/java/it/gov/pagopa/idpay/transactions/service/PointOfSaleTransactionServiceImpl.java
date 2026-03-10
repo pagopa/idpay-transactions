@@ -7,7 +7,6 @@ import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionKafkaMapper;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
@@ -15,6 +14,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.notifier.TransactionNotifierService;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.service.reversal.InvoiceLifeCyclePolicy;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
 import java.time.LocalDateTime;
 
@@ -163,7 +163,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     }
 
     public Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId,
-                                               FilePart file, String docNumber) {
+                                               FilePart file, String docNumber, InvoiceLifeCyclePolicy policy) {
 
         log.info("[UPDATE_INVOICE_FILE_SERVICE] - [updateInvoiceTransaction] - start | trxId={} merchantId={} docNumber={} filename={}",
                 Utilities.sanitizeString(transactionId), Utilities.sanitizeString(merchantId), Utilities.sanitizeString(docNumber), file != null ? Utilities.sanitizeString(file.filename()) : null);
@@ -173,23 +173,22 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         return rewardTransactionRepository
                 .findTransaction(merchantId, transactionId)
                 .switchIfEmpty(Mono.defer(() -> Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE))))
-                .flatMap(trx -> validateBatchAndUpdateInvoiceFlow(trx, merchantId, transactionId, file, docNumber));
+                .flatMap(trx -> validateBatchAndUpdateInvoiceFlow(trx, merchantId, transactionId, file, docNumber, policy));
     }
 
     private Mono<Void> validateBatchAndUpdateInvoiceFlow(RewardTransaction trx,
                                                          String merchantId,
                                                          String transactionId,
                                                          FilePart file,
-                                                         String docNumber) {
+                                                         String docNumber,
+                                                         InvoiceLifeCyclePolicy policy) {
 
         String oldBatchId = requireRewardBatchId(trx);
 
         return rewardBatchRepository.findRewardBatchById(oldBatchId)
                 .switchIfEmpty(Mono.defer(() -> Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND))))
                 .flatMap(oldBatch -> {
-                    validateOldBatchStatusAllowed(oldBatch);
-                    validateTrxBatchStatusNotApproved(trx);
-                    transactionIsInvoicedOrRewarded(trx);
+                    allowedStatuses(trx, policy);
 
                     return updateInvoiceFileAndFields(trx, merchantId, trx.getPointOfSaleId(), transactionId, file, docNumber)
                             .flatMap(savedTrx -> suspendAndMoveTransaction(savedTrx, oldBatch))
@@ -204,28 +203,6 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         }
 
         return oldBatchId;
-    }
-
-    private void validateOldBatchStatusAllowed(RewardBatch oldBatch) {
-        if (!EVALUATING.equals(oldBatch.getStatus())
-                && !CREATED.equals(oldBatch.getStatus())
-                && !APPROVED.equals(oldBatch.getStatus())) {
-            throw new ClientExceptionWithBody(
-                    HttpStatus.BAD_REQUEST,
-                    REWARD_BATCH_STATUS_NOT_ALLOWED,
-                    ERROR_MESSAGE_REWARD_BATCH_STATUS_NOT_ALLOWED
-            );
-        }
-}
-
-    private void validateTrxBatchStatusNotApproved(RewardTransaction trx) {
-        if (trx.getRewardBatchTrxStatus() == RewardBatchTrxStatus.APPROVED) {
-            throw new ClientExceptionWithBody(
-                    HttpStatus.BAD_REQUEST,
-                    TRANSACTION_STATUS_NOT_ALLOWED,
-                    TRANSACTION_NOT_STATUS_APPROVED
-            );
-        }
     }
 
     private Mono<RewardTransaction> updateInvoiceFileAndFields(RewardTransaction trx,
@@ -327,11 +304,13 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 });
     }
 
+    @Override
     public Mono<Void> reversalTransaction(
             String transactionId,
             String merchantId,
             FilePart file,
-            String docNumber
+            String docNumber,
+            InvoiceLifeCyclePolicy policy
     ) {
         String sanitizedTransactionId = Utilities.sanitizeString(transactionId);
         String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
@@ -346,10 +325,9 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
                 .doOnNext(rt -> log.info("[REVERSAL-TRANSACTION-SERVICE] Found transaction id={}, status={}, rewardBatchId={}",
                         rt.getId(), rt.getStatus(), rt.getRewardBatchId()))
-                .flatMap(this::transactionIsInvoicedOrRewarded)
                 .flatMap(rt ->
                         rt.getRewardBatchId() != null
-                                ? rewardBatchAllowedStatus(rt)
+                                ? allowedStatuses(rt, policy)
                                 : Mono.just(rt)
                 )
                 .flatMap(rt -> {
@@ -416,21 +394,9 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .then();
     }
 
-    private Mono<RewardTransaction> transactionIsInvoicedOrRewarded(RewardTransaction rt) {
-        if (!SyncTrxStatus.INVOICED.toString().equals(rt.getStatus())
-                && !SyncTrxStatus.REWARDED.toString().equals(rt.getStatus())) {
-            log.warn("[REVERSAL-TRANSACTION-SERVICE] Transaction id={} has invalid status={} (expected INVOICED or REWARDED)",
-                    rt.getId(), rt.getStatus());
-            return Mono.error(new ClientExceptionWithBody(
-                    HttpStatus.BAD_REQUEST,
-                    GENERIC_ERROR,
-                    TRANSACTION_NOT_STATUS_INVOICED_OR_REWARDED
-            ));
-        }
-        return Mono.just(rt);
-    }
-
-    private Mono<RewardTransaction> rewardBatchAllowedStatus(RewardTransaction rt) {
+    private Mono<RewardTransaction> allowedStatuses(
+            RewardTransaction rt,
+            InvoiceLifeCyclePolicy policy) {
 
         return rewardBatchRepository.findById(rt.getRewardBatchId())
                 .switchIfEmpty(Mono.defer(() -> {
@@ -442,24 +408,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                             REWARD_BATCH_NOT_FOUND
                     ));
                 }))
-                .flatMap(rewardBatch -> {
-                    String status = rewardBatch.getStatus().toString();
-
-                    if (!RewardBatchStatus.APPROVED.toString().equals(status)
-                            && !RewardBatchStatus.EVALUATING.toString().equals(status)
-                            && !RewardBatchStatus.CREATED.toString().equals(status)) {
-
-                        log.warn("[REVERSAL-TRANSACTION-SERVICE] RewardBatch id={} has invalid status={} (expected APPROVED, EVALUATING or CREATED)",
-                                rewardBatch.getId(), status);
-
-                        return Mono.error(new ClientExceptionWithBody(
-                                HttpStatus.BAD_REQUEST,
-                                GENERIC_ERROR,
-                                REWARD_BATCH_STATUS_NOT_ALLOWED
-                        ));
-                    }
-                    return Mono.just(rt);
-                });
+                .flatMap(batch -> policy.validate(rt, batch));
     }
 
 
