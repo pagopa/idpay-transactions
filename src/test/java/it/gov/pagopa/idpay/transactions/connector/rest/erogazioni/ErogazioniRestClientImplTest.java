@@ -15,12 +15,12 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import it.gov.pagopa.common.reactive.rest.config.WebClientConfig;
 import it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest;
 import reactor.test.StepVerifier;
 
 import static it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest.WIREMOCK_TEST_PROP2BASEPATH_MAP_PREFIX;
+import static org.junit.jupiter.api.Assertions.*;
 
 
 @ContextConfiguration(
@@ -65,11 +65,14 @@ class ErogazioniRestClientImplTest extends BaseWireMockTest {
         Mockito.when(invitaliaTokenProviderService.retrieveToken())
                 .thenReturn(Mono.just("MOCK_TOKEN_KO"));
 
-
         StepVerifier.create(erogazioniRestClient.postErogazione(request))
-                .expectErrorMatches(ex -> ex instanceof RuntimeException &&
-                        ex.getMessage().contains("Error sending erogazione after retry"))
-                .verify();
+                .assertNext(outcome -> {
+                    assertFalse(outcome.isSucceded());
+                    assertTrue(outcome.getMessage().contains("Persistent technical error"));
+                    assertTrue(outcome.getMessage().contains("Retry exhausted"));
+                    assertNotNull(outcome.getTimestamp());
+                })
+                .verifyComplete();
     }
 
     @Test
