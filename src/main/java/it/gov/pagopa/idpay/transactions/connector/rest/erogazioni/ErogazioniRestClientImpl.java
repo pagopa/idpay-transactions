@@ -27,7 +27,6 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
 
     private final Integer maxAttempts;
     private final Integer retryDelay;
-    private final String erogazioniBaseUrl;
     private final String autorizzatore;
 
     public ErogazioniRestClientImpl(InvitaliaTokenProviderService tokenProvider,
@@ -39,7 +38,6 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
         this.tokenProvider = tokenProvider;
         this.maxAttempts = maxAttempts;
         this.retryDelay = retryDelay;
-        this.erogazioniBaseUrl = erogazioniBaseUrl;
         this.autorizzatore = autorizzatore;
         this.webClient = webClientBuilder.clone()
                 .baseUrl(erogazioniBaseUrl)

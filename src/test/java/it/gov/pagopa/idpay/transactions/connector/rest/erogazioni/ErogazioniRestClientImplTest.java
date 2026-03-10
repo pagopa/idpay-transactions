@@ -8,9 +8,9 @@ import it.gov.pagopa.idpay.transactions.dto.ErogazioneDTO;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
@@ -41,7 +41,7 @@ class ErogazioniRestClientImplTest extends BaseWireMockTest {
     @Autowired
     private ErogazioniRestClient erogazioniRestClient;
 
-    @MockBean
+    @MockitoBean
     private InvitaliaTokenProviderService invitaliaTokenProviderService;
 
 
