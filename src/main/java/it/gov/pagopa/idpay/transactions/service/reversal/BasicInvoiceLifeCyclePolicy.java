@@ -13,7 +13,7 @@ import java.util.List;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_STATUS_NOT_ALLOWED;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.TRANSACTION_STATUS_NOT_ALLOWED;
 
-public class BasicReversalPolicy implements ReversalPolicy {
+public class BasicInvoiceLifeCyclePolicy implements InvoiceLifeCyclePolicy {
 
   private static final String SCOPE = "transaction:reversal:basic";
 

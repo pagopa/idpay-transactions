@@ -12,9 +12,9 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.http.HttpStatus;
 import reactor.test.StepVerifier;
 
-class FullReversalPolicyTest {
+class FullInvoiceLifeCyclePolicyTest {
 
-  private final FullReversalPolicy policy = new FullReversalPolicy();
+  private final FullInvoiceLifeCyclePolicy policy = new FullInvoiceLifeCyclePolicy();
 
   // Happy Path
   @ParameterizedTest(name = "Should allow reversal for valid TrxStatus={0} and BatchStatus={1}")

@@ -7,7 +7,7 @@ import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionsListDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
-import it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicy;
+import it.gov.pagopa.idpay.transactions.service.reversal.InvoiceLifeCyclePolicy;
 import it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicyFactory;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.JwtUtils;
@@ -112,7 +112,7 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
 
       List<String> scopes = JwtUtils.extractScopesOrThrow(authorization);
 
-      ReversalPolicy policy = ReversalPolicyFactory.fromScopes(scopes);
+      InvoiceLifeCyclePolicy policy = ReversalPolicyFactory.fromScopes(scopes);
 
     return pointOfSaleTransactionService.updateInvoiceTransaction(transactionId, merchantId,
         file, docNumber, policy);
@@ -141,7 +141,7 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
 
         List<String> scopes = JwtUtils.extractScopesOrThrow(authorization);
 
-        ReversalPolicy policy = ReversalPolicyFactory.fromScopes(scopes);
+        InvoiceLifeCyclePolicy policy = ReversalPolicyFactory.fromScopes(scopes);
 
         return pointOfSaleTransactionService.reversalTransaction(transactionId, merchantId, file, docNumber, policy);
     }

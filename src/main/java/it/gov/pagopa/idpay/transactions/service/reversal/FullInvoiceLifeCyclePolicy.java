@@ -6,16 +6,14 @@ import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
-import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import org.springframework.http.HttpStatus;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
-import java.util.Objects;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
 
-public class FullReversalPolicy implements ReversalPolicy {
+public class FullInvoiceLifeCyclePolicy implements InvoiceLifeCyclePolicy {
 
   private static final String SCOPE = "transaction:reversal:full";
 
