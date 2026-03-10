@@ -22,7 +22,7 @@ public interface PointOfSaleTransactionService {
 
   Mono<DownloadInvoiceResponseDTO> downloadTransactionInvoice(String merchantId, String pointOfSaleId, String transactionId);
 
-  Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId, String pointOfSaleId, FilePart file, String docNumber);
+  Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId, FilePart file, String docNumber);
 
 
   Mono<List<FranchisePointOfSaleDTO>> getDistinctFranchiseAndPosByRewardBatchId(String rewardBatchId);
