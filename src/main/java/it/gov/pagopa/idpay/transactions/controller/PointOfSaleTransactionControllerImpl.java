@@ -101,7 +101,7 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
 
   @Override
   public Mono<Void> updateInvoiceFile(String transactionId, String merchantId,
-                                      FilePart file, String docNumber) {
+                                      FilePart file, String docNumber, String authorization) {
     final String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
     final String sanitizedTrxCode = Utilities.sanitizeString(transactionId);
 
@@ -109,8 +109,13 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
         "[UPDATE_INVOICE_TRANSACTION] The merchant {} is requesting a invoice update for the transactionId {}",
         sanitizedMerchantId, sanitizedTrxCode
     );
+
+      List<String> scopes = JwtUtils.extractScopesOrThrow(authorization);
+
+      ReversalPolicy policy = ReversalPolicyFactory.fromScopes(scopes);
+
     return pointOfSaleTransactionService.updateInvoiceTransaction(transactionId, merchantId,
-        file, docNumber);
+        file, docNumber, policy);
   }
 
     @Override

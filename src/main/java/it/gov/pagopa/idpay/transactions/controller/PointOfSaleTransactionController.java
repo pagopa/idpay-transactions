@@ -82,7 +82,8 @@ public interface PointOfSaleTransactionController {
           @PathVariable("transactionId") String transactionId,
           @RequestHeader("x-merchant-id") String merchantId,
           @RequestPart("file") FilePart file,
-          @RequestPart(value = "docNumber", required = false) String docNumber
+          @RequestPart(value = "docNumber", required = false) String docNumber,
+          @RequestHeader(name = "Authorization", required = true) String authorization
   );
 
 

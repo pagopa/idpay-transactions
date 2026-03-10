@@ -1,15 +1,19 @@
 package it.gov.pagopa.idpay.transactions.service.reversal;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import org.springframework.http.HttpStatus;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.Objects;
 
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.TRANSACTION_STATUS_NOT_ALLOWED;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
 
 public class FullReversalPolicy implements ReversalPolicy {
 
@@ -21,21 +25,39 @@ public class FullReversalPolicy implements ReversalPolicy {
   }
 
   @Override
-  public Mono<RewardTransaction> validate(RewardTransaction trx) {
+  public Mono<RewardTransaction> validate(RewardTransaction trx, RewardBatch batch) {
     String status = trx.getStatus();
     RewardBatchTrxStatus batchTrxStatus = trx.getRewardBatchTrxStatus();
+    RewardBatchStatus batchStatus = batch.getStatus();
 
-    boolean statusAllowed = SyncTrxStatus.INVOICED.name().equalsIgnoreCase(status)
+    boolean trxStatusAllowed = SyncTrxStatus.INVOICED.name().equalsIgnoreCase(status)
         || SyncTrxStatus.REWARDED.name().equalsIgnoreCase(status);
 
-    boolean batchTrxNotApproved = !RewardBatchTrxStatus.APPROVED.equals(batchTrxStatus);
+      if (!trxStatusAllowed) {
+          return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, TRANSACTION_STATUS_NOT_ALLOWED,
+                  "Transaction status not allowed for full reversal"));
+      }
 
-    if (statusAllowed && batchTrxNotApproved) {
-      return Mono.just(trx);
-    }
+    boolean batchStatusAllowed = RewardBatchStatus.CREATED.equals(batchStatus)
+            || RewardBatchStatus.EVALUATING.equals(batchStatus)
+            || RewardBatchStatus.APPROVED.equals(batchStatus);
 
-    // TODO confirm the return status code and message with the team, maybe 400 Bad Request is more appropriate than 422 Unprocessable Entity
-    return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, TRANSACTION_STATUS_NOT_ALLOWED,
-            "Transaction status not allowed for full reversal"));
+      if (!batchStatusAllowed) {
+          return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_STATUS_NOT_ALLOWED,
+                  "Batch status not allowed for full reversal"));
+      }
+
+    boolean trxBatchStatusAllowed = RewardBatchTrxStatus.CONSULTABLE.equals(batchTrxStatus)
+            || RewardBatchTrxStatus.TO_CHECK.equals(batchTrxStatus)
+            || RewardBatchTrxStatus.SUSPENDED.equals(batchTrxStatus)
+            || RewardBatchTrxStatus.REJECTED.equals(batchTrxStatus);
+
+      if (!trxBatchStatusAllowed) {
+          return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_TRX_STATUS_NOT_ALLOWED,
+                  "RewardBatchTrxStatus not allowed for full reversal"));
+      }
+
+        return Mono.just(trx);
+
   }
 }
