@@ -108,4 +108,43 @@ class InvitaliaControllerImplTest {
                 .exchange()
                 .expectStatus().is5xxServerError();
     }
+
+    @Test
+    void checkRefundOutcome_Success() {
+        String batchId = "BATCH_OK";
+
+        when(erogazioniRestClient.getOutcome(batchId))
+                .thenReturn(Mono.empty());
+
+        webTestClient.patch()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/invitalia/checkRefundOutcome")
+                        .queryParam("rewardBatchId", batchId)
+                        .build()
+                )
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().isEmpty();
+
+        verify(erogazioniRestClient).getOutcome(batchId);
+    }
+
+    @Test
+    void checkRefundOutcome_InternalServerError() {
+        String batchId = "BATCH_KO";
+
+        when(erogazioniRestClient.getOutcome(batchId))
+                .thenReturn(Mono.error(new RuntimeException("API Error")));
+
+        webTestClient.patch()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/invitalia/checkRefundOutcome")
+                        .queryParam("rewardBatchId", batchId)
+                        .build()
+                )
+                .exchange()
+                .expectStatus().is5xxServerError();
+
+        verify(erogazioniRestClient).getOutcome(batchId);
+    }
 }

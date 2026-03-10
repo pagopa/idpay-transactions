@@ -9,6 +9,7 @@ import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.SelfcareInstitutionsRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionDTO;
 import it.gov.pagopa.idpay.transactions.dto.*;
@@ -19,10 +20,7 @@ import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.dto.batch.TrxSuspendedBatchInfo;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
-import it.gov.pagopa.idpay.transactions.enums.PosType;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.enums.*;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
@@ -657,6 +655,56 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     public Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds) {
         return processBatchesOrchestrator(initiativeId, rewardBatchIds,
                 RewardBatchStatus.APPROVING, this::processSingleBatchConfirmation);
+    }
+
+    @Override
+    public Mono<RewardBatch> updateBatch(RewardBatch batch, InvitaliaOutcomeResponseDTO response) {
+
+        batch.setRefundOutcomeTimestamp(LocalDateTime.now());
+
+        String status = response.getErogazione().getStatus();
+
+        if (InvitaliaOutcomeStatus.COMPLETATO.name().equalsIgnoreCase(status)) {
+            batch.setStatus(RewardBatchStatus.REFUNDED);
+            batch.setRefundValutaDate(response.getErogazione().getDateValue());
+        } else if (InvitaliaOutcomeStatus.RIFIUTATO.name().equalsIgnoreCase(status)) {
+            batch.setStatus(RewardBatchStatus.NOT_REFUNDED);
+            batch.setRefundErrorMessage(response.getMessage());
+        } else if (InvitaliaOutcomeStatus.IN_LAVORAZIONE.name().equalsIgnoreCase(status)){
+            batch.setStatus(RewardBatchStatus.PENDING_REFUND);
+        }
+
+        logOutcomeTransition(batch);
+
+        return rewardBatchRepository.save(batch);
+    }
+
+    private void logOutcomeTransition(RewardBatch batch) {
+        log.info("Batch {} outcome processed, setting status {}", batch.getId(), batch.getStatus());
+    }
+
+    @Override
+    public Mono<Void> checkRewardBatchesOutcomes(String initiativeId, List<String> rewardBatchIds) {
+
+        List<String> batchIds = rewardBatchIds != null ? rewardBatchIds : List.of();
+
+        Flux<RewardBatch> batches;
+
+        if (batchIds.isEmpty()) {
+            batches = rewardBatchRepository.findByStatus(RewardBatchStatus.PENDING_REFUND);
+        } else {
+            batches = Flux.fromIterable(batchIds)
+                    .flatMap(batchId ->
+                            rewardBatchRepository.findByIdAndStatus(batchId, RewardBatchStatus.PENDING_REFUND)
+                    );
+        }
+
+        return batches
+                .flatMap(batch ->
+                        erogazioniRestClient.getOutcome(batch.getId())
+                                .flatMap(outcome -> updateBatch(batch, outcome))
+                )
+                .then();
     }
 
     @Override

@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.connector.rest.erogazioni;
 
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.InvitaliaTokenProviderService;
+import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
 import it.gov.pagopa.idpay.transactions.exception.ErogazioniConnectingErrorException; // Assicurati che esista o usa una generica
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
@@ -73,6 +74,33 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
                 .doOnSuccess(v -> log.info("[SEND_EROGAZIONE] Successfully sent request for id: {}",
                         Utilities.sanitizeString(deliveryRequest.getId())))
                 .then();
+    }
+
+    @Override
+    public Mono<InvitaliaOutcomeResponseDTO> getOutcome(String requestId) {
+
+        log.info("[GET_OUTCOME] Fetching Invitalia outcome for requestId: {}", requestId);
+
+        return tokenProvider.retrieveToken()
+                .flatMap(token -> webClient.get()
+                        .uri(uriBuilder -> uriBuilder
+                                .path("/esiti")
+                                .queryParam("idRichiesta", requestId)
+                                .build())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .retrieve()
+                        .bodyToMono(InvitaliaOutcomeResponseDTO.class)
+                        .retryWhen(Retry.fixedDelay(maxAttempts, Duration.ofMillis(retryDelay))
+                                .doBeforeRetry(signal ->
+                                        log.warn("[GET_OUTCOME] Retry attempt {} for requestId: {} due to {}",
+                                                signal.totalRetries() + 1,
+                                                requestId,
+                                                signal.failure().getMessage())
+                                )
+                        )
+                )
+                .doOnSuccess(resp -> log.info("[GET_OUTCOME] Successfully fetched outcome for requestId: {}", requestId))
+                .doOnError(err -> log.error("[GET_OUTCOME] Error fetching outcome for requestId: {}", requestId, err));
     }
 
     private String formatPartitaIva(String piva) {

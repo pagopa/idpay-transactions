@@ -34,6 +34,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.reactive.function.BodyInserters;
 import reactor.core.publisher.Mono;
 
 import java.util.Arrays;
@@ -937,4 +938,61 @@ class MerchantRewardBatchControllerImplTest {
         .jsonPath("$.code").isEqualTo(ExceptionCode.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED)
         .jsonPath("$.message").isEqualTo(ExceptionMessage.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED);
   }
+
+    @Test
+    void checkRewardBatchesOutcomes_Success() {
+        List<String> batchIds = BATCH_IDS;
+
+        Mockito.when(rewardBatchService.checkRewardBatchesOutcomes(INITIATIVE_ID, batchIds))
+                .thenReturn(Mono.empty());
+
+        webClient.post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/check-outcomes")
+                        .build(INITIATIVE_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(batchIds)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().isEmpty();
+
+        Mockito.verify(rewardBatchService).checkRewardBatchesOutcomes(INITIATIVE_ID, batchIds);
+    }
+
+    @Test
+    void checkRewardBatchesOutcomes_EmptyList() {
+        Mockito.when(rewardBatchService.checkRewardBatchesOutcomes(INITIATIVE_ID, List.of()))
+                .thenReturn(Mono.empty());
+
+        webClient.post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/check-outcomes")
+                        .build(INITIATIVE_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(BodyInserters.empty())
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().isEmpty();
+
+        Mockito.verify(rewardBatchService).checkRewardBatchesOutcomes(INITIATIVE_ID, List.of());
+    }
+
+    @Test
+    void checkRewardBatchesOutcomes_Error() {
+        List<String> batchIds = BATCH_IDS;
+
+        Mockito.when(rewardBatchService.checkRewardBatchesOutcomes(INITIATIVE_ID, batchIds))
+                .thenReturn(Mono.error(new RuntimeException("Service Error")));
+
+        webClient.post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/check-outcomes")
+                        .build(INITIATIVE_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(batchIds)
+                .exchange()
+                .expectStatus().is5xxServerError();
+
+        Mockito.verify(rewardBatchService).checkRewardBatchesOutcomes(INITIATIVE_ID, batchIds);
+    }
 }

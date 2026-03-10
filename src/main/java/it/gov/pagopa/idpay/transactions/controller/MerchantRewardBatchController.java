@@ -8,6 +8,8 @@ import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
+import java.util.List;
+
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -60,6 +62,12 @@ public interface MerchantRewardBatchController {
   Mono<Void>  rewardBatchDeliveryBatch(
           @PathVariable("initiativeId") String initiativeId,
           @RequestBody  RewardBatchesRequest request);
+
+  @PostMapping("/initiatives/{initiativeId}/reward-batches/check-outcomes")
+  Mono<Void> checkRewardBatchesOutcomes(
+          @PathVariable String initiativeId,
+          @RequestBody(required = false) List<String> rewardBatchIds
+  );
 
   @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/generateAndSaveCsv")
   Mono<String>  generateAndSaveCsv(

@@ -107,6 +107,15 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
+  public Mono<Void> checkRewardBatchesOutcomes(String initiativeId, List<String> rewardBatchIds) {
+    List<String> batchIds = rewardBatchIds != null ? rewardBatchIds : List.of();
+
+    log.info("[CHECK_REWARD_BATCHES_OUTCOMES] initiative {} rewardBatchIds {}", initiativeId, batchIds);
+
+    return rewardBatchService.checkRewardBatchesOutcomes(initiativeId, batchIds);
+  }
+
+  @Override
   public  Mono<String> generateAndSaveCsv(String initiativeId, String rewardBatchId, String merchantId) {
     log.info("[GENERATE_AND_SAVE_CSV] Generate CSV for initiative {} and batch {}",
             Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(rewardBatchId) );

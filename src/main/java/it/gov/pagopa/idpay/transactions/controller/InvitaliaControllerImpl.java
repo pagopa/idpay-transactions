@@ -25,4 +25,10 @@ public class InvitaliaControllerImpl implements InvitaliaController{
     public Mono<Void> postErogazione(DeliveryRequest deliveryRequest) {
         return erogazioniRestClient.postErogazione(deliveryRequest);
     }
+
+    @Override
+    public Mono<Void> checkRefundOutcome(String rewardBatchId) {
+        return erogazioniRestClient.getOutcome(rewardBatchId)
+                .then();
+    }
 }

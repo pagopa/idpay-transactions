@@ -1,11 +1,10 @@
 package it.gov.pagopa.idpay.transactions.model;
 
-import com.sun.jna.platform.win32.Sspi;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 
-import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -48,6 +47,10 @@ public class RewardBatch {
     private RewardBatchAssignee assigneeLevel;
     private Long numberOfTransactionsSuspended;
     private Long numberOfTransactionsRejected;
+
+    private LocalDate refundValutaDate;
+    private String refundErrorMessage;
+    private LocalDateTime refundOutcomeTimestamp;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime merchantSendDate;
