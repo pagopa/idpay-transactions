@@ -1,4 +1,4 @@
-package it.gov.pagopa.idpay.transactions.service.invoiceLifeCycle;
+package it.gov.pagopa.idpay.transactions.service.invoiceLifecycle;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -13,7 +13,7 @@ import java.util.List;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
 
-public class FullInvoiceLifeCyclePolicy implements InvoiceLifeCyclePolicy {
+public class FullInvoiceLifecyclePolicy implements InvoiceLifecyclePolicy {
 
   private static final String SCOPE = "transaction:invoicelifecycle:full";
 

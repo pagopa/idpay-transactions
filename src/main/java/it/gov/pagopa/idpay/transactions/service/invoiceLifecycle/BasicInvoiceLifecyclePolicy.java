@@ -1,4 +1,4 @@
-package it.gov.pagopa.idpay.transactions.service.invoiceLifeCycle;
+package it.gov.pagopa.idpay.transactions.service.invoiceLifecycle;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -13,7 +13,7 @@ import java.util.List;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_STATUS_NOT_ALLOWED;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.TRANSACTION_STATUS_NOT_ALLOWED;
 
-public class BasicInvoiceLifeCyclePolicy implements InvoiceLifeCyclePolicy {
+public class BasicInvoiceLifecyclePolicy implements InvoiceLifecyclePolicy {
 
   private static final String SCOPE = "transaction:invoicelifecycle:basic";
 
@@ -29,7 +29,7 @@ public class BasicInvoiceLifeCyclePolicy implements InvoiceLifeCyclePolicy {
 
       if (!SyncTrxStatus.INVOICED.name().equalsIgnoreCase(status)) {
           return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, TRANSACTION_STATUS_NOT_ALLOWED,
-                  "Transaction status not allowed for full invoice operations"));
+                  "Transaction status not allowed for basic invoice operations"));
       }
 
       boolean batchStatusAllowed = RewardBatchStatus.CREATED.equals(batchStatus)
@@ -38,7 +38,7 @@ public class BasicInvoiceLifeCyclePolicy implements InvoiceLifeCyclePolicy {
 
       if (!batchStatusAllowed) {
           return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_STATUS_NOT_ALLOWED,
-                  "Batch status not allowed for full invoice operations"));
+                  "Batch status not allowed for basic invoice operations"));
       }
 
       return Mono.just(trx);

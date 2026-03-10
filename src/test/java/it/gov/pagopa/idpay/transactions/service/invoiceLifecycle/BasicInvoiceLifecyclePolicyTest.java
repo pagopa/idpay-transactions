@@ -1,4 +1,4 @@
-package it.gov.pagopa.idpay.transactions.service.invoiceLifeCycle;
+package it.gov.pagopa.idpay.transactions.service.invoiceLifecycle;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -12,9 +12,9 @@ import reactor.test.StepVerifier;
 
 import java.util.List;
 
-class BasicInvoiceLifeCyclePolicyTest {
+class BasicInvoiceLifecyclePolicyTest {
 
-    private final BasicInvoiceLifeCyclePolicy policy = new BasicInvoiceLifeCyclePolicy();
+    private final BasicInvoiceLifecyclePolicy policy = new BasicInvoiceLifecyclePolicy();
 
     @Test
     void supportsShouldReturnFalseWhenScopesIsNull() {

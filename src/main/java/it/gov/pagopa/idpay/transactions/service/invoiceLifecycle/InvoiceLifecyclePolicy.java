@@ -1,4 +1,4 @@
-package it.gov.pagopa.idpay.transactions.service.invoiceLifeCycle;
+package it.gov.pagopa.idpay.transactions.service.invoiceLifecycle;
 
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
@@ -6,7 +6,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 
-public interface InvoiceLifeCyclePolicy {
+public interface InvoiceLifecyclePolicy {
   /**
    * Return true if the provided scopes match this policy.
    */

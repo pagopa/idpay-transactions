@@ -14,7 +14,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.notifier.TransactionNotifierService;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
-import it.gov.pagopa.idpay.transactions.service.invoiceLifeCycle.InvoiceLifeCyclePolicy;
+import it.gov.pagopa.idpay.transactions.service.invoiceLifecycle.InvoiceLifecyclePolicy;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
 import java.time.LocalDateTime;
 
@@ -163,7 +163,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     }
 
     public Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId,
-                                               FilePart file, String docNumber, InvoiceLifeCyclePolicy policy) {
+                                               FilePart file, String docNumber, InvoiceLifecyclePolicy policy) {
 
         log.info("[UPDATE_INVOICE_FILE_SERVICE] - [updateInvoiceTransaction] - start | trxId={} merchantId={} docNumber={} filename={}",
                 Utilities.sanitizeString(transactionId), Utilities.sanitizeString(merchantId), Utilities.sanitizeString(docNumber), file != null ? Utilities.sanitizeString(file.filename()) : null);
@@ -181,14 +181,14 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                          String transactionId,
                                                          FilePart file,
                                                          String docNumber,
-                                                         InvoiceLifeCyclePolicy policy) {
+                                                         InvoiceLifecyclePolicy policy) {
 
         String oldBatchId = requireRewardBatchId(trx);
 
         return rewardBatchRepository.findRewardBatchById(oldBatchId)
                 .switchIfEmpty(Mono.defer(() -> Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND))))
                 .flatMap(oldBatch -> {
-                    allowedStatuses(trx, policy);
+                    policy.validate(trx, oldBatch);
 
                     return updateInvoiceFileAndFields(trx, merchantId, trx.getPointOfSaleId(), transactionId, file, docNumber)
                             .flatMap(savedTrx -> suspendAndMoveTransaction(savedTrx, oldBatch))
@@ -310,7 +310,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
             String merchantId,
             FilePart file,
             String docNumber,
-            InvoiceLifeCyclePolicy policy
+            InvoiceLifecyclePolicy policy
     ) {
         String sanitizedTransactionId = Utilities.sanitizeString(transactionId);
         String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
@@ -325,11 +325,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
                 .doOnNext(rt -> log.info("[REVERSAL-TRANSACTION-SERVICE] Found transaction id={}, status={}, rewardBatchId={}",
                         rt.getId(), rt.getStatus(), rt.getRewardBatchId()))
-                .flatMap(rt ->
-                        rt.getRewardBatchId() != null
-                                ? allowedStatuses(rt, policy)
-                                : Mono.just(rt)
-                )
+                .flatMap(rt -> validateTransactionAgainstInvoiceLifecyclePolicy(rt, policy))
                 .flatMap(rt -> {
                     final String oldRewardBatchId = rt.getRewardBatchId();
                     final RewardBatchTrxStatus oldBatchTrxStatus = rt.getRewardBatchTrxStatus();
@@ -394,9 +390,9 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .then();
     }
 
-    private Mono<RewardTransaction> allowedStatuses(
+    private Mono<RewardTransaction> validateTransactionAgainstInvoiceLifecyclePolicy(
             RewardTransaction rt,
-            InvoiceLifeCyclePolicy policy) {
+            InvoiceLifecyclePolicy policy) {
 
         return rewardBatchRepository.findById(rt.getRewardBatchId())
                 .switchIfEmpty(Mono.defer(() -> {

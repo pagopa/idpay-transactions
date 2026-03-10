@@ -13,8 +13,7 @@ import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
-import it.gov.pagopa.idpay.transactions.service.invoiceLifeCycle.InvoiceLifeCyclePolicy;
-import it.gov.pagopa.idpay.transactions.service.invoiceLifeCycle.ReversalPolicyFactory;
+import it.gov.pagopa.idpay.transactions.service.invoiceLifecycle.InvoiceLifecyclePolicy;
 import it.gov.pagopa.idpay.transactions.test.fakers.PointOfSaleTransactionDTOFaker;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
@@ -22,9 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 
-import it.gov.pagopa.idpay.transactions.utils.JwtUtils;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.data.domain.Page;
@@ -39,7 +36,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.reactive.function.BodyInserters;
 import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
 
 @WebFluxTest(controllers = PointOfSaleTransactionControllerImpl.class)
 class PointOfSaleTransactionControllerImplTest {
@@ -211,7 +207,7 @@ class PointOfSaleTransactionControllerImplTest {
                 eq(MERCHANT_ID),
                 any(FilePart.class),
                 eq("DOC123"),
-                any(InvoiceLifeCyclePolicy.class)
+                any(InvoiceLifecyclePolicy.class)
         )).thenReturn(Mono.empty());
 
         MultipartBodyBuilder builder = new MultipartBodyBuilder();
@@ -235,7 +231,7 @@ class PointOfSaleTransactionControllerImplTest {
                 eq(MERCHANT_ID),
                 any(FilePart.class),
                 eq("DOC123"),
-                any(InvoiceLifeCyclePolicy.class)
+                any(InvoiceLifecyclePolicy.class)
         );
     }
 
@@ -263,7 +259,7 @@ class PointOfSaleTransactionControllerImplTest {
         eq(MERCHANT_ID),
         any(FilePart.class),
         eq("DOC456"),
-        any(InvoiceLifeCyclePolicy.class)
+        any(InvoiceLifecyclePolicy.class)
     )).thenReturn(Mono.empty());
 
     MultipartBodyBuilder builder = new MultipartBodyBuilder();
@@ -288,7 +284,7 @@ class PointOfSaleTransactionControllerImplTest {
         eq(MERCHANT_ID),
         any(FilePart.class),
         eq("DOC456"),
-        any(InvoiceLifeCyclePolicy.class)
+        any(InvoiceLifecyclePolicy.class)
     );
   }
 

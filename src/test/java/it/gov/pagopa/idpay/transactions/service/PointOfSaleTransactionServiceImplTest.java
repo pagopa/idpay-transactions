@@ -21,7 +21,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.notifier.TransactionNotifierService;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
-import it.gov.pagopa.idpay.transactions.service.invoiceLifeCycle.InvoiceLifeCyclePolicy;
+import it.gov.pagopa.idpay.transactions.service.invoiceLifecycle.InvoiceLifecyclePolicy;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import org.junit.jupiter.api.AfterEach;
@@ -68,7 +68,7 @@ class PointOfSaleTransactionServiceImplTest {
     @Mock private TransactionErrorNotifierService transactionErrorNotifierService;
     @Mock private TransactionNotifierService transactionNotifierService;
     @Mock private RewardBatchService rewardBatchService;
-    @Mock private InvoiceLifeCyclePolicy invoiceLifeCyclePolicy;
+    @Mock private InvoiceLifecyclePolicy invoiceLifeCyclePolicy;
 
     @InjectMocks private PointOfSaleTransactionServiceImpl service;
 
