@@ -4,7 +4,7 @@ import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
-import it.gov.pagopa.idpay.transactions.service.reversal.InvoiceLifeCyclePolicy;
+import it.gov.pagopa.idpay.transactions.service.invoiceLifeCycle.InvoiceLifeCyclePolicy;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

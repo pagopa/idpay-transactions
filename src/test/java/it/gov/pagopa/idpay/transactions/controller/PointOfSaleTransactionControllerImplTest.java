@@ -17,7 +17,7 @@ import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
-import it.gov.pagopa.idpay.transactions.service.reversal.InvoiceLifeCyclePolicy;
+import it.gov.pagopa.idpay.transactions.service.invoiceLifeCycle.InvoiceLifeCyclePolicy;
 import it.gov.pagopa.idpay.transactions.test.fakers.PointOfSaleTransactionDTOFaker;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
@@ -204,7 +204,8 @@ class PointOfSaleTransactionControllerImplTest {
         eq(TRX_ID),
         eq(MERCHANT_ID),
         any(FilePart.class),
-        eq("DOC123")
+        eq("DOC123"),
+        any(InvoiceLifeCyclePolicy.class)
     )).thenReturn(Mono.empty());
 
     MultipartBodyBuilder builder = new MultipartBodyBuilder();
@@ -226,7 +227,8 @@ class PointOfSaleTransactionControllerImplTest {
         eq(TRX_ID),
         eq(MERCHANT_ID),
         any(FilePart.class),
-        eq("DOC123")
+        eq("DOC123"),
+        any(InvoiceLifeCyclePolicy.class)
     );
   }
 

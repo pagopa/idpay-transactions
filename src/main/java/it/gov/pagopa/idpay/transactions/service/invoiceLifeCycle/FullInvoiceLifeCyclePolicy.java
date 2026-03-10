@@ -1,4 +1,4 @@
-package it.gov.pagopa.idpay.transactions.service.reversal;
+package it.gov.pagopa.idpay.transactions.service.invoiceLifeCycle;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -15,7 +15,7 @@ import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.Exceptio
 
 public class FullInvoiceLifeCyclePolicy implements InvoiceLifeCyclePolicy {
 
-  private static final String SCOPE = "transaction:reversal:full";
+  private static final String SCOPE = "transaction:invoicelifecycle:full";
 
   @Override
   public boolean supports(List<String> scopes) {
@@ -33,7 +33,7 @@ public class FullInvoiceLifeCyclePolicy implements InvoiceLifeCyclePolicy {
 
       if (!trxStatusAllowed) {
           return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, TRANSACTION_STATUS_NOT_ALLOWED,
-                  "Transaction status not allowed for full reversal"));
+                  "Transaction status not allowed for full invoice operations"));
       }
 
     boolean batchStatusAllowed = RewardBatchStatus.CREATED.equals(batchStatus)
@@ -42,7 +42,7 @@ public class FullInvoiceLifeCyclePolicy implements InvoiceLifeCyclePolicy {
 
       if (!batchStatusAllowed) {
           return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_STATUS_NOT_ALLOWED,
-                  "Batch status not allowed for full reversal"));
+                  "Batch status not allowed for full invoice operations"));
       }
 
     boolean trxBatchStatusAllowed = RewardBatchTrxStatus.CONSULTABLE.equals(batchTrxStatus)
@@ -52,7 +52,7 @@ public class FullInvoiceLifeCyclePolicy implements InvoiceLifeCyclePolicy {
 
       if (!trxBatchStatusAllowed) {
           return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_TRX_STATUS_NOT_ALLOWED,
-                  "RewardBatchTrxStatus not allowed for full reversal"));
+                  "RewardBatchTrxStatus not allowed for full invoice operations"));
       }
 
         return Mono.just(trx);

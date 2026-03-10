@@ -14,7 +14,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.notifier.TransactionNotifierService;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
-import it.gov.pagopa.idpay.transactions.service.reversal.InvoiceLifeCyclePolicy;
+import it.gov.pagopa.idpay.transactions.service.invoiceLifeCycle.InvoiceLifeCyclePolicy;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
 import java.time.LocalDateTime;
 
