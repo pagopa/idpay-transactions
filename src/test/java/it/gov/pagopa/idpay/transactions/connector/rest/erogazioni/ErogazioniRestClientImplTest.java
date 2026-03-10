@@ -84,7 +84,7 @@ class ErogazioniRestClientImplTest extends BaseWireMockTest {
         erogazioniRestClient.postErogazione(request).block();
 
         assertEquals("00000000000", request.getAnagrafica().getPartitaIvaCliente());
-        assertEquals("GIANLUCA FIORILLO", request.getErogazione().getAutorizzatore());
+        assertEquals("TEST_AUTH", request.getErogazione().getAutorizzatore());
     }
 
     private DeliveryRequest createRequest(String id, String piva) {

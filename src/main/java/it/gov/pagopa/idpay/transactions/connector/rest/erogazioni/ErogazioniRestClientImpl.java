@@ -74,7 +74,7 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
                                     Mono.error(new RuntimeException("Server error during erogazione")))
                             .bodyToMono(DeliveryOutcomeDTO.class)
                             .doOnNext(outcome -> log.info("[POST_EROGAZIONE] Received outcome for batch {}: success={}",
-                                    deliveryRequest.getId(), outcome.isSucceded()))
+                                    Utilities.sanitizeString(deliveryRequest.getId()), outcome.isSucceded()))
 
                             .retryWhen(Retry.fixedDelay(maxAttempts, Duration.ofMillis(retryDelay))
                                     .filter(ex -> {
@@ -85,13 +85,14 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
                                     })
                                     .onRetryExhaustedThrow((spec, signal) -> {
                                         log.error("[POST_EROGAZIONE] Max attempts reached for id: {}",
-                                                it.gov.pagopa.idpay.transactions.utils.Utilities.sanitizeString(deliveryRequest.getId()));
+                                                Utilities.sanitizeString(deliveryRequest.getId()));
                                         return new RuntimeException("Retry exhausted after technical failures", signal.failure());
                                     })
                             )
                     )
                     .onErrorResume(e -> {
-                        log.error("[POST_EROGAZIONE] Permanent failure for batch {}: {}", deliveryRequest.getId(), e.getMessage());
+                        log.error("[POST_EROGAZIONE] Permanent failure for batch {}: {}",
+                                Utilities.sanitizeString(deliveryRequest.getId()), e.getMessage());
                         return Mono.just(DeliveryOutcomeDTO.builder()
                                 .succeded(false)
                                 .message("Persistent technical error: " + e.getMessage())
