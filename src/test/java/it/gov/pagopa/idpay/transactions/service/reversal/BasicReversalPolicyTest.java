@@ -6,9 +6,9 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
-class BasicInvoiceLifeCyclePolicyTest {
+class BasicReversalPolicyTest {
 
-  private final BasicInvoiceLifeCyclePolicy policy = new BasicInvoiceLifeCyclePolicy();
+  private final BasicReversalPolicy policy = new BasicReversalPolicy();
 
   @Test
   void allowsOnlyInvoiced() {

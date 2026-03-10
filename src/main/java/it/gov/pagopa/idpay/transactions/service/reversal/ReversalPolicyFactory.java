@@ -11,15 +11,15 @@ public final class ReversalPolicyFactory {
 
   private ReversalPolicyFactory() {}
 
-  public static InvoiceLifeCyclePolicy fromScopes(List<String> scopes) {
+  public static ReversalPolicy fromScopes(List<String> scopes) {
     if (scopes == null || scopes.isEmpty()) {
       throw new ClientExceptionWithBody(HttpStatus.FORBIDDEN, ROLE_NOT_ALLOWED, "No scope present for reversal operation");
     }
 
-    InvoiceLifeCyclePolicy full = new FullInvoiceLifeCyclePolicy();
+    ReversalPolicy full = new FullReversalPolicy();
     if (full.supports(scopes)) return full;
 
-    InvoiceLifeCyclePolicy basic = new BasicInvoiceLifeCyclePolicy();
+    ReversalPolicy basic = new BasicReversalPolicy();
     if (basic.supports(scopes)) return basic;
 
     throw new ClientExceptionWithBody(HttpStatus.FORBIDDEN, ROLE_NOT_ALLOWED, "No allowed scope present for reversal operation");

@@ -14,7 +14,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.notifier.TransactionNotifierService;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
-import it.gov.pagopa.idpay.transactions.service.reversal.InvoiceLifeCyclePolicy;
+import it.gov.pagopa.idpay.transactions.service.reversal.ReversalPolicy;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
 import java.time.LocalDateTime;
 
@@ -163,7 +163,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     }
 
     public Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId,
-                                               FilePart file, String docNumber, InvoiceLifeCyclePolicy policy) {
+                                               FilePart file, String docNumber, ReversalPolicy policy) {
 
         log.info("[UPDATE_INVOICE_FILE_SERVICE] - [updateInvoiceTransaction] - start | trxId={} merchantId={} docNumber={} filename={}",
                 Utilities.sanitizeString(transactionId), Utilities.sanitizeString(merchantId), Utilities.sanitizeString(docNumber), file != null ? Utilities.sanitizeString(file.filename()) : null);
@@ -181,7 +181,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                                          String transactionId,
                                                          FilePart file,
                                                          String docNumber,
-                                                         InvoiceLifeCyclePolicy policy) {
+                                                         ReversalPolicy policy) {
 
         String oldBatchId = requireRewardBatchId(trx);
 
@@ -310,7 +310,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
             String merchantId,
             FilePart file,
             String docNumber,
-            InvoiceLifeCyclePolicy policy
+            ReversalPolicy policy
     ) {
         String sanitizedTransactionId = Utilities.sanitizeString(transactionId);
         String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
@@ -396,7 +396,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
     private Mono<RewardTransaction> allowedStatuses(
             RewardTransaction rt,
-            InvoiceLifeCyclePolicy policy) {
+            ReversalPolicy policy) {
 
         return rewardBatchRepository.findById(rt.getRewardBatchId())
                 .switchIfEmpty(Mono.defer(() -> {

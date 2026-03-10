@@ -6,7 +6,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 
-public interface InvoiceLifeCyclePolicy {
+public interface ReversalPolicy {
   /**
    * Return true if the provided scopes match this policy.
    */

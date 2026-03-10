@@ -7,7 +7,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class InvoiceLifeCyclePolicyFactoryTest {
+class ReversalPolicyFactoryTest {
 
   @Test
   void nullOrEmptyScopesThrows() {
@@ -18,14 +18,14 @@ class InvoiceLifeCyclePolicyFactoryTest {
 
   @Test
   void selectsFullWhenPresent() {
-    InvoiceLifeCyclePolicy p = ReversalPolicyFactory.fromScopes(List.of("transaction:reversal:full", "transaction:reversal:basic"));
-    assertInstanceOf(FullInvoiceLifeCyclePolicy.class, p);
+    ReversalPolicy p = ReversalPolicyFactory.fromScopes(List.of("transaction:reversal:full", "transaction:reversal:basic"));
+    assertInstanceOf(FullReversalPolicy.class, p);
   }
 
   @Test
   void selectsBasicWhenOnlyBasicPresent() {
-    InvoiceLifeCyclePolicy p = ReversalPolicyFactory.fromScopes(List.of("transaction:reversal:basic"));
-    assertInstanceOf(BasicInvoiceLifeCyclePolicy.class, p);
+    ReversalPolicy p = ReversalPolicyFactory.fromScopes(List.of("transaction:reversal:basic"));
+    assertInstanceOf(BasicReversalPolicy.class, p);
   }
 
   @Test
