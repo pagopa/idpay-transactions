@@ -18,13 +18,13 @@ class InvoiceLifecyclePolicyFactoryTest {
 
   @Test
   void selectsFullWhenPresent() {
-    InvoiceLifecyclePolicy p = InvoiceLifecyclePolicyFactory.fromScopes(List.of("transaction:reversal:full", "transaction:reversal:basic"));
+    InvoiceLifecyclePolicy p = InvoiceLifecyclePolicyFactory.fromScopes(List.of("transaction:invoicelifecycle:full", "transaction:invoicelifecycle:basic"));
     assertInstanceOf(FullInvoiceLifecyclePolicy.class, p);
   }
 
   @Test
   void selectsBasicWhenOnlyBasicPresent() {
-    InvoiceLifecyclePolicy p = InvoiceLifecyclePolicyFactory.fromScopes(List.of("transaction:reversal:basic"));
+    InvoiceLifecyclePolicy p = InvoiceLifecyclePolicyFactory.fromScopes(List.of("transaction:invoicelifecycle:basic"));
     assertInstanceOf(BasicInvoiceLifecyclePolicy.class, p);
   }
 

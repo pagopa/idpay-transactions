@@ -396,7 +396,7 @@ class PointOfSaleTransactionServiceImplTest {
                 ClientExceptionWithBody.class,
                 () -> ReflectionTestUtils.invokeMethod(service, "validateTransactionData", trx, MERCHANT_ID, POS_ID));
 
-        assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus());
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus(), "Bad Request");
     }
 
     @Test
