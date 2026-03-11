@@ -23,6 +23,8 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 
+import static it.gov.pagopa.idpay.transactions.utils.Utilities.sanitizeString;
+
 @RestController
 @Slf4j
 public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchController{
@@ -110,7 +112,11 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   public Mono<Void> checkRewardBatchesOutcomes(String initiativeId, List<String> rewardBatchIds) {
     List<String> batchIds = rewardBatchIds != null ? rewardBatchIds : List.of();
 
-    log.info("[CHECK_REWARD_BATCHES_OUTCOMES] initiative {} rewardBatchIds {}", initiativeId, batchIds);
+    List<String> sanitizedBatchIds = batchIds.stream()
+            .map(Utilities::sanitizeString)
+            .toList();
+
+    log.info("[CHECK_REWARD_BATCHES_OUTCOMES] initiative {} rewardBatchIds {}", sanitizeString(initiativeId), sanitizedBatchIds);
 
     return rewardBatchService.checkRewardBatchesOutcomes(initiativeId, batchIds);
   }

@@ -4,7 +4,6 @@ import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.InvitaliaTokenP
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryOutcomeDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
-import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -17,6 +16,8 @@ import reactor.util.retry.Retry;
 import org.springframework.http.HttpStatusCode;
 import java.time.Duration;
 import java.time.LocalDateTime;
+
+import static it.gov.pagopa.idpay.transactions.utils.Utilities.sanitizeString;
 
 @Service
 @Slf4j
@@ -58,7 +59,7 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
         }
 
         log.info("[POST_EROGAZIONE] Sending delivery request for batchId: {}",
-                Utilities.sanitizeString(deliveryRequest.getId()));
+                sanitizeString(deliveryRequest.getId()));
 
             return tokenProvider.retrieveToken()
                     .flatMap(token -> webClient.post()
@@ -73,7 +74,7 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
                                     Mono.error(new RuntimeException("Server error during erogazione")))
                             .bodyToMono(DeliveryOutcomeDTO.class)
                             .doOnNext(outcome -> log.info("[POST_EROGAZIONE] Received outcome for batch {}: success={}",
-                                    Utilities.sanitizeString(deliveryRequest.getId()), outcome.isSucceded()))
+                                    sanitizeString(deliveryRequest.getId()), outcome.isSucceded()))
 
                             .retryWhen(Retry.fixedDelay(maxAttempts, Duration.ofMillis(retryDelay))
                                     .filter(ex -> {
@@ -84,7 +85,7 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
                                     })
                                     .onRetryExhaustedThrow((spec, signal) -> {
                                         log.error("[POST_EROGAZIONE] Max attempts reached for id: {}",
-                                                Utilities.sanitizeString(deliveryRequest.getId()));
+                                                sanitizeString(deliveryRequest.getId()));
                                         return new RuntimeException("Retry exhausted after technical failures", signal.failure());
                                     })
                             )
@@ -96,7 +97,7 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
                         }
 
                         log.error("[POST_EROGAZIONE] Permanent failure for batch {}: {}",
-                                Utilities.sanitizeString(deliveryRequest.getId()), detailedMessage);
+                                sanitizeString(deliveryRequest.getId()), detailedMessage);
 
                         return Mono.just(DeliveryOutcomeDTO.builder()
                                 .succeded(false)
@@ -109,7 +110,7 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
     @Override
     public Mono<InvitaliaOutcomeResponseDTO> getOutcome(String requestId) {
 
-        log.info("[GET_OUTCOME] Fetching Invitalia outcome for requestId: {}", requestId);
+        log.info("[GET_OUTCOME] Fetching Invitalia outcome for requestId: {}", sanitizeString(requestId));
 
         return tokenProvider.retrieveToken()
                 .flatMap(token -> webClient.get()
@@ -124,13 +125,13 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
                                 .doBeforeRetry(signal ->
                                         log.warn("[GET_OUTCOME] Retry attempt {} for requestId: {} due to {}",
                                                 signal.totalRetries() + 1,
-                                                requestId,
+                                                sanitizeString(requestId),
                                                 signal.failure().getMessage())
                                 )
                         )
                 )
-                .doOnSuccess(resp -> log.info("[GET_OUTCOME] Successfully fetched outcome for requestId: {}", requestId))
-                .doOnError(err -> log.error("[GET_OUTCOME] Error fetching outcome for requestId: {}", requestId, err));
+                .doOnSuccess(resp -> log.info("[GET_OUTCOME] Successfully fetched outcome for requestId: {}", sanitizeString(requestId)))
+                .doOnError(err -> log.error("[GET_OUTCOME] Error fetching outcome for requestId: {}", sanitizeString(requestId), err));
     }
 
     private String formatPartitaIva(String piva) {
