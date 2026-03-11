@@ -2,13 +2,15 @@ package it.gov.pagopa.idpay.transactions.connector.rest.erogazioni;
 
 
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.InvitaliaTokenProviderService;
+import it.gov.pagopa.idpay.transactions.dto.AnagraficaDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
+import it.gov.pagopa.idpay.transactions.dto.ErogazioneDTO;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
@@ -22,6 +24,7 @@ import it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest;
 import reactor.test.StepVerifier;
 
 import static it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest.WIREMOCK_TEST_PROP2BASEPATH_MAP_PREFIX;
+import static org.junit.jupiter.api.Assertions.*;
 
 
 @ContextConfiguration(
@@ -42,7 +45,7 @@ class ErogazioniRestClientImplTest extends BaseWireMockTest {
     @Autowired
     private ErogazioniRestClient erogazioniRestClient;
 
-    @MockBean
+    @MockitoBean
     private InvitaliaTokenProviderService invitaliaTokenProviderService;
 
 
@@ -66,11 +69,14 @@ class ErogazioniRestClientImplTest extends BaseWireMockTest {
         Mockito.when(invitaliaTokenProviderService.retrieveToken())
                 .thenReturn(Mono.just("MOCK_TOKEN_KO"));
 
-
         StepVerifier.create(erogazioniRestClient.postErogazione(request))
-                .expectErrorMatches(ex -> ex instanceof RuntimeException &&
-                        ex.getMessage().contains("Error sending erogazione after retry"))
-                .verify();
+                .assertNext(outcome -> {
+                    assertFalse(outcome.isSucceded());
+                    assertTrue(outcome.getMessage().contains("Persistent technical error"));
+                    assertTrue(outcome.getMessage().contains("Retry exhausted"));
+                    assertNotNull(outcome.getTimestamp());
+                })
+                .verifyComplete();
     }
 
     @Test
@@ -81,20 +87,24 @@ class ErogazioniRestClientImplTest extends BaseWireMockTest {
         Mockito.when(invitaliaTokenProviderService.retrieveToken())
                 .thenReturn(Mono.just("MOCK_TOKEN"));
 
+
         erogazioniRestClient.postErogazione(request).block();
 
-        assertEquals("00000000000", request.getPartitaIvaCliente());
-        assertEquals("TEST_AUTH", request.getAutorizzatore());
+        assertEquals("00000000000", request.getAnagrafica().getPartitaIvaCliente());
+        assertEquals("TEST_AUTH", request.getErogazione().getAutorizzatore());
     }
-
 
     private DeliveryRequest createRequest(String id, String piva) {
         return DeliveryRequest.builder()
                 .id(id)
-                .idPratica(id)
-                .partitaIvaCliente(piva)
-                .importo(1000L)
-                .dataAmmissione(LocalDateTime.now())
+                .anagrafica(AnagraficaDTO.builder()
+                        .partitaIvaCliente(piva)
+                        .build())
+                .erogazione(ErogazioneDTO.builder()
+                        .idPratica(id)
+                        .importo(10.0)
+                        .dataAmmissione(LocalDateTime.now())
+                        .build())
                 .build();
     }
 

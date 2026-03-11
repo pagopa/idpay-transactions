@@ -9,10 +9,14 @@ import lombok.Data;
 @AllArgsConstructor
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class DeliveryRequest {
+public class AnagraficaDTO {
 
-  String id;
-  AnagraficaDTO anagrafica;
-  ErogazioneDTO erogazione;
-
+  String partitaIvaCliente;
+  String codiceFiscaleCliente;
+  String ragioneSocialeIntestatario;
+  String pec;
+  String indirizzo;
+  String cap;
+  String localita;
+  String provincia;
 }

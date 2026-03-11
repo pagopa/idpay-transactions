@@ -786,10 +786,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
 
     public Mono<RewardBatch> processSingleBatchDelivery(String rewardBatchId, String initiativeId) {
-        DeliveryRequest deliveryRequest = DeliveryRequest.builder()
-                .id(rewardBatchId)
-                .idPratica(rewardBatchId)
-                .build();
 
         return rewardBatchRepository.findRewardBatchById(rewardBatchId)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
@@ -801,50 +797,63 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         BAD_REQUEST,
                         REWARD_BATCH_INVALID_REQUEST,
                         ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId))))
-                .flatMap(rewardBatch -> {
-                    deliveryRequest.setImporto(rewardBatch.getApprovedAmountCents());
-                    deliveryRequest.setDataAmmissione(rewardBatch.getApprovalDate());
+                .flatMap(rewardBatch -> merchantRestClient.getMerchantDetail(rewardBatch.getMerchantId(), initiativeId)
+                        .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                                HttpStatus.NOT_FOUND,
+                                MERCHANT_NOT_FOUND,
+                                ERROR_MESSAGE_MERCHANT_NOT_FOUND.formatted(rewardBatch.getMerchantId(), initiativeId))))
+                        .flatMap(merchantDetail -> selfcareInstitutionsRestClient.getInstitutions(merchantDetail.getFiscalCode())
+                                .flatMap(institutionList -> {
+                                    if (institutionList.getInstitutions() == null || institutionList.getInstitutions().isEmpty()) {
+                                        return Mono.error(new ClientExceptionWithBody(
+                                                HttpStatus.NOT_FOUND,
+                                                MERCHANT_NOT_FOUND_IN_SELFCARE,
+                                                ERROR_MESSAGE_MERCHANT_NOT_FOUND_IN_SELFCARE.formatted(merchantDetail.getFiscalCode())));
+                                    }
+                                    if (institutionList.getInstitutions().size() > 1) {
+                                        return Mono.error(new ClientExceptionWithBody(
+                                                HttpStatus.CONFLICT,
+                                                AMBIGUOUS_MERCHANT_DATA_IN_SELFCARE,
+                                                ERROR_MESSAGE_AMBIGUOUS_MERCHANT_DATA_IN_SELFCARE.formatted(merchantDetail.getFiscalCode())));
+                                    }
 
-                    return merchantRestClient.getMerchantDetail(rewardBatch.getMerchantId(), initiativeId)
-                            .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
-                                    HttpStatus.NOT_FOUND,
-                                    MERCHANT_NOT_FOUND,
-                                    ERROR_MESSAGE_MERCHANT_NOT_FOUND.formatted(rewardBatch.getMerchantId(), initiativeId))))
-                            .flatMap(merchantDetail -> {
-                                deliveryRequest.setPartitaIvaCliente(merchantDetail.getVatNumber());
-                                deliveryRequest.setCodiceFiscaleCliente(merchantDetail.getFiscalCode());
-                                deliveryRequest.setRagioneSocialeIntestatario(merchantDetail.getBusinessName());
-                                deliveryRequest.setIbanBeneficiario(merchantDetail.getIban());
-                                deliveryRequest.setIntestatarioContoCorrente(merchantDetail.getIbanHolder());
+                                    InstitutionDTO institution = institutionList.getInstitutions().getFirst();
 
-                                return selfcareInstitutionsRestClient.getInstitutions(merchantDetail.getFiscalCode())
-                                        .flatMap(institutionList -> {
-                                            if (institutionList.getInstitutions() == null || institutionList.getInstitutions().isEmpty()) {
-                                                return Mono.error(new ClientExceptionWithBody(
-                                                        HttpStatus.NOT_FOUND,
-                                                        MERCHANT_NOT_FOUND_IN_SELFCARE,
-                                                        ERROR_MESSAGE_MERCHANT_NOT_FOUND_IN_SELFCARE.formatted(merchantDetail.getFiscalCode())));
-                                            }
-                                            if (institutionList.getInstitutions().size() > 1) {
-                                                return Mono.error(new ClientExceptionWithBody(
-                                                        HttpStatus.CONFLICT,
-                                                        AMBIGUOUS_MERCHANT_DATA_IN_SELFCARE,
-                                                        ERROR_MESSAGE_AMBIGUOUS_MERCHANT_DATA_IN_SELFCARE.formatted(merchantDetail.getFiscalCode())));
-                                            }
+                                    DeliveryRequest deliveryRequest = DeliveryRequest.builder()
+                                            .id(rewardBatchId)
+                                            .anagrafica(AnagraficaDTO.builder()
+                                                    .partitaIvaCliente(merchantDetail.getVatNumber())
+                                                    .codiceFiscaleCliente(merchantDetail.getFiscalCode())
+                                                    .ragioneSocialeIntestatario(merchantDetail.getBusinessName())
+                                                    .cap(institution.getZipCode())
+                                                    .indirizzo(institution.getAddress())
+                                                    .localita(institution.getCity())
+                                                    .provincia(institution.getCounty())
+                                                    .pec(institution.getDigitalAddress())
+                                                    .build())
+                                            .erogazione(ErogazioneDTO.builder()
+                                                    .idPratica(rewardBatchId)
+                                                    .dataAmmissione(rewardBatch.getApprovalDate())
+                                                    .ibanBeneficiario(merchantDetail.getIban())
+                                                    .importo(rewardBatch.getApprovedAmountCents() / 100.0)
+                                                    .intestatarioContoCorrente(merchantDetail.getIbanHolder())
+                                                    .build())
+                                            .build();
 
-                                            InstitutionDTO institution = institutionList.getInstitutions().get(0);
+                                    return erogazioniRestClient.postErogazione(deliveryRequest)
+                                            .flatMap(outcome -> {
+                                                rewardBatch.setDeliveryOutcome(outcome);
+                                                if (outcome.isSucceded()) {
+                                                    rewardBatch.setStatus(RewardBatchStatus.PENDING_REFUND);
+                                                    rewardBatch.setDeliveryDateRequest(LocalDateTime.now());
+                                                    log.info("[PROCESS_BATCH] Batch {} delivery succeeded. Status moved to PENDING_REFUND", rewardBatchId);
+                                                } else {
+                                                    log.warn("[PROCESS_BATCH] Batch {} delivery rejected by server: {}", rewardBatchId, outcome.getMessage());
+                                                }
 
-                                            deliveryRequest.setCap(institution.getZipCode());
-                                            deliveryRequest.setIndirizzo(institution.getAddress());
-                                            deliveryRequest.setLocalita(institution.getCity());
-                                            deliveryRequest.setProvincia(institution.getCounty());
-                                            deliveryRequest.setPec(institution.getDigitalAddress());
-
-                                            return erogazioniRestClient.postErogazione(deliveryRequest)
-                                                    .thenReturn(rewardBatch);
-                                        });
-                            });
-                });
+                                                return rewardBatchRepository.save(rewardBatch);
+                                            });
+                                })));
     }
 
 
@@ -861,6 +870,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 originalBatch.getPosType(),
                 addOneMonth(originalBatch.getMonth()),
                 originalBatch.getBusinessName())
+                //TODO: rimuovere tutto il blocco dopo il return, utilizzare il metodo findOrCreteTargetBatch
+                //che ha gia dentro la findOrCreate (PointOfSaleTransactionServiceImpl)
                 .flatMap(newBatch -> updateAndSaveRewardTransactionsSuspended(originalBatch.getId(), initiativeId, newBatch.getId(), originalBatch.getMonth())
                         .flatMap(totalAccrued -> {
                             BatchCountersDTO batchCounters = BatchCountersDTO.newBatch()

@@ -12,5 +12,4 @@ public enum RewardBatchStatus {
   TO_APPROVE, //virtual state. Corresponds to EVALUATING + L3
   TO_WORK //virtual state. Corresponds to EVALUATING + L1, L2
 
-
 }

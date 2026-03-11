@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 @Data
 @Builder
-@AllArgsConstructor // <-- Questa genera il costruttore con la lista
+@AllArgsConstructor
 @NoArgsConstructor
 public class InstitutionList {
     List<InstitutionDTO> institutions;

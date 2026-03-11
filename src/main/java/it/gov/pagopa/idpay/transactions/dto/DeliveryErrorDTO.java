@@ -9,10 +9,10 @@ import lombok.Data;
 @AllArgsConstructor
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class DeliveryRequest {
+public class DeliveryErrorDTO {
 
-  String id;
-  AnagraficaDTO anagrafica;
-  ErogazioneDTO erogazione;
+  int code;
+  String message;
+  String errors;
 
 }

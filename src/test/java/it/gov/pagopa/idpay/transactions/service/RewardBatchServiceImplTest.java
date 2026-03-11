@@ -972,7 +972,7 @@ class RewardBatchServiceImplTest {
                 .verifyComplete();
 
         verify(erogazioniRestClient).postErogazione(argThat(req ->
-                req.getId().equals(batchId) && req.getCap().equals("00100")
+                req.getId().equals(batchId) && req.getAnagrafica().getCap().equals("00100")
         ));
     }
 
