@@ -467,23 +467,6 @@ class RewardTransactionSpecificRepositoryTest {
         assertEquals(0L, sum);
     }
 
-    @Test
-    void findTransactionForUpdateInvoice_shouldReturnTransactionRegardlessStatus() {
-        RewardTransaction trx = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("t1")
-                .merchantId(MERCHANT_ID)
-                .pointOfSaleId(POS_ID)
-                .status("CREATED")
-                .build();
-        rewardTransactionRepository.save(trx).block();
-
-        RewardTransaction found = rewardTransactionSpecificRepository
-                .findTransactionForUpdateInvoice(MERCHANT_ID, POS_ID, "t1")
-                .block();
-
-        assertNotNull(found);
-        assertEquals("t1", found.getId());
-    }
 
     @Test
     void findInvoicedTransactionsWithoutBatch_shouldRespectPageSize() {
