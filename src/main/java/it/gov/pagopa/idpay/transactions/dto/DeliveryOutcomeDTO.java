@@ -7,6 +7,7 @@ import lombok.Data;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -18,7 +19,7 @@ public class DeliveryOutcomeDTO {
   boolean succeded;
   String message;
   int code;
-  String errors;
+  List<DeliveryErrorDTO> errors;
   String data;
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   private LocalDateTime timestamp;

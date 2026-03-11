@@ -89,11 +89,17 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
                             )
                     )
                     .onErrorResume(e -> {
+                        String detailedMessage = e.getMessage();
+                        if (e.getCause() != null) {
+                            detailedMessage = e.getCause().getMessage();
+                        }
+
                         log.error("[POST_EROGAZIONE] Permanent failure for batch {}: {}",
-                                Utilities.sanitizeString(deliveryRequest.getId()), e.getMessage());
+                                Utilities.sanitizeString(deliveryRequest.getId()), detailedMessage);
+
                         return Mono.just(DeliveryOutcomeDTO.builder()
                                 .succeded(false)
-                                .message("Persistent technical error: " + e.getMessage())
+                                .message("Technical error: " + detailedMessage)
                                 .timestamp(LocalDateTime.now())
                                 .build());
                     });
