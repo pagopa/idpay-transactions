@@ -173,12 +173,10 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         return rewardTransactionRepository
                 .findTransaction(merchantId, transactionId)
                 .switchIfEmpty(Mono.defer(() -> Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE))))
-                .flatMap(trx -> validateBatchAndUpdateInvoiceFlow(trx, merchantId, transactionId, file, docNumber, policy));
+                .flatMap(trx -> validateBatchAndUpdateInvoiceFlow(trx, file, docNumber, policy));
     }
 
     private Mono<Void> validateBatchAndUpdateInvoiceFlow(RewardTransaction trx,
-                                                         String merchantId,
-                                                         String transactionId,
                                                          FilePart file,
                                                          String docNumber,
                                                          InvoiceLifecyclePolicy policy) {
@@ -190,7 +188,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .flatMap(oldBatch -> {
                     policy.validate(trx, oldBatch);
 
-                    return updateInvoiceFileAndFields(trx, merchantId, trx.getPointOfSaleId(), transactionId, file, docNumber)
+                    return updateInvoiceFileAndFields(trx, file, docNumber)
                             .flatMap(savedTrx -> suspendAndMoveTransaction(savedTrx, oldBatch))
                             .then();
                 });
@@ -206,15 +204,12 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     }
 
     private Mono<RewardTransaction> updateInvoiceFileAndFields(RewardTransaction trx,
-                                                               String merchantId,
-                                                               String pointOfSaleId,
-                                                               String transactionId,
                                                                FilePart file,
                                                                String docNumber) {
 
-        InvoiceData oldDocumentData = validateTransactionData(trx, merchantId, pointOfSaleId);
+        InvoiceData oldDocumentData = trx.getInvoiceData();
 
-        return replaceInvoiceFile(file, oldDocumentData, merchantId, pointOfSaleId, transactionId)
+        return replaceInvoiceFile(file, oldDocumentData, trx.getMerchantId(), trx.getPointOfSaleId(), trx.getId())
                 .then(Mono.defer(() -> {
                     trx.setInvoiceData(InvoiceData.builder()
                             .filename(file.filename())
@@ -541,24 +536,6 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .then();
     }
 
-  private InvoiceData validateTransactionData(RewardTransaction rewardTransaction, String merchantId, String pointOfSaleId) {
-
-    if (!rewardTransaction.getMerchantId().equals(merchantId)) {
-      throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
-          GENERIC_ERROR,
-          "The merchant with id [%s] associated to the transaction is not equal to the merchant with id [%s]".formatted(
-              rewardTransaction.getMerchantId(), merchantId));
-    }
-
-    if (!rewardTransaction.getPointOfSaleId().equals(pointOfSaleId)) {
-      throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
-          GENERIC_ERROR,
-          "The pointOfSaleId with id [%s] associated to the transaction is not equal to the pointOfSaleId with id [%s]".formatted(
-              rewardTransaction.getPointOfSaleId(), pointOfSaleId));
-    }
-
-    return rewardTransaction.getInvoiceData();
-  }
 
     @Override
     public Mono<List<FranchisePointOfSaleDTO>> getDistinctFranchiseAndPosByRewardBatchId(String rewardBatchId) {

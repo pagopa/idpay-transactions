@@ -5,6 +5,7 @@ import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
@@ -539,5 +540,553 @@ class RewardTransactionSpecificRepositoryTest {
         assertFalse(after.getInitiativeRejectionReasons().containsKey(INITIATIVE_ID));
         assertTrue(after.getInitiativeRejectionReasons().containsKey("OTHER"));
         assertEquals(List.of("R2"), after.getInitiativeRejectionReasons().get("OTHER"));
+    }
+
+    @Test
+    void findByIdTrxIssuer_shouldFilterByAllFields() {
+        LocalDateTime now = LocalDateTime.now();
+
+        RewardTransaction match = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("m1")
+                .idTrxIssuer("ISSUER1")
+                .userId(USER_ID)
+                .amountCents(100L)
+                .trxDate(now.minusHours(1))
+                .build();
+
+        RewardTransaction noUser = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("m2")
+                .idTrxIssuer("ISSUER1")
+                .userId("OTHER")
+                .amountCents(100L)
+                .trxDate(now.minusHours(1))
+                .build();
+
+        rewardTransactionRepository.saveAll(List.of(match, noUser)).collectList().block();
+
+        List<String> ids = rewardTransactionSpecificRepository
+                .findByIdTrxIssuer("ISSUER1", USER_ID, now.minusDays(1), now, 100L, PageRequest.of(0, 10))
+                .map(RewardTransaction::getId)
+                .collectList()
+                .block();
+
+        assertEquals(List.of("m1"), ids);
+    }
+
+    @Test
+    void findByIdTrxIssuer_withOnlyStartDate_shouldFilter() {
+        LocalDateTime now = LocalDateTime.now();
+
+        RewardTransaction in = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("in")
+                .idTrxIssuer("ISSUER2")
+                .trxDate(now.minusHours(1))
+                .build();
+
+        RewardTransaction out = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("out")
+                .idTrxIssuer("ISSUER2")
+                .trxDate(now.minusDays(3))
+                .build();
+
+        rewardTransactionRepository.saveAll(List.of(in, out)).collectList().block();
+
+        List<String> ids = rewardTransactionSpecificRepository
+                .findByIdTrxIssuer("ISSUER2", null, now.minusDays(1), null, null, PageRequest.of(0, 10))
+                .map(RewardTransaction::getId)
+                .collectList()
+                .block();
+
+        assertEquals(List.of("in"), ids);
+    }
+
+    @Test
+    void findByIdTrxIssuer_withOnlyEndDate_shouldFilter() {
+        LocalDateTime now = LocalDateTime.now();
+
+        RewardTransaction in = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("in")
+                .idTrxIssuer("ISSUER3")
+                .trxDate(now.minusDays(2))
+                .build();
+
+        RewardTransaction out = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("out")
+                .idTrxIssuer("ISSUER3")
+                .trxDate(now.plusDays(1))
+                .build();
+
+        rewardTransactionRepository.saveAll(List.of(in, out)).collectList().block();
+
+        List<String> ids = rewardTransactionSpecificRepository
+                .findByIdTrxIssuer("ISSUER3", null, null, now, null, PageRequest.of(0, 10))
+                .map(RewardTransaction::getId)
+                .collectList()
+                .block();
+
+        assertEquals(List.of("in"), ids);
+    }
+
+    @Test
+    void findByRange_shouldFilterByDateAndAmount() {
+        LocalDateTime now = LocalDateTime.now();
+
+        RewardTransaction match = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("r1")
+                .userId(USER_ID)
+                .amountCents(500L)
+                .trxDate(now.minusHours(1))
+                .build();
+
+        RewardTransaction noAmount = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("r2")
+                .userId(USER_ID)
+                .amountCents(400L)
+                .trxDate(now.minusHours(1))
+                .build();
+
+        rewardTransactionRepository.saveAll(List.of(match, noAmount)).collectList().block();
+
+        List<String> ids = rewardTransactionSpecificRepository
+                .findByRange(USER_ID, now.minusDays(1), now, 500L, PageRequest.of(0, 10))
+                .map(RewardTransaction::getId)
+                .collectList()
+                .block();
+
+        assertEquals(List.of("r1"), ids);
+    }
+
+    @Test
+    void findByFilter_rewardBatchAndStatuses_shouldReturnMatchingOnly() {
+        RewardTransaction t1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("t1")
+                .rewardBatchId(BATCH_ID)
+                .initiatives(List.of(INITIATIVE_ID))
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
+                .build();
+
+        RewardTransaction t2 = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("t2")
+                .rewardBatchId(BATCH_ID)
+                .initiatives(List.of(INITIATIVE_ID))
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED)
+                .build();
+
+        RewardTransaction t3 = RewardTransactionFaker.mockInstanceBuilder(3)
+                .id("t3")
+                .rewardBatchId("OTHER")
+                .initiatives(List.of(INITIATIVE_ID))
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
+                .build();
+
+        rewardTransactionRepository.saveAll(List.of(t1, t2, t3)).collectList().block();
+
+        List<String> ids = rewardTransactionSpecificRepository
+                .findByFilter(BATCH_ID, INITIATIVE_ID, List.of(RewardBatchTrxStatus.SUSPENDED, RewardBatchTrxStatus.REJECTED))
+                .map(RewardTransaction::getId)
+                .collectList()
+                .block();
+
+        assertTrue(ids.contains("t1"));
+        assertTrue(ids.contains("t2"));
+        assertFalse(ids.contains("t3"));
+    }
+
+    @Test
+    void findTransaction_shouldReturnOnlyAllowedStatuses() {
+        RewardTransaction ok = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("ok")
+                .merchantId(MERCHANT_ID)
+                .status(SyncTrxStatus.INVOICED.name())
+                .build();
+
+        RewardTransaction ko = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("ko")
+                .merchantId(MERCHANT_ID)
+                .status("AUTHORIZED")
+                .build();
+
+        rewardTransactionRepository.saveAll(List.of(ok, ko)).collectList().block();
+
+        RewardTransaction found = rewardTransactionSpecificRepository.findTransaction(MERCHANT_ID, "ok").block();
+        RewardTransaction notFound = rewardTransactionSpecificRepository.findTransaction(MERCHANT_ID, "ko").block();
+
+        assertNotNull(found);
+        assertEquals("ok", found.getId());
+        assertNull(notFound);
+    }
+
+    @Test
+    void getCount_shouldCountMatchingTransactions() {
+        RewardTransaction t1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("c1")
+                .merchantId(MERCHANT_ID)
+                .userId(USER_ID)
+                .pointOfSaleId(POS_ID)
+                .status(SyncTrxStatus.REWARDED.name())
+                .initiatives(List.of(INITIATIVE_ID))
+                .build();
+
+        RewardTransaction t2 = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("c2")
+                .merchantId(MERCHANT_ID)
+                .userId(USER_ID)
+                .pointOfSaleId(POS_ID)
+                .status(SyncTrxStatus.REWARDED.name())
+                .initiatives(List.of(INITIATIVE_ID))
+                .build();
+
+        rewardTransactionRepository.saveAll(List.of(t1, t2)).collectList().block();
+
+        TrxFiltersDTO filters = new TrxFiltersDTO(MERCHANT_ID, INITIATIVE_ID, null,
+                SyncTrxStatus.REWARDED.name(), null, null, null, null);
+
+        Long count = rewardTransactionSpecificRepository
+                .getCount(filters, POS_ID, "", USER_ID, false)
+                .block();
+
+        assertEquals(2L, count);
+    }
+
+    @Test
+    void findOneByInitiativeId_shouldReturnOne() {
+        RewardTransaction trx = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("one")
+                .initiatives(List.of(INITIATIVE_ID))
+                .build();
+
+        rewardTransactionRepository.save(trx).block();
+
+        RewardTransaction found = rewardTransactionSpecificRepository.findOneByInitiativeId(INITIATIVE_ID).block();
+
+        assertNotNull(found);
+        assertEquals("one", found.getId());
+    }
+
+    @Test
+    void findByInitiativesWithBatch_shouldReturnTransactions() {
+        RewardTransaction t1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("b1")
+                .initiatives(List.of(INITIATIVE_ID))
+                .build();
+
+        RewardTransaction t2 = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("b2")
+                .initiatives(List.of(INITIATIVE_ID))
+                .build();
+
+        rewardTransactionRepository.saveAll(List.of(t1, t2)).collectList().block();
+
+        List<String> ids = rewardTransactionSpecificRepository
+                .findByInitiativesWithBatch(INITIATIVE_ID, 1)
+                .map(RewardTransaction::getId)
+                .collectList()
+                .block();
+
+        assertEquals(2, ids.size());
+        assertTrue(ids.contains("b1"));
+        assertTrue(ids.contains("b2"));
+    }
+
+    @Test
+    void findByInitiativeIdAndUserId_shouldFilterBothFields() {
+        RewardTransaction match = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("u1")
+                .userId(USER_ID)
+                .initiatives(List.of(INITIATIVE_ID))
+                .build();
+
+        RewardTransaction other = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("u2")
+                .userId("OTHER")
+                .initiatives(List.of(INITIATIVE_ID))
+                .build();
+
+        rewardTransactionRepository.saveAll(List.of(match, other)).collectList().block();
+
+        List<String> ids = rewardTransactionSpecificRepository
+                .findByInitiativeIdAndUserId(INITIATIVE_ID, USER_ID)
+                .map(RewardTransaction::getId)
+                .collectList()
+                .block();
+
+        assertEquals(List.of("u1"), ids);
+    }
+
+    @Test
+    void sumSuspendedAccruedRewardCents_shouldSumValues() {
+        RewardTransaction t1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("s1")
+                .rewardBatchId(BATCH_ID)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
+                .rewards(Map.of(
+                        "A", Reward.builder().accruedRewardCents(100L).build(),
+                        "B", Reward.builder().accruedRewardCents(50L).build()
+                ))
+                .build();
+
+        RewardTransaction t2 = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("s2")
+                .rewardBatchId(BATCH_ID)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
+                .rewards(Map.of(
+                        "C", Reward.builder().accruedRewardCents(30L).build()
+                ))
+                .build();
+
+        RewardTransaction t3 = RewardTransactionFaker.mockInstanceBuilder(3)
+                .id("s3")
+                .rewardBatchId(BATCH_ID)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED)
+                .rewards(Map.of(
+                        "D", Reward.builder().accruedRewardCents(999L).build()
+                ))
+                .build();
+
+        rewardTransactionRepository.saveAll(List.of(t1, t2, t3)).collectList().block();
+
+        Long sum = rewardTransactionSpecificRepository.sumSuspendedAccruedRewardCents(BATCH_ID).block();
+
+        assertEquals(180L, sum);
+    }
+
+    @Test
+    void updateStatusAndReturnOld_withChecksError_shouldSetChecksError() {
+        String trxId = "trx-checks";
+        RewardTransaction trx = RewardTransactionFaker.mockInstance(1);
+        trx.setId(trxId);
+        trx.setRewardBatchId(BATCH_ID);
+        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
+        rewardTransactionRepository.save(trx).block();
+
+        ChecksError checksError = new ChecksError(
+                true,   // cfError
+                false,  // productEligibilityError
+                false,  // disposalRaeeError
+                false,  // priceError
+                false,  // bonusError
+                false,  // sellerReferenceError
+                false,  // accountingDocumentError
+                true    // genericError
+        );
+
+        StepVerifier.create(rewardTransactionSpecificRepository.updateStatusAndReturnOld(
+                        BATCH_ID, trxId, RewardBatchTrxStatus.REJECTED, null, "2024-01", checksError))
+                .expectNextCount(1)
+                .verifyComplete();
+
+        RewardTransaction updated = rewardTransactionRepository.findById(trxId).block();
+        assertNotNull(updated);
+        assertNotNull(updated.getChecksError());
+        assertEquals(checksError, updated.getChecksError());
+        assertTrue(updated.getChecksError().isCfError());
+        assertTrue(updated.getChecksError().isGenericError());
+    }
+
+    @Test
+    void updateStatusAndReturnOld_sameStatus_shouldAppendReasons() {
+        String trxId = "trx-reasons";
+        RewardTransaction trx = RewardTransactionFaker.mockInstance(1);
+        trx.setId(trxId);
+        trx.setRewardBatchId(BATCH_ID);
+        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED);
+        trx.setRewardBatchRejectionReason(List.of(new ReasonDTO(LocalDateTime.now(), "OLD")));
+        rewardTransactionRepository.save(trx).block();
+
+        ReasonDTO newReason = new ReasonDTO(LocalDateTime.now(), "NEW");
+
+        StepVerifier.create(rewardTransactionSpecificRepository.updateStatusAndReturnOld(
+                        BATCH_ID, trxId, RewardBatchTrxStatus.REJECTED, newReason, "2024-01", null))
+                .expectNextCount(1)
+                .verifyComplete();
+
+        RewardTransaction updated = rewardTransactionRepository.findById(trxId).block();
+        assertNotNull(updated);
+        assertNotNull(updated.getRewardBatchRejectionReason());
+        assertEquals(2, updated.getRewardBatchRejectionReason().size());
+    }
+
+    @Test
+    void findInvoicedTrxByIdWithoutBatch_shouldReturnOnlyMatching() {
+        RewardTransaction ok = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("ib1")
+                .status(SyncTrxStatus.INVOICED.name())
+                .rewardBatchId(null)
+                .build();
+
+        RewardTransaction ko = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("ib2")
+                .status(SyncTrxStatus.INVOICED.name())
+                .rewardBatchId(BATCH_ID)
+                .build();
+
+        rewardTransactionRepository.saveAll(List.of(ok, ko)).collectList().block();
+
+        RewardTransaction found = rewardTransactionSpecificRepository.findInvoicedTrxByIdWithoutBatch("ib1").block();
+        RewardTransaction notFound = rewardTransactionSpecificRepository.findInvoicedTrxByIdWithoutBatch("ib2").block();
+
+        assertNotNull(found);
+        assertEquals("ib1", found.getId());
+        assertNull(notFound);
+    }
+
+    @Test
+    void findDistinctFranchiseAndPosByRewardBatchId_shouldReturnDistinctPairs() {
+        RewardTransaction t1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("d1")
+                .rewardBatchId(BATCH_ID)
+                .franchiseName("F1")
+                .pointOfSaleId("P1")
+                .build();
+
+        RewardTransaction t2 = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("d2")
+                .rewardBatchId(BATCH_ID)
+                .franchiseName("F1")
+                .pointOfSaleId("P1")
+                .build();
+
+        RewardTransaction t3 = RewardTransactionFaker.mockInstanceBuilder(3)
+                .id("d3")
+                .rewardBatchId(BATCH_ID)
+                .franchiseName("F2")
+                .pointOfSaleId("P2")
+                .build();
+
+        rewardTransactionRepository.saveAll(List.of(t1, t2, t3)).collectList().block();
+
+        List<it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO> out =
+                rewardTransactionSpecificRepository.findDistinctFranchiseAndPosByRewardBatchId(BATCH_ID)
+                        .collectList()
+                        .block();
+
+        assertNotNull(out);
+        assertEquals(2, out.size());
+    }
+
+    @Test
+    void findTransactionInBatch_shouldReturnNullWhenMissing() {
+        RewardTransaction found = rewardTransactionSpecificRepository
+                .findTransactionInBatch(MERCHANT_ID, BATCH_ID, "missing")
+                .block();
+
+        assertNull(found);
+    }
+
+    @Test
+    void findByFilterTrx_withTrxCode_shouldFilterByRegex() {
+        RewardTransaction t1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("tc1")
+                .merchantId(MERCHANT_ID)
+                .userId(USER_ID)
+                .pointOfSaleId(POS_ID)
+                .trxCode("ABC-123")
+                .status(SyncTrxStatus.REWARDED.name())
+                .initiatives(List.of(INITIATIVE_ID))
+                .build();
+
+        RewardTransaction t2 = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("tc2")
+                .merchantId(MERCHANT_ID)
+                .userId(USER_ID)
+                .pointOfSaleId(POS_ID)
+                .trxCode("ZZZ")
+                .status(SyncTrxStatus.REWARDED.name())
+                .initiatives(List.of(INITIATIVE_ID))
+                .build();
+
+        rewardTransactionRepository.saveAll(List.of(t1, t2)).collectList().block();
+
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setMerchantId(MERCHANT_ID);
+        filters.setInitiativeId(INITIATIVE_ID);
+        filters.setStatus(SyncTrxStatus.REWARDED.name());
+        filters.setTrxCode("123");
+
+        List<String> ids = rewardTransactionSpecificRepository
+                .findByFilterTrx(filters, POS_ID, USER_ID, "", false, PageRequest.of(0, 10))
+                .map(RewardTransaction::getId)
+                .collectList()
+                .block();
+
+        assertEquals(List.of("tc1"), ids);
+    }
+
+    @Test
+    void findByFilter_withConsultableAndIncludeToCheck_shouldReturnBothStatuses() {
+        RewardTransaction consultable = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("co")
+                .merchantId(MERCHANT_ID)
+                .userId(USER_ID)
+                .status(SyncTrxStatus.INVOICED.name())
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE)
+                .initiatives(List.of(INITIATIVE_ID))
+                .build();
+
+        RewardTransaction toCheck = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("tc")
+                .merchantId(MERCHANT_ID)
+                .userId(USER_ID)
+                .status(SyncTrxStatus.INVOICED.name())
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
+                .initiatives(List.of(INITIATIVE_ID))
+                .build();
+
+        rewardTransactionRepository.saveAll(List.of(consultable, toCheck)).collectList().block();
+
+        TrxFiltersDTO filters = new TrxFiltersDTO(
+                MERCHANT_ID,
+                INITIATIVE_ID,
+                null,
+                SyncTrxStatus.INVOICED.name(),
+                null,
+                RewardBatchTrxStatus.CONSULTABLE,
+                null,
+                null
+        );
+
+        List<String> ids = rewardTransactionSpecificRepository
+                .findByFilter(filters, USER_ID, true, PageRequest.of(0, 10))
+                .map(RewardTransaction::getId)
+                .collectList()
+                .block();
+
+        assertEquals(2, ids.size());
+        assertTrue(ids.contains("co"));
+        assertTrue(ids.contains("tc"));
+    }
+
+    @Test
+    void findByFilterTrx_sortByStatusDesc_shouldReverseRankOrder() {
+        RewardTransaction c = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("c")
+                .merchantId(MERCHANT_ID)
+                .userId(USER_ID)
+                .pointOfSaleId(POS_ID)
+                .status(SyncTrxStatus.CANCELLED.name())
+                .initiatives(List.of(INITIATIVE_ID))
+                .build();
+
+        RewardTransaction rf = RewardTransactionFaker.mockInstanceBuilder(2)
+                .id("rf")
+                .merchantId(MERCHANT_ID)
+                .userId(USER_ID)
+                .pointOfSaleId(POS_ID)
+                .status(SyncTrxStatus.REFUNDED.name())
+                .initiatives(List.of(INITIATIVE_ID))
+                .build();
+
+        rewardTransactionRepository.saveAll(List.of(c, rf)).collectList().block();
+
+        TrxFiltersDTO filters = new TrxFiltersDTO(MERCHANT_ID, INITIATIVE_ID, null, null, null, null, null, null);
+
+        List<String> ids = rewardTransactionSpecificRepository
+                .findByFilterTrx(filters, POS_ID, USER_ID, "", false,
+                        PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "status")))
+                .map(RewardTransaction::getId)
+                .collectList()
+                .block();
+
+        assertEquals(List.of("rf", "c"), ids);
     }
 }
