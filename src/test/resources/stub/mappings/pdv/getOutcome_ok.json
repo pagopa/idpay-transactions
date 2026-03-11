@@ -16,7 +16,7 @@
       "code": "0",
       "message": "OK",
       "erogazione": {
-        "Stato": "COMPLETATO",
+        "Stato": "COMPLETATA",
         "ImportoErogato": 1000.0,
         "DataValuta": "2026-03-10"
       }
