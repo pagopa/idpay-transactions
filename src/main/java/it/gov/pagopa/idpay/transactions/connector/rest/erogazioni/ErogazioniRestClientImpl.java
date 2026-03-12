@@ -126,11 +126,12 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                         .retrieve()
                         .bodyToMono(String.class)
-                        .map(body -> {
+                        .flatMap(body -> {
                             try {
-                                return objectMapper.readValue(body, InvitaliaOutcomeResponseDTO.class);
+                                InvitaliaOutcomeResponseDTO dto = objectMapper.readValue(body, InvitaliaOutcomeResponseDTO.class);
+                                return Mono.just(dto);
                             } catch (Exception e) {
-                                throw new RuntimeException(e);
+                                return Mono.error(new RuntimeException("Error deserializing Invitalia outcome", e));
                             }
                         })
                         .retryWhen(Retry.fixedDelay(maxAttempts, Duration.ofMillis(retryDelay))

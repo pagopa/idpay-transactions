@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.connector.rest.erogazioni;
 
 
+import it.gov.pagopa.common.config.JsonConfig;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.InvitaliaTokenProviderService;
 import it.gov.pagopa.idpay.transactions.dto.AnagraficaDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
@@ -30,7 +31,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @ContextConfiguration(
         classes = {
                 ErogazioniRestClientImpl.class,
-                WebClientConfig.class
+                WebClientConfig.class,
+                JsonConfig.class
         })
 @TestPropertySource(
         properties = {
