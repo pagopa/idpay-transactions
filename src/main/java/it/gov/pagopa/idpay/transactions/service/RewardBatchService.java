@@ -20,9 +20,9 @@ public interface RewardBatchService {
 
   Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds);
 
+  Mono<Void> rewardBatchDeliveryBatch(String initiativeId, List<String> rewardBatchIds);
   Mono<RewardBatch> updateBatch(RewardBatch batch, InvitaliaOutcomeResponseDTO response);
   Mono<Void> checkRewardBatchesOutcomes(String initiativeId, List<String> rewardBatchIds);
-  Mono<Void> rewardBatchDeliveryBatch(String initiativeId, List<String> rewardBatchIds);
   Mono<String> generateAndSaveCsv(String rewardBatchId, String initiativeId, String merchantId);
 
   Mono<Void> sendRewardBatch(String merchantId, String batchId);

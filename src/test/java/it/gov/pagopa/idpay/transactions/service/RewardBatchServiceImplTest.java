@@ -14,6 +14,11 @@ import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOu
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.SelfcareInstitutionsRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionList;
+import it.gov.pagopa.idpay.transactions.connector.rest.dto.MerchantDetailDTO;
+import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.SelfcareInstitutionsRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionDTO;
+import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionList;
 import it.gov.pagopa.idpay.transactions.dto.ChecksErrorDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
@@ -942,6 +947,8 @@ class RewardBatchServiceImplTest {
         verify(serviceSpy).processSingleBatchDelivery(BATCH_ID_2, INITIATIVE_ID);
     }
 
+        verify(serviceSpy).processSingleBatchDelivery(BATCH_ID, INITIATIVE_ID);
+        verify(serviceSpy).processSingleBatchDelivery(BATCH_ID_2, INITIATIVE_ID);
     @Test
     void rewardBatchDeliveryBatch_Success() {
         String initiativeId = "INIT_1";
@@ -978,12 +985,44 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
+    void rewardBatchDeliveryBatch_Success() {
+        String initiativeId = "INIT_1";
+        String batchId = "BATCH_1";
+        String merchantId = "MERCHANT_1";
+        String fiscalCode = "FISCAL_123";
+
+        RewardBatch batch = new RewardBatch();
+        batch.setId(batchId);
+        batch.setMerchantId(merchantId);
+        batch.setStatus(RewardBatchStatus.APPROVED);
+        batch.setApprovedAmountCents(1000L);
     void rewardBatchDeliveryBatch_Fail_MultipleInstitutions() {
         // Given
         String initiativeId = "INIT_1";
         String batchId = "BATCH_1";
         String fiscalCode = "FISCAL_123";
 
+        MerchantDetailDTO merchantDetail = new MerchantDetailDTO();
+        merchantDetail.setFiscalCode(fiscalCode);
+        merchantDetail.setVatNumber("VAT_123");
+
+        InstitutionDTO inst = new InstitutionDTO();
+        inst.setZipCode("00100");
+        inst.setDigitalAddress("pec@test.it");
+        InstitutionList instList = new InstitutionList(List.of(inst));
+
+        when(rewardBatchRepository.findRewardBatchById(batchId)).thenReturn(Mono.just(batch));
+        when(merchantRestClient.getMerchantDetail(merchantId, initiativeId)).thenReturn(Mono.just(merchantDetail));
+        when(selfcareInstitutionsRestClient.getInstitutions(fiscalCode)).thenReturn(Mono.just(instList));
+        when(erogazioniRestClient.postErogazione(any(DeliveryRequest.class))).thenReturn(Mono.empty());
+
+        StepVerifier.create(serviceSpy.rewardBatchDeliveryBatch(initiativeId, List.of(batchId)))
+                .verifyComplete();
+
+        verify(erogazioniRestClient).postErogazione(argThat(req ->
+                req.getId().equals(batchId) && req.getAnagrafica().getCap().equals("00100")
+        ));
+    }
         RewardBatch batch = new RewardBatch();
         batch.setId(batchId);
         batch.setMerchantId("M1");
@@ -995,7 +1034,31 @@ class RewardBatchServiceImplTest {
         merchantDetail.setBusinessName("Business");
         merchantDetail.setIban("IT00TEST");
         merchantDetail.setIbanHolder("Holder");
+    @Test
+    void rewardBatchDeliveryBatch_Fail_MultipleInstitutions() {
+        // Given
+        String initiativeId = "INIT_1";
+        String batchId = "BATCH_1";
+        String fiscalCode = "FISCAL_123";
 
+        RewardBatch batch = new RewardBatch();
+        batch.setId(batchId);
+        batch.setMerchantId("M1");
+        batch.setStatus(RewardBatchStatus.APPROVED);
+
+        InstitutionList instList = new InstitutionList(List.of(new InstitutionDTO(), new InstitutionDTO()));
+        MerchantDetailDTO merchantDetail = new MerchantDetailDTO();
+        merchantDetail.setFiscalCode(fiscalCode);
+        merchantDetail.setVatNumber("VAT123");
+        merchantDetail.setBusinessName("Business");
+        merchantDetail.setIban("IT00TEST");
+        merchantDetail.setIbanHolder("Holder");
+
+        when(rewardBatchRepository.findRewardBatchById(batchId)).thenReturn(Mono.just(batch));
+        when(merchantRestClient.getMerchantDetail(anyString(), anyString())).thenReturn(Mono.just(merchantDetail));
+        when(selfcareInstitutionsRestClient.getInstitutions(fiscalCode)).thenReturn(Mono.just(instList));
+
+        StepVerifier.create(service.rewardBatchDeliveryBatch(initiativeId, List.of(batchId)))
         InstitutionList instList = new InstitutionList(List.of(new InstitutionDTO(), new InstitutionDTO()));
 
         when(rewardBatchRepository.findRewardBatchById(batchId)).thenReturn(Mono.just(batch));

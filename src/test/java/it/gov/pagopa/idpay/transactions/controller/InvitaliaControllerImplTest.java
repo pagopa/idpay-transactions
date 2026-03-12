@@ -8,6 +8,10 @@ import it.gov.pagopa.idpay.transactions.dto.AnagraficaDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryOutcomeDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
 import it.gov.pagopa.idpay.transactions.dto.ErogazioneDTO;
+import it.gov.pagopa.idpay.transactions.dto.AnagraficaDTO;
+import it.gov.pagopa.idpay.transactions.dto.DeliveryOutcomeDTO;
+import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
+import it.gov.pagopa.idpay.transactions.dto.ErogazioneDTO;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
@@ -62,6 +66,68 @@ class InvitaliaControllerImplTest {
                 .expectBody(String.class);
 
         verify(invitaliaTokenProviderService).retrieveToken();
+    }
+
+
+
+    @Test
+    void postErogazione_Success() {
+        DeliveryRequest request = DeliveryRequest.builder()
+                .id("BATCH_ID")
+                .anagrafica(AnagraficaDTO.builder()
+                        .partitaIvaCliente("12345678901")
+                        .codiceFiscaleCliente("RSSMRA80A01H501W")
+                        .ragioneSocialeIntestatario("Ragione Sociale")
+                        .pec("test@pec.it")
+                        .indirizzo("Via Roma 1")
+                        .cap("00100")
+                        .localita("Roma")
+                        .provincia("RM")
+                        .build())
+                .erogazione(ErogazioneDTO.builder()
+                        .idPratica("PRATICA_ID")
+                        .importo(10.0)
+                        .dataAmmissione(LocalDateTime.now())
+                        .ibanBeneficiario("IT12X0123401234000000123456")
+                        .intestatarioContoCorrente("Mario Rossi")
+                        .autorizzatore("Gianluca Fiorillo")
+                        .build())
+                .build();
+
+        DeliveryOutcomeDTO expectedOutcome = DeliveryOutcomeDTO.builder()
+                .succeded(true)
+                .message("Erogazione inserita con successo")
+                .idRichiesta("BATCH_ID")
+                .build();
+
+        when(erogazioniRestClient.postErogazione(any(DeliveryRequest.class)))
+                .thenReturn(Mono.just(expectedOutcome));
+
+        webTestClient.post()
+                .uri("/idpay/invitalia/erogazioni")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.succeded").isEqualTo(true)
+                .jsonPath("$.message").isEqualTo("Erogazione inserita con successo");
+
+        verify(erogazioniRestClient).postErogazione(any(DeliveryRequest.class));
+    }
+    @Test
+    void postErogazione_InternalServerError() {
+        DeliveryRequest request = DeliveryRequest.builder().id("BATCH_ID").build();
+
+        when(erogazioniRestClient.postErogazione(any(DeliveryRequest.class)))
+                .thenReturn(Mono.error(new RuntimeException("API Error")));
+
+        webTestClient.post()
+                .uri("/idpay/invitalia/erogazioni")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().is5xxServerError();
     }
 
 

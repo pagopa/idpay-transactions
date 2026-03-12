@@ -13,6 +13,7 @@ import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOu
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.SelfcareInstitutionsRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionDTO;
 import it.gov.pagopa.idpay.transactions.dto.*;
+import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
@@ -653,6 +654,24 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     @Override
     public Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds) {
+        return processBatchesOrchestrator(initiativeId, rewardBatchIds,
+                RewardBatchStatus.APPROVING, this::processSingleBatchConfirmation);
+    }
+
+    @Override
+    public Mono<Void> rewardBatchDeliveryBatch(String initiativeId, List<String> rewardBatchIds) {
+        return processBatchesOrchestrator(initiativeId, rewardBatchIds,
+                RewardBatchStatus.APPROVED, this::processSingleBatchDelivery);
+    }
+
+    private Mono<Void> processBatchesOrchestrator(
+            String initiativeId,
+            List<String> rewardBatchIds,
+            RewardBatchStatus statusIfEmpty,
+            BiFunction<String, String, Mono<?>> businessLogic) {
+
+        Flux<String> idsFlux;
+
         return processBatchesOrchestrator(initiativeId, rewardBatchIds,
                 RewardBatchStatus.APPROVING, this::processSingleBatchConfirmation);
     }
