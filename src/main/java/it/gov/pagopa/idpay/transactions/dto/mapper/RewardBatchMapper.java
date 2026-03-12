@@ -30,6 +30,9 @@ public class RewardBatchMapper {
         .numberOfTransactionsRejected(rewardBatch.getNumberOfTransactionsRejected())
         .reportPath(rewardBatch.getReportPath())
         .assigneeLevel(String.valueOf(rewardBatch.getAssigneeLevel()))
+        .refundErrorMessage(rewardBatch.getRefundErrorMessage())
+        .refundOutcomeTimestamp(rewardBatch.getRefundOutcomeTimestamp())
+        .refundValutaDate(rewardBatch.getRefundValutaDate())
         .merchantSendDate(rewardBatch.getMerchantSendDate())
         .build();
 

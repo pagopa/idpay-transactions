@@ -1,8 +1,12 @@
 package it.gov.pagopa.idpay.transactions.model;
 
+import it.gov.pagopa.idpay.transactions.dto.DeliveryOutcomeDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
+
+import java.time.LocalDate;
+
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -46,6 +50,10 @@ public class RewardBatch {
     private Long numberOfTransactionsSuspended;
     private Long numberOfTransactionsRejected;
 
+    private LocalDate refundValutaDate;
+    private String refundErrorMessage;
+    private LocalDateTime refundOutcomeTimestamp;
+
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime merchantSendDate;
 
@@ -57,5 +65,10 @@ public class RewardBatch {
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime updateDate;
+
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    private LocalDateTime deliveryDateRequest;
+    private DeliveryOutcomeDTO deliveryOutcome;
+
 
 }

@@ -49,6 +49,8 @@ public final class ExceptionConstants {
         public static final String REPORT_NOT_FOUND = "REPORT_NOT_FOUND";
         public static final String REPORT_NOT_GENERATED = "REPORT_NOT_GENERATED";
         public static final String MERCHANT_NOT_FOUND = "MERCHANT_NOT_FOUND";
+        public static final String MERCHANT_NOT_FOUND_IN_SELFCARE = "MERCHANT_NOT_FOUND_IN_SELFCARE";
+        public static final String AMBIGUOUS_MERCHANT_DATA_IN_SELFCARE = "AMBIGUOUS_MERCHANT_DATA_IN_SELFCARE";
     }
 
     public static final class ExceptionMessage {
@@ -94,6 +96,8 @@ public final class ExceptionConstants {
         public static final String ERROR_MESSAGE_INVALID_CHECKS_ERROR = "At least one checksError field must be true";
         public static final String  ERROR_MESSAGE_REPORT_NOT_FOUND = "Report %s not found for initiative %s ";
         public static final String  ERROR_MESSAGE_MERCHANT_NOT_FOUND = "Merchant %s not found for initiative %s ";
+        public static final String  ERROR_MESSAGE_MERCHANT_NOT_FOUND_IN_SELFCARE = "No institution records found for merchant fiscal code %s ";
+        public static final String ERROR_MESSAGE_AMBIGUOUS_MERCHANT_DATA_IN_SELFCARE = "Multiple institutions found for the same fiscal code %s. Data is ambiguous.";
         public static final String ERROR_MESSAGE_REPORT_MISSING_FILENAME = "The report %s does not have an associated file name and cannot be downloaded";
         public static final String ERROR_MESSAGE_REPORT_NOT_GENERATED = "The report %s is not generated yet and cannot be downloaded";
         public static final String ERROR_MESSAGE_INVALID_REPORT_TYPE = "Unsupported ReportType";
