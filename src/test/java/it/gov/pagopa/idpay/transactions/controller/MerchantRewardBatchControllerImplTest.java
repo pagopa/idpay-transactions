@@ -1006,4 +1006,43 @@ class MerchantRewardBatchControllerImplTest {
 
         Mockito.verify(rewardBatchService).checkRewardBatchesOutcomes(INITIATIVE_ID, batchIds);
     }
+
+    @Test
+    void checkRewardBatchesOutcomes_RequestWithNullIds() {
+
+        RewardBatchesRequest request = RewardBatchesRequest.builder()
+                .rewardBatchIds(null)
+                .build();
+
+        Mockito.when(rewardBatchService.checkRewardBatchesOutcomes(INITIATIVE_ID, List.of()))
+                .thenReturn(Mono.empty());
+
+        webClient.post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/check-outcomes")
+                        .build(INITIATIVE_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().isEmpty();
+
+        Mockito.verify(rewardBatchService)
+                .checkRewardBatchesOutcomes(INITIATIVE_ID, List.of());
+    }
+
+    @Test
+    void checkRewardBatchesOutcomes_RequestNull() {
+
+        webClient.post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/check-outcomes")
+                        .build(INITIATIVE_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("null")
+                .exchange()
+                .expectStatus().is5xxServerError();
+
+        Mockito.verifyNoInteractions(rewardBatchService);
+    }
 }
