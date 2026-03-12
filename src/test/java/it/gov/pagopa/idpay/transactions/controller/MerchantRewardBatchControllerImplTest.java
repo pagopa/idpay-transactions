@@ -22,6 +22,7 @@ import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessag
 import java.time.LocalDate;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.context.annotation.Import;
@@ -61,6 +62,64 @@ class MerchantRewardBatchControllerImplTest {
     private static final List<String> BATCH_IDS = Arrays.asList(REWARD_BATCH_ID_1, REWARD_BATCH_ID_2);
 
     private static final String FAKE_FILENAME = "test/path/report.csv";
+
+    @Test
+    void rewardBatchDeliveryBatch_Success() {
+        RewardBatchesRequest request = RewardBatchesRequest.builder()
+                .rewardBatchIds(BATCH_IDS)
+                .build();
+
+        Mockito.when(rewardBatchService.rewardBatchDeliveryBatch(INITIATIVE_ID, BATCH_IDS))
+                .thenReturn(Mono.empty());
+
+        webClient.post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/delivery")
+                        .build(INITIATIVE_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk();
+
+        Mockito.verify(rewardBatchService, Mockito.times(1))
+                .rewardBatchDeliveryBatch(INITIATIVE_ID, BATCH_IDS);
+    }
+
+    @Test
+    void rewardBatchDeliveryBatch_EmptyList() {
+        RewardBatchesRequest request = RewardBatchesRequest.builder()
+                .rewardBatchIds(null)
+                .build();
+
+        Mockito.when(rewardBatchService.rewardBatchDeliveryBatch(INITIATIVE_ID, List.of()))
+                .thenReturn(Mono.empty());
+
+        webClient.post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/delivery", INITIATIVE_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk();
+
+        Mockito.verify(rewardBatchService).rewardBatchDeliveryBatch(INITIATIVE_ID, List.of());
+    }
+
+    @Test
+    void rewardBatchDeliveryBatch_Error() {
+        RewardBatchesRequest request = RewardBatchesRequest.builder()
+                .rewardBatchIds(BATCH_IDS)
+                .build();
+
+        Mockito.when(rewardBatchService.rewardBatchDeliveryBatch(INITIATIVE_ID, BATCH_IDS))
+                .thenReturn(Mono.error(new RuntimeException("Service Error")));
+
+        webClient.post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/delivery", INITIATIVE_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().is5xxServerError();
+    }
     @Test
     void generateAndSaveCsv_Success_Accepted() {
 

@@ -99,6 +99,14 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
+  public  Mono<Void> rewardBatchDeliveryBatch(String initiativeId, RewardBatchesRequest request) {
+    List<String> rewardBatchIds = request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
+    log.info("[REWARD_BATCH_DELIVERY_BATCH] Batch delivery for initiative {} and batchs {}",
+            Utilities.sanitizeString(initiativeId), rewardBatchIds.toString() );
+    return rewardBatchService.rewardBatchDeliveryBatch(initiativeId, rewardBatchIds);
+  }
+
+  @Override
   public  Mono<String> generateAndSaveCsv(String initiativeId, String rewardBatchId, String merchantId) {
     log.info("[GENERATE_AND_SAVE_CSV] Generate CSV for initiative {} and batch {}",
             Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(rewardBatchId) );

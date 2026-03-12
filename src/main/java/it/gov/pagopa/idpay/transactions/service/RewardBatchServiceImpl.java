@@ -6,15 +6,16 @@ import com.azure.storage.blob.models.BlockBlobItem;
 import com.mongodb.client.result.DeleteResult;
 import com.nimbusds.jose.util.Pair;
 import it.gov.pagopa.common.web.exception.*;
+import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
-import it.gov.pagopa.idpay.transactions.dto.ChecksErrorDTO;
-import it.gov.pagopa.idpay.transactions.dto.DownloadRewardBatchResponseDTO;
+import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.SelfcareInstitutionsRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionDTO;
+import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
-import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
-import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.dto.batch.TrxSuspendedBatchInfo;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
@@ -61,6 +62,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.LongFunction;
 
@@ -81,6 +83,9 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   private final ChecksErrorMapper checksErrorMapper;
 
   private final AuditUtilities auditUtilities;
+  private final MerchantRestClient merchantRestClient;
+  private final SelfcareInstitutionsRestClient selfcareInstitutionsRestClient;
+  private final ErogazioniRestClient erogazioniRestClient;
 
 
     private static final String OPERATOR_1 = "operator1";
@@ -108,7 +113,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
   private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "%s_%s_%s.csv";
   private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM", Locale.ITALIAN);
 
-  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService, ReactiveMongoTemplate reactiveMongoTemplate, ChecksErrorMapper checksErrorMapper, AuditUtilities auditUtilities) {
+  public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService, ReactiveMongoTemplate reactiveMongoTemplate, ChecksErrorMapper checksErrorMapper, AuditUtilities auditUtilities, MerchantRestClient merchantRestClient, SelfcareInstitutionsRestClient selfcareInstitutionsRestClient, ErogazioniRestClient erogazioniRestClient) {
     this.rewardBatchRepository = rewardBatchRepository;
     this.rewardTransactionRepository = rewardTransactionRepository;
       this.userRestClient = userRestClient;
@@ -116,6 +121,9 @@ public class RewardBatchServiceImpl implements RewardBatchService {
       this.reactiveMongoTemplate = reactiveMongoTemplate;
       this.checksErrorMapper = checksErrorMapper;
       this.auditUtilities = auditUtilities;
+      this.merchantRestClient = merchantRestClient;
+      this.selfcareInstitutionsRestClient = selfcareInstitutionsRestClient;
+      this.erogazioniRestClient = erogazioniRestClient;
   }
 
   @Override
@@ -645,53 +653,55 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     }
 
 
-
     @Override
     public Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds) {
+        return processBatchesOrchestrator(initiativeId, rewardBatchIds,
+                RewardBatchStatus.APPROVING, this::processSingleBatchConfirmation);
+    }
+
+    @Override
+    public Mono<Void> rewardBatchDeliveryBatch(String initiativeId, List<String> rewardBatchIds) {
+        return processBatchesOrchestrator(initiativeId, rewardBatchIds,
+                RewardBatchStatus.APPROVED, this::processSingleBatchDelivery);
+    }
+
+    private Mono<Void> processBatchesOrchestrator(
+            String initiativeId,
+            List<String> rewardBatchIds,
+            RewardBatchStatus statusIfEmpty,
+            BiFunction<String, String, Mono<?>> businessLogic) {
+
+        Flux<String> idsFlux;
+
         if (rewardBatchIds != null && !rewardBatchIds.isEmpty()) {
-            return Flux.fromIterable(rewardBatchIds)
-                    .doOnNext(rewardBatchId ->
-                            log.info("Processing batch {}", rewardBatchId)
-                    )
-                    .concatMap(rewardBatchId ->
-                            this.processSingleBatchSafe(rewardBatchId, initiativeId)
-                    )
-
-                    .then();
-
+            idsFlux = Flux.fromIterable(rewardBatchIds);
         } else {
-            return rewardBatchRepository.findRewardBatchByStatus(RewardBatchStatus.APPROVING)
+            idsFlux = rewardBatchRepository.findRewardBatchByStatus(statusIfEmpty)
                     .collectList()
                     .flatMapMany(batchList -> {
                         if (batchList.isEmpty()) {
-                            log.warn("No batches found with status APPROVING to process.");
+                            log.warn("No batches found with status {} to process.", statusIfEmpty);
                             return Flux.empty();
-                        } else {
-                            log.info("Found {} batches with status APPROVING to process.", batchList.size());
-                            return Flux.fromIterable(batchList);
                         }
+                        log.info("Found {} batches with status {} to process.", batchList.size(), statusIfEmpty);
+                        return Flux.fromIterable(batchList);
                     })
-                    .doOnNext(rewardBatch ->
-                            log.info("Processing batch {}",
-                                    rewardBatch.getId())
-                    )
-                    .concatMap(rewardBatch -> {
-                        String rewardBatchId = rewardBatch.getId();
-                        return processSingleBatchSafe(rewardBatchId, initiativeId);
-                    })
-                    .then();
+                    .map(RewardBatch::getId);
         }
+
+        return idsFlux
+                .doOnNext(id -> log.info("Processing batch {}", id))
+                .concatMap(id -> businessLogic.apply(id, initiativeId)
+                        .onErrorResume(error -> {
+                            log.error("Failed to process batch {}: {}", id, error.getMessage(), error);
+                            return Mono.empty();
+                        })
+                )
+                .then();
     }
 
 
-    public Mono<RewardBatch> processSingleBatchSafe(String rewardBatchId, String initiativeId) {
-        return this.processSingleBatch(rewardBatchId, initiativeId)
-                .onErrorResume(error -> {
-                    log.error("Failed to process batch {}: {}", rewardBatchId, error.getMessage(), error);
-                    return Mono.empty();
-                });
-    }
-    public Mono<RewardBatch> processSingleBatch(String rewardBatchId, String initiativeId) {
+    public Mono<RewardBatch> processSingleBatchConfirmation(String rewardBatchId, String initiativeId) {
         return rewardBatchRepository.findRewardBatchById(rewardBatchId)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
                         NOT_FOUND,
@@ -707,7 +717,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
                 )))
                 .flatMap(originalBatch -> {
-                    //setta ad approved le trx in stato TO_CHECK e CONSULTABLE
                     Mono<Void> transactionsUpdate = updateAndSaveRewardTransactionsToApprove(rewardBatchId, initiativeId);
                     return transactionsUpdate.thenReturn(originalBatch);
                 })
@@ -728,8 +737,80 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     }
 
 
+    public Mono<RewardBatch> processSingleBatchDelivery(String rewardBatchId, String initiativeId) {
 
-    private Mono<RewardBatch> handleSuspendedTransactions(RewardBatch originalBatch, String initiativeId) {
+        return rewardBatchRepository.findRewardBatchById(rewardBatchId)
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        NOT_FOUND,
+                        REWARD_BATCH_NOT_FOUND,
+                        ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
+                .filter(rewardBatch -> RewardBatchStatus.APPROVED.equals(rewardBatch.getStatus()))
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        BAD_REQUEST,
+                        REWARD_BATCH_INVALID_REQUEST,
+                        ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId))))
+                .flatMap(rewardBatch -> merchantRestClient.getMerchantDetail(rewardBatch.getMerchantId(), initiativeId)
+                        .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                                HttpStatus.NOT_FOUND,
+                                MERCHANT_NOT_FOUND,
+                                ERROR_MESSAGE_MERCHANT_NOT_FOUND.formatted(rewardBatch.getMerchantId(), initiativeId))))
+                        .flatMap(merchantDetail -> selfcareInstitutionsRestClient.getInstitutions(merchantDetail.getFiscalCode())
+                                .flatMap(institutionList -> {
+                                    if (institutionList.getInstitutions() == null || institutionList.getInstitutions().isEmpty()) {
+                                        return Mono.error(new ClientExceptionWithBody(
+                                                HttpStatus.NOT_FOUND,
+                                                MERCHANT_NOT_FOUND_IN_SELFCARE,
+                                                ERROR_MESSAGE_MERCHANT_NOT_FOUND_IN_SELFCARE.formatted(merchantDetail.getFiscalCode())));
+                                    }
+                                    if (institutionList.getInstitutions().size() > 1) {
+                                        return Mono.error(new ClientExceptionWithBody(
+                                                HttpStatus.CONFLICT,
+                                                AMBIGUOUS_MERCHANT_DATA_IN_SELFCARE,
+                                                ERROR_MESSAGE_AMBIGUOUS_MERCHANT_DATA_IN_SELFCARE.formatted(merchantDetail.getFiscalCode())));
+                                    }
+
+                                    InstitutionDTO institution = institutionList.getInstitutions().getFirst();
+
+                                    DeliveryRequest deliveryRequest = DeliveryRequest.builder()
+                                            .id(rewardBatchId)
+                                            .anagrafica(AnagraficaDTO.builder()
+                                                    .partitaIvaCliente(merchantDetail.getVatNumber())
+                                                    .codiceFiscaleCliente(merchantDetail.getFiscalCode())
+                                                    .ragioneSocialeIntestatario(merchantDetail.getBusinessName())
+                                                    .cap(institution.getZipCode())
+                                                    .indirizzo(institution.getAddress())
+                                                    .localita(institution.getCity())
+                                                    .provincia(institution.getCounty())
+                                                    .pec(institution.getDigitalAddress())
+                                                    .build())
+                                            .erogazione(ErogazioneDTO.builder()
+                                                    .idPratica(rewardBatchId)
+                                                    .dataAmmissione(rewardBatch.getApprovalDate())
+                                                    .ibanBeneficiario(merchantDetail.getIban())
+                                                    .importo(rewardBatch.getApprovedAmountCents() / 100.0)
+                                                    .intestatarioContoCorrente(merchantDetail.getIbanHolder())
+                                                    .build())
+                                            .build();
+
+                                    return erogazioniRestClient.postErogazione(deliveryRequest)
+                                            .flatMap(outcome -> {
+                                                rewardBatch.setDeliveryOutcome(outcome);
+                                                if (outcome.isSucceded()) {
+                                                    rewardBatch.setStatus(RewardBatchStatus.PENDING_REFUND);
+                                                    rewardBatch.setDeliveryDateRequest(LocalDateTime.now());
+                                                    log.info("[PROCESS_BATCH] Batch {} delivery succeeded. Status moved to PENDING_REFUND", rewardBatchId);
+                                                } else {
+                                                    log.warn("[PROCESS_BATCH] Batch {} delivery rejected by server: {}", rewardBatchId, outcome.getMessage());
+                                                }
+
+                                                return rewardBatchRepository.save(rewardBatch);
+                                            });
+                                })));
+    }
+
+
+
+        private Mono<RewardBatch> handleSuspendedTransactions(RewardBatch originalBatch, String initiativeId) {
         if (originalBatch.getNumberOfTransactionsSuspended() == null || originalBatch.getNumberOfTransactionsSuspended() <= 0) {
             log.info("numberOfTransactionSuspended = 0 for batch {}", originalBatch.getId());
             return Mono.just(originalBatch);
@@ -741,6 +822,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 originalBatch.getPosType(),
                 addOneMonth(originalBatch.getMonth()),
                 originalBatch.getBusinessName())
+                //TODO: rimuovere tutto il blocco dopo il return, utilizzare il metodo findOrCreteTargetBatch
+                //che ha gia dentro la findOrCreate (PointOfSaleTransactionServiceImpl)
                 .flatMap(newBatch -> updateAndSaveRewardTransactionsSuspended(originalBatch.getId(), initiativeId, newBatch.getId(), originalBatch.getMonth())
                         .flatMap(totalAccrued -> {
                             BatchCountersDTO batchCounters = BatchCountersDTO.newBatch()
