@@ -12,8 +12,10 @@ import reactor.core.publisher.Mono;
 
 @RequestMapping("/idpay/invitalia")
 public interface InvitaliaController {
+
     @GetMapping("/token")
     Mono<String> getToken();
+
     @PostMapping("/erogazioni")
     Mono<DeliveryOutcomeDTO> postErogazione(
             @RequestBody DeliveryRequest deliveryRequest
