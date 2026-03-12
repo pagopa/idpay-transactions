@@ -1,0 +1,15 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/esiti\\?idRichiesta=BATCH_[0-9]+",
+    "headers": {
+      "Authorization": { "matches": "Bearer MOCK_TOKEN_KO" }
+    }
+  },
+  "response": {
+    "status": 500,
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}
