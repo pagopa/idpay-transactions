@@ -1,4 +1,4 @@
-package it.gov.pagopa.idpay.transactions.service.invoiceLifecycle;
+package it.gov.pagopa.idpay.transactions.service.invoice_lifecycle;
 
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;

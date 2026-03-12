@@ -1,4 +1,4 @@
-package it.gov.pagopa.idpay.transactions.service.invoiceLifecycle;
+package it.gov.pagopa.idpay.transactions.service.invoice_lifecycle;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import org.junit.jupiter.api.Test;
