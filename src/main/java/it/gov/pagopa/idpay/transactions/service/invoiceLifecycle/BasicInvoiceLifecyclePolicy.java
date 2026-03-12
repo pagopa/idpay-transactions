@@ -5,6 +5,7 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import reactor.core.publisher.Mono;
 
@@ -13,6 +14,7 @@ import java.util.List;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_STATUS_NOT_ALLOWED;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.TRANSACTION_STATUS_NOT_ALLOWED;
 
+@Slf4j
 public class BasicInvoiceLifecyclePolicy implements InvoiceLifecyclePolicy {
 
   private static final String SCOPE = "transaction:invoicelifecycle:basic";
@@ -24,6 +26,7 @@ public class BasicInvoiceLifecyclePolicy implements InvoiceLifecyclePolicy {
 
   @Override
   public Mono<RewardTransaction> validate(RewardTransaction trx, RewardBatch batch) {
+    log.info("Starting validation BasicInvoiceLifecyclePolicy");
     String status = trx.getStatus();
     RewardBatchStatus batchStatus = batch.getStatus();
 

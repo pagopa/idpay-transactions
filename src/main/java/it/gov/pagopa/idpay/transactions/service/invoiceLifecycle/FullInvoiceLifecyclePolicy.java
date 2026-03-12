@@ -6,13 +6,14 @@ import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
-
+@Slf4j
 public class FullInvoiceLifecyclePolicy implements InvoiceLifecyclePolicy {
 
   private static final String SCOPE = "transaction:invoicelifecycle:full";
@@ -24,6 +25,7 @@ public class FullInvoiceLifecyclePolicy implements InvoiceLifecyclePolicy {
 
   @Override
   public Mono<RewardTransaction> validate(RewardTransaction trx, RewardBatch batch) {
+    log.info("Starting validation FullInvoiceLifecyclePolicy");
     String status = trx.getStatus();
     RewardBatchTrxStatus batchTrxStatus = trx.getRewardBatchTrxStatus();
     RewardBatchStatus batchStatus = batch.getStatus();
