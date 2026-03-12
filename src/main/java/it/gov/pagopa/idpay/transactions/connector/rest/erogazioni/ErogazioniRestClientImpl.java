@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.connector.rest.erogazioni;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.InvitaliaTokenProviderService;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryOutcomeDTO;
@@ -31,12 +32,15 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
     private final Integer retryDelay;
     private final String autorizzatore;
 
+    private final ObjectMapper objectMapper;
+
     public ErogazioniRestClientImpl(InvitaliaTokenProviderService tokenProvider,
                                     @Value("${app.erogazioni.retry.max-attempts:3}") Integer maxAttempts,
                                     @Value("${app.erogazioni.retry.delay-millis:500}") Integer retryDelay,
                                     @Value("${app.erogazioni.erogazioni-url}") String erogazioniBaseUrl,
                                     @Value("${app.erogazioni.authorizer:}") String autorizzatore,
-                                    WebClient.Builder webClientBuilder) {
+                                    WebClient.Builder webClientBuilder,
+                                    ObjectMapper objectMapper) {
         this.tokenProvider = tokenProvider;
         this.maxAttempts = maxAttempts;
         this.retryDelay = retryDelay;
@@ -44,6 +48,7 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
         this.webClient = webClientBuilder.clone()
                 .baseUrl(erogazioniBaseUrl)
                 .build();
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -61,51 +66,51 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
         log.info("[POST_EROGAZIONE] Sending delivery request for batchId: {}",
                 sanitizeString(deliveryRequest.getId()));
 
-            return tokenProvider.retrieveToken()
-                    .flatMap(token -> webClient.post()
-                            .uri(URI_EROGAZIONI)
-                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                            .header("Request-Id", deliveryRequest.getId())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(deliveryRequest)
-                            .retrieve()
-                            .onStatus(HttpStatusCode::is4xxClientError, response -> Mono.empty())
-                            .onStatus(HttpStatusCode::is5xxServerError, response ->
-                                    Mono.error(new RuntimeException("Server error during erogazione")))
-                            .bodyToMono(DeliveryOutcomeDTO.class)
-                            .doOnNext(outcome -> log.info("[POST_EROGAZIONE] Received outcome for batch {}: success={}",
-                                    sanitizeString(deliveryRequest.getId()), outcome.isSucceded()))
+        return tokenProvider.retrieveToken()
+                .flatMap(token -> webClient.post()
+                        .uri(URI_EROGAZIONI)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .header("Request-Id", deliveryRequest.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(deliveryRequest)
+                        .retrieve()
+                        .onStatus(HttpStatusCode::is4xxClientError, response -> Mono.empty())
+                        .onStatus(HttpStatusCode::is5xxServerError, response ->
+                                Mono.error(new RuntimeException("Server error during erogazione")))
+                        .bodyToMono(DeliveryOutcomeDTO.class)
+                        .doOnNext(outcome -> log.info("[POST_EROGAZIONE] Received outcome for batch {}: success={}",
+                                sanitizeString(deliveryRequest.getId()), outcome.isSucceded()))
 
-                            .retryWhen(Retry.fixedDelay(maxAttempts, Duration.ofMillis(retryDelay))
-                                    .filter(ex -> {
-                                       if (ex instanceof WebClientResponseException wcre) {
-                                           return !wcre.getStatusCode().is4xxClientError();
-                                        }
-                                        return true;
-                                    })
-                                    .onRetryExhaustedThrow((spec, signal) -> {
-                                        log.error("[POST_EROGAZIONE] Max attempts reached for id: {}",
-                                                sanitizeString(deliveryRequest.getId()));
-                                        return new RuntimeException("Retry exhausted after technical failures", signal.failure());
-                                    })
-                            )
-                    )
-                    .onErrorResume(e -> {
-                        String detailedMessage = e.getMessage();
-                        if (e.getCause() != null) {
-                            detailedMessage = e.getCause().getMessage();
-                        }
+                        .retryWhen(Retry.fixedDelay(maxAttempts, Duration.ofMillis(retryDelay))
+                                .filter(ex -> {
+                                    if (ex instanceof WebClientResponseException wcre) {
+                                        return !wcre.getStatusCode().is4xxClientError();
+                                    }
+                                    return true;
+                                })
+                                .onRetryExhaustedThrow((spec, signal) -> {
+                                    log.error("[POST_EROGAZIONE] Max attempts reached for id: {}",
+                                            sanitizeString(deliveryRequest.getId()));
+                                    return new RuntimeException("Retry exhausted after technical failures", signal.failure());
+                                })
+                        )
+                )
+                .onErrorResume(e -> {
+                    String detailedMessage = e.getMessage();
+                    if (e.getCause() != null) {
+                        detailedMessage = e.getCause().getMessage();
+                    }
 
-                        log.error("[POST_EROGAZIONE] Permanent failure for batch {}: {}",
-                                sanitizeString(deliveryRequest.getId()), detailedMessage);
+                    log.error("[POST_EROGAZIONE] Permanent failure for batch {}: {}",
+                            sanitizeString(deliveryRequest.getId()), detailedMessage);
 
-                        return Mono.just(DeliveryOutcomeDTO.builder()
-                                .succeded(false)
-                                .message("Technical error: " + detailedMessage)
-                                .timestamp(LocalDateTime.now())
-                                .build());
-                    });
-        }
+                    return Mono.just(DeliveryOutcomeDTO.builder()
+                            .succeded(false)
+                            .message("Technical error: " + detailedMessage)
+                            .timestamp(LocalDateTime.now())
+                            .build());
+                });
+    }
 
     @Override
     public Mono<InvitaliaOutcomeResponseDTO> getOutcome(String requestId) {
@@ -120,7 +125,14 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
                                 .build())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                         .retrieve()
-                        .bodyToMono(InvitaliaOutcomeResponseDTO.class)
+                        .bodyToMono(String.class)
+                        .map(body -> {
+                            try {
+                                return objectMapper.readValue(body, InvitaliaOutcomeResponseDTO.class);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        })
                         .retryWhen(Retry.fixedDelay(maxAttempts, Duration.ofMillis(retryDelay))
                                 .doBeforeRetry(signal ->
                                         log.warn("[GET_OUTCOME] Retry attempt {} for requestId: {} due to {}",
