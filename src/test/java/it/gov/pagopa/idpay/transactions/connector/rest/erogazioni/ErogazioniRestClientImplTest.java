@@ -72,8 +72,8 @@ class ErogazioniRestClientImplTest extends BaseWireMockTest {
         StepVerifier.create(erogazioniRestClient.postErogazione(request))
                 .assertNext(outcome -> {
                     assertFalse(outcome.isSucceded());
-                    assertTrue(outcome.getMessage().contains("Persistent technical error"));
-                    assertTrue(outcome.getMessage().contains("Retry exhausted"));
+                    assertTrue(outcome.getMessage().contains("Technical error"));
+                    assertTrue(outcome.getMessage().contains("Server error during erogazione"));
                     assertNotNull(outcome.getTimestamp());
                 })
                 .verifyComplete();
