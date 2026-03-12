@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.controller;
 import it.gov.pagopa.idpay.transactions.config.ServiceExceptionConfig;
 import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.InvitaliaTokenProviderService;
+import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.AnagraficaDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryOutcomeDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
@@ -128,11 +129,12 @@ class InvitaliaControllerImplTest {
     @Test
     void checkRefundOutcome_Success() {
         String batchId = "BATCH_OK";
+        InvitaliaOutcomeResponseDTO outcomeDTO = new InvitaliaOutcomeResponseDTO();
 
         when(erogazioniRestClient.getOutcome(batchId))
-                .thenReturn(Mono.empty());
+                .thenReturn(Mono.just(outcomeDTO));
 
-        webTestClient.patch()
+        webTestClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/idpay/invitalia/checkRefundOutcome")
                         .queryParam("rewardBatchId", batchId)
@@ -140,7 +142,8 @@ class InvitaliaControllerImplTest {
                 )
                 .exchange()
                 .expectStatus().isOk()
-                .expectBody().isEmpty();
+                .expectBody(InvitaliaOutcomeResponseDTO.class)
+                .isEqualTo(outcomeDTO);
 
         verify(erogazioniRestClient).getOutcome(batchId);
     }
@@ -152,7 +155,7 @@ class InvitaliaControllerImplTest {
         when(erogazioniRestClient.getOutcome(batchId))
                 .thenReturn(Mono.error(new RuntimeException("API Error")));
 
-        webTestClient.patch()
+        webTestClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/idpay/invitalia/checkRefundOutcome")
                         .queryParam("rewardBatchId", batchId)
