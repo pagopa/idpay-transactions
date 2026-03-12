@@ -1,6 +1,8 @@
 package it.gov.pagopa.idpay.transactions.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import it.gov.pagopa.idpay.transactions.enums.PosType;
@@ -38,4 +40,8 @@ public class RewardBatchDTO {
   String assigneeLevel;
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   LocalDateTime merchantSendDate;
+
+  private LocalDate refundValutaDate;
+  private String refundErrorMessage;
+  private LocalDateTime refundOutcomeTimestamp;
 }

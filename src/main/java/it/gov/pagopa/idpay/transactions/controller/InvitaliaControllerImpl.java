@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.InvitaliaTokenProviderService;
+import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryOutcomeDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,5 +26,10 @@ public class InvitaliaControllerImpl implements InvitaliaController{
     @Override
     public Mono<DeliveryOutcomeDTO> postErogazione(DeliveryRequest deliveryRequest) {
         return erogazioniRestClient.postErogazione(deliveryRequest);
+    }
+
+    @Override
+    public Mono<InvitaliaOutcomeResponseDTO> checkRefundOutcome(String rewardBatchId) {
+        return erogazioniRestClient.getOutcome(rewardBatchId);
     }
 }

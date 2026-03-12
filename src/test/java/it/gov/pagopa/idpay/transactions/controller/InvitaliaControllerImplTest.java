@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.controller;
 import it.gov.pagopa.idpay.transactions.config.ServiceExceptionConfig;
 import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.InvitaliaTokenProviderService;
+import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.AnagraficaDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryOutcomeDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
@@ -123,5 +124,46 @@ class InvitaliaControllerImplTest {
                 .bodyValue(request)
                 .exchange()
                 .expectStatus().is5xxServerError();
+    }
+
+    @Test
+    void checkRefundOutcome_Success() {
+        String batchId = "BATCH_OK";
+        InvitaliaOutcomeResponseDTO outcomeDTO = new InvitaliaOutcomeResponseDTO();
+
+        when(erogazioniRestClient.getOutcome(batchId))
+                .thenReturn(Mono.just(outcomeDTO));
+
+        webTestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/invitalia/checkRefundOutcome")
+                        .queryParam("rewardBatchId", batchId)
+                        .build()
+                )
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(InvitaliaOutcomeResponseDTO.class)
+                .isEqualTo(outcomeDTO);
+
+        verify(erogazioniRestClient).getOutcome(batchId);
+    }
+
+    @Test
+    void checkRefundOutcome_InternalServerError() {
+        String batchId = "BATCH_KO";
+
+        when(erogazioniRestClient.getOutcome(batchId))
+                .thenReturn(Mono.error(new RuntimeException("API Error")));
+
+        webTestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/invitalia/checkRefundOutcome")
+                        .queryParam("rewardBatchId", batchId)
+                        .build()
+                )
+                .exchange()
+                .expectStatus().is5xxServerError();
+
+        verify(erogazioniRestClient).getOutcome(batchId);
     }
 }

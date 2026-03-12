@@ -3,11 +3,14 @@ package it.gov.pagopa.idpay.transactions.service;
 import com.azure.core.http.rest.Response;
 import com.azure.storage.blob.models.BlockBlobItem;
 import com.mongodb.client.result.DeleteResult;
+import it.gov.pagopa.common.web.dto.ErrorDTO;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.MerchantDetailDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.ErogazioneOutcomeDTO;
+import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.SelfcareInstitutionsRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionList;
@@ -1660,4 +1663,278 @@ class RewardBatchServiceImplTest {
         verify(rewardTransactionRepository).save(trx);
     }
 
+    @Test
+    void checkRewardBatchesOutcomes_withIds_success() {
+
+        RewardBatch batch1 = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.PENDING_REFUND).build();
+        RewardBatch batch2 = RewardBatch.builder().id(BATCH_ID_2).status(RewardBatchStatus.PENDING_REFUND).build();
+
+        ErogazioneOutcomeDTO erogazione1 = ErogazioneOutcomeDTO.builder()
+                .status("COMPLETATO")
+                .dateValue(LocalDate.now())
+                .build();
+
+        InvitaliaOutcomeResponseDTO outcome1 = InvitaliaOutcomeResponseDTO.builder()
+                .message(null)
+                .erogazione(erogazione1)
+                .build();
+
+        ErogazioneOutcomeDTO erogazione2 = ErogazioneOutcomeDTO.builder()
+                .status("RIFIUTATO")
+                .build();
+
+        ErrorDTO error = new ErrorDTO("ERR01", "Errore");
+
+        InvitaliaOutcomeResponseDTO outcome2 = InvitaliaOutcomeResponseDTO.builder()
+                .erogazione(erogazione2)
+                .errors(List.of(error))
+                .build();
+
+        when(rewardBatchRepository.findByIdAndStatus(BATCH_ID, RewardBatchStatus.PENDING_REFUND))
+                .thenReturn(Mono.just(batch1));
+        when(rewardBatchRepository.findByIdAndStatus(BATCH_ID_2, RewardBatchStatus.PENDING_REFUND))
+                .thenReturn(Mono.just(batch2));
+
+        when(erogazioniRestClient.getOutcome(BATCH_ID)).thenReturn(Mono.just(outcome1));
+        when(erogazioniRestClient.getOutcome(BATCH_ID_2)).thenReturn(Mono.just(outcome2));
+
+        when(rewardBatchRepository.save(any(RewardBatch.class)))
+                .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        StepVerifier.create(service.checkRewardBatchesOutcomes(INITIATIVE_ID, List.of(BATCH_ID, BATCH_ID_2)))
+                .verifyComplete();
+
+        assertEquals(RewardBatchStatus.REFUNDED, batch1.getStatus());
+        assertNotNull(batch1.getRefundValutaDate());
+
+        assertEquals(RewardBatchStatus.NOT_REFUNDED, batch2.getStatus());
+        assertEquals("ERR01 - Errore", batch2.getRefundErrorMessage());
+
+        verify(rewardBatchRepository).findByIdAndStatus(BATCH_ID, RewardBatchStatus.PENDING_REFUND);
+        verify(rewardBatchRepository).findByIdAndStatus(BATCH_ID_2, RewardBatchStatus.PENDING_REFUND);
+        verify(erogazioniRestClient).getOutcome(BATCH_ID);
+        verify(erogazioniRestClient).getOutcome(BATCH_ID_2);
+        verify(rewardBatchRepository, times(2)).save(any());
+    }
+
+    @Test
+    void checkRewardBatchesOutcomes_emptyList_success() {
+        RewardBatch batch1 = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.PENDING_REFUND).build();
+
+        ErogazioneOutcomeDTO erogazione = ErogazioneOutcomeDTO.builder()
+                .status("COMPLETATO")
+                .dateValue(LocalDate.now())
+                .build();
+
+        InvitaliaOutcomeResponseDTO outcome = InvitaliaOutcomeResponseDTO.builder()
+                .message(null)
+                .erogazione(erogazione)
+                .build();
+
+        when(rewardBatchRepository.findByStatus(RewardBatchStatus.PENDING_REFUND))
+                .thenReturn(Flux.just(batch1));
+
+        when(erogazioniRestClient.getOutcome(BATCH_ID)).thenReturn(Mono.just(outcome));
+        when(rewardBatchRepository.save(any(RewardBatch.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        StepVerifier.create(service.checkRewardBatchesOutcomes(INITIATIVE_ID, null))
+                .verifyComplete();
+
+        assertEquals(RewardBatchStatus.REFUNDED, batch1.getStatus());
+        verify(rewardBatchRepository).findByStatus(RewardBatchStatus.PENDING_REFUND);
+        verify(erogazioniRestClient).getOutcome(BATCH_ID);
+        verify(rewardBatchRepository).save(batch1);
+    }
+
+    @Test
+    void updateBatch_completato_setsRefunded() {
+        RewardBatch batch = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.PENDING_REFUND).build();
+
+        ErogazioneOutcomeDTO erogazione = ErogazioneOutcomeDTO.builder()
+                .status("COMPLETATO")
+                .dateValue(LocalDate.now())
+                .build();
+
+        InvitaliaOutcomeResponseDTO outcome = InvitaliaOutcomeResponseDTO.builder()
+                .message(null)
+                .erogazione(erogazione)
+                .build();
+
+        when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        StepVerifier.create(service.updateBatch(batch, outcome))
+                .assertNext(b -> {
+                    assertEquals(RewardBatchStatus.REFUNDED, b.getStatus());
+                    assertNotNull(b.getRefundValutaDate());
+                    assertNotNull(b.getRefundOutcomeTimestamp());
+                })
+                .verifyComplete();
+
+        verify(rewardBatchRepository).save(batch);
+    }
+
+    @Test
+    void updateBatch_rifiutato_setsNotRefunded_withoutErrors() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(BATCH_ID)
+                .status(RewardBatchStatus.PENDING_REFUND)
+                .build();
+
+        ErogazioneOutcomeDTO erogazione = ErogazioneOutcomeDTO.builder()
+                .status("RIFIUTATO")
+                .build();
+
+        InvitaliaOutcomeResponseDTO outcome = InvitaliaOutcomeResponseDTO.builder()
+                .erogazione(erogazione)
+                .errors(null)
+                .build();
+
+        when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        StepVerifier.create(service.updateBatch(batch, outcome))
+                .assertNext(b -> {
+                    assertEquals(RewardBatchStatus.NOT_REFUNDED, b.getStatus());
+                    assertNull(b.getRefundErrorMessage());
+                    assertNotNull(b.getRefundOutcomeTimestamp());
+                })
+                .verifyComplete();
+
+        verify(rewardBatchRepository).save(batch);
+    }
+
+    @Test
+    void updateBatch_inLavorazione_withCreatedStatus_setsPendingRefundTimestamp() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(BATCH_ID)
+                .status(RewardBatchStatus.CREATED)
+                .build();
+
+        ErogazioneOutcomeDTO erogazione = ErogazioneOutcomeDTO.builder()
+                .status("IN_LAVORAZIONE")
+                .build();
+
+        InvitaliaOutcomeResponseDTO outcome = InvitaliaOutcomeResponseDTO.builder()
+                .erogazione(erogazione)
+                .build();
+
+        StepVerifier.create(service.updateBatch(batch, outcome))
+                .assertNext(b -> assertEquals(RewardBatchStatus.CREATED, b.getStatus()))
+                .verifyComplete();
+    }
+
+    @Test
+    void updateBatch_errore_withCreatedStatus_setsPendingRefundTimestamp() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(BATCH_ID)
+                .status(RewardBatchStatus.CREATED)
+                .build();
+
+        ErogazioneOutcomeDTO erogazione = ErogazioneOutcomeDTO.builder()
+                .status("ERRORE")
+                .build();
+
+        InvitaliaOutcomeResponseDTO outcome = InvitaliaOutcomeResponseDTO.builder()
+                .erogazione(erogazione)
+                .build();
+
+        StepVerifier.create(service.updateBatch(batch, outcome))
+                .assertNext(b -> assertEquals(RewardBatchStatus.CREATED, b.getStatus()))
+                .verifyComplete();
+    }
+
+    @Test
+    void updateBatch_rifiutato_withoutErrors_setsNotRefunded() {
+
+        RewardBatch batch = RewardBatch.builder()
+                .id(BATCH_ID)
+                .status(RewardBatchStatus.PENDING_REFUND)
+                .build();
+
+        ErogazioneOutcomeDTO erogazione = ErogazioneOutcomeDTO.builder()
+                .status("RIFIUTATO")
+                .build();
+
+        InvitaliaOutcomeResponseDTO outcome = InvitaliaOutcomeResponseDTO.builder()
+                .erogazione(erogazione)
+                .errors(null)
+                .build();
+
+        when(rewardBatchRepository.save(any()))
+                .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        StepVerifier.create(service.updateBatch(batch, outcome))
+                .assertNext(b -> {
+                    assertEquals(RewardBatchStatus.NOT_REFUNDED, b.getStatus());
+                    assertNull(b.getRefundErrorMessage());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void updateBatch_rifiutato_withEmptyErrors_setsNotRefunded() {
+
+        RewardBatch batch = RewardBatch.builder()
+                .id(BATCH_ID)
+                .status(RewardBatchStatus.PENDING_REFUND)
+                .build();
+
+        ErogazioneOutcomeDTO erogazione = ErogazioneOutcomeDTO.builder()
+                .status("RIFIUTATO")
+                .build();
+
+        InvitaliaOutcomeResponseDTO outcome = InvitaliaOutcomeResponseDTO.builder()
+                .erogazione(erogazione)
+                .errors(List.of())
+                .build();
+
+        when(rewardBatchRepository.save(any()))
+                .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        StepVerifier.create(service.updateBatch(batch, outcome))
+                .assertNext(b -> {
+                    assertEquals(RewardBatchStatus.NOT_REFUNDED, b.getStatus());
+                    assertNull(b.getRefundErrorMessage());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void updateBatch_errore_withPendingStatus_keepsPendingRefund() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(BATCH_ID)
+                .status(RewardBatchStatus.PENDING_REFUND)
+                .build();
+
+        ErogazioneOutcomeDTO erogazione = ErogazioneOutcomeDTO.builder()
+                .status("ERRORE")
+                .build();
+
+        InvitaliaOutcomeResponseDTO outcome = InvitaliaOutcomeResponseDTO.builder()
+                .erogazione(erogazione)
+                .build();
+
+        StepVerifier.create(service.updateBatch(batch, outcome))
+                .assertNext(b -> assertEquals(RewardBatchStatus.PENDING_REFUND, b.getStatus()))
+                .verifyComplete();
+    }
+
+    @Test
+    void updateBatch_inLavorazione_withPendingStatus_keepsPendingRefund() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(BATCH_ID)
+                .status(RewardBatchStatus.PENDING_REFUND)
+                .build();
+
+        ErogazioneOutcomeDTO erogazione = ErogazioneOutcomeDTO.builder()
+                .status("IN_LAVORAZIONE")
+                .build();
+
+        InvitaliaOutcomeResponseDTO outcome = InvitaliaOutcomeResponseDTO.builder()
+                .erogazione(erogazione)
+                .build();
+
+        StepVerifier.create(service.updateBatch(batch, outcome))
+                .assertNext(b -> assertEquals(RewardBatchStatus.PENDING_REFUND, b.getStatus()))
+                .verifyComplete();
+    }
 }

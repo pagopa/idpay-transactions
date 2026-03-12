@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.connector.rest.erogazioni;
 
 
+import it.gov.pagopa.common.config.JsonConfig;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.InvitaliaTokenProviderService;
 import it.gov.pagopa.idpay.transactions.dto.AnagraficaDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
@@ -13,8 +14,12 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import reactor.core.publisher.Mono;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import it.gov.pagopa.common.reactive.rest.config.WebClientConfig;
 import it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest;
 import reactor.test.StepVerifier;
@@ -26,7 +31,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @ContextConfiguration(
         classes = {
                 ErogazioniRestClientImpl.class,
-                WebClientConfig.class
+                WebClientConfig.class,
+                JsonConfig.class
         })
 @TestPropertySource(
         properties = {
@@ -102,5 +108,41 @@ class ErogazioniRestClientImplTest extends BaseWireMockTest {
                         .dataAmmissione(LocalDateTime.now())
                         .build())
                 .build();
+    }
+
+    @Test
+    void getOutcome_ok_returnsCompleted() {
+        String batchId = "BATCH_123";
+
+        Mockito.when(invitaliaTokenProviderService.retrieveToken())
+                .thenReturn(Mono.just("MOCK_TOKEN"));
+
+        StepVerifier.create(erogazioniRestClient.getOutcome(batchId))
+                .assertNext(outcome -> {
+                    assertEquals("COMPLETATO", outcome.getErogazione().getStatus());
+
+                    BigDecimal expectedAmount = new BigDecimal("1000.0");
+                    BigDecimal actualAmount = outcome.getErogazione().getAmountPaid() != null
+                            ? new BigDecimal(outcome.getErogazione().getAmountPaid().toString())
+                            : null;
+                    assertNotNull(actualAmount);
+                    assertEquals(0, expectedAmount.compareTo(actualAmount), "Amount mismatch");
+
+                    assertEquals(LocalDate.of(2026, 3, 10), outcome.getErogazione().getDateValue());
+                    assertEquals("OK", outcome.getMessage());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void getOutcome_ko_throwsError() {
+        String batchId = "BATCH_456";
+
+        Mockito.when(invitaliaTokenProviderService.retrieveToken())
+                .thenReturn(Mono.just("MOCK_TOKEN_KO"));
+
+        StepVerifier.create(erogazioniRestClient.getOutcome(batchId))
+                .expectErrorMatches(RuntimeException.class::isInstance)
+                .verify();
     }
 }
