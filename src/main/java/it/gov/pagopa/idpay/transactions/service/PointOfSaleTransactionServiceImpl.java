@@ -185,13 +185,13 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
         return rewardBatchRepository.findRewardBatchById(oldBatchId)
                 .switchIfEmpty(Mono.defer(() -> Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND))))
-                .flatMap(oldBatch -> {
-                    policy.validate(trx, oldBatch);
+                .flatMap(oldBatch ->
 
-                    return updateInvoiceFileAndFields(trx, file, docNumber)
+                    policy.validate(trx, oldBatch)
+                            .flatMap(t-> updateInvoiceFileAndFields(trx, file, docNumber))
                             .flatMap(savedTrx -> suspendAndMoveTransaction(savedTrx, oldBatch))
-                            .then();
-                });
+                            .then()
+                );
     }
 
     private String requireRewardBatchId(RewardTransaction trx) {
