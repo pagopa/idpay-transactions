@@ -109,16 +109,15 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     }
 
   @Override
-  public Mono<Void> checkRewardBatchesOutcomes(String initiativeId, List<String> rewardBatchIds) {
-    List<String> batchIds = rewardBatchIds != null ? rewardBatchIds : List.of();
+  public Mono<Void> checkRewardBatchesOutcomes(String initiativeId, RewardBatchesRequest request) {
+    List<String> rewardBatchIds = request != null && request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
 
-    List<String> sanitizedBatchIds = batchIds.stream()
+    List<String> sanitizedBatchIds = rewardBatchIds.stream()
             .map(Utilities::sanitizeString)
             .toList();
 
     log.info("[CHECK_REWARD_BATCHES_OUTCOMES] initiative {} rewardBatchIds {}", sanitizeString(initiativeId), sanitizedBatchIds);
-
-    return rewardBatchService.checkRewardBatchesOutcomes(initiativeId, batchIds);
+    return rewardBatchService.checkRewardBatchesOutcomes(initiativeId, rewardBatchIds);
   }
 
   @Override
