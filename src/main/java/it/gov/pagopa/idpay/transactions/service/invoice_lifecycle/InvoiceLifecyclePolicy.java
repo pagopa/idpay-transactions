@@ -7,13 +7,19 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 
 public interface InvoiceLifecyclePolicy {
+
   /**
-   * Return true if the provided scopes match this policy.
+   * Check if the current policy supports one of the provided scopes
+   * @param scopes list of scopes to check
+   * @return true if the policy supports at least one of the provided scopes, false otherwise
    */
   boolean supports(List<String> scopes);
 
   /**
-   * Validate the transaction according to the policy. Returns Mono.empty() when allowed, or Mono.error when not allowed.
+   * Validates the transaction/batch couple against current policy.
+   * @param trx Transaction to validate
+   * @param batch Batch to validate
+   * @return a Mono emitting the transaction if validation is successful, or an error if validation fails
    */
   Mono<RewardTransaction> validate(RewardTransaction trx, RewardBatch batch);
 }
