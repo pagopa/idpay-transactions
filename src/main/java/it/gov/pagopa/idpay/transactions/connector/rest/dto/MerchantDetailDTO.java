@@ -12,5 +12,8 @@ import lombok.NoArgsConstructor;
 public class MerchantDetailDTO {
 
   private String businessName;
-
+  private String vatNumber;
+  private String fiscalCode;
+  private String iban;
+  private String ibanHolder;
 }

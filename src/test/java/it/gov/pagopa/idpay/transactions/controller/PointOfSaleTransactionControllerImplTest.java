@@ -2,9 +2,7 @@ package it.gov.pagopa.idpay.transactions.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
@@ -15,11 +13,14 @@ import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
+import it.gov.pagopa.idpay.transactions.service.invoice_lifecycle.InvoiceLifecyclePolicy;
 import it.gov.pagopa.idpay.transactions.test.fakers.PointOfSaleTransactionDTOFaker;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 
-import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
@@ -67,7 +68,6 @@ class PointOfSaleTransactionControllerImplTest {
 
     PointOfSaleTransactionDTO dto = PointOfSaleTransactionDTOFaker
         .mockInstance(trx, INITIATIVE_ID, FISCAL_CODE);
-
 
     when(pointOfSaleTransactionService.getPointOfSaleTransactions(
         eq(MERCHANT_ID),
@@ -194,38 +194,46 @@ class PointOfSaleTransactionControllerImplTest {
         });
   }
 
-  @Test
-  void updateInvoiceFileOk() {
+    @Test
+    void updateInvoiceFileOk() {
 
-    when(pointOfSaleTransactionService.updateInvoiceTransaction(
-        eq(TRX_ID),
-        eq(MERCHANT_ID),
-        any(FilePart.class),
-        eq("DOC123")
-    )).thenReturn(Mono.empty());
+        String authorization =
+                "Bearer eyJhbGciOiJub25lIn0." +
+                        "eyJzY29wZSI6InRyYW5zYWN0aW9uOmludm9pY2VsaWZlY3ljbGU6ZnVsbCJ9." +
+                        "sig";
 
-    MultipartBodyBuilder builder = new MultipartBodyBuilder();
-    builder.part("file", "dummycontent".getBytes())
-        .filename("invoice.pdf")
-        .contentType(MediaType.APPLICATION_OCTET_STREAM);
-    builder.part("docNumber", "DOC123");
+        when(pointOfSaleTransactionService.updateInvoiceTransaction(
+                eq(TRX_ID),
+                eq(MERCHANT_ID),
+                any(FilePart.class),
+                eq("DOC123"),
+                any(InvoiceLifecyclePolicy.class)
+        )).thenReturn(Mono.empty());
 
-    webClient.put()
-        .uri("/idpay/transactions/{id}/invoice/update", TRX_ID)
-        .header("x-merchant-id", MERCHANT_ID)
-        .header("x-point-of-sale-id", POINT_OF_SALE_ID)
-        .contentType(MediaType.MULTIPART_FORM_DATA)
-        .body(BodyInserters.fromMultipartData(builder.build()))
-        .exchange()
-        .expectStatus().isNoContent();
+        MultipartBodyBuilder builder = new MultipartBodyBuilder();
+        builder.part("file", "dummycontent".getBytes())
+                .filename("invoice.pdf")
+                .contentType(MediaType.APPLICATION_OCTET_STREAM);
+        builder.part("docNumber", "DOC123");
 
-    verify(pointOfSaleTransactionService).updateInvoiceTransaction(
-        eq(TRX_ID),
-        eq(MERCHANT_ID),
-        any(FilePart.class),
-        eq("DOC123")
-    );
-  }
+        webClient.put()
+                .uri("/idpay/transactions/{id}/invoice/update", TRX_ID)
+                .header("x-merchant-id", MERCHANT_ID)
+                .header("x-point-of-sale-id", POINT_OF_SALE_ID)
+                .header("Authorization", authorization)
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(builder.build()))
+                .exchange()
+                .expectStatus().isNoContent();
+
+        verify(pointOfSaleTransactionService).updateInvoiceTransaction(
+                eq(TRX_ID),
+                eq(MERCHANT_ID),
+                any(FilePart.class),
+                eq("DOC123"),
+                any(InvoiceLifecyclePolicy.class)
+        );
+    }
 
   @Test
   void updateInvoiceFileBadRequestWhenMissingMerchantId() {
@@ -250,7 +258,8 @@ class PointOfSaleTransactionControllerImplTest {
         eq(TRX_ID),
         eq(MERCHANT_ID),
         any(FilePart.class),
-        eq("DOC456")
+        eq("DOC456"),
+        any(InvoiceLifecyclePolicy.class)
     )).thenReturn(Mono.empty());
 
     MultipartBodyBuilder builder = new MultipartBodyBuilder();
@@ -263,17 +272,28 @@ class PointOfSaleTransactionControllerImplTest {
         .uri("/idpay/transactions/{id}/reversal-invoiced", TRX_ID)
         .header("x-merchant-id", MERCHANT_ID)
         .header("x-point-of-sale-id", POINT_OF_SALE_ID)
+        .header("Authorization", buildBearerTokenWithScope("transaction:invoicelifecycle:basic"))
         .contentType(MediaType.MULTIPART_FORM_DATA)
         .body(BodyInserters.fromMultipartData(builder.build()))
         .exchange()
-        .expectStatus().isNoContent();
+        .expectStatus().isNoContent()
+        .expectBody().isEmpty();
 
     verify(pointOfSaleTransactionService).reversalTransaction(
         eq(TRX_ID),
         eq(MERCHANT_ID),
         any(FilePart.class),
-        eq("DOC456")
+        eq("DOC456"),
+        any(InvoiceLifecyclePolicy.class)
     );
+  }
+
+  private static String buildBearerTokenWithScope(String scope) {
+    String header = Base64.getUrlEncoder().withoutPadding()
+        .encodeToString("{\"alg\":\"none\"}".getBytes(StandardCharsets.UTF_8));
+    String payload = Base64.getUrlEncoder().withoutPadding()
+        .encodeToString(("{\"scope\":\"" + scope + "\"}").getBytes(StandardCharsets.UTF_8));
+    return "Bearer " + header + "." + payload + ".sig";
   }
 
 }
