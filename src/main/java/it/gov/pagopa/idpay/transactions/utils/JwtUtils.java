@@ -2,13 +2,12 @@ package it.gov.pagopa.idpay.transactions.utils;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
-
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 public final class JwtUtils {
 
@@ -18,19 +17,18 @@ public final class JwtUtils {
   private JwtUtils() {}
 
   /**
-   * Decodes the JWT payload to extract scopes without verifying the signature.
-   * Throws ResponseStatusException with 403 if header is missing or scopes are absent.
+   * Decodes the JWT payload to extract scopes without verifying the signature. Throws
+   * ResponseStatusException with 403 if header is missing or scopes are absent.
    */
   public static List<String> extractScopesOrThrow(String authorization) {
     if (authorization == null || authorization.isBlank()) {
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Authorization header missing");
     }
 
-    String token = authorization.trim();
-
-    if (token.toLowerCase().startsWith("bearer ")) {
-      token = token.substring(7).trim();
-    }
+    final String token =
+        authorization.toLowerCase().startsWith("bearer ")
+            ? authorization.substring(7).trim()
+            : authorization.trim();
 
     if (token.isEmpty()) {
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bearer token missing");
@@ -64,35 +62,25 @@ public final class JwtUtils {
     }
   }
 
-  /**
-   * Helper method to parse a claim that might be a String or a JSON Array.
-   */
+  /** Helper method to parse a claim that might be a String or a JSON Array. */
   private static List<String> extractClaimAsList(JsonNode root, String claimName) {
-    List<String> result = new ArrayList<>();
+    JsonNode node = root.path(claimName);
 
-    JsonNode node = root.get(claimName);
-    if (node == null || node.isNull()) {
-      return result;
+    if (node.isMissingNode() || node.isNull()) {
+      return List.of();
     }
 
     if (node.isArray()) {
+      List<String> result = new ArrayList<>();
       node.forEach(n -> result.add(n.asText()));
       return result;
     }
 
-    if (!node.isTextual()) {
-      return result;
+    if (node.isTextual()) {
+      String text = node.asText().trim();
+      return text.isEmpty() ? List.of() : List.of(text.split("\\s+"));
     }
 
-    String text = node.asText();
-    if (text.isBlank()) {
-      return result;
-    }
-
-    for (String scope : text.trim().split("\\s+")) {
-      result.add(scope);
-    }
-
-    return result;
+    return List.of();
   }
 }

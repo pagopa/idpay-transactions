@@ -71,7 +71,7 @@ class JwtUtilsTest {
         () -> JwtUtils.extractScopesOrThrow("Bearer "));
 
     assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
-    assertEquals("Invalid JWT structure", ex.getReason());
+    assertEquals("Bearer token missing", ex.getReason());
   }
 
   @Test
