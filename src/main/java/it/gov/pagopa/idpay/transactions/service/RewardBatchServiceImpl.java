@@ -883,8 +883,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 originalBatch.getPosType(),
                 addOneMonth(originalBatch.getMonth()),
                 originalBatch.getBusinessName())
-                //TODO: rimuovere tutto il blocco dopo il return, utilizzare il metodo findOrCreteTargetBatch
-                //che ha gia dentro la findOrCreate (PointOfSaleTransactionServiceImpl)
                 .flatMap(newBatch -> updateAndSaveRewardTransactionsSuspended(originalBatch.getId(), initiativeId, newBatch.getId(), originalBatch.getMonth())
                         .flatMap(totalAccrued -> {
                             BatchCountersDTO batchCounters = BatchCountersDTO.newBatch()
