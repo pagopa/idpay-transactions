@@ -76,9 +76,6 @@ class InvoiceLifecyclePolicyTest {
     @MethodSource("policyCombinations")
     void policyValidate(RewardBatchStatus batchStatus, RewardBatchTrxStatus batchTrxStatus, boolean expectedBasic, boolean expectedFull) {
 
-        System.out.printf("[policyValidate] batchStatus=%s, batchTrxStatus=%s, expectedBasic=%s, expectedFull=%s%n",
-                batchStatus, batchTrxStatus, expectedBasic, expectedFull);
-
         SyncTrxStatus trxStatus = batchStatus==RewardBatchStatus.CREATED ?
                 SyncTrxStatus.INVOICED : SyncTrxStatus.REWARDED;
         RewardTransaction trx = RewardTransaction.builder()
