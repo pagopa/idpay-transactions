@@ -13,6 +13,7 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
+
 @Slf4j
 public class FullInvoiceLifecyclePolicy implements InvoiceLifecyclePolicy {
 
@@ -25,39 +26,55 @@ public class FullInvoiceLifecyclePolicy implements InvoiceLifecyclePolicy {
 
   @Override
   public Mono<RewardTransaction> validate(RewardTransaction trx, RewardBatch batch) {
-    log.info("Starting validation FullInvoiceLifecyclePolicy");
+    log.info(
+        "Starting validation FullInvoiceLifecyclePolicy trxStatus={} trxBatchStatus={} batchStatus={}",
+        trx.getStatus(),
+        trx.getRewardBatchTrxStatus(),
+        batch.getStatus());
+
     String status = trx.getStatus();
     RewardBatchTrxStatus batchTrxStatus = trx.getRewardBatchTrxStatus();
     RewardBatchStatus batchStatus = batch.getStatus();
 
-    boolean trxStatusAllowed = SyncTrxStatus.INVOICED.name().equalsIgnoreCase(status)
-        || SyncTrxStatus.REWARDED.name().equalsIgnoreCase(status);
+    boolean trxStatusAllowed =
+        SyncTrxStatus.INVOICED.name().equalsIgnoreCase(status)
+            || SyncTrxStatus.REWARDED.name().equalsIgnoreCase(status);
 
-      if (!trxStatusAllowed) {
-          return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, TRANSACTION_STATUS_NOT_ALLOWED,
-                  "Transaction status not allowed for full invoice operations"));
-      }
+    if (!trxStatusAllowed) {
+      return Mono.error(
+          new ClientExceptionWithBody(
+              HttpStatus.BAD_REQUEST,
+              TRANSACTION_STATUS_NOT_ALLOWED,
+              "Transaction status not allowed for full invoice operations"));
+    }
 
-    boolean batchStatusAllowed = RewardBatchStatus.CREATED.equals(batchStatus)
+    boolean batchStatusAllowed =
+        RewardBatchStatus.CREATED.equals(batchStatus)
             || RewardBatchStatus.EVALUATING.equals(batchStatus)
             || RewardBatchStatus.APPROVED.equals(batchStatus);
 
-      if (!batchStatusAllowed) {
-          return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_STATUS_NOT_ALLOWED,
-                  "Batch status not allowed for full invoice operations"));
-      }
+    if (!batchStatusAllowed) {
+      return Mono.error(
+          new ClientExceptionWithBody(
+              HttpStatus.BAD_REQUEST,
+              REWARD_BATCH_STATUS_NOT_ALLOWED,
+              "Batch status not allowed for full invoice operations"));
+    }
 
-    boolean trxBatchStatusAllowed = RewardBatchTrxStatus.CONSULTABLE.equals(batchTrxStatus)
+    boolean trxBatchStatusAllowed =
+        RewardBatchTrxStatus.CONSULTABLE.equals(batchTrxStatus)
             || RewardBatchTrxStatus.TO_CHECK.equals(batchTrxStatus)
             || RewardBatchTrxStatus.SUSPENDED.equals(batchTrxStatus)
             || RewardBatchTrxStatus.REJECTED.equals(batchTrxStatus);
 
-      if (!trxBatchStatusAllowed) {
-          return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_TRX_STATUS_NOT_ALLOWED,
-                  "RewardBatchTrxStatus not allowed for full invoice operations"));
-      }
+    if (!trxBatchStatusAllowed) {
+      return Mono.error(
+          new ClientExceptionWithBody(
+              HttpStatus.BAD_REQUEST,
+              REWARD_BATCH_TRX_STATUS_NOT_ALLOWED,
+              "RewardBatchTrxStatus not allowed for full invoice operations"));
+    }
 
-        return Mono.just(trx);
-
+    return Mono.just(trx);
   }
 }

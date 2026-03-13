@@ -12,6 +12,9 @@ import reactor.test.StepVerifier;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 class BasicInvoiceLifecyclePolicyTest {
 
     private final BasicInvoiceLifecyclePolicy policy = new BasicInvoiceLifecyclePolicy();
@@ -20,21 +23,21 @@ class BasicInvoiceLifecyclePolicyTest {
     void supportsShouldReturnFalseWhenScopesIsNull() {
         boolean result = policy.supports(null);
 
-        org.junit.jupiter.api.Assertions.assertFalse(result);
+        assertFalse(result);
     }
 
     @Test
     void supportsShouldReturnTrueWhenScopeIsPresent() {
         boolean result = policy.supports(List.of("another:scope", "transaction:invoicelifecycle:basic"));
 
-        org.junit.jupiter.api.Assertions.assertTrue(result);
+        assertTrue(result);
     }
 
     @Test
     void supportsShouldReturnFalseWhenScopeIsNotPresent() {
         boolean result = policy.supports(List.of("another:scope", "transaction:invoicelifecycle:advanced"));
 
-        org.junit.jupiter.api.Assertions.assertFalse(result);
+        assertFalse(result);
     }
 
     @ParameterizedTest

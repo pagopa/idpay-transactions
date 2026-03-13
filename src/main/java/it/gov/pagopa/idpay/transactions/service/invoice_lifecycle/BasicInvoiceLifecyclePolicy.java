@@ -26,24 +26,36 @@ public class BasicInvoiceLifecyclePolicy implements InvoiceLifecyclePolicy {
 
   @Override
   public Mono<RewardTransaction> validate(RewardTransaction trx, RewardBatch batch) {
-    log.info("Starting validation BasicInvoiceLifecyclePolicy");
+    log.info(
+        "Starting validation BasicInvoiceLifecyclePolicy trxStatus={} trxBatchStatus={} batchStatus={}",
+        trx.getStatus(),
+        trx.getRewardBatchTrxStatus(),
+        batch.getStatus());
+
     String status = trx.getStatus();
     RewardBatchStatus batchStatus = batch.getStatus();
 
-      if (!SyncTrxStatus.INVOICED.name().equalsIgnoreCase(status)) {
-          return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, TRANSACTION_STATUS_NOT_ALLOWED,
-                  "Transaction status not allowed for basic invoice operations"));
-      }
+    if (!SyncTrxStatus.INVOICED.name().equalsIgnoreCase(status)) {
+      return Mono.error(
+          new ClientExceptionWithBody(
+              HttpStatus.BAD_REQUEST,
+              TRANSACTION_STATUS_NOT_ALLOWED,
+              "Transaction status not allowed for basic invoice operations"));
+    }
 
-      boolean batchStatusAllowed = RewardBatchStatus.CREATED.equals(batchStatus)
-              || RewardBatchStatus.EVALUATING.equals(batchStatus)
-              || RewardBatchStatus.APPROVED.equals(batchStatus);
+    boolean batchStatusAllowed =
+        RewardBatchStatus.CREATED.equals(batchStatus)
+            || RewardBatchStatus.EVALUATING.equals(batchStatus)
+            || RewardBatchStatus.APPROVED.equals(batchStatus);
 
-      if (!batchStatusAllowed) {
-          return Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_STATUS_NOT_ALLOWED,
-                  "Batch status not allowed for basic invoice operations"));
-      }
+    if (!batchStatusAllowed) {
+      return Mono.error(
+          new ClientExceptionWithBody(
+              HttpStatus.BAD_REQUEST,
+              REWARD_BATCH_STATUS_NOT_ALLOWED,
+              "Batch status not allowed for basic invoice operations"));
+    }
 
-      return Mono.just(trx);
+    return Mono.just(trx);
   }
 }
