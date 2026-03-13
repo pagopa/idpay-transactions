@@ -82,7 +82,8 @@ public interface PointOfSaleTransactionController {
           @PathVariable("transactionId") String transactionId,
           @RequestHeader("x-merchant-id") String merchantId,
           @RequestPart("file") FilePart file,
-          @RequestPart(value = "docNumber", required = false) String docNumber
+          @RequestPart(value = "docNumber", required = false) String docNumber,
+          @RequestHeader(name = "Authorization", required = true) String authorization
   );
 
 
@@ -95,6 +96,7 @@ public interface PointOfSaleTransactionController {
     Mono<Void> reversalTransactionInvoiced(
             @PathVariable("transactionId") String transactionId,
             @RequestHeader("x-merchant-id") String merchantId,
+            @RequestHeader(name = "Authorization", required = true) String authorization,
             @RequestPart("file") FilePart file,
             @RequestPart(value = "docNumber", required = false) String docNumber
     );
