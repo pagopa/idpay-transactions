@@ -70,24 +70,27 @@ public final class JwtUtils {
   private static List<String> extractClaimAsList(JsonNode root, String claimName) {
     List<String> result = new ArrayList<>();
 
-    if (root.has(claimName) && !root.get(claimName).isNull()) {
-      JsonNode node = root.get(claimName);
+    JsonNode node = root.get(claimName);
+    if (node == null || node.isNull()) {
+      return result;
+    }
 
-      if (node.isArray()) {
-        node.forEach(n -> result.add(n.asText()));
-      } else if (node.isTextual()) {
-        String text = node.asText();
-        if (!text.isBlank()) {
-          String trimmed = text.trim();
-          if (!trimmed.isEmpty()) {
-            for (String scope : trimmed.split("\\s+")) {
-              if (!scope.isEmpty()) {
-                result.add(scope);
-              }
-            }
-          }
-        }
-      }
+    if (node.isArray()) {
+      node.forEach(n -> result.add(n.asText()));
+      return result;
+    }
+
+    if (!node.isTextual()) {
+      return result;
+    }
+
+    String text = node.asText();
+    if (text.isBlank()) {
+      return result;
+    }
+
+    for (String scope : text.trim().split("\\s+")) {
+      result.add(scope);
     }
 
     return result;
