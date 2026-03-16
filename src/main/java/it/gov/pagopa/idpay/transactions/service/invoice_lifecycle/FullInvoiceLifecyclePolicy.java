@@ -51,7 +51,10 @@ public class FullInvoiceLifecyclePolicy implements InvoiceLifecyclePolicy {
     boolean batchStatusAllowed =
         RewardBatchStatus.CREATED.equals(batchStatus)
             || RewardBatchStatus.EVALUATING.equals(batchStatus)
-            || RewardBatchStatus.APPROVED.equals(batchStatus);
+            || RewardBatchStatus.APPROVED.equals(batchStatus)
+            || RewardBatchStatus.PENDING_REFUND.equals(batchStatus)
+            || RewardBatchStatus.REFUNDED.equals(batchStatus)
+            || RewardBatchStatus.NOT_REFUNDED.equals(batchStatus);
 
     if (!batchStatusAllowed) {
       return Mono.error(
