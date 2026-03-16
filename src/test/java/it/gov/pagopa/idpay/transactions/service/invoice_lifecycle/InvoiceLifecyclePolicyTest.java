@@ -46,28 +46,19 @@ class InvoiceLifecyclePolicyTest {
 
                 // BatchStatus APPROVED
                 Arguments.of(RewardBatchStatus.APPROVED, RewardBatchTrxStatus.APPROVED, false, false),
-                Arguments.of(RewardBatchStatus.APPROVED, RewardBatchTrxStatus.REJECTED, false, true)
+                Arguments.of(RewardBatchStatus.APPROVED, RewardBatchTrxStatus.REJECTED, false, true),
 
                 // BatchStatus PENDING_REFUND
-//                Arguments.of(RewardBatchStatus.PENDING_REFUND, RewardBatchTrxStatus.TO_CHECK, false, false),
-//                Arguments.of(RewardBatchStatus.PENDING_REFUND, RewardBatchTrxStatus.CONSULTABLE, false, false),
-//                Arguments.of(RewardBatchStatus.PENDING_REFUND, RewardBatchTrxStatus.SUSPENDED, false, false),
-//                Arguments.of(RewardBatchStatus.PENDING_REFUND, RewardBatchTrxStatus.APPROVED, false, false),
-//                Arguments.of(RewardBatchStatus.PENDING_REFUND, RewardBatchTrxStatus.REJECTED, false, false),
+                Arguments.of(RewardBatchStatus.PENDING_REFUND, RewardBatchTrxStatus.APPROVED, false, false),
+                Arguments.of(RewardBatchStatus.PENDING_REFUND, RewardBatchTrxStatus.REJECTED, false, true),
 
                 // BatchStatus NOT_REFUNDED
-//                Arguments.of(RewardBatchStatus.NOT_REFUNDED, RewardBatchTrxStatus.TO_CHECK, false, false),
-//                Arguments.of(RewardBatchStatus.NOT_REFUNDED, RewardBatchTrxStatus.CONSULTABLE, false, false),
-//                Arguments.of(RewardBatchStatus.NOT_REFUNDED, RewardBatchTrxStatus.SUSPENDED, false, false),
-//                Arguments.of(RewardBatchStatus.NOT_REFUNDED, RewardBatchTrxStatus.APPROVED, false, false),
-//                Arguments.of(RewardBatchStatus.NOT_REFUNDED, RewardBatchTrxStatus.REJECTED, false, false),
+                Arguments.of(RewardBatchStatus.NOT_REFUNDED, RewardBatchTrxStatus.APPROVED, false, false),
+                Arguments.of(RewardBatchStatus.NOT_REFUNDED, RewardBatchTrxStatus.REJECTED, false, true),
 
                 // BatchStatus REFUNDED
-//                Arguments.of(RewardBatchStatus.REFUNDED, RewardBatchTrxStatus.TO_CHECK, false, false),
-//                Arguments.of(RewardBatchStatus.REFUNDED, RewardBatchTrxStatus.CONSULTABLE, false, false),
-//                Arguments.of(RewardBatchStatus.REFUNDED, RewardBatchTrxStatus.SUSPENDED, false, false),
-//                Arguments.of(RewardBatchStatus.REFUNDED, RewardBatchTrxStatus.APPROVED, false, false),
-//                Arguments.of(RewardBatchStatus.REFUNDED, RewardBatchTrxStatus.REJECTED, false, false),
+                Arguments.of(RewardBatchStatus.REFUNDED, RewardBatchTrxStatus.APPROVED, false, false),
+                Arguments.of(RewardBatchStatus.REFUNDED, RewardBatchTrxStatus.REJECTED, false, true)
 
                 );
     }
