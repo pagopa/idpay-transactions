@@ -132,6 +132,11 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
                                 .build())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                         .retrieve()
+                        .onStatus(HttpStatusCode::is4xxClientError, response -> {
+                            log.warn("[GET_OUTCOME] Returned 4xx for requestId {}", sanitizeString(requestId));
+                            return Mono.empty();
+                        })
+
                         .bodyToMono(String.class)
                         .flatMap(body -> {
                             try {
