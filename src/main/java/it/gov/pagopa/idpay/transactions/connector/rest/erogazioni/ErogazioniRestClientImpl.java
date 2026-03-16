@@ -6,6 +6,7 @@ import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOu
 import it.gov.pagopa.idpay.transactions.dto.DeliveryOutcomeDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -24,6 +25,9 @@ import static it.gov.pagopa.idpay.transactions.utils.Utilities.sanitizeString;
 @Slf4j
 public class ErogazioniRestClientImpl implements ErogazioniRestClient {
     private static final String URI_EROGAZIONI = "/erogazioni";
+    private static final String URI_ESITI = "/esiti";
+    private static final String REQUEST_PARAM_ESITI = "idRichiesta";
+    public static final String VAT_NUMBER_DEFAULT = "00000000000";
 
     private final InvitaliaTokenProviderService tokenProvider;
     private final WebClient webClient;
@@ -57,6 +61,9 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
             deliveryRequest.getAnagrafica().setPartitaIvaCliente(
                     formatPartitaIva(deliveryRequest.getAnagrafica().getPartitaIvaCliente())
             );
+
+            deliveryRequest.getAnagrafica()
+                    .setRagioneSocialeIntestatario(StringUtils.truncate(deliveryRequest.getAnagrafica().getRagioneSocialeIntestatario(), 140));
         }
 
         if (deliveryRequest.getErogazione() != null) {
@@ -120,8 +127,8 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
         return tokenProvider.retrieveToken()
                 .flatMap(token -> webClient.get()
                         .uri(uriBuilder -> uriBuilder
-                                .path("/esiti")
-                                .queryParam("idRichiesta", requestId)
+                                .path(URI_ESITI)
+                                .queryParam(REQUEST_PARAM_ESITI, requestId)
                                 .build())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                         .retrieve()
@@ -149,7 +156,7 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
 
     private String formatPartitaIva(String piva) {
         if (piva != null && piva.length() == 16) {
-            return "00000000000";
+            return VAT_NUMBER_DEFAULT;
         }
         return piva;
     }

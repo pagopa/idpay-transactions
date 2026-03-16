@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.connector.rest.erogazioni;
 
 
+import com.github.javafaker.Faker;
 import it.gov.pagopa.common.config.JsonConfig;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.InvitaliaTokenProviderService;
 import it.gov.pagopa.idpay.transactions.dto.AnagraficaDTO;
@@ -94,6 +95,52 @@ class ErogazioniRestClientImplTest extends BaseWireMockTest {
 
         assertEquals("00000000000", request.getAnagrafica().getPartitaIvaCliente());
         assertEquals("TEST_AUTH", request.getErogazione().getAutorizzatore());
+    }
+
+    @Test
+    void postErogazione_truncateRegioneSociale_greaterThan140_ok() {
+        String batchId = "BATCH_OK";
+        DeliveryRequest request = createRequest(batchId, "12345678901");
+        Faker faker = new Faker();
+        String lorem = faker.lorem().characters(200);
+        request.getAnagrafica().setRagioneSocialeIntestatario(lorem);
+
+        Mockito.when(invitaliaTokenProviderService.retrieveToken())
+                .thenReturn(Mono.just("MOCK_TOKEN"));
+
+        erogazioniRestClient.postErogazione(request).block();
+
+        assertEquals(140, request.getAnagrafica().getRagioneSocialeIntestatario().length());
+    }
+
+    @Test
+    void postErogazione_truncateRegioneSociale_lessThan140_ok() {
+        String batchId = "BATCH_OK";
+        DeliveryRequest request = createRequest(batchId, "12345678901");
+        Faker faker = new Faker();
+        String lorem = faker.lorem().characters(120);
+        request.getAnagrafica().setRagioneSocialeIntestatario(lorem);
+
+        Mockito.when(invitaliaTokenProviderService.retrieveToken())
+                .thenReturn(Mono.just("MOCK_TOKEN"));
+
+        erogazioniRestClient.postErogazione(request).block();
+
+        assertEquals(lorem, request.getAnagrafica().getRagioneSocialeIntestatario());
+    }
+
+    @Test
+    void postErogazione_truncateRegioneSociale_null_ok() {
+        String batchId = "BATCH_OK";
+        DeliveryRequest request = createRequest(batchId, "12345678901");
+        request.getAnagrafica().setRagioneSocialeIntestatario(null);
+
+        Mockito.when(invitaliaTokenProviderService.retrieveToken())
+                .thenReturn(Mono.just("MOCK_TOKEN"));
+
+        erogazioniRestClient.postErogazione(request).block();
+
+        assertNull(request.getAnagrafica().getRagioneSocialeIntestatario());
     }
 
     private DeliveryRequest createRequest(String id, String piva) {
