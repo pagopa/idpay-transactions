@@ -92,7 +92,7 @@ class FullInvoiceLifecyclePolicyTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = RewardBatchStatus.class, mode = EnumSource.Mode.EXCLUDE, names = {"CREATED", "EVALUATING", "APPROVED"})
+    @EnumSource(value = RewardBatchStatus.class, mode = EnumSource.Mode.EXCLUDE, names = {"CREATED", "EVALUATING", "APPROVED", "PENDING_REFUND", "REFUNDED", "NOT_REFUNDED"})
     void validateShouldFailWhenBatchStatusIsNotAllowed(RewardBatchStatus batchStatus) {
         RewardTransaction trx = RewardTransaction.builder()
                 .status(SyncTrxStatus.INVOICED.name())
