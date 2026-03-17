@@ -182,11 +182,39 @@ class ErogazioniRestClientImplTest extends BaseWireMockTest {
     }
 
     @Test
-    void getOutcome_ko_throwsError() {
+    void getOutcome_4xx_returnsEmpty() {
         String batchId = "BATCH_456";
 
         Mockito.when(invitaliaTokenProviderService.retrieveToken())
                 .thenReturn(Mono.just("MOCK_TOKEN_KO"));
+
+        StepVerifier.create(erogazioniRestClient.getOutcome(batchId))
+                .verifyComplete();
+    }
+
+    @Test
+    void getOutcome_invalidBody_throwsRuntimeException() {
+        String batchId = "BATCH_INVALID";
+
+        Mockito.when(invitaliaTokenProviderService.retrieveToken())
+                .thenReturn(Mono.just("MOCK_TOKEN"));
+
+        StepVerifier.create(erogazioniRestClient.getOutcome(batchId))
+                .expectErrorSatisfies(ex -> {
+                    String fullMessage = ex.toString() + (ex.getCause() != null ? ex.getCause().toString() : "");
+
+                    assertTrue(fullMessage.contains("RuntimeException"));
+                    assertTrue(fullMessage.contains("Error deserializing Invitalia outcome"));
+                })
+                .verify();
+    }
+
+    @Test
+    void getOutcome_retryLogsWarning_onError() {
+        String batchId = "BATCH_RETRY";
+
+        Mockito.when(invitaliaTokenProviderService.retrieveToken())
+                .thenReturn(Mono.just("MOCK_TOKEN"));
 
         StepVerifier.create(erogazioniRestClient.getOutcome(batchId))
                 .expectErrorMatches(RuntimeException.class::isInstance)
