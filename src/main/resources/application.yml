@@ -260,3 +260,9 @@ app:
     retry:
       delay-millis: ${SELFCARE_RETRY_DELAY_MILLIS:2000}
       max-attempts: ${SELFCARE_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:3}}
+  erogazioni:
+    erogazioni-url: ${INVITALIA_BASE_URL:}
+    authorizer: ${EROGAZIONI_AUTHORIZER:}
+    retry:
+      delay-millis: ${EROGAZIONI_RETRY_DELAY_MILLIS:2000}
+      max-attempts: ${EROGAZIONI_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:3}}

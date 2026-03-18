@@ -1,0 +1,20 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/erogazioni",
+    "headers": {
+      "Authorization": {
+        "matches": "Bearer MOCK_TOKEN"
+      },
+      "Content-Type": {
+        "equalTo": "application/json"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

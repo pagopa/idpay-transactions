@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.DownloadRewardBatchResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
@@ -18,6 +19,10 @@ public interface RewardBatchService {
   Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId);
 
   Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds);
+
+  Mono<Void> rewardBatchDeliveryBatch(String initiativeId, List<String> rewardBatchIds);
+  Mono<RewardBatch> updateBatch(RewardBatch batch, InvitaliaOutcomeResponseDTO response);
+  Mono<Void> checkRewardBatchesOutcomes(String initiativeId, List<String> rewardBatchIds);
   Mono<String> generateAndSaveCsv(String rewardBatchId, String initiativeId, String merchantId);
 
   Mono<Void> sendRewardBatch(String merchantId, String batchId);

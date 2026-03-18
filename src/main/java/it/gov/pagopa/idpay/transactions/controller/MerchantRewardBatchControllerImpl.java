@@ -23,6 +23,8 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 
+import static it.gov.pagopa.idpay.transactions.utils.Utilities.sanitizeString;
+
 @RestController
 @Slf4j
 public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchController{
@@ -96,6 +98,26 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     log.info("[REWARD_BATCH_CONFIRMATION_BATCH] Batch confirmation for initiative {} and batchs {}",
             Utilities.sanitizeString(initiativeId), rewardBatchIds.toString() );
     return rewardBatchService.rewardBatchConfirmationBatch(initiativeId, rewardBatchIds);
+  }
+
+    @Override
+    public  Mono<Void> rewardBatchDeliveryBatch(String initiativeId, RewardBatchesRequest request) {
+        List<String> rewardBatchIds = request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
+        log.info("[REWARD_BATCH_DELIVERY_BATCH] Batch delivery for initiative {} and batchs {}",
+                Utilities.sanitizeString(initiativeId), rewardBatchIds.toString() );
+        return rewardBatchService.rewardBatchDeliveryBatch(initiativeId, rewardBatchIds);
+    }
+
+  @Override
+  public Mono<Void> checkRewardBatchesOutcomes(String initiativeId, RewardBatchesRequest request) {
+    List<String> rewardBatchIds = request != null && request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
+
+    List<String> sanitizedBatchIds = rewardBatchIds.stream()
+            .map(Utilities::sanitizeString)
+            .toList();
+
+    log.info("[CHECK_REWARD_BATCHES_OUTCOMES] initiative {} rewardBatchIds {}", sanitizeString(initiativeId), sanitizedBatchIds);
+    return rewardBatchService.checkRewardBatchesOutcomes(initiativeId, rewardBatchIds);
   }
 
   @Override
