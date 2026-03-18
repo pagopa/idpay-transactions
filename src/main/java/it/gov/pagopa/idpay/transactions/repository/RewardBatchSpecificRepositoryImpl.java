@@ -53,46 +53,6 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     return mongoTemplate.count(Query.query(criteria), RewardBatch.class);
   }
 
-  public Mono<RewardBatch> moveTrxToNewBatch(String oldBatchId, String newBatchId, long accruedAmountCents, boolean isSuspended){
-
-    Update decOld = new Update()
-            .set(RewardBatch.Fields.updateDate, LocalDateTime.now())
-            .inc(INITIAL_AMOUNT_CENTS, -accruedAmountCents)
-            .inc(NUMBER_OF_TRANSACTIONS, -1);
-    Update incNew = new Update()
-            .set(RewardBatch.Fields.updateDate, LocalDateTime.now())
-            .inc(INITIAL_AMOUNT_CENTS, accruedAmountCents)
-            .inc(NUMBER_OF_TRANSACTIONS, 1);
-
-    if(isSuspended){
-      decOld
-              .inc(NUMBER_OF_TRANSACTIONS_ELABORATED, -1)
-              .inc(SUSPENDED_AMOUNT_CENTS, -accruedAmountCents)
-              .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, -1);
-
-      incNew
-              .inc(NUMBER_OF_TRANSACTIONS_ELABORATED, 1)
-              .inc(SUSPENDED_AMOUNT_CENTS, accruedAmountCents)
-              .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, 1);
-    }
-
-
-    return mongoTemplate.findAndModify(
-                    Query.query(Criteria.where("_id").is(oldBatchId)),
-                    decOld,
-                    FindAndModifyOptions.options().returnNew(true),
-                    RewardBatch.class
-            )
-            .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)))
-            .then(mongoTemplate.findAndModify(
-                    Query.query(Criteria.where("_id").is(newBatchId)),
-                    incNew,
-                    FindAndModifyOptions.options().returnNew(true),
-                    RewardBatch.class
-            ))
-            .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)));
-  }
-
     private Criteria buildCombinedCriteria(String merchantId, String status, String assigneeLevel, String month, boolean isOperator) {
     List<Criteria> subCriteria = new ArrayList<>();
 
