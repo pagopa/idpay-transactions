@@ -881,7 +881,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
         return findOrCreateBatch(originalBatch.getMerchantId(),
                 originalBatch.getPosType(),
-                addOneMonth(originalBatch.getMonth()),
+                getTargetMonth(originalBatch.getMonth()),
                 originalBatch.getBusinessName())
                 .flatMap(newBatch -> updateAndSaveRewardTransactionsSuspended(originalBatch.getId(), initiativeId, newBatch.getId(), originalBatch.getMonth())
                         .flatMap(totalAccrued -> {
@@ -950,6 +950,14 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         YearMonth yearMonth = YearMonth.parse(yearMonthString, inputFormatter);
         YearMonth nextYearMonth = yearMonth.plusMonths(1);
         return nextYearMonth.format(inputFormatter);
+    }
+
+    public String getTargetMonth(String yearMonthBatchOriginal) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM");
+        YearMonth originalBatchMonth = YearMonth.parse(yearMonthBatchOriginal, formatter);
+        YearMonth currentMonth = YearMonth.now();
+        YearMonth targetMonth = originalBatchMonth.isAfter(currentMonth) ? originalBatchMonth : currentMonth;
+        return targetMonth.format(formatter);
     }
 
 
