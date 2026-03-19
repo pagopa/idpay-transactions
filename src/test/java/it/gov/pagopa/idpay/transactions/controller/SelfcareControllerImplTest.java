@@ -6,7 +6,8 @@ import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionD
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionList;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
@@ -17,6 +18,8 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockUser;
 
 @WebFluxTest(controllers = SelfcareControllerImpl.class)
 @Import({ServiceExceptionConfig.class})
@@ -26,6 +29,9 @@ class SelfcareControllerImplTest {
 
     @MockitoBean
     private SelfcareInstitutionsRestClient selfcareInstitutionsRestClient;
+
+    @MockitoBean
+    CacheManager cacheManager;
 
     @Test
     void getInstitution_Success() {
@@ -37,7 +43,10 @@ class SelfcareControllerImplTest {
 
         when(selfcareInstitutionsRestClient.getInstitutions(taxCode)).thenReturn(Mono.just(institutionList));
 
-        webTestClient.get()
+        webTestClient
+                .mutateWith(mockUser())
+                .mutateWith(csrf())
+                .get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/idpay/selfcare/institutions")
                         .queryParam("taxCode", taxCode)
@@ -56,7 +65,10 @@ class SelfcareControllerImplTest {
 
         when(selfcareInstitutionsRestClient.getInstitutions(taxCode)).thenReturn(Mono.error(new RuntimeException("DUMMY_EXCEPTION")));
 
-        webTestClient.get()
+        webTestClient
+                .mutateWith(mockUser())
+                .mutateWith(csrf())
+                .get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/idpay/selfcare/institutions")
                         .queryParam("taxCode", taxCode)

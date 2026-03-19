@@ -1,6 +1,6 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
-import com.nimbusds.oauth2.sdk.util.StringUtils;
+import io.micrometer.common.util.StringUtils;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
