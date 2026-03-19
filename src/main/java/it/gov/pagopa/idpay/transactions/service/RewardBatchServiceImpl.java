@@ -887,6 +887,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         .flatMap(totalAccrued -> {
                             BatchCountersDTO batchCounters = BatchCountersDTO.newBatch()
                                     .incrementInitialAmountCents(totalAccrued)
+                                    .incrementTrxElaborated(countToMove)
                                     .incrementNumberOfTransactions(countToMove)
                                     .incrementSuspendedAmountCents(totalAccrued)
                                     .incrementTrxSuspended(countToMove);
