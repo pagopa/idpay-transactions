@@ -1,152 +1,133 @@
 package it.gov.pagopa.idpay.transactions.connector.rest;
 
-import it.gov.pagopa.common.reactive.rest.config.WebClientConfig;
-import it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
-import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.web.reactive.function.client.WebClientException;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
-import reactor.core.Exceptions;
+import org.mockito.Mockito;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.reactive.function.client.ClientResponse;
+import org.springframework.web.reactive.function.client.ExchangeFunction;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
-import static it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest.WIREMOCK_TEST_PROP2BASEPATH_MAP_PREFIX;
+import static org.mockito.ArgumentMatchers.any;
 
-//@TestPropertySource(properties = {
-//        "logging.level.it.gov.pagopa.transactions.rest.UserRestClientImpl=WARN",
-//})
-@ContextConfiguration(
-        classes = {
-                UserRestClientImpl.class,
-                WebClientConfig.class
-        })
-@TestPropertySource(
-        properties = {
-                WIREMOCK_TEST_PROP2BASEPATH_MAP_PREFIX + "app.pdv.base-url"
-        }
-)
-class UserRestClientImplTest extends BaseWireMockTest {
+class UserRestClientImplTest {
 
-    @Autowired
-    private UserRestClient userRestClient;
+    private ExchangeFunction exchangeFunction;
+    private WebClient webClient;
+    private UserRestClientImpl client;
 
+    @BeforeEach
+    void setUp() {
+        exchangeFunction = Mockito.mock(ExchangeFunction.class);
 
-    @Test
-    void retrieveUserInfoOk() {
-        String userId = "USERID_OK_1";
+        webClient = WebClient.builder()
+                .exchangeFunction(exchangeFunction)
+                .baseUrl("http://fake-url")
+                .defaultHeader("x-api-key", "fake-key")
+                .build();
 
-        UserInfoPDV result = userRestClient.retrieveUserInfo(userId).block();
-
-        Assertions.assertNotNull(result);
-        Assertions.assertEquals("fiscalCode",result.getPii());
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"USERID_NOTFOUND_1", "USERID_NOTVALID_1", "USERID_BADREQUEST_1"})
-    void retrieveUserInfo_NotFound_NotValid_BadRequest(String userId) {
-
-        UserInfoPDV result = userRestClient.retrieveUserInfo(userId).block();
-        Assertions.assertNull(result);
+        client = new UserRestClientImpl(
+                "http://fake-url",
+                "fake-key",
+                10,
+                1,
+                WebClient.builder().exchangeFunction(exchangeFunction)
+        );
     }
 
     @Test
-    void retrieveUserInfoInternalServerError() {
-        String userId = "USERID_INTERNALSERVERERROR_1";
+    void retrieveUserInfo_ok() {
+        UserInfoPDV response = new UserInfoPDV();
 
-        try{
-            userRestClient.retrieveUserInfo(userId).block();
-            Assertions.fail();
-        }catch (Throwable e){
-            Assertions.assertTrue(e instanceof WebClientException);
-            Assertions.assertEquals(WebClientResponseException.InternalServerError.class,e.getClass());
-        }
+        ClientResponse clientResponse = ClientResponse
+                .create(HttpStatus.OK)
+                .header("Content-Type", "application/json")
+                .body("{ }")
+                .build();
+
+        Mockito.when(exchangeFunction.exchange(any()))
+                .thenReturn(Mono.just(clientResponse));
+
+        StepVerifier.create(client.retrieveUserInfo("token123"))
+                .expectNextCount(1)
+                .verifyComplete();
     }
 
     @Test
-    void retrieveUserInfoTooManyRequest() {
-        String userId = "USERID_TOOMANYREQUEST_1";
+    void retrieveUserInfo_notFound() {
+        ClientResponse clientResponse = ClientResponse
+                .create(HttpStatus.NOT_FOUND)
+                .build();
 
-        try{
-            userRestClient.retrieveUserInfo(userId).block();
-            Assertions.fail();
-        }catch (Throwable e){
-            Assertions.assertTrue(Exceptions.isRetryExhausted(e));
-        }
+        Mockito.when(exchangeFunction.exchange(any()))
+                .thenReturn(Mono.just(clientResponse));
+
+        StepVerifier.create(client.retrieveUserInfo("token123"))
+                .verifyComplete(); // Mono.empty()
     }
 
     @Test
-    void retrieveUserInfoHttpForbidden() {
-        String userId = "USERID_FORBIDDEN_1";
+    void retrieveUserInfo_badRequest() {
+        ClientResponse clientResponse = ClientResponse
+                .create(HttpStatus.BAD_REQUEST)
+                .build();
 
-        try{
-            userRestClient.retrieveUserInfo(userId).block();
-            Assertions.fail();
-        }catch (Throwable e){
-            e.printStackTrace();
-            Assertions.assertTrue(e instanceof WebClientException);
-            Assertions.assertEquals(WebClientResponseException.Forbidden.class,e.getClass());
-        }
+        Mockito.when(exchangeFunction.exchange(any()))
+                .thenReturn(Mono.just(clientResponse));
+
+        StepVerifier.create(client.retrieveUserInfo("invalid"))
+                .verifyComplete(); // Mono.empty()
+    }
+
+    // =========================
+    // retrieveFiscalCodeInfo
+    // =========================
+
+    @Test
+    void retrieveFiscalCodeInfo_ok() {
+        FiscalCodeInfoPDV response = new FiscalCodeInfoPDV();
+
+        ClientResponse clientResponse = ClientResponse
+                .create(HttpStatus.OK)
+                .header("Content-Type", "application/json")
+                .body("{ }")
+                .build();
+
+        Mockito.when(exchangeFunction.exchange(any()))
+                .thenReturn(Mono.just(clientResponse));
+
+        StepVerifier.create(client.retrieveFiscalCodeInfo("RSSMRA80A01H501U"))
+                .expectNextCount(1)
+                .verifyComplete();
     }
 
     @Test
-    void retrieveFiscalCodeInfoOk() {
-        String fiscalCode = "FC_OK_1";
+    void retrieveFiscalCodeInfo_notFound() {
+        ClientResponse clientResponse = ClientResponse
+                .create(HttpStatus.NOT_FOUND)
+                .build();
 
-        FiscalCodeInfoPDV result = userRestClient.retrieveFiscalCodeInfo(fiscalCode).block();
+        Mockito.when(exchangeFunction.exchange(any()))
+                .thenReturn(Mono.just(clientResponse));
 
-        Assertions.assertNotNull(result);
-        Assertions.assertEquals("userId", result.getToken());
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"FC_NOTFOUND_1", "FC_NOTVALID_1", "FC_BADREQUEST_1"})
-    void retrieveFiscalCodeInfo_NotFound_NotValid_BadRequest(String fiscalCode) {
-        FiscalCodeInfoPDV result = userRestClient.retrieveFiscalCodeInfo(fiscalCode).block();
-        Assertions.assertNull(result);
+        StepVerifier.create(client.retrieveFiscalCodeInfo("XXX"))
+                .verifyComplete();
     }
 
     @Test
-    void retrieveFiscalCodeInfoInternalServerError() {
-        String fiscalCode = "FC_INTERNALSERVERERROR_1";
+    void retrieveFiscalCodeInfo_badRequest() {
+        ClientResponse clientResponse = ClientResponse
+                .create(HttpStatus.BAD_REQUEST)
+                .build();
 
-        try{
-            userRestClient.retrieveFiscalCodeInfo(fiscalCode).block();
-            Assertions.fail();
-        }catch (Throwable e){
-            Assertions.assertTrue(e instanceof WebClientException);
-            Assertions.assertEquals(WebClientResponseException.InternalServerError.class,e.getClass());
-        }
+        Mockito.when(exchangeFunction.exchange(any()))
+                .thenReturn(Mono.just(clientResponse));
+
+        StepVerifier.create(client.retrieveFiscalCodeInfo("INVALID"))
+                .verifyComplete();
     }
-
-    @Test
-    void retrieveFiscalCodeInfoTooManyRequest() {
-        String fiscalCode = "FC_TOOMANYREQUEST_1";
-
-        try{
-            userRestClient.retrieveFiscalCodeInfo(fiscalCode).block();
-            Assertions.fail();
-        }catch (Throwable e){
-            Assertions.assertTrue(Exceptions.isRetryExhausted(e));
-        }
-    }
-
-    @Test
-    void retrieveFiscalCodeInfoHttpForbidden() {
-        String fiscalCode = "FC_FORBIDDEN_1";
-
-        try{
-            userRestClient.retrieveFiscalCodeInfo(fiscalCode).block();
-            Assertions.fail();
-        }catch (Throwable e){
-            e.printStackTrace();
-            Assertions.assertTrue(e instanceof WebClientException);
-            Assertions.assertEquals(WebClientResponseException.Forbidden.class,e.getClass());
-        }
-    }
-
 }

@@ -1,20 +1,12 @@
 package it.gov.pagopa.common.reactive.web.exception;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.classic.spi.StackTraceElementProxy;
 import it.gov.pagopa.common.utils.MemoryAppender;
 import it.gov.pagopa.common.web.dto.ErrorDTO;
-import it.gov.pagopa.common.web.exception.ClientException;
-import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
-import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
-import it.gov.pagopa.common.web.exception.ErrorManager;
-import it.gov.pagopa.common.web.exception.RewardBatchException;
-import it.gov.pagopa.common.web.exception.ServiceException;
+import it.gov.pagopa.common.web.exception.*;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -24,7 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -35,6 +27,10 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
 import java.util.regex.Pattern;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockUser;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {ErrorManagerTest.TestController.class, ErrorManager.class})
@@ -78,7 +74,8 @@ public class ErrorManagerTest {
         Mockito.doThrow(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, "NOTFOUND ClientExceptionNoBody"))
                 .when(testController).testEndpoint();
 
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/test").build())
                 .exchange()
                 .expectStatus().isBadRequest()
@@ -95,7 +92,8 @@ public class ErrorManagerTest {
 
         ErrorDTO errorClientExceptionWithBody= new ErrorDTO("Error","Error ClientExceptionWithBody");
 
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/test").build())
                 .exchange()
                 .expectStatus().isBadRequest()
@@ -106,7 +104,8 @@ public class ErrorManagerTest {
                 .when(testController).testEndpoint();
         ErrorDTO errorClientExceptionWithBodyWithStatusAndTitleAndMessageAndThrowable= new ErrorDTO("Error","Error ClientExceptionWithBody");
 
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/test").build())
                 .exchange()
                 .expectStatus().isBadRequest()
@@ -120,7 +119,8 @@ public class ErrorManagerTest {
         Mockito.doThrow(ClientException.class)
                 .when(testController).testEndpoint();
 
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/test").build())
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -131,7 +131,8 @@ public class ErrorManagerTest {
 
         Mockito.doThrow(new ClientException(HttpStatus.BAD_REQUEST, "ClientException with httpStatus and message"))
                 .when(testController).testEndpoint();
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/test").build())
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -143,7 +144,8 @@ public class ErrorManagerTest {
         Mockito.doThrow(new ClientException(HttpStatus.BAD_REQUEST, "ClientException with httpStatus, message and throwable", new Throwable()))
                 .when(testController).testEndpoint();
 
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/test").build())
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -153,7 +155,7 @@ public class ErrorManagerTest {
                 "Something went wrong handling request GET /test \\([^)]+\\): HttpStatus 400 BAD_REQUEST - ClientException with httpStatus, message and throwable",
                 "it.gov.pagopa.common.web.exception.ClientException: ClientException with httpStatus, message and throwable",
                 "it.gov.pagopa.common.reactive.web.exception.ErrorManagerTest$TestController.testEndpoint"
-                );
+        );
     }
 
     @Test
@@ -162,7 +164,8 @@ public class ErrorManagerTest {
 
         Mockito.doThrow(RuntimeException.class)
                 .when(testController).testEndpoint();
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/test").build())
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -174,21 +177,22 @@ public class ErrorManagerTest {
         RewardBatchException ex = new RewardBatchException(HttpStatus.BAD_REQUEST, "RB_ERROR");
 
         Mockito.doThrow(ex)
-            .when(testController).testEndpoint();
+                .when(testController).testEndpoint();
 
         ErrorDTO expected = new ErrorDTO("RB_ERROR", "RB_ERROR");
 
-        webTestClient.get()
-            .uri("/test")
-            .exchange()
-            .expectStatus().isBadRequest()
-            .expectHeader().contentType("application/json")
-            .expectBody(ErrorDTO.class).isEqualTo(expected);
+        webTestClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
+                .uri("/test")
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectHeader().contentType("application/json")
+                .expectBody(ErrorDTO.class).isEqualTo(expected);
 
         String loggedMessage = memoryAppender.getLoggedEvents().get(0).getFormattedMessage();
         Assertions.assertTrue(
-            loggedMessage.contains("Something went wrong handling request"),
-            "Unexpected log message: " + loggedMessage
+                loggedMessage.contains("Something went wrong handling request"),
+                "Unexpected log message: " + loggedMessage
         );
     }
 
@@ -215,16 +219,16 @@ public class ErrorManagerTest {
                 loggedExceptionOccurrenceStackTrace.getStackTraceElement().getClassName() + "." + loggedExceptionOccurrenceStackTrace.getStackTraceElement().getMethodName());
     }
 
-  @Test
-  void shouldCreateServiceExceptionWithDefaultValues() {
-    String code = "TEST_CODE";
-    String message = "Test message";
+    @Test
+    void shouldCreateServiceExceptionWithDefaultValues() {
+        String code = "TEST_CODE";
+        String message = "Test message";
 
-    ServiceException ex = new ServiceException(code, message);
+        ServiceException ex = new ServiceException(code, message);
 
-    assertEquals(code, ex.getCode());
-    assertEquals(message, ex.getMessage());
-    assertFalse(ex.isPrintStackTrace());
-    assertNull(ex.getCause());
-  }
+        assertEquals(code, ex.getCode());
+        assertEquals(message, ex.getMessage());
+        assertFalse(ex.isPrintStackTrace());
+        assertNull(ex.getCause());
+    }
 }

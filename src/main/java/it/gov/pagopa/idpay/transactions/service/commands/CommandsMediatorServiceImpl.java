@@ -1,7 +1,5 @@
 package it.gov.pagopa.idpay.transactions.service.commands;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectReader;
 import it.gov.pagopa.common.reactive.kafka.consumer.BaseKafkaConsumer;
 import it.gov.pagopa.idpay.transactions.dto.QueueCommandOperationDTO;
 import it.gov.pagopa.idpay.transactions.service.TransactionErrorNotifierService;
@@ -13,6 +11,8 @@ import org.springframework.messaging.Message;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import tools.jackson.databind.ObjectReader;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
 import java.util.List;
@@ -31,7 +31,7 @@ public class CommandsMediatorServiceImpl extends BaseKafkaConsumer<QueueCommandO
             @Value("${spring.cloud.stream.kafka.bindings.consumerCommands-in-0.consumer.ackTime}") long commitMillis,
             DeleteInitiativeService deleteInitiativeService,
             TransactionErrorNotifierService transactionErrorNotifierService,
-            ObjectMapper objectMapper) {
+            JsonMapper objectMapper) {
         super(applicationName);
         this.commitDelay = Duration.ofMillis(commitMillis);
         this.deleteInitiativeService = deleteInitiativeService;

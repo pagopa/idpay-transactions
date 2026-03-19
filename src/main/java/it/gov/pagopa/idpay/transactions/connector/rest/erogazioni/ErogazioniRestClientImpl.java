@@ -1,6 +1,5 @@
 package it.gov.pagopa.idpay.transactions.connector.rest.erogazioni;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.InvitaliaTokenProviderService;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryOutcomeDTO;
@@ -9,13 +8,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
-import org.springframework.http.HttpStatusCode;
+import tools.jackson.databind.json.JsonMapper;
+
 import java.time.Duration;
 import java.time.LocalDateTime;
 
@@ -36,7 +37,7 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
     private final Integer retryDelay;
     private final String autorizzatore;
 
-    private final ObjectMapper objectMapper;
+    private final JsonMapper objectMapper;
 
     public ErogazioniRestClientImpl(InvitaliaTokenProviderService tokenProvider,
                                     @Value("${app.erogazioni.retry.max-attempts:3}") Integer maxAttempts,
@@ -44,7 +45,7 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
                                     @Value("${app.erogazioni.erogazioni-url}") String erogazioniBaseUrl,
                                     @Value("${app.erogazioni.authorizer:}") String autorizzatore,
                                     WebClient.Builder webClientBuilder,
-                                    ObjectMapper objectMapper) {
+                                    JsonMapper objectMapper) {
         this.tokenProvider = tokenProvider;
         this.maxAttempts = maxAttempts;
         this.retryDelay = retryDelay;

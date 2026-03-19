@@ -25,7 +25,6 @@ public class WireMockUtils {
                 .keyManagerPassword("idpay")
                 .trustStorePath(trustorePath)
                 .trustStorePassword(trustorePassword)
-                .usingFilesUnderClasspath(stubsFolder)
-                .extensions(new ResponseTemplateTransformer.Builder().global(true).build());
+                .usingFilesUnderClasspath(stubsFolder);
     }
 }

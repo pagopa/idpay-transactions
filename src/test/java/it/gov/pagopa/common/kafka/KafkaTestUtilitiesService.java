@@ -1,7 +1,7 @@
 package it.gov.pagopa.common.kafka;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import it.gov.pagopa.common.kafka.utils.KafkaConstants;
 import it.gov.pagopa.common.utils.TestUtils;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -63,7 +63,7 @@ public class KafkaTestUtilitiesService {
     private String bootstrapServers;
 
     @Autowired
-    private ObjectMapper objectMapper;
+    private JsonMapper objectMapper;
 
     @TestConfiguration
     static class TestKafkaConfiguration {
@@ -122,7 +122,7 @@ public class KafkaTestUtilitiesService {
             kafkaBroker.addTopics(topic);
         }
 
-        Map<String, Object> consumerProps = KafkaTestUtils.consumerProps(groupId, "true", kafkaBroker);
+        Map<String, Object> consumerProps = KafkaTestUtils.consumerProps(kafkaBroker, groupId, true);
         consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         DefaultKafkaConsumerFactory<String, String> cf = new DefaultKafkaConsumerFactory<>(consumerProps);
         Consumer<String, String> consumer = cf.createConsumer();

@@ -7,7 +7,8 @@ import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
+import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -19,10 +20,16 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockUser;
+
 @WebFluxTest(controllers = {TransactionsController.class})
 class TransactionsControllerImplTest {
     @MockitoBean
     RewardTransactionService rewardTransactionService;
+
+    @MockitoBean
+    CacheManager cacheManager;
 
     @Autowired
     protected WebTestClient webClient;
@@ -43,7 +50,8 @@ class TransactionsControllerImplTest {
         Mockito.when(rewardTransactionService.findByIdTrxIssuer(Mockito.eq(rt.getIdTrxIssuer()),Mockito.eq(rt.getUserId()), Mockito.any(), Mockito.any(), Mockito.eq(rt.getAmountCents()), Mockito.any()))
                 .thenReturn(Flux.just(rt));
 
-        webClient.get()
+        webClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
                         .queryParam("idTrxIssuer", rt.getIdTrxIssuer())
                         .queryParam("userId", rt.getUserId())
@@ -59,7 +67,8 @@ class TransactionsControllerImplTest {
         Mockito.when(rewardTransactionService.findByRange(Mockito.eq(rt.getUserId()), Mockito.any(), Mockito.any(), Mockito.eq(rt.getAmountCents()), Mockito.any()))
                 .thenReturn(Flux.just(rt));
 
-        webClient.get()
+        webClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
                         .queryParam("userId", rt.getUserId())
                         .queryParam("amountCents", rt.getAmountCents())
@@ -87,7 +96,8 @@ class TransactionsControllerImplTest {
 
         ErrorDTO expectedErrorDTO = new ErrorDTO(ExceptionConstants.ExceptionCode.TRANSACTIONS_MISSING_MANDATORY_FILTERS, ExceptionConstants.ExceptionMessage.TRANSACTIONS_MISSING_MANDATORY_FILTERS);
 
-        webClient.get()
+        webClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
                         .queryParam("userId", rt.getUserId())
                         .queryParam("amountCents", rt.getAmountCents()).build())
@@ -95,7 +105,8 @@ class TransactionsControllerImplTest {
                 .expectStatus().isBadRequest()
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
 
-        webClient.get()
+        webClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
                         .queryParam("userId", rt.getUserId())
                         .queryParam("amountCents", rt.getAmountCents())
@@ -104,7 +115,8 @@ class TransactionsControllerImplTest {
                 .expectStatus().isBadRequest()
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
 
-        webClient.get()
+        webClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
                         .queryParam("userId", rt.getUserId())
                         .queryParam("amountCents", rt.getAmountCents())
@@ -113,7 +125,8 @@ class TransactionsControllerImplTest {
                 .expectStatus().isBadRequest()
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
 
-        webClient.get()
+        webClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
                         .queryParam("amountCents", rt.getAmountCents())
                         .queryParam("trxDateStart", startDate)
@@ -122,21 +135,24 @@ class TransactionsControllerImplTest {
                 .expectStatus().isBadRequest()
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
 
-        webClient.get()
+        webClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
                         .queryParam("trxDateStart", startDate).build())
                 .exchange()
                 .expectStatus().isBadRequest()
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
 
-        webClient.get()
+        webClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
                         .queryParam("trxDateEnd", endDate).build())
                 .exchange()
                 .expectStatus().isBadRequest()
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
 
-        webClient.get()
+        webClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
                         .queryParam("amountCents", rt.getAmountCents()).build())
                 .exchange()
@@ -169,7 +185,8 @@ class TransactionsControllerImplTest {
 
         Pageable expectedPageable = PageRequest.of(2, 3, Sort.unsorted());
 
-        webClient.get()
+        webClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
                         .queryParam("idTrxIssuer", idTrxIssuer)
                         .queryParam("userId", userId)
@@ -185,7 +202,8 @@ class TransactionsControllerImplTest {
         Mockito.verify(rewardTransactionService, Mockito.times(1)).findByIdTrxIssuer(Mockito.eq(rt.getIdTrxIssuer()), Mockito.any(), Mockito.any(),Mockito.any(),Mockito.any(),Mockito.eq(expectedPageable));
 
         Pageable expectedPageable2 = PageRequest.of(0, 3, Sort.Direction.DESC, "_id");
-        webClient.get()
+        webClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/idpay/transactions")
                         .queryParam("idTrxIssuer", "idTrxIssuer2")
                         .queryParam("userId", userId)
@@ -203,73 +221,76 @@ class TransactionsControllerImplTest {
 
     }
 
-  @Test
-  void findByInitiativeIdAndUserId_Ok() {
-    LocalDateTime now = LocalDateTime.of(2022, 9, 20, 13, 15,45);
+    @Test
+    void findByInitiativeIdAndUserId_Ok() {
+        LocalDateTime now = LocalDateTime.of(2022, 9, 20, 13, 15,45);
 
-    RewardTransaction rt = RewardTransaction.builder()
-        .idTrxIssuer("IDTRXISSUER")
-            .initiatives(List.of("ID"))
-        .userId("USERID")
-        .trxDate(now)
-        .amountCents(3000L).build();
+        RewardTransaction rt = RewardTransaction.builder()
+                .idTrxIssuer("IDTRXISSUER")
+                .initiatives(List.of("ID"))
+                .userId("USERID")
+                .trxDate(now)
+                .amountCents(3000L).build();
 
 
-    Mockito.when(rewardTransactionService.findByInitiativeIdAndUserId("ID","USERID"))
-        .thenReturn(Flux.just(rt));
+        Mockito.when(rewardTransactionService.findByInitiativeIdAndUserId("ID","USERID"))
+                .thenReturn(Flux.just(rt));
 
-    webClient.get()
-        .uri(uriBuilder -> uriBuilder.path("/idpay/transactions/ID/USERID")
-            .build())
-        .exchange()
-        .expectStatus().isOk()
-        .expectBodyList(RewardTransaction.class).contains(rt);
+        webClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
+                .uri(uriBuilder -> uriBuilder.path("/idpay/transactions/ID/USERID")
+                        .build())
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(RewardTransaction.class).contains(rt);
 
-  }
+    }
 
     @Test
     void cleanupInvoicedTransactions_defaultChunkSize() {
         Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(Mockito.anyInt(),
-            Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
-            .thenReturn(Mono.empty());
+                        Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
+                .thenReturn(Mono.empty());
 
-        webClient.post()
-            .uri("/idpay/transactions/cleanup")
-            .exchange()
-            .expectStatus().isAccepted()
-            .expectBody(String.class);
+        webClient.mutateWith(mockUser())
+                .mutateWith(csrf()).post()
+                .uri("/idpay/transactions/cleanup")
+                .exchange()
+                .expectStatus().isAccepted()
+                .expectBody(String.class);
 
         Mockito.verify(rewardTransactionService, Mockito.times(1))
-            .assignInvoicedTransactionsToBatches(
-                Mockito.eq(200),
-                Mockito.eq(1),
-                Mockito.eq(false),
-                Mockito.isNull());
+                .assignInvoicedTransactionsToBatches(
+                        Mockito.eq(200),
+                        Mockito.eq(1),
+                        Mockito.eq(false),
+                        Mockito.isNull());
     }
 
     @Test
     void cleanupInvoicedTransactions_customChunkSize() {
         Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(Mockito.anyInt(),
-                Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
-            .thenReturn(Mono.empty());
+                        Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
+                .thenReturn(Mono.empty());
 
         int customChunkSize = 500;
         int customIteration = 10;
 
-        webClient.post()
-            .uri(uriBuilder -> uriBuilder.path("/idpay/transactions/cleanup")
-                .queryParam("chunkSize", customChunkSize)
-                .queryParam("repetitionsNumber", customIteration)
-                .build())
-            .exchange()
-            .expectStatus().isAccepted()
-            .expectBody(String.class);
+        webClient.mutateWith(mockUser())
+                .mutateWith(csrf()).post()
+                .uri(uriBuilder -> uriBuilder.path("/idpay/transactions/cleanup")
+                        .queryParam("chunkSize", customChunkSize)
+                        .queryParam("repetitionsNumber", customIteration)
+                        .build())
+                .exchange()
+                .expectStatus().isAccepted()
+                .expectBody(String.class);
 
         Mockito.verify(rewardTransactionService, Mockito.times(1))
-            .assignInvoicedTransactionsToBatches(
-                Mockito.eq(customChunkSize),
-                Mockito.eq(customIteration), Mockito.eq(false),
-                Mockito.isNull()
-            );
+                .assignInvoicedTransactionsToBatches(
+                        Mockito.eq(customChunkSize),
+                        Mockito.eq(customIteration), Mockito.eq(false),
+                        Mockito.isNull()
+                );
     }
 }
