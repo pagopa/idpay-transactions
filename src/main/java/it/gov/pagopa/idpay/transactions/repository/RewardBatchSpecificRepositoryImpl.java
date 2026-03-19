@@ -1,7 +1,6 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
-import io.micrometer.common.util.StringUtils;
-import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
+import com.nimbusds.oauth2.sdk.util.StringUtils;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
@@ -15,15 +14,12 @@ import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
-import org.springframework.http.HttpStatus;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
-
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND;
 
 public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRepository {
 
@@ -51,46 +47,6 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   public Mono<Long> getCountCombined(String merchantId, String status, String assigneeLevel, String month, boolean isOperator) {
     Criteria criteria = buildCombinedCriteria(merchantId, status, assigneeLevel, month, isOperator);
     return mongoTemplate.count(Query.query(criteria), RewardBatch.class);
-  }
-
-  public Mono<RewardBatch> moveTrxToNewBatch(String oldBatchId, String newBatchId, long accruedAmountCents, boolean isSuspended){
-
-    Update decOld = new Update()
-            .set(RewardBatch.Fields.updateDate, LocalDateTime.now())
-            .inc(INITIAL_AMOUNT_CENTS, -accruedAmountCents)
-            .inc(NUMBER_OF_TRANSACTIONS, -1);
-    Update incNew = new Update()
-            .set(RewardBatch.Fields.updateDate, LocalDateTime.now())
-            .inc(INITIAL_AMOUNT_CENTS, accruedAmountCents)
-            .inc(NUMBER_OF_TRANSACTIONS, 1);
-
-    if(isSuspended){
-      decOld
-              .inc(NUMBER_OF_TRANSACTIONS_ELABORATED, -1)
-              .inc(SUSPENDED_AMOUNT_CENTS, -accruedAmountCents)
-              .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, -1);
-
-      incNew
-              .inc(NUMBER_OF_TRANSACTIONS_ELABORATED, 1)
-              .inc(SUSPENDED_AMOUNT_CENTS, accruedAmountCents)
-              .inc(NUMBER_OF_TRANSACTIONS_SUSPENDED, 1);
-    }
-
-
-    return mongoTemplate.findAndModify(
-                    Query.query(Criteria.where("_id").is(oldBatchId)),
-                    decOld,
-                    FindAndModifyOptions.options().returnNew(true),
-                    RewardBatch.class
-            )
-            .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)))
-            .then(mongoTemplate.findAndModify(
-                    Query.query(Criteria.where("_id").is(newBatchId)),
-                    incNew,
-                    FindAndModifyOptions.options().returnNew(true),
-                    RewardBatch.class
-            ))
-            .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND)));
   }
 
     private Criteria buildCombinedCriteria(String merchantId, String status, String assigneeLevel, String month, boolean isOperator) {
