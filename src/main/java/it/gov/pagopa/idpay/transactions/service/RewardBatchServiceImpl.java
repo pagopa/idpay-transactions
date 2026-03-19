@@ -1148,7 +1148,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
         String invoiceNumber =
                 trx.getInvoiceData() != null && trx.getInvoiceData().getDocNumber() != null
-                        ? trx.getInvoiceData().getDocNumber()
+                        ? "=\"" + trx.getInvoiceData().getDocNumber() + "\""
                         : "";
 
         return String.join(";",
