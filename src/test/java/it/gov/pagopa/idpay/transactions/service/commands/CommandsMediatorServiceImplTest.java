@@ -1,7 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service.commands;
 
 import ch.qos.logback.classic.LoggerContext;
-import com.fasterxml.jackson.databind.ObjectReader;
 import it.gov.pagopa.common.utils.MemoryAppender;
 import it.gov.pagopa.common.utils.TestUtils;
 import it.gov.pagopa.idpay.transactions.dto.QueueCommandOperationDTO;
@@ -20,6 +19,7 @@ import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import tools.jackson.databind.ObjectReader;
 
 import java.time.Duration;
 import java.time.LocalDateTime;

@@ -4,6 +4,7 @@ package it.gov.pagopa.idpay.transactions.connector.rest.erogazioni;
 import com.github.javafaker.Faker;
 import it.gov.pagopa.common.config.JsonConfig;
 import it.gov.pagopa.common.reactive.rest.config.WebClientConfig;
+import it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.InvitaliaTokenProviderService;
 import it.gov.pagopa.idpay.transactions.dto.AnagraficaDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
@@ -15,18 +16,15 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import it.gov.pagopa.common.reactive.rest.config.WebClientConfig;
-import it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest;
-import reactor.test.StepVerifier;
-
 import static it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest.WIREMOCK_TEST_PROP2BASEPATH_MAP_PREFIX;
+import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
 import static org.junit.jupiter.api.Assertions.*;
 
 
@@ -51,6 +49,9 @@ class ErogazioniRestClientImplTest extends BaseWireMockTest {
 
     @MockitoBean
     private InvitaliaTokenProviderService invitaliaTokenProviderService;
+
+    @MockitoBean
+    private JsonMapper jsonMapper;
 
 
     @Test
@@ -173,7 +174,6 @@ class ErogazioniRestClientImplTest extends BaseWireMockTest {
                     BigDecimal actualAmount = outcome.getErogazione().getAmountPaid() != null
                             ? new BigDecimal(outcome.getErogazione().getAmountPaid().toString())
                             : null;
-                    assertNotNull(actualAmount);
                     assertEquals(0, expectedAmount.compareTo(actualAmount), "Amount mismatch");
 
                     assertEquals(LocalDate.of(2026, 3, 10), outcome.getErogazione().getDateValue());
