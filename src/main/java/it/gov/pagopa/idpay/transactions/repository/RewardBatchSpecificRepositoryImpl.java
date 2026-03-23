@@ -132,7 +132,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   private RewardBatchAssignee parseAssigneeLevel(String level) {
     try {
       return StringUtils.isNotBlank(level) ? RewardBatchAssignee.valueOf(level) : null;
-    } catch (IllegalArgumentException e) {
+    } catch (IllegalArgumentException _) {
       return null;
     }
   }

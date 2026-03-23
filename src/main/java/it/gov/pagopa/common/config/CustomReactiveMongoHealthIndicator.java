@@ -10,8 +10,8 @@ import reactor.core.publisher.Mono;
 public class CustomReactiveMongoHealthIndicator extends AbstractReactiveHealthIndicator {
     private final ReactiveMongoTemplate reactiveMongoTemplate;
     public CustomReactiveMongoHealthIndicator(ReactiveMongoTemplate reactiveMongoTemplate) {
-        super("Mongo health check failed");
         Assert.notNull(reactiveMongoTemplate, "ReactiveMongoTemplate must not be null");
+        super("Mongo health check failed");
         this.reactiveMongoTemplate = reactiveMongoTemplate;
     }
 

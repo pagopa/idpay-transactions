@@ -1,13 +1,14 @@
 package it.gov.pagopa.idpay.transactions.utils;
 
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
 
 public final class JwtUtils {
 
@@ -56,7 +57,7 @@ public final class JwtUtils {
 
     } catch (ResponseStatusException ex) {
       throw ex; // Rethrow HTTP exceptions so they don't get swallowed
-    } catch (Exception e) {
+    } catch (Exception _) {
       // Catch Base64 or Jackson parsing errors
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid token format");
     }
@@ -72,12 +73,12 @@ public final class JwtUtils {
 
     if (node.isArray()) {
       List<String> result = new ArrayList<>();
-      node.forEach(n -> result.add(n.asText()));
+      node.forEach(n -> result.add(n.stringValue()));
       return result;
     }
 
-    if (node.isTextual()) {
-      String text = node.asText().trim();
+    if (node.isString()) {
+      String text = node.stringValue().trim();
       return text.isEmpty() ? List.of() : List.of(text.split("\\s+"));
     }
 

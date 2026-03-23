@@ -1,7 +1,5 @@
 package it.gov.pagopa.idpay.transactions.connector.rest;
 
-import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
-import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -14,7 +12,7 @@ import reactor.test.StepVerifier;
 
 import static org.mockito.ArgumentMatchers.any;
 
-class UserRestClientImplTestIntegrated {
+class UserRestClientImplIntegretedTest {
 
     private ExchangeFunction exchangeFunction;
     private WebClient webClient;
@@ -41,8 +39,6 @@ class UserRestClientImplTestIntegrated {
 
     @Test
     void retrieveUserInfo_ok() {
-        UserInfoPDV response = new UserInfoPDV();
-
         ClientResponse clientResponse = ClientResponse
                 .create(HttpStatus.OK)
                 .header("Content-Type", "application/json")
@@ -89,8 +85,6 @@ class UserRestClientImplTestIntegrated {
 
     @Test
     void retrieveFiscalCodeInfo_ok() {
-        FiscalCodeInfoPDV response = new FiscalCodeInfoPDV();
-
         ClientResponse clientResponse = ClientResponse
                 .create(HttpStatus.OK)
                 .header("Content-Type", "application/json")
