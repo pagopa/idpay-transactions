@@ -1,6 +1,5 @@
 package it.gov.pagopa.common.reactive.kafka.consumer;
 
-import com.fasterxml.jackson.databind.ObjectReader;
 import it.gov.pagopa.common.reactive.kafka.exception.UncommittableError;
 import it.gov.pagopa.common.kafka.utils.KafkaConstants;
 import it.gov.pagopa.common.reactive.utils.PerformanceLogger;
@@ -13,6 +12,7 @@ import org.springframework.messaging.Message;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.context.Context;
+import tools.jackson.databind.ObjectReader;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;

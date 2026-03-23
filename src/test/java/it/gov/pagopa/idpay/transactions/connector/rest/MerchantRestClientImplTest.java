@@ -1,9 +1,5 @@
 package it.gov.pagopa.idpay.transactions.connector.rest;
 
-import static it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest.WIREMOCK_TEST_PROP2BASEPATH_MAP_PREFIX;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.MERCHANT_NOT_FOUND;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_MERCHANT_NOT_FOUND;
-
 import it.gov.pagopa.common.reactive.rest.config.WebClientConfig;
 import it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
@@ -22,15 +18,20 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import reactor.core.Exceptions;
 import reactor.test.StepVerifier;
 
+import static it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest.WIREMOCK_TEST_PROP2BASEPATH_MAP_PREFIX;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.MERCHANT_NOT_FOUND;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_MERCHANT_NOT_FOUND;
+
 @ContextConfiguration(
-    classes = {
-        MerchantRestClientImpl.class,
-        WebClientConfig.class
-    })
+        classes = {
+                MerchantRestClientImpl.class,
+                WebClientConfig.class
+        })
 @TestPropertySource(
-    properties = {
-        WIREMOCK_TEST_PROP2BASEPATH_MAP_PREFIX + "app.merchant.base-url"
-    }
+        properties = {
+                "spring.cloud.azure.keyvault.enabled=false",
+                WIREMOCK_TEST_PROP2BASEPATH_MAP_PREFIX + "app.merchant.base-url"
+        }
 )
 
 class MerchantRestClientImplTest extends BaseWireMockTest {
@@ -50,8 +51,8 @@ class MerchantRestClientImplTest extends BaseWireMockTest {
 
   @ParameterizedTest
   @CsvSource({
-      "MERCHANT_NOTFOUND_1,POS_NOTFOUND_1",
-      "MERCHANT_OK_1,POS_NOTFOUND_1"
+          "MERCHANT_NOTFOUND_1,POS_NOTFOUND_1",
+          "MERCHANT_OK_1,POS_NOTFOUND_1"
   })
   void getPointOfSale_NotFound(String merchantId, String pointOfSaleId) {
     PointOfSaleDTO result = merchantRestClient.getPointOfSale(merchantId, pointOfSaleId).block();
@@ -143,7 +144,7 @@ class MerchantRestClientImplTest extends BaseWireMockTest {
 
     StepVerifier.create(merchantRestClient.getMerchantDetail(merchantId, initiativeId))
             .expectErrorSatisfies(error -> {
-                Assertions.assertInstanceOf(ClientExceptionWithBody.class, error);
+              Assertions.assertInstanceOf(ClientExceptionWithBody.class, error);
 
               ClientExceptionWithBody ex = (ClientExceptionWithBody) error;
 

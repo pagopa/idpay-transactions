@@ -1,6 +1,5 @@
 package it.gov.pagopa.idpay.transactions.connector.rest.erogazioni;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.InvitaliaTokenProviderService;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryOutcomeDTO;
@@ -16,6 +15,8 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 import org.springframework.http.HttpStatusCode;
+import tools.jackson.databind.ObjectMapper;
+
 import java.time.Duration;
 import java.time.LocalDateTime;
 

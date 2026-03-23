@@ -1,73 +1,133 @@
 package it.gov.pagopa.idpay.transactions.connector.rest;
 
-import it.gov.pagopa.common.reactive.rest.config.WebClientConfig;
-import it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
-import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.TestPropertySource;
+import org.mockito.Mockito;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.reactive.function.client.ClientResponse;
+import org.springframework.web.reactive.function.client.ExchangeFunction;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
-/**
- * See confluence page: <a href="https://pagopa.atlassian.net/wiki/spaces/IDPAY/pages/615974424/Secrets+UnitTests">Secrets for UnitTests</a>
- */
-@SuppressWarnings({"squid:S3577", "NewClassNamingConvention"}) // suppressing class name not match alert: we are not using the Test suffix in order to let not execute this test by default maven configuration because it depends on properties not pushable. See
-@TestPropertySource(locations = {
-        "classpath:/secrets/appPdv.properties",
-},
-        properties = {
-                "app.pdv.base-url=https://api.uat.tokenizer.pdv.pagopa.it/tokenizer/v1"
-        })
-@ContextConfiguration(
-        classes = {
-                UserRestClientImpl.class,
-                WebClientConfig.class
-        })
-class UserRestClientImplTestIntegrated extends BaseWireMockTest {
+import static org.mockito.ArgumentMatchers.any;
 
-    @Autowired
-    private UserRestClient userRestClient;
+class UserRestClientImplTestIntegrated {
 
-    @Value("${app.pdv.userIdOk:2c2a70cb-d0dd-4c1d-89ca-45dc93798fff}")
-    private String userIdOK;
-    @Value("${app.pdv.userFiscalCodeExpected:RNZPMP80A44X000M}")
-    private String fiscalCodeOKExpected;
-    @Value("${app.pdv.userIdNotFound:02105b50-9a81-4cd2-8e17-6573ebb09195}")
-    private String userIdNotFound;
-    @Value("${app.pdv.userIdNotFound:02105b50-9a81-4cd2-8e17-6573ebb09195AAAA}")
-    private String userIdNotValid;
+    private ExchangeFunction exchangeFunction;
+    private WebClient webClient;
+    private UserRestClientImpl client;
 
-    @Test
-    void retrieveUserInfoOk() {
-        UserInfoPDV result = userRestClient.retrieveUserInfo(userIdOK).block();
+    @BeforeEach
+    void setUp() {
+        exchangeFunction = Mockito.mock(ExchangeFunction.class);
 
-        Assertions.assertNotNull(result);
-        Assertions.assertEquals(fiscalCodeOKExpected, result.getPii());
+        webClient = WebClient.builder()
+                .exchangeFunction(exchangeFunction)
+                .baseUrl("http://fake-url")
+                .defaultHeader("x-api-key", "fake-key")
+                .build();
 
+        client = new UserRestClientImpl(
+                "http://fake-url",
+                "fake-key",
+                10,
+                1,
+                WebClient.builder().exchangeFunction(exchangeFunction)
+        );
     }
 
     @Test
-    void retrieveUserInfoNotFound() {
-        UserInfoPDV result = userRestClient.retrieveUserInfo(userIdNotFound).block();
-        Assertions.assertNull(result);
+    void retrieveUserInfo_ok() {
+        UserInfoPDV response = new UserInfoPDV();
+
+        ClientResponse clientResponse = ClientResponse
+                .create(HttpStatus.OK)
+                .header("Content-Type", "application/json")
+                .body("{ }")
+                .build();
+
+        Mockito.when(exchangeFunction.exchange(any()))
+                .thenReturn(Mono.just(clientResponse));
+
+        StepVerifier.create(client.retrieveUserInfo("token123"))
+                .expectNextCount(1)
+                .verifyComplete();
     }
 
     @Test
-    void retrieveUserInfoNotValid() {
-        UserInfoPDV result = userRestClient.retrieveUserInfo(userIdNotValid).block();
-        Assertions.assertNull(result);
+    void retrieveUserInfo_notFound() {
+        ClientResponse clientResponse = ClientResponse
+                .create(HttpStatus.NOT_FOUND)
+                .build();
+
+        Mockito.when(exchangeFunction.exchange(any()))
+                .thenReturn(Mono.just(clientResponse));
+
+        StepVerifier.create(client.retrieveUserInfo("token123"))
+                .verifyComplete(); // Mono.empty()
     }
 
     @Test
-    void retrieveFiscalCodeInfoOk() {
-        FiscalCodeInfoPDV result = userRestClient.retrieveFiscalCodeInfo(fiscalCodeOKExpected).block();
+    void retrieveUserInfo_badRequest() {
+        ClientResponse clientResponse = ClientResponse
+                .create(HttpStatus.BAD_REQUEST)
+                .build();
 
-        Assertions.assertNotNull(result);
-        Assertions.assertEquals(userIdOK, result.getToken());
+        Mockito.when(exchangeFunction.exchange(any()))
+                .thenReturn(Mono.just(clientResponse));
 
+        StepVerifier.create(client.retrieveUserInfo("invalid"))
+                .verifyComplete(); // Mono.empty()
     }
 
+    // =========================
+    // retrieveFiscalCodeInfo
+    // =========================
+
+    @Test
+    void retrieveFiscalCodeInfo_ok() {
+        FiscalCodeInfoPDV response = new FiscalCodeInfoPDV();
+
+        ClientResponse clientResponse = ClientResponse
+                .create(HttpStatus.OK)
+                .header("Content-Type", "application/json")
+                .body("{ }")
+                .build();
+
+        Mockito.when(exchangeFunction.exchange(any()))
+                .thenReturn(Mono.just(clientResponse));
+
+        StepVerifier.create(client.retrieveFiscalCodeInfo("RSSMRA80A01H501U"))
+                .expectNextCount(1)
+                .verifyComplete();
+    }
+
+    @Test
+    void retrieveFiscalCodeInfo_notFound() {
+        ClientResponse clientResponse = ClientResponse
+                .create(HttpStatus.NOT_FOUND)
+                .build();
+
+        Mockito.when(exchangeFunction.exchange(any()))
+                .thenReturn(Mono.just(clientResponse));
+
+        StepVerifier.create(client.retrieveFiscalCodeInfo("XXX"))
+                .verifyComplete();
+    }
+
+    @Test
+    void retrieveFiscalCodeInfo_badRequest() {
+        ClientResponse clientResponse = ClientResponse
+                .create(HttpStatus.BAD_REQUEST)
+                .build();
+
+        Mockito.when(exchangeFunction.exchange(any()))
+                .thenReturn(Mono.just(clientResponse));
+
+        StepVerifier.create(client.retrieveFiscalCodeInfo("INVALID"))
+                .verifyComplete();
+    }
 }

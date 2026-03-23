@@ -16,12 +16,12 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
-import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,6 +30,9 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockUser;
 
 @TestPropertySource(
         properties = {
@@ -40,13 +43,13 @@ import java.time.LocalDateTime;
 
                 "de.flapdoodle.mongodb.embedded.version: 4.2.24",
 
-                "spring.data.mongodb.database: idpay",
-                "spring.data.mongodb.config.connectionPool.maxSize: 100",
-                "spring.data.mongodb.config.connectionPool.minSize: 0",
-                "spring.data.mongodb.config.connectionPool.maxWaitTimeMS: 120000",
-                "spring.data.mongodb.config.connectionPool.maxConnectionLifeTimeMS: 0",
-                "spring.data.mongodb.config.connectionPool.maxConnectionIdleTimeMS: 120000",
-                "spring.data.mongodb.config.connectionPool.maxConnecting: 2",
+                "spring.mongodb.database: idpay",
+                "spring.mongodb.config.connectionPool.maxSize: 100",
+                "spring.mongodb.config.connectionPool.minSize: 0",
+                "spring.mongodb.config.connectionPool.maxWaitTimeMS: 120000",
+                "spring.mongodb.config.connectionPool.maxConnectionLifeTimeMS: 0",
+                "spring.mongodb.config.connectionPool.maxConnectionIdleTimeMS: 120000",
+                "spring.mongodb.config.connectionPool.maxConnecting: 2",
         })
 @ContextConfiguration(classes = {
         ReactiveRequestContextFilter.class,
@@ -71,12 +74,12 @@ class MongoRequestRateTooLargeRetryIntegrationTest {
 
     private static final int API_RETRYABLE_MAX_RETRY = 5;
 
-    @SpyBean
+    @MockitoSpyBean
     private TestRepository testRepositorySpy;
     @Autowired
     private DummySpringRepository dummySpringRepository;
 
-    @SpyBean
+    @MockitoSpyBean
     private MongoRequestRateTooLargeAutomaticRetryAspect automaticRetryAspectSpy;
 
     private static int[] counter;
@@ -174,7 +177,7 @@ class MongoRequestRateTooLargeRetryIntegrationTest {
 
     @Test
     void testController_MonoMethod() {
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/testMono").build())
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.TOO_MANY_REQUESTS)
@@ -185,7 +188,7 @@ class MongoRequestRateTooLargeRetryIntegrationTest {
 
     @Test
     void testController_MonoMethodRetryable() {
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/testMonoRetryable").build())
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.TOO_MANY_REQUESTS)
@@ -196,7 +199,7 @@ class MongoRequestRateTooLargeRetryIntegrationTest {
 
     @Test
     void testController_FluxMethod() {
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/testFlux").build())
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.TOO_MANY_REQUESTS)
@@ -207,7 +210,7 @@ class MongoRequestRateTooLargeRetryIntegrationTest {
 
     @Test
     void testController_FluxMethodRetryable() {
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/testFluxRetryable").build())
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.TOO_MANY_REQUESTS)
