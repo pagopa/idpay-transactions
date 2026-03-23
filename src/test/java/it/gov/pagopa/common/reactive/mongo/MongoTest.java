@@ -5,7 +5,6 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import it.gov.pagopa.common.mongo.MongoTestUtilitiesService;
 import it.gov.pagopa.common.mongo.config.MongoConfig;
 import it.gov.pagopa.common.mongo.singleinstance.AutoConfigureSingleInstanceMongodb;
-import it.gov.pagopa.common.reactive.mongo.config.ReactiveMongoConfig;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.mongodb.autoconfigure.MongoClientSettingsBuilderCustomizer;
@@ -22,21 +21,10 @@ import java.lang.annotation.*;
 @ExtendWith(SpringExtension.class)
 @TestPropertySource(
         properties = {
-                "de.flapdoodle.mongodb.embedded.version=4.24.0",
-
-                "spring.mongodb.database=idpay",
-                "spring.mongodb.config.connectionPool.maxSize: 100",
-                "spring.mongodb.config.connectionPool.minSize: 0",
-                "spring.mongodb.config.connectionPool.maxWaitTimeMS: 120000",
-                "spring.mongodb.config.connectionPool.maxConnectionLifeTimeMS: 0",
-                "spring.mongodb.config.connectionPool.maxConnectionIdleTimeMS: 120000",
-                "spring.mongodb.config.connectionPool.maxConnecting: 2",
+                "de.flapdoodle.mongodb.embedded.version=4.2.24"
         })
 @AutoConfigureSingleInstanceMongodb
-@Import({MongoTestUtilitiesService.TestMongoConfiguration.class,
-        ReactiveMongoConfig.class,
-        SimpleMeterRegistry.class,
-        MongoTest.MongoTestConfiguration.class})
+@Import({MongoTestUtilitiesService.TestMongoConfiguration.class, SimpleMeterRegistry.class,MongoTest.MongoTestConfiguration.class})
 public @interface MongoTest {
     @TestConfiguration
     class MongoTestConfiguration extends MongoConfig {

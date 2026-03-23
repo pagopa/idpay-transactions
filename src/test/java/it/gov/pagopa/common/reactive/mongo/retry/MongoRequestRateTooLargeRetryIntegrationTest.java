@@ -41,15 +41,7 @@ import static org.springframework.security.test.web.reactive.server.SecurityMock
                 "mongo.request-rate-too-large.batch.max-retry: 3",
                 "mongo.request-rate-too-large.batch.max-millis-elapsed: 0",
 
-                "de.flapdoodle.mongodb.embedded.version: 4.24.0",
-
-                "spring.mongodb.database=idpay",
-                "spring.mongodb.config.connectionPool.maxSize: 100",
-                "spring.mongodb.config.connectionPool.minSize: 0",
-                "spring.mongodb.config.connectionPool.maxWaitTimeMS: 120000",
-                "spring.mongodb.config.connectionPool.maxConnectionLifeTimeMS: 0",
-                "spring.mongodb.config.connectionPool.maxConnectionIdleTimeMS: 120000",
-                "spring.mongodb.config.connectionPool.maxConnecting: 2",
+                "de.flapdoodle.mongodb.embedded.version: 4.2.24"
         })
 @ContextConfiguration(classes = {
         ReactiveRequestContextFilter.class,
