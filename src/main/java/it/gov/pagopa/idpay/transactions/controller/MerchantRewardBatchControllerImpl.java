@@ -8,13 +8,14 @@ import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
-import it.gov.pagopa.idpay.transactions.service.RewardBatchService;
-import it.gov.pagopa.idpay.transactions.usecase.rewardbatch.GetRewardBatchByIdUseCase;
+import it.gov.pagopa.idpay.transactions.usecase.rewardbatch.*;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import java.time.LocalDate;
+
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -28,17 +29,26 @@ import static it.gov.pagopa.idpay.transactions.utils.Utilities.sanitizeString;
 
 @RestController
 @Slf4j
+@RequiredArgsConstructor
 public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchController{
 
-  private final RewardBatchService rewardBatchService;
   private final RewardBatchMapper rewardBatchMapper;
   private final GetRewardBatchByIdUseCase getRewardBatchByIdUseCase;
-
-  public MerchantRewardBatchControllerImpl(RewardBatchService rewardBatchService, RewardBatchMapper rewardBatchMapper, GetRewardBatchByIdUseCase getRewardBatchByIdUseCase){
-    this.rewardBatchService = rewardBatchService;
-    this.rewardBatchMapper = rewardBatchMapper;
-    this.getRewardBatchByIdUseCase = getRewardBatchByIdUseCase;
-  }
+  private final GetRewardBatchesUseCase getRewardBatchesUseCase;
+  private final SendRewardBatchUseCase sendRewardBatchUseCase;
+  private final SuspendTransactionsUseCase suspendTransactionsUseCase;
+  private final RejectTransactionsUseCase rejectTransactionsUseCase;
+  private final ApproveTransactionsUseCase approveTransactionsUseCase;
+  private final EvaluatingRewardBatchesUseCase evaluatingRewardBatchesUseCase;
+  private final DownloadApprovedRewardBatchFileUseCase downloadApprovedRewardBatchFileUseCase;
+  private final RewardBatchConfirmationUseCase rewardBatchConfirmationUseCase;
+  private final RewardBatchConfirmationBatchUseCase rewardBatchConfirmationBatchUseCase;
+  private final RewardBatchDeliveryBatchUseCase rewardBatchDeliveryBatchUseCase;
+  private final CheckRewardBatchesOutcomesUseCase checkRewardBatchesOutcomesUseCase;
+  private final GenerateAndSaveCsvUseCase generateAndSaveCsvUseCase;
+  private final ValidateRewardBatchUseCase validateRewardBatchUseCase;
+  private final PostponeTransactionUseCase postponeTransactionUseCase;
+  private final DeleteEmptyRewardBatchesUseCase deleteEmptyRewardBatchesUseCase;
 
   @Override
   public Mono<RewardBatchListDTO> getRewardBatches(String merchantId, String organizationRole, String status, String assigneeLevel, String month, String merchantIdFilter, String initiativeId, Pageable pageable) {
@@ -66,7 +76,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
               validMerchantId != null ? Utilities.sanitizeString(validMerchantId) : "null",
               organizationRole != null ? Utilities.sanitizeString(organizationRole) : "null");
 
-    return rewardBatchService.getRewardBatches(validMerchantId, organizationRole, status, assigneeLevel, month, pageable)
+    return getRewardBatchesUseCase.execute(validMerchantId, organizationRole, status, assigneeLevel, month, pageable)
         .flatMap(page ->
             Flux.fromIterable(page.getContent())
                 .flatMapSequential(rewardBatchMapper::toDTO)
@@ -93,30 +103,30 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     public Mono<Void> sendRewardBatches(String merchantId, String initiativeId, String batchId) {
         log.info("[SEND_REWARD_BATCHES] Merchant {} requested to send batch batchId {}",
                 Utilities.sanitizeString(merchantId), Utilities.sanitizeString(batchId));
-        return this.rewardBatchService.sendRewardBatch(merchantId, batchId);
+        return sendRewardBatchUseCase.execute(merchantId, batchId);
     }
 
   @Override
   public  Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId) {
     log.info("[REWARD_BATCH_CONFIRMATION] Batch confirmation for batch batchId {}",
             Utilities.sanitizeString(rewardBatchId));
-    return rewardBatchService.rewardBatchConfirmation(initiativeId, rewardBatchId);
+    return rewardBatchConfirmationUseCase.execute(initiativeId, rewardBatchId);
   }
 
   @Override
   public  Mono<Void> rewardBatchConfirmationBatch(String initiativeId, RewardBatchesRequest request) {
     List<String> rewardBatchIds = request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
     log.info("[REWARD_BATCH_CONFIRMATION_BATCH] Batch confirmation for initiative {} and batchs {}",
-            Utilities.sanitizeString(initiativeId), rewardBatchIds.toString() );
-    return rewardBatchService.rewardBatchConfirmationBatch(initiativeId, rewardBatchIds);
+            Utilities.sanitizeString(initiativeId), rewardBatchIds );
+    return rewardBatchConfirmationBatchUseCase.execute(initiativeId, rewardBatchIds);
   }
 
     @Override
     public  Mono<Void> rewardBatchDeliveryBatch(String initiativeId, RewardBatchesRequest request) {
         List<String> rewardBatchIds = request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
         log.info("[REWARD_BATCH_DELIVERY_BATCH] Batch delivery for initiative {} and batchs {}",
-                Utilities.sanitizeString(initiativeId), rewardBatchIds.toString() );
-        return rewardBatchService.rewardBatchDeliveryBatch(initiativeId, rewardBatchIds);
+                Utilities.sanitizeString(initiativeId), rewardBatchIds );
+        return rewardBatchDeliveryBatchUseCase.execute(initiativeId, rewardBatchIds);
     }
 
   @Override
@@ -128,14 +138,14 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
             .toList();
 
     log.info("[CHECK_REWARD_BATCHES_OUTCOMES] initiative {} rewardBatchIds {}", sanitizeString(initiativeId), sanitizedBatchIds);
-    return rewardBatchService.checkRewardBatchesOutcomes(initiativeId, rewardBatchIds);
+    return checkRewardBatchesOutcomesUseCase.execute(initiativeId, rewardBatchIds);
   }
 
   @Override
   public  Mono<String> generateAndSaveCsv(String initiativeId, String rewardBatchId, String merchantId) {
     log.info("[GENERATE_AND_SAVE_CSV] Generate CSV for initiative {} and batch {}",
             Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(rewardBatchId) );
-    return rewardBatchService.generateAndSaveCsv(rewardBatchId, initiativeId, merchantId);
+    return generateAndSaveCsvUseCase.execute(rewardBatchId, initiativeId, merchantId);
   }
 
 
@@ -158,7 +168,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
             Utilities.sanitizeString(reason)
     );
 
-    return rewardBatchService.suspendTransactions(rewardBatchId, initiativeId, request)
+    return suspendTransactionsUseCase.execute(rewardBatchId, initiativeId, request)
             .flatMap(rewardBatchMapper::toDTO);
   }
 
@@ -183,7 +193,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
             Utilities.sanitizeString(reason)
     );
 
-    return rewardBatchService.rejectTransactions(rewardBatchId, initiativeId, request)
+    return rejectTransactionsUseCase.execute(rewardBatchId, initiativeId, request)
             .flatMap(rewardBatchMapper::toDTO);
   }
 
@@ -199,7 +209,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
             Utilities.sanitizeString(initiativeId)
     );
 
-    return rewardBatchService.approvedTransactions(rewardBatchId, request, initiativeId)
+    return approveTransactionsUseCase.execute(rewardBatchId, request, initiativeId)
             .flatMap(rewardBatchMapper::toDTO);
   }
 
@@ -211,7 +221,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
                     .map(Utilities::sanitizeString).toList()
                     : "all reward batches with status SENT"
     );
-    return rewardBatchService.evaluatingRewardBatches(rewardBatchesRequest.getRewardBatchIds())
+    return evaluatingRewardBatchesUseCase.execute(rewardBatchesRequest.getRewardBatchIds())
             .then();
   }
 
@@ -222,7 +232,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
             Utilities.sanitizeString(rewardBatchId),
             Utilities.sanitizeString(initiativeId));
 
-    return rewardBatchService.downloadApprovedRewardBatchFile(
+    return downloadApprovedRewardBatchFileUseCase.execute(
             merchantId,
             organizationRole,
             initiativeId,
@@ -240,7 +250,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
             Utilities.sanitizeString(organizationRole)
     );
 
-    return rewardBatchService.validateRewardBatch(organizationRole, initiativeId, rewardBatchId);
+    return validateRewardBatchUseCase.execute(organizationRole, initiativeId, rewardBatchId);
   }
 
   @Override
@@ -253,12 +263,12 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
         Utilities.sanitizeString(initiativeId)
     );
 
-    return rewardBatchService.postponeTransaction(merchantId, initiativeId, rewardBatchId, transactionId, initiativeEndDate);
+    return postponeTransactionUseCase.execute(merchantId, initiativeId, rewardBatchId, transactionId, initiativeEndDate);
   }
 
   @Override
   public Mono<Void> cancelEmptyRewardBatches(){
     log.info("[CANCEL_EMPTY_BATCHES] Request to delete all empty batches");
-    return rewardBatchService.deleteEmptyRewardBatches();
+    return deleteEmptyRewardBatchesUseCase.execute();
   }
 }

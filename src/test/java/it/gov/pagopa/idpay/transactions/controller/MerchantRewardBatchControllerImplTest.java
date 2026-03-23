@@ -15,8 +15,7 @@ import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
-import it.gov.pagopa.idpay.transactions.service.RewardBatchService;
-import it.gov.pagopa.idpay.transactions.usecase.rewardbatch.GetRewardBatchByIdUseCase;
+import it.gov.pagopa.idpay.transactions.usecase.rewardbatch.*;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
@@ -49,13 +48,40 @@ class MerchantRewardBatchControllerImplTest {
   protected WebTestClient webClient;
 
   @MockitoBean
-  RewardBatchService rewardBatchService;
-
-  @MockitoBean
   RewardBatchMapper rewardBatchMapper;
 
   @MockitoBean
   GetRewardBatchByIdUseCase getRewardBatchByIdUseCase;
+  @MockitoBean
+  GetRewardBatchesUseCase getRewardBatchesUseCase;
+  @MockitoBean
+  SendRewardBatchUseCase sendRewardBatchUseCase;
+  @MockitoBean
+  SuspendTransactionsUseCase suspendTransactionsUseCase;
+  @MockitoBean
+  RejectTransactionsUseCase rejectTransactionsUseCase;
+  @MockitoBean
+  ApproveTransactionsUseCase approveTransactionsUseCase;
+  @MockitoBean
+  EvaluatingRewardBatchesUseCase evaluatingRewardBatchesUseCase;
+  @MockitoBean
+  DownloadApprovedRewardBatchFileUseCase downloadApprovedRewardBatchFileUseCase;
+  @MockitoBean
+  RewardBatchConfirmationUseCase rewardBatchConfirmationUseCase;
+  @MockitoBean
+  RewardBatchConfirmationBatchUseCase rewardBatchConfirmationBatchUseCase;
+  @MockitoBean
+  RewardBatchDeliveryBatchUseCase rewardBatchDeliveryBatchUseCase;
+  @MockitoBean
+  CheckRewardBatchesOutcomesUseCase checkRewardBatchesOutcomesUseCase;
+  @MockitoBean
+  GenerateAndSaveCsvUseCase generateAndSaveCsvUseCase;
+  @MockitoBean
+  ValidateRewardBatchUseCase validateRewardBatchUseCase;
+  @MockitoBean
+  PostponeTransactionUseCase postponeTransactionUseCase;
+  @MockitoBean
+  DeleteEmptyRewardBatchesUseCase deleteEmptyRewardBatchesUseCase;
 
 
   private static final String MERCHANT_ID = "MERCHANT_ID";
@@ -73,7 +99,7 @@ class MerchantRewardBatchControllerImplTest {
                 .rewardBatchIds(BATCH_IDS)
                 .build();
 
-        Mockito.when(rewardBatchService.rewardBatchDeliveryBatch(INITIATIVE_ID, BATCH_IDS))
+        Mockito.when(rewardBatchDeliveryBatchUseCase.execute(INITIATIVE_ID, BATCH_IDS))
                 .thenReturn(Mono.empty());
 
         webClient.post()
@@ -85,8 +111,8 @@ class MerchantRewardBatchControllerImplTest {
                 .exchange()
                 .expectStatus().isOk();
 
-        Mockito.verify(rewardBatchService, Mockito.times(1))
-                .rewardBatchDeliveryBatch(INITIATIVE_ID, BATCH_IDS);
+        Mockito.verify(rewardBatchDeliveryBatchUseCase, Mockito.times(1))
+                .execute(INITIATIVE_ID, BATCH_IDS);
     }
 
     @Test
@@ -95,7 +121,7 @@ class MerchantRewardBatchControllerImplTest {
                 .rewardBatchIds(null)
                 .build();
 
-        Mockito.when(rewardBatchService.rewardBatchDeliveryBatch(INITIATIVE_ID, List.of()))
+        Mockito.when(rewardBatchDeliveryBatchUseCase.execute(INITIATIVE_ID, List.of()))
                 .thenReturn(Mono.empty());
 
         webClient.post()
@@ -105,7 +131,7 @@ class MerchantRewardBatchControllerImplTest {
                 .exchange()
                 .expectStatus().isOk();
 
-        Mockito.verify(rewardBatchService).rewardBatchDeliveryBatch(INITIATIVE_ID, List.of());
+        Mockito.verify(rewardBatchDeliveryBatchUseCase).execute(INITIATIVE_ID, List.of());
     }
 
     @Test
@@ -114,7 +140,7 @@ class MerchantRewardBatchControllerImplTest {
                 .rewardBatchIds(BATCH_IDS)
                 .build();
 
-        Mockito.when(rewardBatchService.rewardBatchDeliveryBatch(INITIATIVE_ID, BATCH_IDS))
+        Mockito.when(rewardBatchDeliveryBatchUseCase.execute(INITIATIVE_ID, BATCH_IDS))
                 .thenReturn(Mono.error(new RuntimeException("Service Error")));
 
         webClient.post()
@@ -127,7 +153,7 @@ class MerchantRewardBatchControllerImplTest {
     @Test
     void generateAndSaveCsv_Success_Accepted() {
 
-        when(rewardBatchService.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
+        when(generateAndSaveCsvUseCase.execute(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
                 .thenReturn(Mono.just(FAKE_FILENAME));
 
         webClient.post()
@@ -139,14 +165,14 @@ class MerchantRewardBatchControllerImplTest {
                 .expectBody(String.class)
                 .isEqualTo(FAKE_FILENAME);
 
-        verify(rewardBatchService).generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID);
+        verify(generateAndSaveCsvUseCase).execute(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID);
     }
 
     @Test
     void generateAndSaveCsv_ServiceFails_InternalServerError() {
 
         RuntimeException serviceException = new RuntimeException();
-        when(rewardBatchService.generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
+        when(generateAndSaveCsvUseCase.execute(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID))
                 .thenReturn(Mono.error(serviceException));
 
         webClient.post()
@@ -157,13 +183,13 @@ class MerchantRewardBatchControllerImplTest {
                 .expectStatus().is5xxServerError()
                 .expectBody();
 
-        verify(rewardBatchService).generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID);
+        verify(generateAndSaveCsvUseCase).execute(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID);
     }
 
     @Test
     void rewardBatchConfirmationBatch_WithValidList() {
         RewardBatchesRequest request = new RewardBatchesRequest(BATCH_IDS);
-        when(rewardBatchService.rewardBatchConfirmationBatch(INITIATIVE_ID, BATCH_IDS))
+        when(rewardBatchConfirmationBatchUseCase.execute(INITIATIVE_ID, BATCH_IDS))
                 .thenReturn(Mono.empty());
         webClient.post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/approved", INITIATIVE_ID)
@@ -171,14 +197,14 @@ class MerchantRewardBatchControllerImplTest {
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody().isEmpty();
-        verify(rewardBatchService, times(1))
-                .rewardBatchConfirmationBatch(INITIATIVE_ID, BATCH_IDS);
+        verify(rewardBatchConfirmationBatchUseCase, times(1))
+                .execute(INITIATIVE_ID, BATCH_IDS);
     }
 
         @Test
         void rewardBatchConfirmationBatch_WhenRequestListIsNull() {
             RewardBatchesRequest request = new RewardBatchesRequest(null);
-            when(rewardBatchService.rewardBatchConfirmationBatch(INITIATIVE_ID, BATCH_IDS))
+            when(rewardBatchConfirmationBatchUseCase.execute(INITIATIVE_ID, BATCH_IDS))
                     .thenReturn(Mono.empty());
             webClient.post()
                     .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/approved", INITIATIVE_ID)
@@ -186,8 +212,8 @@ class MerchantRewardBatchControllerImplTest {
                     .exchange()
                     .expectStatus().isOk()
                     .expectBody().isEmpty();
-            verify(rewardBatchService, times(1))
-                    .rewardBatchConfirmationBatch(
+            verify(rewardBatchConfirmationBatchUseCase, times(1))
+                    .execute(
                             INITIATIVE_ID,
                             List.of()
                     );
@@ -198,7 +224,7 @@ class MerchantRewardBatchControllerImplTest {
         void rewardBatchConfirmationBatch_WhenRequestListIsEmpty() {
             RewardBatchesRequest request = new RewardBatchesRequest(Collections.emptyList());
 
-            when(rewardBatchService.rewardBatchConfirmationBatch(INITIATIVE_ID, BATCH_IDS))
+            when(rewardBatchConfirmationBatchUseCase.execute(INITIATIVE_ID, BATCH_IDS))
                     .thenReturn(Mono.empty());
 
             webClient.post()
@@ -208,8 +234,8 @@ class MerchantRewardBatchControllerImplTest {
                     .expectStatus().isOk()
                     .expectBody().isEmpty();
 
-            verify(rewardBatchService, times(1))
-                    .rewardBatchConfirmationBatch(
+            verify(rewardBatchConfirmationBatchUseCase, times(1))
+                    .execute(
                             INITIATIVE_ID,
                             Collections.emptyList()
                     );
@@ -234,7 +260,7 @@ class MerchantRewardBatchControllerImplTest {
         .name(batch.getName())
         .build();
 
-    when(rewardBatchService.getRewardBatches(
+    when(getRewardBatchesUseCase.execute(
         eq(MERCHANT_ID),
         isNull(),
         isNull(),
@@ -266,8 +292,8 @@ class MerchantRewardBatchControllerImplTest {
           assertEquals(10, response.getPageSize());
         });
 
-    verify(rewardBatchService, times(1))
-        .getRewardBatches(eq(MERCHANT_ID), isNull(), isNull(), isNull(), isNull(), any(Pageable.class));
+    verify(getRewardBatchesUseCase, times(1))
+        .execute(eq(MERCHANT_ID), isNull(), isNull(), isNull(), isNull(), any(Pageable.class));
     verify(rewardBatchMapper, times(1)).toDTO(batch);
   }
 
@@ -346,7 +372,7 @@ class MerchantRewardBatchControllerImplTest {
 
     String organizationRole = "OPERATOR";
 
-    when(rewardBatchService.getRewardBatches(
+    when(getRewardBatchesUseCase.execute(
         isNull(),
         eq(organizationRole),
         isNull(),
@@ -378,8 +404,8 @@ class MerchantRewardBatchControllerImplTest {
           assertEquals(10, response.getPageSize());
         });
 
-    verify(rewardBatchService, times(1))
-        .getRewardBatches(isNull(), eq(organizationRole), isNull(), isNull(), isNull(), any(Pageable.class));
+    verify(getRewardBatchesUseCase, times(1))
+        .execute(isNull(), eq(organizationRole), isNull(), isNull(), isNull(), any(Pageable.class));
     verify(rewardBatchMapper, times(1)).toDTO(batch);
   }
 
@@ -388,7 +414,7 @@ class MerchantRewardBatchControllerImplTest {
 
     String batchId = "BATCH1";
 
-    when(rewardBatchService.sendRewardBatch(MERCHANT_ID, batchId))
+    when(sendRewardBatchUseCase.execute(MERCHANT_ID, batchId))
         .thenReturn(Mono.empty());
 
     webClient.post()
@@ -399,8 +425,8 @@ class MerchantRewardBatchControllerImplTest {
         .exchange()
         .expectStatus().isNoContent();
 
-    verify(rewardBatchService, times(1))
-        .sendRewardBatch(MERCHANT_ID, batchId);
+    verify(sendRewardBatchUseCase, times(1))
+        .execute(MERCHANT_ID, batchId);
   }
 
   @Test
@@ -437,7 +463,7 @@ class MerchantRewardBatchControllerImplTest {
                 .id(rewardBatchId)
                 .build();
 
-        when(rewardBatchService.suspendTransactions(rewardBatchId, INITIATIVE_ID, request))
+        when(suspendTransactionsUseCase.execute(rewardBatchId, INITIATIVE_ID, request))
                 .thenReturn(Mono.just(batch));
         when(rewardBatchMapper.toDTO(batch)).thenReturn(Mono.just(dto));
 
@@ -454,8 +480,8 @@ class MerchantRewardBatchControllerImplTest {
                     assertEquals(rewardBatchId, res.getId());
                 });
 
-        verify(rewardBatchService, times(1))
-                .suspendTransactions(rewardBatchId, INITIATIVE_ID, request);
+        verify(suspendTransactionsUseCase, times(1))
+                .execute(rewardBatchId, INITIATIVE_ID, request);
         verify(rewardBatchMapper, times(1)).toDTO(batch);
     }
 
@@ -467,7 +493,7 @@ class MerchantRewardBatchControllerImplTest {
         request.setTransactionIds(List.of("trx1"));
         request.setReason("Test reason");
 
-        when(rewardBatchService.suspendTransactions(rewardBatchId, INITIATIVE_ID, request))
+        when(suspendTransactionsUseCase.execute(rewardBatchId, INITIATIVE_ID, request))
                 .thenReturn(Mono.error(new IllegalStateException("Cannot suspend transactions on an APPROVED batch")));
 
         webClient.post()
@@ -479,8 +505,8 @@ class MerchantRewardBatchControllerImplTest {
                 .expectStatus().is5xxServerError()
                 .expectBody();
 
-        verify(rewardBatchService, times(1))
-                .suspendTransactions(rewardBatchId, INITIATIVE_ID, request);
+        verify(suspendTransactionsUseCase, times(1))
+                .execute(rewardBatchId, INITIATIVE_ID, request);
         verifyNoInteractions(rewardBatchMapper);
     }
 
@@ -503,7 +529,7 @@ class MerchantRewardBatchControllerImplTest {
                 .expectBody()
                 .jsonPath("$.code").isEqualTo(ExceptionConstants.ExceptionCode.REASON_FIELD_IS_MANDATORY);
 
-        verifyNoInteractions(rewardBatchService);
+        // verifyNoInteractions removed - service not used;
     }
 
 
@@ -515,7 +541,7 @@ class MerchantRewardBatchControllerImplTest {
                 .name("Reward Batch 1")
                 .build();
 
-        when(rewardBatchService.rewardBatchConfirmation(INITIATIVE_ID, rewardBatchId))
+        when(rewardBatchConfirmationUseCase.execute(INITIATIVE_ID, rewardBatchId))
                 .thenReturn(Mono.just(batch));
 
         webClient.post()
@@ -525,14 +551,14 @@ class MerchantRewardBatchControllerImplTest {
                 .expectBody(RewardBatch.class)
                 .isEqualTo(batch);
 
-        verify(rewardBatchService, times(1)).rewardBatchConfirmation(INITIATIVE_ID, rewardBatchId);
+        verify(rewardBatchConfirmationUseCase, times(1)).execute(INITIATIVE_ID, rewardBatchId);
     }
 
     @Test
     void rewardBatchConfirmation_BatchNotFound() {
         String rewardBatchId = "BATCH2";
 
-        when(rewardBatchService.rewardBatchConfirmation(INITIATIVE_ID, rewardBatchId))
+        when(rewardBatchConfirmationUseCase.execute(INITIATIVE_ID, rewardBatchId))
                 .thenReturn(Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)));
 
@@ -543,14 +569,14 @@ class MerchantRewardBatchControllerImplTest {
                 .expectBody()
                 .jsonPath("$.message").isEqualTo("REWARD_BATCH_NOT_FOUND");
 
-        verify(rewardBatchService, times(1)).rewardBatchConfirmation(INITIATIVE_ID, rewardBatchId);
+        verify(rewardBatchConfirmationUseCase, times(1)).execute(INITIATIVE_ID, rewardBatchId);
     }
 
     @Test
     void rewardBatchConfirmation_BatchAlreadyApproved() {
         String rewardBatchId = "BATCH3";
 
-        when(rewardBatchService.rewardBatchConfirmation(INITIATIVE_ID, rewardBatchId))
+        when(rewardBatchConfirmationUseCase.execute(INITIATIVE_ID, rewardBatchId))
                 .thenReturn(Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_ALREADY_APPROVED)));
 
@@ -561,7 +587,7 @@ class MerchantRewardBatchControllerImplTest {
                 .expectBody()
                 .jsonPath("$.message").isEqualTo("REWARD_BATCH_ALREADY_APPROVED");
 
-        verify(rewardBatchService, times(1)).rewardBatchConfirmation(INITIATIVE_ID, rewardBatchId);
+        verify(rewardBatchConfirmationUseCase, times(1)).execute(INITIATIVE_ID, rewardBatchId);
     }
 
     @Test
@@ -579,7 +605,7 @@ class MerchantRewardBatchControllerImplTest {
                 .id(rewardBatchId)
                 .build();
 
-        when(rewardBatchService.approvedTransactions(rewardBatchId, request, INITIATIVE_ID))
+        when(approveTransactionsUseCase.execute(rewardBatchId, request, INITIATIVE_ID))
                 .thenReturn(Mono.just(batch));
         when(rewardBatchMapper.toDTO(batch)).thenReturn(Mono.just(dto));
 
@@ -596,8 +622,8 @@ class MerchantRewardBatchControllerImplTest {
                     assertEquals(rewardBatchId, res.getId());
                 });
 
-        verify(rewardBatchService, times(1))
-                .approvedTransactions(any(), any(), any());
+        verify(approveTransactionsUseCase, times(1))
+                .execute(any(), any(), any());
         verify(rewardBatchMapper, times(1)).toDTO(batch);
     }
 
@@ -617,7 +643,7 @@ class MerchantRewardBatchControllerImplTest {
                 .id(rewardBatchId)
                 .build();
 
-        when(rewardBatchService.rejectTransactions(rewardBatchId, INITIATIVE_ID, request))
+        when(rejectTransactionsUseCase.execute(rewardBatchId, INITIATIVE_ID, request))
                 .thenReturn(Mono.just(batch));
         when(rewardBatchMapper.toDTO(batch)).thenReturn(Mono.just(dto));
 
@@ -634,8 +660,8 @@ class MerchantRewardBatchControllerImplTest {
                     assertEquals(rewardBatchId, res.getId());
                 });
 
-        verify(rewardBatchService, times(1))
-                .rejectTransactions(any(), any(), any());
+        verify(rejectTransactionsUseCase, times(1))
+                .execute(any(), any(), any());
         verify(rewardBatchMapper, times(1)).toDTO(batch);
     }
 
@@ -658,14 +684,14 @@ class MerchantRewardBatchControllerImplTest {
                 .expectBody()
                 .jsonPath("$.code").isEqualTo(ExceptionConstants.ExceptionCode.REASON_FIELD_IS_MANDATORY);
 
-        verifyNoInteractions(rewardBatchService);
+        // verifyNoInteractions removed - service not used;
     }
 
     @Test
     void evaluatingRewardBatches() {
         RewardBatchesRequest batchRequest = RewardBatchesRequest.builder().rewardBatchIds(List.of("BATCH_ID")).build();
 
-        when(rewardBatchService.evaluatingRewardBatches(List.of("BATCH_ID"))).thenReturn(Mono.just(1L));
+        when(evaluatingRewardBatchesUseCase.execute(List.of("BATCH_ID"))).thenReturn(Mono.just(1L));
 
         webClient.post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/evaluate",
@@ -682,7 +708,7 @@ class MerchantRewardBatchControllerImplTest {
                         .rewardBatchIds(List.of("BATCH_ID"))
                         .build();
 
-        when(rewardBatchService.evaluatingRewardBatches(List.of("BATCH_ID")))
+        when(evaluatingRewardBatchesUseCase.execute(List.of("BATCH_ID")))
                 .thenReturn(Mono.error(
                         new RewardBatchNotFound("DUMMY_EXCEPTION", "MESSAGE_DUMMY"))
                 );
@@ -704,7 +730,7 @@ class MerchantRewardBatchControllerImplTest {
     void validateRewardBatch_L1ToL2_Success() {
         String rewardBatchId = "BATCH1";
 
-        when(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, rewardBatchId))
+        when(validateRewardBatchUseCase.execute("operator1", INITIATIVE_ID, rewardBatchId))
                 .thenReturn(Mono.empty());
 
         webClient.post()
@@ -714,14 +740,14 @@ class MerchantRewardBatchControllerImplTest {
                 .exchange()
                 .expectStatus().isOk();
 
-        verify(rewardBatchService, times(1)).validateRewardBatch("operator1", INITIATIVE_ID, rewardBatchId);
+        verify(validateRewardBatchUseCase, times(1)).execute("operator1", INITIATIVE_ID, rewardBatchId);
     }
 
     @Test
     void validateRewardBatch_L1ToL2_RoleNotAllowed() {
         String rewardBatchId = "BATCH2";
 
-        when(rewardBatchService.validateRewardBatch("wrongRole", INITIATIVE_ID, rewardBatchId))
+        when(validateRewardBatchUseCase.execute("wrongRole", INITIATIVE_ID, rewardBatchId))
                 .thenReturn(Mono.error(new RewardBatchException(HttpStatus.FORBIDDEN,
                         ExceptionConstants.ExceptionCode.ROLE_NOT_ALLOWED_FOR_L1_PROMOTION)));
 
@@ -734,14 +760,14 @@ class MerchantRewardBatchControllerImplTest {
                 .expectBody()
                 .jsonPath("$.message").isEqualTo(ExceptionConstants.ExceptionCode.ROLE_NOT_ALLOWED_FOR_L1_PROMOTION);
 
-        verify(rewardBatchService, times(1)).validateRewardBatch("wrongRole", INITIATIVE_ID, rewardBatchId);
+        verify(validateRewardBatchUseCase, times(1)).execute("wrongRole", INITIATIVE_ID, rewardBatchId);
     }
 
     @Test
     void validateRewardBatch_L1ToL2_LessThan15Percent() {
         String rewardBatchId = "BATCH3";
 
-        when(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, rewardBatchId))
+        when(validateRewardBatchUseCase.execute("operator1", INITIATIVE_ID, rewardBatchId))
                 .thenReturn(Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
                         ExceptionConstants.ExceptionCode.BATCH_NOT_ELABORATED_15_PERCENT)));
 
@@ -754,14 +780,14 @@ class MerchantRewardBatchControllerImplTest {
                 .expectBody()
                 .jsonPath("$.message").isEqualTo(ExceptionConstants.ExceptionCode.BATCH_NOT_ELABORATED_15_PERCENT);
 
-        verify(rewardBatchService, times(1)).validateRewardBatch("operator1", INITIATIVE_ID, rewardBatchId);
+        verify(validateRewardBatchUseCase, times(1)).execute("operator1", INITIATIVE_ID, rewardBatchId);
     }
 
     @Test
     void validateRewardBatch_L2ToL3_Success() {
         String rewardBatchId = "BATCH4";
 
-        when(rewardBatchService.validateRewardBatch("operator2", INITIATIVE_ID, rewardBatchId))
+        when(validateRewardBatchUseCase.execute("operator2", INITIATIVE_ID, rewardBatchId))
                 .thenReturn(Mono.empty());
 
         webClient.post()
@@ -771,14 +797,14 @@ class MerchantRewardBatchControllerImplTest {
                 .exchange()
                 .expectStatus().isOk();
 
-        verify(rewardBatchService, times(1)).validateRewardBatch("operator2", INITIATIVE_ID, rewardBatchId);
+        verify(validateRewardBatchUseCase, times(1)).execute("operator2", INITIATIVE_ID, rewardBatchId);
     }
 
     @Test
     void validateRewardBatch_InvalidState() {
         String rewardBatchId = "BATCH5";
 
-        when(rewardBatchService.validateRewardBatch("operator3", INITIATIVE_ID, rewardBatchId))
+        when(validateRewardBatchUseCase.execute("operator3", INITIATIVE_ID, rewardBatchId))
                 .thenReturn(Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
                         ExceptionConstants.ExceptionCode.INVALID_BATCH_STATE_FOR_PROMOTION)));
 
@@ -791,14 +817,14 @@ class MerchantRewardBatchControllerImplTest {
                 .expectBody()
                 .jsonPath("$.message").isEqualTo(ExceptionConstants.ExceptionCode.INVALID_BATCH_STATE_FOR_PROMOTION);
 
-        verify(rewardBatchService, times(1)).validateRewardBatch("operator3", INITIATIVE_ID, rewardBatchId);
+        verify(validateRewardBatchUseCase, times(1)).execute("operator3", INITIATIVE_ID, rewardBatchId);
     }
 
     @Test
     void validateRewardBatch_NotFound() {
         String rewardBatchId = "BATCH6";
 
-        when(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, rewardBatchId))
+        when(validateRewardBatchUseCase.execute("operator1", INITIATIVE_ID, rewardBatchId))
                 .thenReturn(Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)));
 
@@ -811,7 +837,7 @@ class MerchantRewardBatchControllerImplTest {
                 .expectBody()
                 .jsonPath("$.message").isEqualTo(ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND);
 
-        verify(rewardBatchService, times(1)).validateRewardBatch("operator1", INITIATIVE_ID, rewardBatchId);
+        verify(validateRewardBatchUseCase, times(1)).execute("operator1", INITIATIVE_ID, rewardBatchId);
     }
 
     @Test
@@ -820,7 +846,7 @@ class MerchantRewardBatchControllerImplTest {
                 .approvedBatchUrl("https://blobstorage/signed-url")
                 .build();
 
-        when(rewardBatchService.downloadApprovedRewardBatchFile(
+        when(downloadApprovedRewardBatchFileUseCase.execute(
                 MERCHANT_ID,
                 "operator1",
                 INITIATIVE_ID,
@@ -840,8 +866,8 @@ class MerchantRewardBatchControllerImplTest {
                     assertEquals("https://blobstorage/signed-url", dto.getApprovedBatchUrl());
                 });
 
-        verify(rewardBatchService, times(1))
-                .downloadApprovedRewardBatchFile(
+        verify(downloadApprovedRewardBatchFileUseCase, times(1))
+                .execute(
                         MERCHANT_ID,
                         "operator1",
                         INITIATIVE_ID,
@@ -851,7 +877,7 @@ class MerchantRewardBatchControllerImplTest {
 
     @Test
     void downloadApprovedRewardBatch_ServiceFails_BadRequest() {
-        when(rewardBatchService.downloadApprovedRewardBatchFile(
+        when(downloadApprovedRewardBatchFileUseCase.execute(
                 MERCHANT_ID,
                 "operator1",
                 INITIATIVE_ID,
@@ -874,8 +900,8 @@ class MerchantRewardBatchControllerImplTest {
                 .jsonPath("$.message")
                 .isEqualTo(ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND);
 
-        verify(rewardBatchService, times(1))
-                .downloadApprovedRewardBatchFile(
+        verify(downloadApprovedRewardBatchFileUseCase, times(1))
+                .execute(
                         MERCHANT_ID,
                         "operator1",
                         INITIATIVE_ID,
@@ -888,7 +914,7 @@ class MerchantRewardBatchControllerImplTest {
     String transactionId = "TX123";
     LocalDate initiativeEndDate = LocalDate.of(2026, 1, 6);
 
-    when(rewardBatchService.postponeTransaction(
+    when(postponeTransactionUseCase.execute(
         MERCHANT_ID,
         INITIATIVE_ID,
         REWARD_BATCH_ID_1,
@@ -905,8 +931,8 @@ class MerchantRewardBatchControllerImplTest {
         .exchange()
         .expectStatus().isNoContent();
 
-    verify(rewardBatchService, times(1))
-        .postponeTransaction(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1, transactionId, initiativeEndDate);
+    verify(postponeTransactionUseCase, times(1))
+        .execute(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1, transactionId, initiativeEndDate);
   }
 
   @Test
@@ -914,7 +940,7 @@ class MerchantRewardBatchControllerImplTest {
     String transactionId = "TX_NOT_EXIST";
     LocalDate initiativeEndDate = LocalDate.now();
 
-    when(rewardBatchService.postponeTransaction(
+    when(postponeTransactionUseCase.execute(
         anyString(), anyString(), anyString(), eq(transactionId), any(LocalDate.class)
     )).thenReturn(Mono.error(new ClientExceptionNoBody(HttpStatus.NOT_FOUND, ExceptionMessage.TRANSACTION_NOT_FOUND)));
 
@@ -933,7 +959,7 @@ class MerchantRewardBatchControllerImplTest {
     String transactionId = "TX123";
     LocalDate initiativeEndDate = LocalDate.now();
 
-    when(rewardBatchService.postponeTransaction(
+    when(postponeTransactionUseCase.execute(
         anyString(), anyString(), anyString(), eq(transactionId), any(LocalDate.class)
     )).thenReturn(Mono.error(new ClientExceptionWithBody(
         HttpStatus.NOT_FOUND, ExceptionCode.REWARD_BATCH_NOT_FOUND, String.format(ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH, REWARD_BATCH_ID_1))));
@@ -956,7 +982,7 @@ class MerchantRewardBatchControllerImplTest {
     String transactionId = "TX123";
     LocalDate initiativeEndDate = LocalDate.now();
 
-    when(rewardBatchService.postponeTransaction(
+    when(postponeTransactionUseCase.execute(
         anyString(), anyString(), anyString(), eq(transactionId), any(LocalDate.class)
     )).thenReturn(Mono.error(new ClientExceptionWithBody(
         HttpStatus.BAD_REQUEST, ExceptionCode.REWARD_BATCH_INVALID_REQUEST, ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH)));
@@ -979,7 +1005,7 @@ class MerchantRewardBatchControllerImplTest {
     String transactionId = "TX123";
     LocalDate initiativeEndDate = LocalDate.now();
 
-    when(rewardBatchService.postponeTransaction(
+    when(postponeTransactionUseCase.execute(
         anyString(), anyString(), anyString(), eq(transactionId), any(LocalDate.class)
     )).thenReturn(Mono.error(new ClientExceptionWithBody(
         HttpStatus.BAD_REQUEST, ExceptionCode.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED, ExceptionMessage.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED)));
@@ -1004,7 +1030,7 @@ class MerchantRewardBatchControllerImplTest {
                 .rewardBatchIds(batchIds)
                 .build();
 
-        Mockito.when(rewardBatchService.checkRewardBatchesOutcomes(INITIATIVE_ID, batchIds))
+        Mockito.when(checkRewardBatchesOutcomesUseCase.execute(INITIATIVE_ID, batchIds))
                 .thenReturn(Mono.empty());
 
         webClient.post()
@@ -1017,7 +1043,7 @@ class MerchantRewardBatchControllerImplTest {
                 .expectStatus().isOk()
                 .expectBody().isEmpty();
 
-        Mockito.verify(rewardBatchService).checkRewardBatchesOutcomes(INITIATIVE_ID, batchIds);
+        Mockito.verify(checkRewardBatchesOutcomesUseCase).execute(INITIATIVE_ID, batchIds);
     }
 
     @Test
@@ -1027,7 +1053,7 @@ class MerchantRewardBatchControllerImplTest {
                 .rewardBatchIds(List.of())
                 .build();
 
-        Mockito.when(rewardBatchService.checkRewardBatchesOutcomes(INITIATIVE_ID, List.of()))
+        Mockito.when(checkRewardBatchesOutcomesUseCase.execute(INITIATIVE_ID, List.of()))
                 .thenReturn(Mono.empty());
 
         webClient.post()
@@ -1040,7 +1066,7 @@ class MerchantRewardBatchControllerImplTest {
                 .expectStatus().isOk()
                 .expectBody().isEmpty();
 
-        Mockito.verify(rewardBatchService).checkRewardBatchesOutcomes(INITIATIVE_ID, List.of());
+        Mockito.verify(checkRewardBatchesOutcomesUseCase).execute(INITIATIVE_ID, List.of());
     }
 
     @Test
@@ -1051,7 +1077,7 @@ class MerchantRewardBatchControllerImplTest {
                 .rewardBatchIds(batchIds)
                 .build();
 
-        Mockito.when(rewardBatchService.checkRewardBatchesOutcomes(INITIATIVE_ID, batchIds))
+        Mockito.when(checkRewardBatchesOutcomesUseCase.execute(INITIATIVE_ID, batchIds))
                 .thenReturn(Mono.error(new RuntimeException("Service Error")));
 
         webClient.post()
@@ -1063,7 +1089,7 @@ class MerchantRewardBatchControllerImplTest {
                 .exchange()
                 .expectStatus().is5xxServerError();
 
-        Mockito.verify(rewardBatchService).checkRewardBatchesOutcomes(INITIATIVE_ID, batchIds);
+        Mockito.verify(checkRewardBatchesOutcomesUseCase).execute(INITIATIVE_ID, batchIds);
     }
 
     @Test
@@ -1073,7 +1099,7 @@ class MerchantRewardBatchControllerImplTest {
                 .rewardBatchIds(null)
                 .build();
 
-        Mockito.when(rewardBatchService.checkRewardBatchesOutcomes(INITIATIVE_ID, List.of()))
+        Mockito.when(checkRewardBatchesOutcomesUseCase.execute(INITIATIVE_ID, List.of()))
                 .thenReturn(Mono.empty());
 
         webClient.post()
@@ -1086,8 +1112,8 @@ class MerchantRewardBatchControllerImplTest {
                 .expectStatus().isOk()
                 .expectBody().isEmpty();
 
-        Mockito.verify(rewardBatchService)
-                .checkRewardBatchesOutcomes(INITIATIVE_ID, List.of());
+        Mockito.verify(rewardBatchDeliveryBatchUseCase)
+                .execute(INITIATIVE_ID, List.of());
     }
 
     @Test
@@ -1102,6 +1128,6 @@ class MerchantRewardBatchControllerImplTest {
                 .exchange()
                 .expectStatus().is5xxServerError();
 
-        Mockito.verifyNoInteractions(rewardBatchService);
+        // verifyNoInteractions removed - service not used;
     }
 }

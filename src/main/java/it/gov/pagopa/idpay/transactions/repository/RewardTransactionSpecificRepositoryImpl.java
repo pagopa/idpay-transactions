@@ -12,8 +12,8 @@ import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction.Fields;
-import it.gov.pagopa.idpay.transactions.service.RewardBatchServiceImpl;
 import it.gov.pagopa.idpay.transactions.utils.AggregationConstants;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.PageRequest;
@@ -394,10 +394,15 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     );
 
     return mongoTemplate
-        .aggregate(agg, RewardTransaction.class, RewardBatchServiceImpl.TotalAmount.class)
+        .aggregate(agg, RewardTransaction.class, TotalAmount.class)
         .next()
-        .map(RewardBatchServiceImpl.TotalAmount::getTotal)
+        .map(TotalAmount::getTotal)
         .defaultIfEmpty(0L);
+  }
+
+  @Data
+  public static class TotalAmount {
+    private long total;
   }
 
   @Override
