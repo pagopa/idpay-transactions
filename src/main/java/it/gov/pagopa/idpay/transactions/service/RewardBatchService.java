@@ -14,7 +14,7 @@ import java.util.List;
 
 public interface RewardBatchService {
 
-  Mono<RewardBatch> findOrCreateBatch(String merchantId, PosType posType, String month, String businessName);
+  Mono<RewardBatch> findOrCreateBatch(String initiativeId, String merchantId, PosType posType, String month, String businessName);
   Mono<Page<RewardBatch>> getRewardBatches(String merchantId, String organizationRole, String status, String assigneeLevel, String month, Pageable pageable);
   Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId);
 
@@ -22,17 +22,17 @@ public interface RewardBatchService {
 
   Mono<Void> rewardBatchDeliveryBatch(String initiativeId, List<String> rewardBatchIds);
   Mono<RewardBatch> updateBatch(RewardBatch batch, InvitaliaOutcomeResponseDTO response);
-  Mono<Void> checkRewardBatchesOutcomes(String initiativeId, List<String> rewardBatchIds);
+  Mono<Void> checkRewardBatchesOutcomes(String initiativeId, List<String> rewardBatchIds, String merchantId);
   Mono<String> generateAndSaveCsv(String rewardBatchId, String initiativeId, String merchantId);
 
-  Mono<Void> sendRewardBatch(String merchantId, String batchId);
-  Mono<RewardBatch> suspendTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request);
+  Mono<Void> sendRewardBatch(String initiativeId, String merchantId, String batchId);
+  Mono<RewardBatch> suspendTransactions(String rewardBatchId, String merchantId, String initiativeId, TransactionsRequest request);
 
-  Mono<RewardBatch> rejectTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request);
-  Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String initiativeId);
+  Mono<RewardBatch> rejectTransactions(String rewardBatchId, String initiativeId, String merchantId, TransactionsRequest request);
+  Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String merchantId);
   Mono<RewardBatch> validateRewardBatch(String organizationRole, String initiativeId, String rewardBatchId);
 
-  Mono<Long> evaluatingRewardBatches(List<String> rewardBatchesRequest);
+  Mono<Long> evaluatingRewardBatches(List<String> rewardBatchesRequest, String initiativeId, String merchantId);
 
   Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatchFile(String merchantId, String organizationRole, String initiativeId, String rewardBatchId);
 

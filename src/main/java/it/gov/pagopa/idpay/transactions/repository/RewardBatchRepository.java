@@ -10,14 +10,13 @@ import reactor.core.publisher.Mono;
 public interface RewardBatchRepository extends ReactiveMongoRepository<RewardBatch, String>,
     RewardBatchSpecificRepository {
 
-  Mono<RewardBatch> findByMerchantIdAndPosTypeAndMonth(String merchantId,
-                                                       PosType posType, String month
-  );
+  Mono<RewardBatch> findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(String initiativeId, String merchantId,
+                                                                      PosType posType, String month);
 
-  Mono<RewardBatch> findByIdAndStatus(String rewardBatchId, RewardBatchStatus rewardBatchTrxStatus);
+  Mono<RewardBatch> findByIdAndMerchantIdAndStatus(String rewardBatchId, String merchantId, RewardBatchStatus rewardBatchTrxStatus);
 
-  Flux<RewardBatch> findByStatus(RewardBatchStatus rewardBatchStatus);
-  Flux<RewardBatch> findByMerchantIdAndPosType(String merchantId, PosType posType);
+  Flux<RewardBatch> findByStatusAndInitiativeId(RewardBatchStatus rewardBatchStatus, String initiativeId);
+  Flux<RewardBatch> findByMerchantIdAndInitiativeIdAndPosType(String merchantId, String initiativeId, PosType posType);
 
-  Mono<RewardBatch> findByMerchantIdAndId(String merchantId, String rewardBatchId);
+  Mono<RewardBatch> findByMerchantIdAndInitiativeIdAndId(String merchantId, String initiativeId, String rewardBatchId);
 }

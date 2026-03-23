@@ -219,6 +219,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
                 .orElse(0L);
 
         return rewardBatchService.findOrCreateBatch(
+                    initiativeId,
                     trx.getMerchantId(),
                     trx.getPointOfSaleType(),
                     batchMonth,

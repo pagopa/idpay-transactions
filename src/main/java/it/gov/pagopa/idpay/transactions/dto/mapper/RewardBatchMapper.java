@@ -13,6 +13,7 @@ public class RewardBatchMapper {
     RewardBatchDTO dto = RewardBatchDTO.builder()
         .id(rewardBatch.getId())
         .merchantId(rewardBatch.getMerchantId())
+        .initiativeId(rewardBatch.getInitiativeId())
         .businessName(rewardBatch.getBusinessName())
         .month(rewardBatch.getMonth())
         .posType(rewardBatch.getPosType())

@@ -362,6 +362,7 @@ class PointOfSaleTransactionServiceImplTest {
         Mono<Void> result = ReflectionTestUtils.invokeMethod(
                 service, "replaceInvoiceFile", fp, oldInvoice, MERCHANT_ID, POS_ID, TRX_ID);
 
+        assertNotNull(result);
         StepVerifier.create(result).verifyComplete();
 
         verify(invoiceStorageClient).deleteFile(
@@ -497,7 +498,7 @@ class PointOfSaleTransactionServiceImplTest {
 
         verify(invoiceLifeCyclePolicy).validate(trx, batch);
         verify(rewardBatchRepository, never()).updateTotals(anyString(), any());
-        verify(rewardBatchService, never()).findOrCreateBatch(anyString(), any(), anyString(), anyString());
+        verify(rewardBatchService, never()).findOrCreateBatch(anyString(), anyString(), any(), anyString(), anyString());
         verify(rewardTransactionRepository, times(1)).save(any());
     }
 
@@ -516,12 +517,14 @@ class PointOfSaleTransactionServiceImplTest {
         RewardBatch oldBatch = new RewardBatch();
         oldBatch.setId("OLD");
         oldBatch.setMerchantId(MERCHANT_ID);
+        oldBatch.setInitiativeId(INITIATIVE_ID);
         oldBatch.setStatus(RewardBatchStatus.EVALUATING);
         oldBatch.setMonth("2024-01");
 
         RewardBatch newBatch = new RewardBatch();
         newBatch.setId("NEW");
         newBatch.setMerchantId(MERCHANT_ID);
+        newBatch.setInitiativeId(INITIATIVE_ID);
         newBatch.setStatus(RewardBatchStatus.CREATED);
         newBatch.setMonth(YearMonth.now().toString());
 
@@ -538,7 +541,7 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardTransactionRepository.save(trxCaptor.capture()))
                 .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        when(rewardBatchService.findOrCreateBatch(eq(MERCHANT_ID), eq(PosType.PHYSICAL), anyString(), eq("Biz")))
+        when(rewardBatchService.findOrCreateBatch(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(PosType.PHYSICAL), anyString(), eq("Biz")))
                 .thenReturn(Mono.just(newBatch));
 
         when(rewardBatchRepository.updateTotals(eq("OLD"), any(BatchCountersDTO.class)))
@@ -588,12 +591,14 @@ class PointOfSaleTransactionServiceImplTest {
         RewardBatch oldBatch = new RewardBatch();
         oldBatch.setId("OLD");
         oldBatch.setMerchantId(MERCHANT_ID);
+        oldBatch.setInitiativeId(INITIATIVE_ID);
         oldBatch.setStatus(RewardBatchStatus.EVALUATING);
         oldBatch.setMonth("2024-01");
 
         RewardBatch newBatch = new RewardBatch();
         newBatch.setId("NEW");
         newBatch.setMerchantId(MERCHANT_ID);
+        newBatch.setInitiativeId(INITIATIVE_ID);
         newBatch.setStatus(RewardBatchStatus.CREATED);
         newBatch.setMonth(YearMonth.now().toString());
 
@@ -608,7 +613,7 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardTransactionRepository.save(any()))
                 .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        when(rewardBatchService.findOrCreateBatch(eq(MERCHANT_ID), eq(PosType.PHYSICAL), anyString(), eq("Biz")))
+        when(rewardBatchService.findOrCreateBatch(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(PosType.PHYSICAL), anyString(), eq("Biz")))
                 .thenReturn(Mono.just(newBatch));
 
         when(rewardBatchRepository.updateTotals(eq("OLD"), any(BatchCountersDTO.class)))
@@ -650,12 +655,14 @@ class PointOfSaleTransactionServiceImplTest {
         RewardBatch oldBatch = new RewardBatch();
         oldBatch.setId("OLD");
         oldBatch.setMerchantId(MERCHANT_ID);
+        oldBatch.setInitiativeId(INITIATIVE_ID);
         oldBatch.setStatus(RewardBatchStatus.APPROVED);
         oldBatch.setMonth("2024-01");
 
         RewardBatch newBatch = new RewardBatch();
         newBatch.setId("NEW");
         newBatch.setMerchantId(MERCHANT_ID);
+        newBatch.setInitiativeId(INITIATIVE_ID);
         newBatch.setStatus(RewardBatchStatus.CREATED);
         newBatch.setMonth(YearMonth.now().toString());
 
@@ -670,7 +677,7 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardTransactionRepository.save(any()))
                 .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        when(rewardBatchService.findOrCreateBatch(eq(MERCHANT_ID), eq(PosType.PHYSICAL), anyString(), eq("Biz")))
+        when(rewardBatchService.findOrCreateBatch(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(PosType.PHYSICAL), anyString(), eq("Biz")))
                 .thenReturn(Mono.just(newBatch));
 
         when(rewardBatchRepository.updateTotals(eq("OLD"), any(BatchCountersDTO.class)))

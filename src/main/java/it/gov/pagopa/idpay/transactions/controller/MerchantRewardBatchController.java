@@ -42,6 +42,7 @@ public interface MerchantRewardBatchController {
 
   @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/suspended")
   Mono<RewardBatchDTO> suspendTransactions(
+          @RequestHeader(value = "x-merchant-id", required = false) String merchantId,
           @PathVariable("initiativeId") String initiativeId,
           @PathVariable("rewardBatchId") String rewardBatchId,
           @RequestBody @Valid TransactionsRequest request);
@@ -65,7 +66,8 @@ public interface MerchantRewardBatchController {
   @PostMapping("/initiatives/{initiativeId}/reward-batches/check-outcomes")
   Mono<Void> checkRewardBatchesOutcomes(
           @PathVariable String initiativeId,
-          @RequestBody RewardBatchesRequest request
+          @RequestBody RewardBatchesRequest request,
+          @RequestHeader(value = "x-merchant-id", required = false) String merchantId
   );
 
   @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/generateAndSaveCsv")
@@ -78,6 +80,7 @@ public interface MerchantRewardBatchController {
   @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/rejected")
   Mono<RewardBatchDTO> rejectTransactions(
           @PathVariable("initiativeId") String initiativeId,
+          @RequestHeader(value = "x-merchant-id", required = false) String merchantId,
           @PathVariable("rewardBatchId") String rewardBatchId,
           @RequestBody @Valid TransactionsRequest request);
 
@@ -96,7 +99,9 @@ public interface MerchantRewardBatchController {
 
   @PostMapping("/initiatives/{initiativeId}/reward-batches/evaluate")
   Mono<Void> evaluatingRewardBatches(
-          @RequestBody RewardBatchesRequest rewardBatchIds
+          @RequestBody RewardBatchesRequest rewardBatchIds,
+          @PathVariable String initiativeId,
+          @RequestHeader(value = "x-merchant-id", required = false) String merchantId
   );
 
   @GetMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/approved/download")

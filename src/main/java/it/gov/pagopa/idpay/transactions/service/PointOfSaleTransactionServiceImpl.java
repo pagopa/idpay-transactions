@@ -222,7 +222,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     }
 
     private Mono<RewardBatch> findOrCreateTargetBatch(RewardTransaction oldTransaction,
-                                                      RewardBatch oldBatch) {
+                                                      RewardBatch oldBatch, String initiativeId) {
 
         PosType posType = oldTransaction.getPointOfSaleType();
         String businessName = oldTransaction.getBusinessName();
@@ -234,7 +234,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         log.info("[UPDATE_INVOICE_FILE_SERVICE] - [findOrCreateTargetBatch] - start | oldBatchId={} trxId={} targetMonth={}",
                 Utilities.sanitizeString(oldBatch.getId()), Utilities.sanitizeString(oldTransaction.getId()), targetMonth);
 
-        return rewardBatchService.findOrCreateBatch(oldBatch.getMerchantId(), posType, targetMonth.toString(), businessName);
+        return rewardBatchService.findOrCreateBatch(initiativeId, oldBatch.getMerchantId(), posType, targetMonth.toString(), businessName);
     }
 
     private Mono<RewardTransaction> suspendAndMoveTransaction(
@@ -281,7 +281,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     .incrementTrxElaborated(1L);
         }
 
-        return findOrCreateTargetBatch(oldTransaction, oldBatch)
+        return findOrCreateTargetBatch(oldTransaction, oldBatch, oldBatch.getInitiativeId())
                 .flatMap(newBatch -> {
                     log.info("[UPDATE_INVOICE_FILE_SERVICE] - [suspendAndMoveTransaction] - moving trx | trxId={} fromBatchId={} toBatchId={} oldCounters={} newCounters={}",
                             Utilities.sanitizeString(oldTransaction.getId()), Utilities.sanitizeString(oldBatch.getId()), Utilities.sanitizeString(newBatch.getId()),

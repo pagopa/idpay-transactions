@@ -149,6 +149,7 @@ class RewardTransactionServiceImplTest {
         batch.setStatus(RewardBatchStatus.CREATED);
 
         Mockito.when(rewardBatchService.findOrCreateBatch(
+                rt.getInitiatives().getFirst(),
                 rt.getMerchantId(),
                 rt.getPointOfSaleType(),
                 "2025-11",
@@ -278,6 +279,7 @@ class RewardTransactionServiceImplTest {
         batch.setStatus(RewardBatchStatus.CREATED);
 
         Mockito.when(rewardBatchService.findOrCreateBatch(
+                rt.getInitiatives().getFirst(),
                 rt.getMerchantId(),
                 rt.getPointOfSaleType(),
                 expectedBatchMonth.toString(),
@@ -300,6 +302,7 @@ class RewardTransactionServiceImplTest {
         Assertions.assertNotNull(result);
 
         Mockito.verify(rewardBatchService).findOrCreateBatch(
+                rt.getInitiatives().getFirst(),
                 rt.getMerchantId(),
                 rt.getPointOfSaleType(),
                 expectedBatchMonth.toString(),
@@ -353,7 +356,7 @@ class RewardTransactionServiceImplTest {
                         .businessName("BusinessName")
                         .build()));
 
-        Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
+        Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
                 .thenReturn(Mono.just(batch));
 
         Mockito.when(rewardBatchRepository.updateTotals(Mockito.anyString(), Mockito.any(BatchCountersDTO.class)))
@@ -371,7 +374,7 @@ class RewardTransactionServiceImplTest {
                 .getPointOfSale(Mockito.anyString(), Mockito.anyString());
 
         Mockito.verify(rewardBatchService, Mockito.times(2))
-                .findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any());
+                .findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any());
 
         Mockito.verify(rewardBatchRepository, Mockito.times(2))
                 .updateTotals(Mockito.anyString(), Mockito.any(BatchCountersDTO.class));
@@ -426,7 +429,7 @@ class RewardTransactionServiceImplTest {
                         .businessName("BusinessName")
                         .build()));
 
-        Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
+        Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
                 .thenReturn(Mono.just(batch));
 
         Mockito.when(rewardBatchRepository.updateTotals(Mockito.anyString(), Mockito.any(BatchCountersDTO.class)))
@@ -444,7 +447,7 @@ class RewardTransactionServiceImplTest {
                 .getPointOfSale(Mockito.anyString(), Mockito.anyString());
 
         Mockito.verify(rewardBatchService, Mockito.times(2))
-                .findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any());
+                .findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any());
 
         Mockito.verify(rewardBatchRepository, Mockito.times(2))
                 .updateTotals(Mockito.anyString(), Mockito.any(BatchCountersDTO.class));
@@ -502,7 +505,7 @@ class RewardTransactionServiceImplTest {
                         .businessName("BusinessName")
                         .build()));
 
-        Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
+        Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
                 .thenReturn(Mono.just(batch));
 
         Mockito.when(rewardBatchRepository.updateTotals(Mockito.anyString(), Mockito.any(BatchCountersDTO.class)))
@@ -553,7 +556,7 @@ class RewardTransactionServiceImplTest {
                         .businessName("BusinessName")
                         .build()));
 
-        Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
+        Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
                 .thenReturn(Mono.just(batch));
 
         Mockito.when(rewardBatchRepository.updateTotals(Mockito.anyString(), Mockito.any(BatchCountersDTO.class)))
@@ -604,7 +607,7 @@ class RewardTransactionServiceImplTest {
                         .businessName("BusinessName")
                         .build()));
 
-        Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
+        Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
                 .thenReturn(Mono.just(batch));
 
         Mockito.when(rewardBatchRepository.updateTotals(Mockito.anyString(), Mockito.any(BatchCountersDTO.class)))
@@ -644,7 +647,7 @@ class RewardTransactionServiceImplTest {
         batch.setId("BATCH_ERR");
         batch.setStatus(RewardBatchStatus.SENT);
 
-        Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
+        Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
                 .thenReturn(Mono.just(batch));
 
         StepVerifier.create(rewardTransactionService.save(rt))
@@ -689,7 +692,7 @@ class RewardTransactionServiceImplTest {
                         .businessName("BusinessName")
                         .build()));
 
-        Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
+        Mockito.when(rewardBatchService.findOrCreateBatch(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.anyString(), Mockito.any()))
                 .thenReturn(Mono.just(batch));
 
         Mockito.when(rewardBatchRepository.updateTotals(Mockito.anyString(), Mockito.any(BatchCountersDTO.class)))

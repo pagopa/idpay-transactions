@@ -31,6 +31,7 @@ public class RewardBatch {
     @MongoId(FieldType.STRING)
     private String id;
     private String merchantId;
+    private String initiativeId;
     private String businessName;
     private String month;
     private PosType posType;
