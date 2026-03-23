@@ -1078,6 +1078,13 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         }
 
         return rewardBatchRepository.findById(rewardBatchId)
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.error("[GENERATE_AND_SAVE_CSV] Batch {} not found during CSV generation", Utilities.sanitizeString(rewardBatchId));
+                    return Mono.error(new ClientExceptionWithBody(
+                            NOT_FOUND,
+                            REWARD_BATCH_NOT_FOUND,
+                            ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId)));
+                }))
                 .flatMap(batch -> {
 
                     String pathPrefix = String.format(REWARD_BATCHES_PATH_STORAGE_FORMAT,
@@ -1120,7 +1127,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                         .thenReturn(reportFilename);
                             });
                 })
-                .doOnTerminate(() -> log.info("CSV generation has been completed for batch: {}", Utilities.sanitizeString(rewardBatchId)));
+                .doOnSuccess(result -> log.info("[GENERATE_AND_SAVE_CSV] CSV generation completed successfully for batch: {}", Utilities.sanitizeString(rewardBatchId)))
+                .doOnError(error -> log.error("[GENERATE_AND_SAVE_CSV] CSV generation FAILED for batch: {}", Utilities.sanitizeString(rewardBatchId), error));
     }
 
     private String mapTransactionToCsvRow(RewardTransaction trx, String initiativeId) {
