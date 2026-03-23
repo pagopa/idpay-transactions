@@ -2,7 +2,6 @@ package it.gov.pagopa.idpay.transactions.connector.rest.erogazioni;
 
 
 import com.github.javafaker.Faker;
-import it.gov.pagopa.common.config.JsonConfig;
 import it.gov.pagopa.common.reactive.rest.config.WebClientConfig;
 import it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.InvitaliaTokenProviderService;
@@ -17,7 +16,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -32,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.*;
         classes = {
                 ErogazioniRestClientImpl.class,
                 WebClientConfig.class,
-                JsonConfig.class
+                ObjectMapper.class
         })
 @TestPropertySource(
         properties = {
@@ -49,10 +48,6 @@ class ErogazioniRestClientImplTest extends BaseWireMockTest {
 
     @MockitoBean
     private InvitaliaTokenProviderService invitaliaTokenProviderService;
-
-    @MockitoBean
-    private JsonMapper jsonMapper;
-
 
     @Test
     void postErogazione_ok() {
@@ -165,7 +160,6 @@ class ErogazioniRestClientImplTest extends BaseWireMockTest {
 
         Mockito.when(invitaliaTokenProviderService.retrieveToken())
                 .thenReturn(Mono.just("MOCK_TOKEN"));
-
         StepVerifier.create(erogazioniRestClient.getOutcome(batchId))
                 .assertNext(outcome -> {
                     assertEquals("COMPLETATO", outcome.getErogazione().getStatus());

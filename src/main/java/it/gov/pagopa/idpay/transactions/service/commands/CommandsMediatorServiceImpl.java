@@ -11,8 +11,8 @@ import org.springframework.messaging.Message;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.ObjectReader;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
 import java.util.List;
@@ -31,7 +31,7 @@ public class CommandsMediatorServiceImpl extends BaseKafkaConsumer<QueueCommandO
             @Value("${spring.cloud.stream.kafka.bindings.consumerCommands-in-0.consumer.ackTime}") long commitMillis,
             DeleteInitiativeService deleteInitiativeService,
             TransactionErrorNotifierService transactionErrorNotifierService,
-            JsonMapper objectMapper) {
+            ObjectMapper objectMapper) {
         super(applicationName);
         this.commitDelay = Duration.ofMillis(commitMillis);
         this.deleteInitiativeService = deleteInitiativeService;

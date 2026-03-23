@@ -1,9 +1,9 @@
 package it.gov.pagopa.idpay.transactions.utils;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -13,7 +13,7 @@ import java.util.List;
 public final class JwtUtils {
 
   // Thread-safe, instantiate once to save memory/CPU
-  private static final JsonMapper MAPPER = new JsonMapper();
+  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private JwtUtils() {}
 

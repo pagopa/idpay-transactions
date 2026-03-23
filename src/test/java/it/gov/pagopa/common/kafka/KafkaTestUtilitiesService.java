@@ -1,7 +1,5 @@
 package it.gov.pagopa.common.kafka;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import it.gov.pagopa.common.kafka.utils.KafkaConstants;
 import it.gov.pagopa.common.utils.TestUtils;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -31,6 +29,8 @@ import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Service;
 import org.springframework.test.context.event.annotation.AfterTestClass;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -63,7 +63,7 @@ public class KafkaTestUtilitiesService {
     private String bootstrapServers;
 
     @Autowired
-    private JsonMapper objectMapper;
+    private ObjectMapper objectMapper;
 
     @TestConfiguration
     static class TestKafkaConfiguration {
@@ -191,7 +191,7 @@ public class KafkaTestUtilitiesService {
     public void publishIntoEmbeddedKafka(String topic, Iterable<Header> headers, String key, Object payload) {
         try {
             publishIntoEmbeddedKafka(topic, headers, key, objectMapper.writeValueAsString(payload));
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalStateException(e);
         }
     }

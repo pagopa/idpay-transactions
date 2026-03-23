@@ -1,13 +1,12 @@
 package it.gov.pagopa.common.utils;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.header.Header;
 import org.awaitility.Awaitility;
 import org.awaitility.core.ConditionTimeoutException;
 import org.junit.jupiter.api.Assertions;
 import tools.jackson.core.JacksonException;
-import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -33,7 +32,7 @@ public class TestUtils {
     /**
      * applications's objectMapper
      */
-    public static JsonMapper objectMapper = new JsonMapper();
+    public static ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * It will assert not null on all o's fields

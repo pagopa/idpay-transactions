@@ -15,7 +15,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
-import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -37,7 +37,7 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
     private final Integer retryDelay;
     private final String autorizzatore;
 
-    private final JsonMapper objectMapper;
+    private final ObjectMapper objectMapper;
 
     public ErogazioniRestClientImpl(InvitaliaTokenProviderService tokenProvider,
                                     @Value("${app.erogazioni.retry.max-attempts:3}") Integer maxAttempts,
@@ -45,7 +45,7 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
                                     @Value("${app.erogazioni.erogazioni-url}") String erogazioniBaseUrl,
                                     @Value("${app.erogazioni.authorizer:}") String autorizzatore,
                                     WebClient.Builder webClientBuilder,
-                                    JsonMapper objectMapper) {
+                                    ObjectMapper objectMapper) {
         this.tokenProvider = tokenProvider;
         this.maxAttempts = maxAttempts;
         this.retryDelay = retryDelay;

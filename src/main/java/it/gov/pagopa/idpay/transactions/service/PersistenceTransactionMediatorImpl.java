@@ -10,8 +10,8 @@ import org.springframework.messaging.Message;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.ObjectReader;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
 import java.util.List;
@@ -40,7 +40,7 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
 
             RewardTransactionMapper rewardTransactionMapper, @Value("${spring.cloud.stream.kafka.bindings.rewardTrxConsumer-in-0.consumer.ackTime}") long commitMillis,
 
-            JsonMapper objectMapper) {
+            ObjectMapper objectMapper) {
         super(applicationName);
         this.rewardTransactionService = rewardTransactionService;
         this.transactionErrorNotifierService = transactionErrorNotifierService;

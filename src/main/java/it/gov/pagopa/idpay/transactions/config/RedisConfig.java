@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext.SerializationPair;
-import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 
@@ -16,7 +16,7 @@ public class RedisConfig {
   @Bean
   public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer() {
 
-    JsonMapper mapper = JsonMapper.builder().findAndAddModules().build();
+    ObjectMapper mapper = new ObjectMapper();
 
     JacksonJsonRedisSerializer<PointOfSaleDTO> serializer = new JacksonJsonRedisSerializer<>(mapper, PointOfSaleDTO.class);
 
