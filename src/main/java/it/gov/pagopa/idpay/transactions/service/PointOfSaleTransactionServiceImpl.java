@@ -253,6 +253,9 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
         boolean wasSuspended = oldTransaction.getRewardBatchTrxStatus() == RewardBatchTrxStatus.SUSPENDED;
         boolean wasRejected = oldTransaction.getRewardBatchTrxStatus() == RewardBatchTrxStatus.REJECTED;
+        boolean wasToCheckOrConsultable = (oldTransaction.getRewardBatchTrxStatus() == RewardBatchTrxStatus.CONSULTABLE
+        || oldTransaction.getRewardBatchTrxStatus() == RewardBatchTrxStatus.TO_CHECK);
+        boolean isNotInvoiced = !SyncTrxStatus.INVOICED.name().equals(oldTransaction.getStatus());
 
         BatchCountersDTO oldBatchCounter;
         BatchCountersDTO newBatchCounter;
@@ -271,7 +274,8 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         } else {
             oldBatchCounter = BatchCountersDTO.newBatch()
                     .decrementNumberOfTransactions()
-                    .decrementTrxElaborated(wasRejected ? 1L : 0L);
+                    .decrementTrxElaborated(wasRejected ? 1L : 0L)
+                    .decrementApprovedAmountCents(wasToCheckOrConsultable && isNotInvoiced ? accruedRewardCents : 0L);
 
             newBatchCounter = BatchCountersDTO.newBatch()
                     .incrementInitialAmountCents(accruedRewardCents)
@@ -280,6 +284,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     .incrementSuspendedAmountCents(accruedRewardCents)
                     .incrementTrxElaborated(1L);
         }
+
 
         return findOrCreateTargetBatch(oldTransaction, oldBatch)
                 .flatMap(newBatch -> {
@@ -326,6 +331,11 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     final RewardBatchTrxStatus oldBatchTrxStatus = rt.getRewardBatchTrxStatus();
                     final boolean wasSuspended = RewardBatchTrxStatus.SUSPENDED.equals(oldBatchTrxStatus);
                     final boolean wasRejected = RewardBatchTrxStatus.REJECTED.equals(oldBatchTrxStatus);
+                    final boolean wasToCheckOrConsultable = RewardBatchTrxStatus.CONSULTABLE.equals(oldBatchTrxStatus)
+                            || RewardBatchTrxStatus.TO_CHECK.equals(oldBatchTrxStatus);
+                    final boolean isNotInvoiced = !SyncTrxStatus.INVOICED.name().equals(rt.getStatus());
+
+
                     String initiativeId = rt.getInitiatives().getFirst();
                     long accruedRewardCents = rt.getRewards().get(initiativeId).getAccruedRewardCents();
 
@@ -340,6 +350,9 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     if (wasRejected) {
                         counters.decrementTrxRejected()
                                 .decrementTrxElaborated();
+                    }
+                    if(wasToCheckOrConsultable && isNotInvoiced){
+                        counters.decrementApprovedAmountCents(accruedRewardCents);
                     }
 
                     return Mono.defer(() -> {
