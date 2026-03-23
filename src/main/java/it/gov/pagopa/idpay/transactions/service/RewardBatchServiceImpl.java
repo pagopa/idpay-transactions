@@ -73,7 +73,7 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @Slf4j
 public class RewardBatchServiceImpl implements RewardBatchService {
 
-
+    private static final String DATE_FORMAT = "yyyy-MM";
     private final RewardBatchRepository rewardBatchRepository;
     private final RewardTransactionRepository rewardTransactionRepository;
     private final UserRestClient userRestClient;
@@ -109,7 +109,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     private static final String REWARD_BATCHES_PATH_STORAGE_FORMAT = "initiative/%s/merchant/%s/batch/%s/";
     private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "%s_%s_%s.csv";
-    private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM", Locale.ITALIAN);
+    private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern(DATE_FORMAT, Locale.ITALIAN);
 
     public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService, ReactiveMongoTemplate reactiveMongoTemplate, ChecksErrorMapper checksErrorMapper, AuditUtilities auditUtilities, MerchantRestClient merchantRestClient, SelfcareInstitutionsRestClient selfcareInstitutionsRestClient, ErogazioniRestClient erogazioniRestClient) {
         this.rewardBatchRepository = rewardBatchRepository;
@@ -881,7 +881,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
         return findOrCreateBatch(originalBatch.getMerchantId(),
                 originalBatch.getPosType(),
-                addOneMonth(originalBatch.getMonth()),
+                getTargetMonth(originalBatch.getMonth()),
                 originalBatch.getBusinessName())
                 .flatMap(newBatch -> updateAndSaveRewardTransactionsSuspended(originalBatch.getId(), initiativeId, newBatch.getId(), originalBatch.getMonth())
                         .flatMap(totalAccrued -> {
@@ -947,10 +947,18 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     }
 
     public String addOneMonth(String yearMonthString) {
-        DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM");
+        DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern(DATE_FORMAT);
         YearMonth yearMonth = YearMonth.parse(yearMonthString, inputFormatter);
         YearMonth nextYearMonth = yearMonth.plusMonths(1);
         return nextYearMonth.format(inputFormatter);
+    }
+
+    public String getTargetMonth(String yearMonthBatchOriginal) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(DATE_FORMAT);
+        YearMonth originalBatchMonth = YearMonth.parse(yearMonthBatchOriginal, formatter);
+        YearMonth currentMonth = YearMonth.now();
+        YearMonth targetMonth = originalBatchMonth.isAfter(currentMonth) ? originalBatchMonth : currentMonth;
+        return targetMonth.format(formatter);
     }
 
 
