@@ -15,12 +15,12 @@ import java.util.List;
 public interface RewardBatchService {
 
   Mono<RewardBatch> findOrCreateBatch(String initiativeId, String merchantId, PosType posType, String month, String businessName);
-  Mono<Page<RewardBatch>> getRewardBatches(String merchantId, String organizationRole, String status, String assigneeLevel, String month, Pageable pageable);
-  Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId);
+  Mono<Page<RewardBatch>> getRewardBatches(String merchantId, String initiativeId, String organizationRole, String status, String assigneeLevel, String month, Pageable pageable);
+  Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String merchantId, String rewardBatchId);
 
-  Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds);
+  Mono<Void> rewardBatchConfirmationBatch(String initiativeId, String merchantId, List<String> rewardBatchIds);
 
-  Mono<Void> rewardBatchDeliveryBatch(String initiativeId, List<String> rewardBatchIds);
+  Mono<Void> rewardBatchDeliveryBatch(String initiativeId, String merchantId, List<String> rewardBatchIds);
   Mono<RewardBatch> updateBatch(RewardBatch batch, InvitaliaOutcomeResponseDTO response);
   Mono<Void> checkRewardBatchesOutcomes(String initiativeId, List<String> rewardBatchIds, String merchantId);
   Mono<String> generateAndSaveCsv(String rewardBatchId, String initiativeId, String merchantId);

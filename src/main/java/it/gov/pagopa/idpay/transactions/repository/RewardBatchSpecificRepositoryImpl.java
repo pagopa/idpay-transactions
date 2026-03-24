@@ -28,32 +28,26 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   public RewardBatchSpecificRepositoryImpl(ReactiveMongoTemplate mongoTemplate) {
     this.mongoTemplate = mongoTemplate;
   }
-
-  public static final String INITIAL_AMOUNT_CENTS = "initialAmountCents";
-  public static final String NUMBER_OF_TRANSACTIONS = "numberOfTransactions";
-  public static final String SUSPENDED_AMOUNT_CENTS = "suspendedAmountCents";
-  public static final String NUMBER_OF_TRANSACTIONS_SUSPENDED = "numberOfTransactionsSuspended";
-  public static final String NUMBER_OF_TRANSACTIONS_ELABORATED = "numberOfTransactionsElaborated";
-
   
   @Override
-  public Flux<RewardBatch> findRewardBatchesCombined(String merchantId, String status, String assigneeLevel, String month, boolean isOperator, Pageable pageable) {
-    Criteria criteria = buildCombinedCriteria(merchantId, status, assigneeLevel, month, isOperator);
+  public Flux<RewardBatch> findRewardBatchesCombined(String merchantId, String initiativeId, String status, String assigneeLevel, String month, boolean isOperator, Pageable pageable) {
+    Criteria criteria = buildCombinedCriteria(merchantId, initiativeId, status, assigneeLevel, month, isOperator);
     Query query = Query.query(criteria).with(getPageableRewardBatch(pageable));
     return mongoTemplate.find(query, RewardBatch.class);
   }
 
   @Override
-  public Mono<Long> getCountCombined(String merchantId, String status, String assigneeLevel, String month, boolean isOperator) {
-    Criteria criteria = buildCombinedCriteria(merchantId, status, assigneeLevel, month, isOperator);
+  public Mono<Long> getCountCombined(String merchantId, String initiativeId, String status, String assigneeLevel, String month, boolean isOperator) {
+    Criteria criteria = buildCombinedCriteria(merchantId, initiativeId, status, assigneeLevel, month, isOperator);
     return mongoTemplate.count(Query.query(criteria), RewardBatch.class);
   }
 
-    private Criteria buildCombinedCriteria(String merchantId, String status, String assigneeLevel, String month, boolean isOperator) {
+    private Criteria buildCombinedCriteria(String merchantId, String initiativeId, String status, String assigneeLevel, String month, boolean isOperator) {
     List<Criteria> subCriteria = new ArrayList<>();
 
     addIsCriteriaIfNotBlank(subCriteria, RewardBatch.Fields.merchantId, merchantId);
     addIsCriteriaIfNotBlank(subCriteria, RewardBatch.Fields.month, month);
+    addIsCriteriaIfNotBlank(subCriteria, RewardBatch.Fields.initiativeId, initiativeId);
 
     RewardBatchAssignee level = parseAssigneeLevel(assigneeLevel);
     if (level != null) {
@@ -138,7 +132,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Mono<RewardBatch> updateTotals(String rewardBatchId, BatchCountersDTO acc) {
+  public Mono<RewardBatch> updateTotals(String merchantId, String rewardBatchId, BatchCountersDTO acc) {
 
     Update update = new Update();
     if (acc.getTrxElaborated() != 0) {
@@ -165,7 +159,10 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
 
     update.currentDate(RewardBatch.Fields.updateDate);
 
-    Query query = Query.query(Criteria.where("_id").is(rewardBatchId));
+      Query query = Query.query(
+              Criteria.where("_id").is(rewardBatchId)
+                      .and(RewardBatch.Fields.merchantId).is(merchantId)
+      );
 
     return mongoTemplate.findAndModify(
         query, update, FindAndModifyOptions.options().returnNew(true), RewardBatch.class);
@@ -179,8 +176,8 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Mono<RewardBatch> findRewardBatchById(String rewardBatchId) {
-    Criteria criteria = getCriteriaFindRewardBatchById(rewardBatchId);
+  public Mono<RewardBatch> findRewardBatchByIdAndMerchantId(String rewardBatchId, String merchantId) {
+    Criteria criteria = getCriteriaFindRewardBatchByIdAndMerchantId(rewardBatchId, merchantId);
 
     return mongoTemplate.findOne(
             Query.query(criteria),
@@ -198,18 +195,8 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
 
   }
 
-
-  public Flux<RewardBatch> findRewardBatchByStatus(RewardBatchStatus rewardBatchStatus) {
-    Criteria criteria = getCriteriaFindRewardBatchByStatus(rewardBatchStatus);
-
-    return mongoTemplate.find(
-            Query.query(criteria),
-            RewardBatch.class);
-
-  }
-
-  public Flux<RewardBatch> findRewardBatchByMonthBefore(String merchantId, PosType posType, String month) {
-    Criteria criteria = getCriteriaFindRewardBatchByMonthBefore(merchantId, posType, month);
+  public Flux<RewardBatch> findRewardBatchByMonthBefore(String merchantId, String initiativeId, PosType posType, String month) {
+    Criteria criteria = getCriteriaFindRewardBatchByMonthBefore(merchantId, initiativeId, posType, month);
 
     return mongoTemplate.find(
             Query.query(criteria),
@@ -217,9 +204,9 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
 
   }
   @Override
-  public Mono<RewardBatch> updateStatusAndApprovedAmountCents(String rewardBatchId, RewardBatchStatus rewardBatchStatus, Long approvedAmountCents) {
+  public Mono<RewardBatch> updateStatusAndApprovedAmountCents(String rewardBatchId, String merchantId, RewardBatchStatus rewardBatchStatus, Long approvedAmountCents) {
     return mongoTemplate.findAndModify(
-            Query.query(getCriteriaFindRewardBatchById(rewardBatchId)),
+            Query.query(getCriteriaFindRewardBatchByIdAndMerchantId(rewardBatchId, merchantId)),
             new Update()
                     .set(RewardBatch.Fields.status, rewardBatchStatus)
                     .set(RewardBatch.Fields.approvedAmountCents, approvedAmountCents)
@@ -250,8 +237,9 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
 
 
 
-    private static Criteria getCriteriaFindRewardBatchById(String rewardBatchId) {
-    return Criteria.where("_id").is(rewardBatchId.trim());
+    private static Criteria getCriteriaFindRewardBatchByIdAndMerchantId(String rewardBatchId, String merchantId) {
+    return Criteria.where("_id").is(rewardBatchId.trim())
+            .and(RewardBatch.Fields.merchantId).is(merchantId);
   }
 
   private static Criteria getCriteriaFindRewardBatchByFilter(String rewardBatchId, String merchantId, PosType posType, String month) {
@@ -277,8 +265,9 @@ private static Criteria getCriteriaFindRewardBatchByStatus(RewardBatchStatus rew
   return Criteria.where(RewardBatch.Fields.status).is(rewardBatchStatus);
 }
 
-  private static Criteria getCriteriaFindRewardBatchByMonthBefore(String merchantId, PosType posType, String month) {
+  private static Criteria getCriteriaFindRewardBatchByMonthBefore(String merchantId, String initiativeId, PosType posType, String month) {
     return Criteria.where(RewardBatch.Fields.merchantId).is(merchantId)
+            .and(RewardBatch.Fields.initiativeId).is(initiativeId)
             .and(RewardBatch.Fields.posType).is(posType)
             .and(RewardBatch.Fields.month).lt(month);
   }

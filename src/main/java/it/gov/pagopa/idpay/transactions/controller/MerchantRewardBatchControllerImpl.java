@@ -51,19 +51,22 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     String validMerchantId = merchantId != null ? merchantId : merchantIdFilter;
 
     if (organizationRole != null) {
-        log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}, Role: {}",
+        log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}, Role: {}, Initiative: {}",
                 validMerchantId != null ? Utilities.sanitizeString(validMerchantId) : "null",
-                Utilities.sanitizeString(organizationRole));
+                Utilities.sanitizeString(organizationRole),
+                Utilities.sanitizeString(initiativeId));
     } else {
-        log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}",
-                Utilities.sanitizeString(validMerchantId));
+        log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}, Initiative: {}",
+                Utilities.sanitizeString(validMerchantId),
+                Utilities.sanitizeString(initiativeId));
     }
 
-      log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}, Role: {}",
+      log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}, Role: {}, Initiative: {}",
               validMerchantId != null ? Utilities.sanitizeString(validMerchantId) : "null",
-              organizationRole != null ? Utilities.sanitizeString(organizationRole) : "null");
+              organizationRole != null ? Utilities.sanitizeString(organizationRole) : "null",
+              initiativeId != null ? Utilities.sanitizeString(initiativeId) : "null");
 
-    return rewardBatchService.getRewardBatches(validMerchantId, organizationRole, status, assigneeLevel, month, pageable)
+    return rewardBatchService.getRewardBatches(validMerchantId, initiativeId, organizationRole, status, assigneeLevel, month, pageable)
         .flatMap(page ->
             Flux.fromIterable(page.getContent())
                 .flatMapSequential(rewardBatchMapper::toDTO)
@@ -86,26 +89,26 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     }
 
   @Override
-  public  Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId) {
+  public  Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String merchantId, String rewardBatchId) {
     log.info("[REWARD_BATCH_CONFIRMATION] Batch confirmation for batch batchId {}",
             Utilities.sanitizeString(rewardBatchId));
-    return rewardBatchService.rewardBatchConfirmation(initiativeId, rewardBatchId);
+    return rewardBatchService.rewardBatchConfirmation(initiativeId, merchantId, rewardBatchId);
   }
 
   @Override
-  public  Mono<Void> rewardBatchConfirmationBatch(String initiativeId, RewardBatchesRequest request) {
+  public  Mono<Void> rewardBatchConfirmationBatch(String initiativeId, String merchantId, RewardBatchesRequest request) {
     List<String> rewardBatchIds = request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
     log.info("[REWARD_BATCH_CONFIRMATION_BATCH] Batch confirmation for initiative {} and batchs {}",
             Utilities.sanitizeString(initiativeId), rewardBatchIds.toString() );
-    return rewardBatchService.rewardBatchConfirmationBatch(initiativeId, rewardBatchIds);
+    return rewardBatchService.rewardBatchConfirmationBatch(initiativeId, merchantId, rewardBatchIds);
   }
 
     @Override
-    public  Mono<Void> rewardBatchDeliveryBatch(String initiativeId, RewardBatchesRequest request) {
+    public  Mono<Void> rewardBatchDeliveryBatch(String initiativeId, String merchantId, RewardBatchesRequest request) {
         List<String> rewardBatchIds = request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
         log.info("[REWARD_BATCH_DELIVERY_BATCH] Batch delivery for initiative {} and batchs {}",
                 Utilities.sanitizeString(initiativeId), rewardBatchIds.toString() );
-        return rewardBatchService.rewardBatchDeliveryBatch(initiativeId, rewardBatchIds);
+        return rewardBatchService.rewardBatchDeliveryBatch(initiativeId, merchantId, rewardBatchIds);
     }
 
   @Override

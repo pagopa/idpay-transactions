@@ -183,7 +183,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
         String oldBatchId = requireRewardBatchId(trx);
 
-        return rewardBatchRepository.findRewardBatchById(oldBatchId)
+        return rewardBatchRepository.findRewardBatchByIdAndMerchantId(oldBatchId, trx.getMerchantId())
                 .switchIfEmpty(Mono.defer(() -> Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND))))
                 .flatMap(oldBatch ->
 
@@ -293,8 +293,8 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     oldTransaction.setUpdateDate(LocalDateTime.now());
 
                     return rewardTransactionRepository.save(oldTransaction)
-                            .then(rewardBatchRepository.updateTotals(oldBatch.getId(), oldBatchCounter))
-                            .then(rewardBatchRepository.updateTotals(newBatch.getId(), newBatchCounter))
+                            .then(rewardBatchRepository.updateTotals(oldBatch.getMerchantId(), oldBatch.getId(), oldBatchCounter))
+                            .then(rewardBatchRepository.updateTotals(newBatch.getMerchantId() ,newBatch.getId(), newBatchCounter))
                             .thenReturn(oldTransaction);
                 });
     }
@@ -368,7 +368,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
                                             Mono<Void> updateBatchTotalsMono =
                                                     oldRewardBatchId != null
-                                                            ? rewardBatchRepository.updateTotals(oldRewardBatchId, counters).then()
+                                                            ? rewardBatchRepository.updateTotals(sanitizedMerchantId, oldRewardBatchId, counters).then()
                                                             : Mono.empty();
 
 
