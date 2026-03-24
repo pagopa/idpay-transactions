@@ -1373,6 +1373,23 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
+    void mapTransactionToCsvRow_nullAdditionalProperties_productInfoIsNewline() {
+        RewardTransaction trx = RewardTransaction.builder()
+                .id("T1").fiscalCode("CF").trxCode("CODE")
+                .effectiveAmountCents(1000L)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
+                .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(500L).build()))
+                .additionalProperties(null)
+                .invoiceData(it.gov.pagopa.idpay.transactions.dto.InvoiceData.builder().filename("f.pdf").build())
+                .build();
+
+        String row = ReflectionTestUtils.invokeMethod(service, "mapTransactionToCsvRow", trx, INITIATIVE_ID);
+        // productInfo is the second field
+        String productInfoField = row.split(";")[1];
+        assertEquals("\"\n\"", productInfoField);
+    }
+
+    @Test
     void uploadCsvToBlob_success_status201() {
         @SuppressWarnings("unchecked")
         Response<BlockBlobItem> resp = Mockito.mock(Response.class);
