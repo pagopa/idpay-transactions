@@ -43,8 +43,8 @@ public abstract class BaseKafkaConsumer<T, R> {
     private final String applicationName;
 
     private static final Collector<KafkaAcknowledgeResult<?>, ?, Map<Integer, Pair<Long, KafkaAcknowledgeResult<?>>>> kafkaAcknowledgeResultMapCollector =
-            Collectors.groupingBy(KafkaAcknowledgeResult::partition
-                    , Collectors.teeing(
+            Collectors.groupingBy(KafkaAcknowledgeResult::partition,
+                    Collectors.teeing(
                             Collectors.minBy(Comparator.comparing(KafkaAcknowledgeResult::offset)),
                             Collectors.maxBy(Comparator.comparing(KafkaAcknowledgeResult::offset)),
                             (min, max) -> Pair.of(
@@ -56,7 +56,7 @@ public abstract class BaseKafkaConsumer<T, R> {
         this.applicationName = applicationName;
     }
 
-    record KafkaAcknowledgeResult<T> (Acknowledgment ack, Integer partition, Long offset, T result){
+    record KafkaAcknowledgeResult<T>(Acknowledgment ack, Integer partition, Long offset, T result) {
         public KafkaAcknowledgeResult(Message<?> message, T result) {
             this(
                     (Acknowledgment) CommonUtilities.getHeaderValue(message, KafkaHeaders.ACKNOWLEDGMENT),
@@ -88,10 +88,14 @@ public abstract class BaseKafkaConsumer<T, R> {
 
                                     log.info("[KAFKA_COMMIT][{}] Committing {} messages: {}", getFlowName(), p.size(),
                                             partition2Offsets.entrySet().stream()
-                                                    .map(e->"partition %d: %d - %d".formatted(e.getKey(),e.getValue().getKey(), e.getValue().getValue().offset()))
+                                                    .map(e -> "partition %d: %d - %d".formatted(
+                                                            e.getKey(),
+                                                            e.getValue().getKey(),
+                                                            e.getValue().getValue().offset()))
                                                     .collect(Collectors.joining(";")));
 
-                                    partition2Offsets.forEach((partition, offsets) -> Optional.ofNullable(offsets.getValue().ack()).ifPresent(Acknowledgment::acknowledge));
+                                    partition2Offsets.forEach((partition, offsets) ->
+                                            Optional.ofNullable(offsets.getValue().ack()).ifPresent(Acknowledgment::acknowledge));
 
                                     return p.stream()
                                             .map(KafkaAcknowledgeResult::result)
@@ -112,17 +116,19 @@ public abstract class BaseKafkaConsumer<T, R> {
     private Mono<KafkaAcknowledgeResult<R>> executeAcknowledgeAware(Message<String> message) {
 
         KafkaAcknowledgeResult<R> defaultAck = new KafkaAcknowledgeResult<>(message, null);
-
-        byte[] retryingApplicationName =
+        
+        byte[] retryingApplicationNameBytes =
                 message.getHeaders().get(KafkaConstants.ERROR_MSG_HEADER_APPLICATION_NAME, byte[].class);
 
-        if (retryingApplicationName != null &&
-                !new String(retryingApplicationName, StandardCharsets.UTF_8).equals(this.applicationName)) {
+        if (retryingApplicationNameBytes != null) {
+            String retryingApplicationName = new String(retryingApplicationNameBytes, StandardCharsets.UTF_8);
 
-            log.info("[{}] Discarding message due to other application retry ({}): {}",
-                    getFlowName(), retryingApplicationName, CommonUtilities.readMessagePayload(message));
+            if (!retryingApplicationName.equals(this.applicationName)) {
+                log.info("[{}] Discarding message due to other application retry ({}): {}",
+                        getFlowName(), retryingApplicationName, CommonUtilities.readMessagePayload(message));
 
-            return Mono.just(defaultAck);
+                return Mono.just(defaultAck);
+            }
         }
 
         Map<String, Object> ctx = new HashMap<>();
@@ -130,10 +136,11 @@ public abstract class BaseKafkaConsumer<T, R> {
         ctx.put(CONTEXT_KEY_MSG_ID, CommonUtilities.readMessagePayload(message));
 
         return execute(message, ctx)
-
+                
                 .retryWhen(
                         Retry.backoff(3, Duration.ofSeconds(1))
                                 .filter(e -> !(e instanceof UncommittableError))
+                                .onRetryExhaustedThrow((spec, signal) -> signal.failure())
                 )
 
                 .map(r -> new KafkaAcknowledgeResult<>(message, r))
@@ -143,23 +150,24 @@ public abstract class BaseKafkaConsumer<T, R> {
                     if (e instanceof UncommittableError) {
                         return Mono.error(e);
                     }
-
-                    log.error("[{}] Error processing message: {}",
-                            getFlowName(), CommonUtilities.readMessagePayload(message), e);
+                    
+                    String msgId = (String) ctx.get(CONTEXT_KEY_MSG_ID);
+                    log.error("[{}] Error processing message with id {}: {}",
+                            getFlowName(), msgId, e.toString(), e);
 
                     notifyError(message, e);
 
                     return Mono.just(defaultAck);
                 })
-
-                .doOnNext(r -> doFinally(message, ctx));
+                
+                .doFinally(signalType -> doFinally(message, ctx));
     }
 
     /** to perform some operation at the end of business logic execution, thus before to wait for commit. As default, it will perform an INFO logging with performance time */
     protected void doFinally(Message<String> message, Map<String, Object> ctx) {
-        Long startTime = (Long)ctx.get(CONTEXT_KEY_START_TIME);
-        String msgId = (String)ctx.get(CONTEXT_KEY_MSG_ID);
-        if(startTime != null){
+        Long startTime = (Long) ctx.get(CONTEXT_KEY_START_TIME);
+        String msgId = (String) ctx.get(CONTEXT_KEY_MSG_ID);
+        if (startTime != null) {
             PerformanceLogger.logTiming(getFlowName(), startTime,
                     "(partition: %s, offset: %s) %s".formatted(getMessagePartitionId(message), getMessageOffset(message), msgId));
         }
@@ -174,7 +182,7 @@ public abstract class BaseKafkaConsumer<T, R> {
     protected Mono<R> execute(Message<String> message, Map<String, Object> ctx){
         return Mono.just(message)
                 .mapNotNull(this::deserializeMessage)
-                .flatMap(payload->execute(payload, message, ctx));
+                .flatMap(payload -> execute(payload, message, ctx));
     }
 
     /** The {@link ObjectReader} to use in order to deserialize the input message */
