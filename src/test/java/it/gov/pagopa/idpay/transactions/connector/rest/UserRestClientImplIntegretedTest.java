@@ -15,18 +15,11 @@ import static org.mockito.ArgumentMatchers.any;
 class UserRestClientImplIntegretedTest {
 
     private ExchangeFunction exchangeFunction;
-    private WebClient webClient;
     private UserRestClientImpl client;
 
     @BeforeEach
     void setUp() {
         exchangeFunction = Mockito.mock(ExchangeFunction.class);
-
-        webClient = WebClient.builder()
-                .exchangeFunction(exchangeFunction)
-                .baseUrl("http://fake-url")
-                .defaultHeader("x-api-key", "fake-key")
-                .build();
 
         client = new UserRestClientImpl(
                 "http://fake-url",
