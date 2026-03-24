@@ -13,6 +13,7 @@ import org.springframework.messaging.Message;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.context.Context;
+import reactor.util.retry.Retry;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -78,7 +79,7 @@ public abstract class BaseKafkaConsumer<T, R> {
     public final void execute(Flux<Message<String>> messagesFlux) {
         Flux<List<R>> processUntilCommits =
                 messagesFlux
-                        .flatMapSequential(this::executeAcknowledgeAware)
+                        .concatMap(this::executeAcknowledgeAware)
 
                         .buffer(getCommitDelay())
                         .map(p -> {
@@ -109,36 +110,49 @@ public abstract class BaseKafkaConsumer<T, R> {
     protected abstract void subscribeAfterCommits(Flux<List<R>> afterCommits2subscribe);
 
     private Mono<KafkaAcknowledgeResult<R>> executeAcknowledgeAware(Message<String> message) {
+
         KafkaAcknowledgeResult<R> defaultAck = new KafkaAcknowledgeResult<>(message, null);
 
-        byte[] retryingApplicationName = message.getHeaders().get(KafkaConstants.ERROR_MSG_HEADER_APPLICATION_NAME, byte[].class);
-        if(retryingApplicationName != null && !new String(retryingApplicationName, StandardCharsets.UTF_8).equals(this.applicationName)){
-            log.info("[{}] Discarding message due to other application retry ({}): {}", getFlowName(), retryingApplicationName,  CommonUtilities.readMessagePayload(message));
+        byte[] retryingApplicationName =
+                message.getHeaders().get(KafkaConstants.ERROR_MSG_HEADER_APPLICATION_NAME, byte[].class);
+
+        if (retryingApplicationName != null &&
+                !new String(retryingApplicationName, StandardCharsets.UTF_8).equals(this.applicationName)) {
+
+            log.info("[{}] Discarding message due to other application retry ({}): {}",
+                    getFlowName(), retryingApplicationName, CommonUtilities.readMessagePayload(message));
+
             return Mono.just(defaultAck);
         }
 
-        Map<String, Object> ctx=new HashMap<>();
+        Map<String, Object> ctx = new HashMap<>();
         ctx.put(CONTEXT_KEY_START_TIME, System.currentTimeMillis());
-        ctx.put(CONTEXT_KEY_MSG_ID,  CommonUtilities.readMessagePayload(message));
+        ctx.put(CONTEXT_KEY_MSG_ID, CommonUtilities.readMessagePayload(message));
 
         return execute(message, ctx)
+
+                .retryWhen(
+                        Retry.backoff(3, Duration.ofSeconds(1))
+                                .filter(e -> !(e instanceof UncommittableError))
+                )
+
                 .map(r -> new KafkaAcknowledgeResult<>(message, r))
                 .defaultIfEmpty(defaultAck)
 
                 .onErrorResume(e -> {
-                    if(e instanceof UncommittableError) {
+                    if (e instanceof UncommittableError) {
                         return Mono.error(e);
-                    } else {
-                        notifyError(message, e);
-                        return Mono.just(defaultAck);
                     }
-                })
-                .doOnNext(r -> doFinally(message, ctx))
 
-                .onErrorResume(e -> {
-                    log.info("Retrying after reactive pipeline error: ", e);
-                    return executeAcknowledgeAware(message);
-                });
+                    log.error("[{}] Error processing message: {}",
+                            getFlowName(), CommonUtilities.readMessagePayload(message), e);
+
+                    notifyError(message, e);
+
+                    return Mono.just(defaultAck);
+                })
+
+                .doOnNext(r -> doFinally(message, ctx));
     }
 
     /** to perform some operation at the end of business logic execution, thus before to wait for commit. As default, it will perform an INFO logging with performance time */
