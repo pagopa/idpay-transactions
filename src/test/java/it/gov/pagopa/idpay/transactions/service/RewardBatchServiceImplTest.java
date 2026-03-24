@@ -2058,4 +2058,14 @@ class RewardBatchServiceImplTest {
 
         assertEquals(currentMonth, result);
     }
+
+    @Test
+    void generateAndSaveCsv_batchNotFound_switchIfEmpty() {
+        when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.empty());
+
+        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class,
+                () -> service.generateAndSaveCsv(BATCH_ID, INITIATIVE_ID, MERCHANT_ID).block());
+
+        assertEquals(HttpStatus.NOT_FOUND, ex.getHttpStatus());
+    }
 }
