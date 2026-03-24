@@ -132,14 +132,16 @@ class RewardBatchSpecificRepositoryImplTest {
                 .verifyComplete();
     }
 
-    // =========================
-    // UPDATE TOTALS
-    // =========================
-
     @Test
     void updateTotals_shouldUpdateAllFields() {
         BatchCountersDTO dto = BatchCountersDTO.newBatch();
-
+        dto.incrementTrxElaborated(1L);
+        dto.incrementTrxRejected(1L);
+        dto.incrementTrxSuspended(1L);
+        dto.incrementSuspendedAmountCents(1L);
+        dto.incrementApprovedAmountCents(1L);
+        dto.incrementInitialAmountCents(1L);
+        dto.incrementNumberOfTransactions(1L);
         RewardBatch batch = new RewardBatch();
 
         when(mongoTemplate.findAndModify(any(), any(), any(), eq(RewardBatch.class)))
