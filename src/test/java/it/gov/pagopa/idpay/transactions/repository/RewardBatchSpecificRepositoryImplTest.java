@@ -34,9 +34,6 @@ class RewardBatchSpecificRepositoryImplTest {
         MockitoAnnotations.openMocks(this);
     }
 
-    // =========================
-    // FIND COMBINED
-    // =========================
 
     @Test
     void findRewardBatchesCombined_basic() {
@@ -94,7 +91,7 @@ class RewardBatchSpecificRepositoryImplTest {
         StepVerifier.create(repository.findRewardBatchesCombined(
                         "merchant",
                         RewardBatchStatus.TO_APPROVE.name(),
-                        RewardBatchAssignee.L1.name(), // invalid combo
+                        RewardBatchAssignee.L1.name(),
                         "2024-01",
                         false,
                         PageRequest.of(0, 10)))
@@ -117,9 +114,21 @@ class RewardBatchSpecificRepositoryImplTest {
                 .verifyComplete();
     }
 
-    // =========================
-    // COUNT
-    // =========================
+    @Test
+    void findRewardBatchesCombined_throwException() {
+        when(mongoTemplate.find(any(), eq(RewardBatch.class)))
+                .thenReturn(Flux.just(new RewardBatch()));
+
+        StepVerifier.create(repository.findRewardBatchesCombined(
+                        "merchant",
+                        null,
+                        "levelException",
+                        null,
+                        true,
+                        PageRequest.of(0, 10)))
+                .expectNextCount(1)
+                .verifyComplete();
+    }
 
     @Test
     void getCountCombined_shouldReturnCount() {
@@ -164,10 +173,6 @@ class RewardBatchSpecificRepositoryImplTest {
                 .verifyComplete();
     }
 
-    // =========================
-    // FIND BY ID / FILTER
-    // =========================
-
     @Test
     void findRewardBatchById() {
         when(mongoTemplate.findOne(any(Query.class), eq(RewardBatch.class)))
@@ -200,9 +205,6 @@ class RewardBatchSpecificRepositoryImplTest {
                 .verifyComplete();
     }
 
-    // =========================
-    // FIND BY STATUS / MONTH
-    // =========================
 
     @Test
     void findRewardBatchByStatus() {
@@ -225,9 +227,6 @@ class RewardBatchSpecificRepositoryImplTest {
                 .verifyComplete();
     }
 
-    // =========================
-    // UPDATE STATUS
-    // =========================
 
     @Test
     void updateStatusAndApprovedAmountCents() {
@@ -242,9 +241,6 @@ class RewardBatchSpecificRepositoryImplTest {
                 .verifyComplete();
     }
 
-    // =========================
-    // PREVIOUS EMPTY BATCHES
-    // =========================
 
     @Test
     void findPreviousEmptyBatches() {
