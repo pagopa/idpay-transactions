@@ -80,7 +80,7 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
 
   @Override
   public Mono<DownloadInvoiceResponseDTO> downloadInvoiceFile(
-          String merchantId, String tokenPointOfSaleId, String pointOfSaleId, String transactionId) {
+          String initiativeId, String merchantId, String tokenPointOfSaleId, String pointOfSaleId, String transactionId) {
     log.info("[DOWNLOAD_TRANSACTION] Requested to download invoice for transaction {}",
             Utilities.sanitizeString(transactionId));
 
@@ -96,11 +96,11 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
       ));
     }
 
-    return pointOfSaleTransactionService.downloadTransactionInvoice(merchantId, pointOfSaleId, transactionId);
+    return pointOfSaleTransactionService.downloadTransactionInvoice(initiativeId, merchantId, pointOfSaleId, transactionId);
   }
 
   @Override
-  public Mono<Void> updateInvoiceFile(String transactionId, String merchantId,
+  public Mono<Void> updateInvoiceFile(String initiativeId, String transactionId, String merchantId,
                                       FilePart file, String docNumber, String authorization) {
     final String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
     final String sanitizedTrxCode = Utilities.sanitizeString(transactionId);
@@ -114,22 +114,22 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
 
       InvoiceLifecyclePolicy policy = InvoiceLifecyclePolicyFactory.fromScopes(scopes);
 
-    return pointOfSaleTransactionService.updateInvoiceTransaction(transactionId, merchantId,
-        file, docNumber, policy);
+    return pointOfSaleTransactionService.updateInvoiceTransaction(initiativeId, transactionId,
+            merchantId, file, docNumber, policy);
   }
 
     @Override
-    public Mono<List<FranchisePointOfSaleDTO>> getFranchisePointOfSale(String rewardBatchId) {
+    public Mono<List<FranchisePointOfSaleDTO>> getFranchisePointOfSale(String initiativeId, String merchantId, String rewardBatchId) {
 
       final String sanitizedRewardBatchId = Utilities.sanitizeString(rewardBatchId);
 
       log.info("[POINT_OF_SALE_TRANSACTION_CONTROLLER] - Get point of sales by reward batch id {}", sanitizedRewardBatchId);
 
-      return pointOfSaleTransactionService.getDistinctFranchiseAndPosByRewardBatchId(sanitizedRewardBatchId);
+      return pointOfSaleTransactionService.getDistinctFranchiseAndPosByRewardBatchId(initiativeId, merchantId, sanitizedRewardBatchId);
     }
 
     @Override
-    public Mono<Void> reversalTransactionInvoiced(String transactionId, String merchantId, String authorization, FilePart file, String docNumber) {
+    public Mono<Void> reversalTransactionInvoiced(String initiativeId, String transactionId, String merchantId, String authorization, FilePart file, String docNumber) {
 
         final String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
         final String sanitizedTrxCode = Utilities.sanitizeString(transactionId);
@@ -143,6 +143,6 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
 
         InvoiceLifecyclePolicy policy = InvoiceLifecyclePolicyFactory.fromScopes(scopes);
 
-        return pointOfSaleTransactionService.reversalTransaction(transactionId, merchantId, file, docNumber, policy);
+        return pointOfSaleTransactionService.reversalTransaction(initiativeId, transactionId, merchantId, file, docNumber, policy);
     }
 }

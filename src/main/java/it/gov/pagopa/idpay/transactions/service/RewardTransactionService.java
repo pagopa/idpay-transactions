@@ -14,7 +14,7 @@ public interface RewardTransactionService {
 
     Flux<RewardTransaction> findByRange(String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, Long amountCents, Pageable pageable);
 
-    Mono<Void> assignInvoicedTransactionsToBatches(Integer chunkSize, Integer repetitionsNumber, boolean processAll, String trxId);
+    Mono<Void> assignInvoicedTransactionsToBatches(String initiativeId, String merchantId, Integer chunkSize, Integer repetitionsNumber, boolean processAll, String trxId);
 
     Flux<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId);
 }

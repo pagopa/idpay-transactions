@@ -41,6 +41,8 @@ public interface TransactionsController {
 
     @PostMapping("/cleanup")
     ResponseEntity<String> cleanupInvoicedTransactions(
+        @RequestParam(required = true) String initiativeId,
+        @RequestHeader("x-merchant-id") String merchantId,
         @RequestParam(defaultValue = "200") Integer chunkSize,
         @RequestParam(defaultValue = "1") Integer repetitionsNumber,
         @RequestParam(defaultValue = "false") boolean processAll,

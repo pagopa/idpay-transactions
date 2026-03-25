@@ -12,14 +12,10 @@ import reactor.core.publisher.Mono;
 public interface RewardBatchSpecificRepository {
   Flux<RewardBatch> findRewardBatchesCombined(String merchantId, String initiativeId, String status, String assigneeLevel, String month, boolean isOperator, Pageable pageable);
   Mono<Long> getCountCombined(String merchantId, String initiativeId, String status, String assigneeLevel, String month, boolean isOperator);
-  //aggiungere initiativeId
-  Mono<RewardBatch> updateTotals(String merchantId, String rewardBatchId, BatchCountersDTO batchCountersDTO);
-    //aggiungere initiativeId
-  Mono<RewardBatch> findRewardBatchByIdAndMerchantId(String rewardBatchId, String merchantId);
-    //aggiungere initiativeId
-  Mono<RewardBatch> findRewardBatchByFilter(String rewardBatchId, String merchantId, PosType posType, String month);
+  Mono<RewardBatch> updateTotals(String initiativeId, String merchantId, String rewardBatchId, BatchCountersDTO batchCountersDTO);
+  Mono<RewardBatch> findRewardBatchByIdAndMerchantIdAndInitiativeId(String rewardBatchId, String merchantId, String initiativeId);
+  Mono<RewardBatch> findRewardBatchByFilter(String rewardBatchId, String merchantId, PosType posType, String month, String initiativeId);
   Flux<RewardBatch> findRewardBatchByMonthBefore(String merchantId, String initiativeId, PosType posType, String month);
-    //aggiungere initiativeId
-  Mono<RewardBatch> updateStatusAndApprovedAmountCents(String rewardBatchId, String merchantId, RewardBatchStatus rewardBatchStatus, Long approvedAmountCents);
+  Mono<RewardBatch> updateStatusAndApprovedAmountCents(String rewardBatchId, String merchantId, RewardBatchStatus rewardBatchStatus, Long approvedAmountCents, String initiativeId);
   Flux<RewardBatch> findPreviousEmptyBatches();
 }

@@ -96,18 +96,20 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
 
     /**
-   * Method to generate a download url of an invoice for a rewardTransaction in status REWARDED, REFUNDED or INVOICED,
-   * the url will be provided with a Shared Access Signature token for the resource
-   * @param merchantId
-   * @param pointOfSaleId
-   * @param transactionId
-   * @return Mono containing the invoiceUrl, error if parameters do not match an existing transaction, or the invoice
-   * reference is missing
-   */
+     * Method to generate a download url of an invoice for a rewardTransaction in status REWARDED, REFUNDED or INVOICED,
+     * the url will be provided with a Shared Access Signature token for the resource
+     *
+     * @param initiativeId
+     * @param merchantId
+     * @param pointOfSaleId
+     * @param transactionId
+     * @return Mono containing the invoiceUrl, error if parameters do not match an existing transaction, or the invoice
+     * reference is missing
+     */
   @Override
   public Mono<DownloadInvoiceResponseDTO> downloadTransactionInvoice(
-          String merchantId, String pointOfSaleId, String transactionId) {
-      return rewardTransactionRepository.findTransaction(merchantId, transactionId)
+          String initiativeId, String merchantId, String pointOfSaleId, String transactionId) {
+      return rewardTransactionRepository.findTransaction(initiativeId, merchantId, transactionId)
               .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
               .handle((rewardTransaction, sink) -> {
                 String status = rewardTransaction.getStatus();
@@ -162,7 +164,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                 .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
     }
 
-    public Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId,
+    public Mono<Void> updateInvoiceTransaction(String initiativeId, String transactionId, String merchantId,
                                                FilePart file, String docNumber, InvoiceLifecyclePolicy policy) {
 
         log.info("[UPDATE_INVOICE_FILE_SERVICE] - [updateInvoiceTransaction] - start | trxId={} merchantId={} docNumber={} filename={}",
@@ -171,7 +173,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         Utilities.checkFileExtensionOrThrow(file);
 
         return rewardTransactionRepository
-                .findTransaction(merchantId, transactionId)
+                .findTransaction(initiativeId, merchantId, transactionId)
                 .switchIfEmpty(Mono.defer(() -> Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE))))
                 .flatMap(trx -> validateBatchAndUpdateInvoiceFlow(trx, file, docNumber, policy));
     }
@@ -183,7 +185,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
         String oldBatchId = requireRewardBatchId(trx);
 
-        return rewardBatchRepository.findRewardBatchByIdAndMerchantId(oldBatchId, trx.getMerchantId())
+        return rewardBatchRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId(oldBatchId, trx.getMerchantId(), trx.getInitiativeId())
                 .switchIfEmpty(Mono.defer(() -> Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND))))
                 .flatMap(oldBatch ->
 
@@ -293,14 +295,15 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     oldTransaction.setUpdateDate(LocalDateTime.now());
 
                     return rewardTransactionRepository.save(oldTransaction)
-                            .then(rewardBatchRepository.updateTotals(oldBatch.getMerchantId(), oldBatch.getId(), oldBatchCounter))
-                            .then(rewardBatchRepository.updateTotals(newBatch.getMerchantId() ,newBatch.getId(), newBatchCounter))
+                            .then(rewardBatchRepository.updateTotals(oldBatch.getInitiativeId(), oldBatch.getMerchantId(), oldBatch.getId(), oldBatchCounter))
+                            .then(rewardBatchRepository.updateTotals(newBatch.getInitiativeId(), newBatch.getMerchantId(), newBatch.getId(), newBatchCounter))
                             .thenReturn(oldTransaction);
                 });
     }
 
     @Override
     public Mono<Void> reversalTransaction(
+            String initiativeId,
             String transactionId,
             String merchantId,
             FilePart file,
@@ -316,7 +319,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         log.info("[REVERSAL-TRANSACTION-SERVICE] Start reversalTransaction transactionId={}, merchantId={}, docNumber={}",
                 sanitizedTransactionId, sanitizedMerchantId, sanitizedDocNumber);
 
-        return rewardTransactionRepository.findTransaction(sanitizedMerchantId, sanitizedTransactionId)
+        return rewardTransactionRepository.findTransaction(initiativeId, sanitizedMerchantId, sanitizedTransactionId)
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
                 .doOnNext(rt -> log.info("[REVERSAL-TRANSACTION-SERVICE] Found transaction id={}, status={}, rewardBatchId={}",
                         rt.getId(), rt.getStatus(), rt.getRewardBatchId()))
@@ -326,7 +329,6 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     final RewardBatchTrxStatus oldBatchTrxStatus = rt.getRewardBatchTrxStatus();
                     final boolean wasSuspended = RewardBatchTrxStatus.SUSPENDED.equals(oldBatchTrxStatus);
                     final boolean wasRejected = RewardBatchTrxStatus.REJECTED.equals(oldBatchTrxStatus);
-                    String initiativeId = rt.getInitiatives().getFirst();
                     long accruedRewardCents = rt.getRewards().get(initiativeId).getAccruedRewardCents();
 
                     BatchCountersDTO counters = BatchCountersDTO.newBatch()
@@ -368,7 +370,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
                                             Mono<Void> updateBatchTotalsMono =
                                                     oldRewardBatchId != null
-                                                            ? rewardBatchRepository.updateTotals(sanitizedMerchantId, oldRewardBatchId, counters).then()
+                                                            ? rewardBatchRepository.updateTotals(initiativeId, sanitizedMerchantId, oldRewardBatchId, counters).then()
                                                             : Mono.empty();
 
 
@@ -538,10 +540,10 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
 
     @Override
-    public Mono<List<FranchisePointOfSaleDTO>> getDistinctFranchiseAndPosByRewardBatchId(String rewardBatchId) {
+    public Mono<List<FranchisePointOfSaleDTO>> getDistinctFranchiseAndPosByRewardBatchId(String initiativeId, String merchantId, String rewardBatchId) {
       log.info("[POINT_OF_SALE_TRANSACTION_SERVICE] - Get point of sale for reward batch id [{}]", Utilities.sanitizeString(rewardBatchId));
         return rewardTransactionRepository
-                .findDistinctFranchiseAndPosByRewardBatchId(rewardBatchId)
+                .findDistinctFranchiseAndPosByRewardBatchId(initiativeId, merchantId, rewardBatchId)
                 .collectList();
     }
 
