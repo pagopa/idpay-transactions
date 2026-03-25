@@ -1091,7 +1091,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                     return Mono.error(new ClientExceptionWithBody(
                             NOT_FOUND,
                             REWARD_BATCH_NOT_FOUND,
-                            ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId)));
+                            ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(Utilities.sanitizeString(rewardBatchId))));
                 }))
                 .flatMap(batch -> {
 
