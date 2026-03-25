@@ -30,23 +30,24 @@ public interface RewardTransactionSpecificRepository {
      * @param transactionId
      * @return Mono containing a transaction, or empty if no document matches the criteria
      */
+    //aggiungere initiativeId
     Mono<RewardTransaction> findTransaction(String merchantId, String transactionId);
 
     Flux<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId);
-
+    //aggiungere merchantId
     Mono<Long> sumSuspendedAccruedRewardCents(String rewardBatchId);
-
+    //aggiungere merchantId
     Mono<Void> rewardTransactionsByBatchId(String batchId);
-
+    //aggiungere merchantId
     Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus status, ReasonDTO reasons, String batchMonth, ChecksError checksError);
-
+    //aggiungere initiativeId
     Flux<RewardTransaction> findInvoicedTransactionsWithoutBatch(int pageSize);
 
     Mono<RewardTransaction> findInvoicedTrxByIdWithoutBatch(String trxId);
 
-
+    //aggiungere initiativeId e merchantId
     Flux<FranchisePointOfSaleDTO> findDistinctFranchiseAndPosByRewardBatchId(String rewardBatchId);
-  
+    //aggiungere initiativeId
     Mono<RewardTransaction> findTransactionInBatch(String merchantId, String rewardBatchId, String transactionId);
 
 }

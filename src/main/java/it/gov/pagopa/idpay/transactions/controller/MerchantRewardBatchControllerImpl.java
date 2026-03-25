@@ -180,18 +180,19 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
-  public Mono<RewardBatchDTO> approvedTransactions(String merchantId, String rewardBatchId, TransactionsRequest request) {
+  public Mono<RewardBatchDTO> approvedTransactions(String initiativeId, String merchantId, String rewardBatchId, TransactionsRequest request) {
 
     List<String> transactionIds = request.getTransactionIds() != null ? request.getTransactionIds() : List.of();
 
     log.info(
-            "[APPROVED_TRANSACTIONS] Requested to approve {} transactions for rewardBatch {} of merchant {}",
+            "[APPROVED_TRANSACTIONS] Requested to approve {} transactions for rewardBatch {} of merchant {} for initiative {}",
             transactionIds.size(),
             Utilities.sanitizeString(rewardBatchId),
-            Utilities.sanitizeString(merchantId)
+            Utilities.sanitizeString(merchantId),
+            Utilities.sanitizeString(initiativeId)
     );
 
-    return rewardBatchService.approvedTransactions(rewardBatchId, request, merchantId)
+    return rewardBatchService.approvedTransactions(rewardBatchId, request, merchantId, initiativeId)
             .flatMap(rewardBatchMapper::toDTO);
   }
 

@@ -13,7 +13,7 @@ public interface RewardBatchRepository extends ReactiveMongoRepository<RewardBat
   Mono<RewardBatch> findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(String initiativeId, String merchantId,
                                                                       PosType posType, String month);
 
-  Mono<RewardBatch> findByIdAndMerchantIdAndStatus(String rewardBatchId, String merchantId, RewardBatchStatus rewardBatchTrxStatus);
+  Mono<RewardBatch> findByIdAndInitiativeIdAndMerchantIdAndStatus(String rewardBatchId, String initiativeId, String merchantId, RewardBatchStatus rewardBatchTrxStatus);
 
   Flux<RewardBatch> findByStatusAndInitiativeId(RewardBatchStatus rewardBatchStatus, String initiativeId);
   Flux<RewardBatch> findByMerchantIdAndInitiativeIdAndPosType(String merchantId, String initiativeId, PosType posType);

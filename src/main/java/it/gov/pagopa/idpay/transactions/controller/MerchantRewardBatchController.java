@@ -91,6 +91,7 @@ public interface MerchantRewardBatchController {
   @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/approved")
   Mono<RewardBatchDTO> approvedTransactions(
           @PathVariable("initiativeId") String initiativeId,
+          @RequestHeader(value = "x-merchant-id", required = false) String merchantId,
           @PathVariable("rewardBatchId") String rewardBatchId,
           @RequestBody @Valid TransactionsRequest request);
 

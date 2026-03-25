@@ -29,7 +29,7 @@ public interface RewardBatchService {
   Mono<RewardBatch> suspendTransactions(String rewardBatchId, String merchantId, String initiativeId, TransactionsRequest request);
 
   Mono<RewardBatch> rejectTransactions(String rewardBatchId, String initiativeId, String merchantId, TransactionsRequest request);
-  Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String merchantId);
+  Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String merchantId, String initiativeId);
   Mono<RewardBatch> validateRewardBatch(String organizationRole, String initiativeId, String rewardBatchId);
 
   Mono<Long> evaluatingRewardBatches(List<String> rewardBatchesRequest, String initiativeId, String merchantId);

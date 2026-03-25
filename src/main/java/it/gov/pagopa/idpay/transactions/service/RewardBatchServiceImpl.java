@@ -243,7 +243,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         ChecksError checksErrorModel = checksErrorMapper.toModel(request.getChecksError());
         ReasonDTO reason = generateReasonDto(request);
 
-        return rewardBatchRepository.findByIdAndMerchantIdAndStatus(rewardBatchId, merchantId, RewardBatchStatus.EVALUATING)
+        return rewardBatchRepository.findByIdAndInitiativeIdAndMerchantIdAndStatus(rewardBatchId, initiativeId, merchantId, RewardBatchStatus.EVALUATING)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(NOT_FOUND,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
                         ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))
@@ -360,7 +360,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         ReasonDTO reason = generateReasonDto(request);
 
 
-        return rewardBatchRepository.findByIdAndMerchantIdAndStatus(rewardBatchId, merchantId, RewardBatchStatus.EVALUATING)
+        return rewardBatchRepository.findByIdAndInitiativeIdAndMerchantIdAndStatus(rewardBatchId, initiativeId, merchantId, RewardBatchStatus.EVALUATING)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(NOT_FOUND,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
                         ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))
@@ -456,8 +456,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
 
     @Override
-    public Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String merchantId) {
-        return rewardBatchRepository.findByIdAndMerchantIdAndStatus(rewardBatchId, merchantId, RewardBatchStatus.EVALUATING)
+    public Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String merchantId, String initiativeId) {
+        return rewardBatchRepository.findByIdAndInitiativeIdAndMerchantIdAndStatus(rewardBatchId, initiativeId, merchantId, RewardBatchStatus.EVALUATING)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(NOT_FOUND,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
                         ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))
@@ -510,7 +510,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             rewardBatchToElaborate = rewardBatchRepository.findByStatusAndInitiativeId(RewardBatchStatus.SENT, initiativeId);
         } else {
             rewardBatchToElaborate = Flux.fromIterable(rewardBatchesRequest)
-                    .flatMap(batchId -> rewardBatchRepository.findByIdAndMerchantIdAndStatus(batchId, merchantId, RewardBatchStatus.SENT));
+                    .flatMap(batchId -> rewardBatchRepository.findByIdAndInitiativeIdAndMerchantIdAndStatus(batchId, initiativeId, merchantId, RewardBatchStatus.SENT));
         }
 
         return rewardBatchToElaborate
@@ -711,7 +711,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         } else {
             batches = Flux.fromIterable(batchIds)
                     .flatMap(batchId ->
-                            rewardBatchRepository.findByIdAndMerchantIdAndStatus(batchId, merchantId, RewardBatchStatus.PENDING_REFUND)
+                            rewardBatchRepository.findByIdAndInitiativeIdAndMerchantIdAndStatus(batchId, initiativeId, merchantId, RewardBatchStatus.PENDING_REFUND)
                     );
         }
 
