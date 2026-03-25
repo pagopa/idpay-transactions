@@ -1153,11 +1153,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             return numberFormat.format(cents / 100.0);
         };
 
-        String productName = trx.getAdditionalProperties()!=null &&
+        String productName = trx.getAdditionalProperties() != null &&
                 trx.getAdditionalProperties().get("productName") != null
                 ? trx.getAdditionalProperties().get("productName")
                 : "";
-        String productGtin = trx.getAdditionalProperties()!=null &&
+        String productGtin = trx.getAdditionalProperties() != null &&
                 trx.getAdditionalProperties().get("productGtin") != null
                 ? trx.getAdditionalProperties().get("productGtin")
                 : "";
