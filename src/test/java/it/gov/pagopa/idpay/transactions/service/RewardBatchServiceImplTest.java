@@ -2080,7 +2080,7 @@ class RewardBatchServiceImplTest {
     void generateAndSaveCsv_batchNotFound_switchIfEmpty() {
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.empty());
         Mono<String> generated = service.generateAndSaveCsv(BATCH_ID, INITIATIVE_ID, MERCHANT_ID);
-        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class, () -> generated.block());
+        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class, generated::block);
         assertEquals(HttpStatus.NOT_FOUND, ex.getHttpStatus());
     }
 }
