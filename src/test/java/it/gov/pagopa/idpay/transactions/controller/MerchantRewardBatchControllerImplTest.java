@@ -11,6 +11,7 @@ import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.service.RewardBatchService;
+import it.gov.pagopa.idpay.transactions.usecase.rewardbatch.GetRewardBatchByIdUseCase;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
@@ -53,6 +54,9 @@ class MerchantRewardBatchControllerImplTest {
 
     @MockitoBean
     RewardBatchMapper rewardBatchMapper;
+
+    @MockitoBean
+    GetRewardBatchByIdUseCase getRewardBatchByIdUseCase;
 
     @MockitoBean
     CacheManager cacheManager;

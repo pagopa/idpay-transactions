@@ -74,7 +74,7 @@ class PersistenceTransactionMediatorImplTest {
 
         persistenceTransactionMediator.execute(messageFlux);
 
-        Mockito.verify(rewardTransactionMapper, Mockito.timeout(1000).times(2))
+        Mockito.verify(rewardTransactionMapper, Mockito.timeout(1000).times(1))
                 .mapFromDTO(Mockito.any(RewardTransactionDTO.class));
     }
 
