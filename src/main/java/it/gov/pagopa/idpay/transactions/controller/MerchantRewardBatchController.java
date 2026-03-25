@@ -32,6 +32,12 @@ public interface MerchantRewardBatchController {
       @PathVariable("initiativeId") String initiativeId,
       @PageableDefault(sort = "month", direction = Sort.Direction.ASC) Pageable pageable);
 
+  @GetMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}")
+  Mono<RewardBatchDTO> getRewardBatchById(
+      @RequestHeader(value = "x-merchant-id") String merchantId,
+      @PathVariable("initiativeId") String initiativeId,
+      @PathVariable("rewardBatchId") String rewardBatchId);
+
   @PostMapping("/initiatives/{initiativeId}/reward-batches/{batchId}/send")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   Mono<Void> sendRewardBatches(

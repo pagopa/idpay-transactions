@@ -9,6 +9,7 @@ import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.service.RewardBatchService;
+import it.gov.pagopa.idpay.transactions.usecase.rewardbatch.GetRewardBatchByIdUseCase;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
@@ -31,10 +32,12 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
 
   private final RewardBatchService rewardBatchService;
   private final RewardBatchMapper rewardBatchMapper;
+  private final GetRewardBatchByIdUseCase getRewardBatchByIdUseCase;
 
-  public MerchantRewardBatchControllerImpl(RewardBatchService rewardBatchService, RewardBatchMapper rewardBatchMapper){
+  public MerchantRewardBatchControllerImpl(RewardBatchService rewardBatchService, RewardBatchMapper rewardBatchMapper, GetRewardBatchByIdUseCase getRewardBatchByIdUseCase){
     this.rewardBatchService = rewardBatchService;
     this.rewardBatchMapper = rewardBatchMapper;
+    this.getRewardBatchByIdUseCase = getRewardBatchByIdUseCase;
   }
 
   @Override
@@ -79,6 +82,14 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
                     page.getTotalPages()
                 ))
         );
+  }
+
+  @Override
+  public Mono<RewardBatchDTO> getRewardBatchById(String merchantId, String initiativeId, String rewardBatchId) {
+    log.info("[GET_REWARD_BATCH_BY_ID] Request received. Merchant: {}, InitiativeId: {}, RewardBatchId: {}",
+            Utilities.sanitizeString(merchantId), Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(rewardBatchId));
+    return getRewardBatchByIdUseCase.execute(merchantId, rewardBatchId)
+            .flatMap(rewardBatchMapper::toDTO);
   }
 
   @Override
