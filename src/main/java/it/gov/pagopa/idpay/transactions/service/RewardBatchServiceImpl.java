@@ -1135,8 +1135,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                         .thenReturn(reportFilename);
                             });
                 })
-                .doOnSuccess(result -> log.info("[GENERATE_AND_SAVE_CSV] CSV generation completed successfully for batch: {}", Utilities.sanitizeString(rewardBatchId)))
-                .doOnError(error -> log.error("[GENERATE_AND_SAVE_CSV] CSV generation FAILED for batch: {}", Utilities.sanitizeString(rewardBatchId), error));
+                .doOnSuccess(result -> log.info("[GENERATE_AND_SAVE_CSV] CSV generation completed successfully for batch: {}", Utilities.sanitizeString(rewardBatchId)));
     }
 
     private String mapTransactionToCsvRow(RewardTransaction trx, String initiativeId) {
