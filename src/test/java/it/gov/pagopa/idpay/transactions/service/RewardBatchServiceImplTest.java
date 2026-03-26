@@ -2050,6 +2050,8 @@ class RewardBatchServiceImplTest {
         RewardBatch targetBatch = RewardBatch.builder()
                 .id(BATCH_ID_2)
                 .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
+                .posType(PHYSICAL)
                 .month(targetMonth)
                 .build();
 
@@ -2096,6 +2098,8 @@ class RewardBatchServiceImplTest {
         RewardBatch targetBatch = RewardBatch.builder()
                 .id(BATCH_ID_2)
                 .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
+                .posType(PHYSICAL)
                 .month(originalMonth)
                 .build();
 
