@@ -695,7 +695,7 @@ class MerchantRewardBatchControllerImplTest {
                         .build();
 
         when(rewardBatchService.evaluatingRewardBatches(
-                eq(batchRequest.getRewardBatchIds()),
+                batchRequest.getRewardBatchIds(),
                 eq(INITIATIVE_ID),
                 eq(MERCHANT_ID)))
                 .thenReturn(Mono.error(new ClientExceptionWithBody(

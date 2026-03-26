@@ -81,7 +81,7 @@ class PointOfSaleTransactionControllerImplTest {
                 any(Pageable.class)))
                 .thenReturn(Mono.just(page));
 
-        when(mapper.toDTO(eq(trx), eq(INITIATIVE_ID), eq(FISCAL_CODE)))
+        when(mapper.toDTO(eq(trx), INITIATIVE_ID, FISCAL_CODE))
                 .thenReturn(Mono.just(dto));
 
         webClient.get()
@@ -119,7 +119,7 @@ class PointOfSaleTransactionControllerImplTest {
                                 && TRX_CODE.equals(filters.getTrxCode())),
                 any(Pageable.class));
 
-        verify(mapper).toDTO(eq(trx), eq(INITIATIVE_ID), eq(FISCAL_CODE));
+        verify(mapper).toDTO(eq(trx), INITIATIVE_ID, eq(FISCAL_CODE));
     }
 
     @Test
@@ -358,7 +358,7 @@ class PointOfSaleTransactionControllerImplTest {
         List<FranchisePointOfSaleDTO> response = List.of(new FranchisePointOfSaleDTO());
 
         when(pointOfSaleTransactionService.getDistinctFranchiseAndPosByRewardBatchId(
-                eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(REWARD_BATCH_ID)))
+                INITIATIVE_ID, MERCHANT_ID, REWARD_BATCH_ID))
                 .thenReturn(Mono.just(response));
 
         webClient.get()

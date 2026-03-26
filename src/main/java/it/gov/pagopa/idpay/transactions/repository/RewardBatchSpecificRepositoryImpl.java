@@ -263,10 +263,6 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
     return criteria;
   }
 
-private static Criteria getCriteriaFindRewardBatchByStatus(RewardBatchStatus rewardBatchStatus) {
-  return Criteria.where(RewardBatch.Fields.status).is(rewardBatchStatus);
-}
-
   private static Criteria getCriteriaFindRewardBatchByMonthBefore(String merchantId, String initiativeId, PosType posType, String month) {
     return Criteria.where(RewardBatch.Fields.merchantId).is(merchantId)
             .and(RewardBatch.Fields.initiativeId).is(initiativeId)
