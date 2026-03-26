@@ -88,7 +88,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   public Mono<RewardBatchDTO> getRewardBatchById(String merchantId, String initiativeId, String rewardBatchId) {
     log.info("[GET_REWARD_BATCH_BY_ID] Request received. Merchant: {}, InitiativeId: {}, RewardBatchId: {}",
             Utilities.sanitizeString(merchantId), Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(rewardBatchId));
-    return getRewardBatchByIdUseCase.execute(merchantId, rewardBatchId)
+    return getRewardBatchByIdUseCase.execute(merchantId, initiativeId, rewardBatchId)
             .flatMap(rewardBatchMapper::toDTO);
   }
 
@@ -110,7 +110,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   public  Mono<Void> rewardBatchConfirmationBatch(String initiativeId, String merchantId, RewardBatchesRequest request) {
     List<String> rewardBatchIds = request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
     log.info("[REWARD_BATCH_CONFIRMATION_BATCH] Batch confirmation for initiative {} and batchs {}",
-            Utilities.sanitizeString(initiativeId), rewardBatchIds.toString() );
+            Utilities.sanitizeString(initiativeId), rewardBatchIds);
     return rewardBatchService.rewardBatchConfirmationBatch(initiativeId, merchantId, rewardBatchIds);
   }
 
@@ -118,7 +118,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     public  Mono<Void> rewardBatchDeliveryBatch(String initiativeId, String merchantId, RewardBatchesRequest request) {
         List<String> rewardBatchIds = request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
         log.info("[REWARD_BATCH_DELIVERY_BATCH] Batch delivery for initiative {} and batchs {}",
-                Utilities.sanitizeString(initiativeId), rewardBatchIds.toString() );
+                Utilities.sanitizeString(initiativeId), rewardBatchIds);
         return rewardBatchService.rewardBatchDeliveryBatch(initiativeId, merchantId, rewardBatchIds);
     }
 

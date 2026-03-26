@@ -2054,12 +2054,12 @@ class RewardBatchServiceImplTest {
                 .build();
 
         doReturn(Mono.just(targetBatch)).when(serviceSpy)
-                .findOrCreateBatch(MERCHANT_ID, PHYSICAL, targetMonth, BUSINESS_NAME);
+                .findOrCreateBatch(INITIATIVE_ID, MERCHANT_ID, PHYSICAL, targetMonth, BUSINESS_NAME);
 
         doReturn(Mono.just(300L)).when(serviceSpy)
                 .updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, originalMonth);
 
-        when(rewardBatchRepository.updateTotals(eq(BATCH_ID_2), any(BatchCountersDTO.class)))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(targetBatch));
 
         Mono<RewardBatch> result = ReflectionTestUtils.invokeMethod(
@@ -2075,9 +2075,9 @@ class RewardBatchServiceImplTest {
                 .expectNext(originalBatch)
                 .verifyComplete();
 
-        verify(serviceSpy).findOrCreateBatch(MERCHANT_ID, PHYSICAL, targetMonth, BUSINESS_NAME);
+        verify(serviceSpy).findOrCreateBatch(INITIATIVE_ID, MERCHANT_ID, PHYSICAL, targetMonth, BUSINESS_NAME);
         verify(serviceSpy).updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, originalMonth);
-        verify(rewardBatchRepository).updateTotals(eq(BATCH_ID_2), any(BatchCountersDTO.class));
+        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class));
     }
 
     @Test
@@ -2100,12 +2100,12 @@ class RewardBatchServiceImplTest {
                 .build();
 
         doReturn(Mono.just(targetBatch)).when(serviceSpy)
-                .findOrCreateBatch(MERCHANT_ID, PHYSICAL, originalMonth, BUSINESS_NAME);
+                .findOrCreateBatch(INITIATIVE_ID, MERCHANT_ID, PHYSICAL, originalMonth, BUSINESS_NAME);
 
         doReturn(Mono.just(100L)).when(serviceSpy)
                 .updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, originalMonth);
 
-        when(rewardBatchRepository.updateTotals(eq(BATCH_ID_2), any(BatchCountersDTO.class)))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(targetBatch));
 
         Mono<RewardBatch> result = ReflectionTestUtils.invokeMethod(
@@ -2121,9 +2121,9 @@ class RewardBatchServiceImplTest {
                 .expectNext(originalBatch)
                 .verifyComplete();
 
-        verify(serviceSpy).findOrCreateBatch(MERCHANT_ID, PHYSICAL, originalMonth, BUSINESS_NAME);
+        verify(serviceSpy).findOrCreateBatch(INITIATIVE_ID, MERCHANT_ID, PHYSICAL, originalMonth, BUSINESS_NAME);
         verify(serviceSpy).updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, originalMonth);
-        verify(rewardBatchRepository).updateTotals(eq(BATCH_ID_2), any(BatchCountersDTO.class));
+        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class));
     }
 
     @Test

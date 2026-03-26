@@ -8,6 +8,7 @@ import static org.mockito.Mockito.*;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
+import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
 import it.gov.pagopa.idpay.transactions.config.ServiceExceptionConfig;
 import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
@@ -289,7 +290,7 @@ class MerchantRewardBatchControllerImplTest {
         .name(batch.getName())
         .build();
 
-    when(getRewardBatchByIdUseCase.execute(MERCHANT_ID, REWARD_BATCH_ID_1))
+    when(getRewardBatchByIdUseCase.execute(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
         .thenReturn(Mono.just(batch));
 
     when(rewardBatchMapper.toDTO(batch))
@@ -309,13 +310,13 @@ class MerchantRewardBatchControllerImplTest {
           assertEquals("Reward Batch 1", response.getName());
         });
 
-    verify(getRewardBatchByIdUseCase, times(1)).execute(MERCHANT_ID, REWARD_BATCH_ID_1);
+    verify(getRewardBatchByIdUseCase, times(1)).execute(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1);
     verify(rewardBatchMapper, times(1)).toDTO(batch);
   }
 
   @Test
   void getRewardBatchById_notFound() {
-    when(getRewardBatchByIdUseCase.execute(MERCHANT_ID, REWARD_BATCH_ID_1))
+    when(getRewardBatchByIdUseCase.execute(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
         .thenReturn(Mono.error(new RewardBatchNotFound(
             ExceptionCode.REWARD_BATCH_NOT_FOUND,
             ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(REWARD_BATCH_ID_1))));
@@ -328,7 +329,7 @@ class MerchantRewardBatchControllerImplTest {
         .exchange()
         .expectStatus().isNotFound();
 
-    verify(getRewardBatchByIdUseCase, times(1)).execute(MERCHANT_ID, REWARD_BATCH_ID_1);
+    verify(getRewardBatchByIdUseCase, times(1)).execute(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1);
     verify(rewardBatchMapper, never()).toDTO(any());
   }
 

@@ -333,6 +333,9 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     final RewardBatchTrxStatus oldBatchTrxStatus = rt.getRewardBatchTrxStatus();
                     final boolean wasSuspended = RewardBatchTrxStatus.SUSPENDED.equals(oldBatchTrxStatus);
                     final boolean wasRejected = RewardBatchTrxStatus.REJECTED.equals(oldBatchTrxStatus);
+                    final boolean wasToCheckOrConsultable = RewardBatchTrxStatus.CONSULTABLE.equals(oldBatchTrxStatus)
+                            || RewardBatchTrxStatus.TO_CHECK.equals(oldBatchTrxStatus);
+                    final boolean isNotInvoiced = !SyncTrxStatus.INVOICED.name().equals(rt.getStatus());
                     long accruedRewardCents = rt.getRewards().get(initiativeId).getAccruedRewardCents();
 
                     BatchCountersDTO counters = BatchCountersDTO.newBatch()
