@@ -117,8 +117,12 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     @Override
     public  Mono<Void> rewardBatchDeliveryBatch(String initiativeId, String merchantId, RewardBatchesRequest request) {
         List<String> rewardBatchIds = request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
+        List<String> sanitizedBatchIds = rewardBatchIds.stream()
+                .map(Utilities::sanitizeString)
+                .toList();
+
         log.info("[REWARD_BATCH_DELIVERY_BATCH] Batch delivery for initiative {} and batchs {}",
-                Utilities.sanitizeString(initiativeId), rewardBatchIds);
+                Utilities.sanitizeString(initiativeId), sanitizedBatchIds);
         return rewardBatchService.rewardBatchDeliveryBatch(initiativeId, merchantId, rewardBatchIds);
     }
 
