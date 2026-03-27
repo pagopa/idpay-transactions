@@ -37,7 +37,9 @@ public interface PointOfSaleTransactionController {
 
   /**
    * Provides method to download an invoice file of a rewarded transaction
-   * @param merchantId obtained through a header parameter, used to check if the transaction required is referred to the same merchant
+   *
+   * @param initiativeId
+   * @param merchantId    obtained through a header parameter, used to check if the transaction required is referred to the same merchant
    * @param pointOfSaleId obtained through a header parameter, used to check if the transaction required is referred to the same point of sale
    * @param transactionId
    * @return Mono containing an instance of DownloadInvoiceResponseDTO, containing the invoice url
@@ -71,14 +73,16 @@ public interface PointOfSaleTransactionController {
   })
   @GetMapping("/{pointOfSaleId}/transactions/{transactionId}/download")
   Mono<DownloadInvoiceResponseDTO> downloadInvoiceFile(
-      @RequestHeader("x-merchant-id") String merchantId,
-      @RequestHeader(name = "x-point-of-sale-id", required = false) String tokenPointOfSaleId,
-      @PathVariable("pointOfSaleId") String pointOfSaleId,
-      @PathVariable("transactionId") String transactionId);
+          @RequestParam String initiativeId,
+          @RequestHeader("x-merchant-id") String merchantId,
+          @RequestHeader(name = "x-point-of-sale-id", required = false) String tokenPointOfSaleId,
+          @PathVariable("pointOfSaleId") String pointOfSaleId,
+          @PathVariable("transactionId") String transactionId);
 
   @PutMapping(path = "/transactions/{transactionId}/invoice/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   @ResponseStatus(code = HttpStatus.NO_CONTENT)
   Mono<Void> updateInvoiceFile(
+          @RequestParam String initiativeId,
           @PathVariable("transactionId") String transactionId,
           @RequestHeader("x-merchant-id") String merchantId,
           @RequestPart("file") FilePart file,
@@ -89,11 +93,14 @@ public interface PointOfSaleTransactionController {
 
   @GetMapping("/point-of-sales/{rewardBatchId}")
     Mono<List<FranchisePointOfSaleDTO>> getFranchisePointOfSale(
+            @RequestParam String initiativeId,
+            @RequestHeader("x-merchant-id") String merchantId,
             @PathVariable("rewardBatchId") String rewardBatchId
   );
     @PostMapping("/transactions/{transactionId}/reversal-invoiced")
     @ResponseStatus(code = HttpStatus.NO_CONTENT)
     Mono<Void> reversalTransactionInvoiced(
+            @RequestParam String initiativeId,
             @PathVariable("transactionId") String transactionId,
             @RequestHeader("x-merchant-id") String merchantId,
             @RequestHeader(name = "Authorization", required = true) String authorization,

@@ -121,10 +121,10 @@ class RewardBatchServiceImplTest {
                 .name("novembre 2025")
                 .build();
 
-        when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth("M1", PHYSICAL, "2025-11"))
+        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(INITIATIVE_ID, "M1", PHYSICAL, "2025-11"))
                 .thenReturn(Mono.just(existing));
 
-        StepVerifier.create(service.findOrCreateBatch("M1", PHYSICAL, "2025-11", BUSINESS_NAME))
+        StepVerifier.create(service.findOrCreateBatch(INITIATIVE_ID, "M1", PHYSICAL, "2025-11", BUSINESS_NAME))
                 .expectNext(existing)
                 .verifyComplete();
 
@@ -133,7 +133,7 @@ class RewardBatchServiceImplTest {
 
     @Test
     void findOrCreateBatch_createsNew_whenMissing() {
-        when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth("M1", PHYSICAL, "2025-11"))
+        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(INITIATIVE_ID, "M1", PHYSICAL, "2025-11"))
                 .thenReturn(Mono.empty());
 
         when(rewardBatchRepository.save(any()))
@@ -143,7 +143,7 @@ class RewardBatchServiceImplTest {
                     return Mono.just(b);
                 });
 
-        StepVerifier.create(service.findOrCreateBatch("M1", PHYSICAL, "2025-11", BUSINESS_NAME))
+        StepVerifier.create(service.findOrCreateBatch(INITIATIVE_ID, "M1", PHYSICAL, "2025-11", BUSINESS_NAME))
                 .assertNext(b -> {
                     assertEquals("NEW", b.getId());
                     assertEquals("M1", b.getMerchantId());
@@ -170,19 +170,19 @@ class RewardBatchServiceImplTest {
                 .name("novembre 2025")
                 .build();
 
-        when(rewardBatchRepository.findByMerchantIdAndPosTypeAndMonth("M1", PHYSICAL, "2025-11"))
+        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(INITIATIVE_ID, "M1", PHYSICAL, "2025-11"))
                 .thenReturn(Mono.empty())
                 .thenReturn(Mono.just(existing));
 
         when(rewardBatchRepository.save(any()))
                 .thenReturn(Mono.error(new DuplicateKeyException("dup")));
 
-        StepVerifier.create(service.findOrCreateBatch("M1", PHYSICAL, "2025-11", BUSINESS_NAME))
+        StepVerifier.create(service.findOrCreateBatch(INITIATIVE_ID, "M1", PHYSICAL, "2025-11", BUSINESS_NAME))
                 .expectNext(existing)
                 .verifyComplete();
 
         verify(rewardBatchRepository).save(any());
-        verify(rewardBatchRepository, times(2)).findByMerchantIdAndPosTypeAndMonth("M1", PHYSICAL, "2025-11");
+        verify(rewardBatchRepository, times(2)).findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(INITIATIVE_ID, "M1", PHYSICAL, "2025-11");
     }
 
     @Test
@@ -203,24 +203,24 @@ class RewardBatchServiceImplTest {
         RewardBatch b1 = RewardBatch.builder().id("B1").merchantId("M1").build();
         RewardBatch b2 = RewardBatch.builder().id("B2").merchantId("M2").build();
 
-        when(rewardBatchRepository.findRewardBatchesCombined(null, null, null, null, true, pageable))
+        when(rewardBatchRepository.findRewardBatchesCombined(null, null, null, null, null, true, pageable))
                 .thenReturn(Flux.just(b1, b2));
-        when(rewardBatchRepository.getCountCombined(null, null, null, null, true))
+        when(rewardBatchRepository.getCountCombined(null, null, null, null, null, true))
                 .thenReturn(Mono.just(10L));
 
-        StepVerifier.create(service.getRewardBatches(null, "operator1", null, null, null, pageable))
+        StepVerifier.create(service.getRewardBatches(null, null, "operator1", null, null, null, pageable))
                 .assertNext(p -> {
                     assertEquals(2, p.getContent().size());
                     assertEquals(10L, p.getTotalElements());
                 })
                 .verifyComplete();
 
-        when(rewardBatchRepository.findRewardBatchesCombined("M1", null, null, null, false, pageable))
+        when(rewardBatchRepository.findRewardBatchesCombined("M1", INITIATIVE_ID, null, null, null, false, pageable))
                 .thenReturn(Flux.just(b1));
-        when(rewardBatchRepository.getCountCombined("M1", null, null, null, false))
+        when(rewardBatchRepository.getCountCombined("M1", INITIATIVE_ID, null, null, null, false))
                 .thenReturn(Mono.just(1L));
 
-        StepVerifier.create(service.getRewardBatches("M1", "guest", null, null, null, pageable))
+        StepVerifier.create(service.getRewardBatches("M1", INITIATIVE_ID, "guest", null, null, null, pageable))
                 .assertNext(p -> {
                     assertEquals(1, p.getContent().size());
                     assertEquals(1L, p.getTotalElements());
@@ -233,7 +233,7 @@ class RewardBatchServiceImplTest {
     void sendRewardBatch_batchNotFound() {
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.empty());
 
-        StepVerifier.create(service.sendRewardBatch(MERCHANT_ID, BATCH_ID))
+        StepVerifier.create(service.sendRewardBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID))
                 .expectError(RewardBatchException.class)
                 .verify();
     }
@@ -243,7 +243,7 @@ class RewardBatchServiceImplTest {
         RewardBatch b = RewardBatch.builder().id(BATCH_ID).merchantId("OTHER").status(RewardBatchStatus.CREATED).month("2025-01").posType(PHYSICAL).build();
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(b));
 
-        StepVerifier.create(service.sendRewardBatch(MERCHANT_ID, BATCH_ID))
+        StepVerifier.create(service.sendRewardBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID))
                 .expectError(RewardBatchException.class)
                 .verify();
     }
@@ -253,7 +253,7 @@ class RewardBatchServiceImplTest {
         RewardBatch b = RewardBatch.builder().id(BATCH_ID).merchantId(MERCHANT_ID).status(RewardBatchStatus.SENT).month("2025-01").posType(PHYSICAL).build();
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(b));
 
-        StepVerifier.create(service.sendRewardBatch(MERCHANT_ID, BATCH_ID))
+        StepVerifier.create(service.sendRewardBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID))
                 .expectError(RewardBatchException.class)
                 .verify();
     }
@@ -264,7 +264,7 @@ class RewardBatchServiceImplTest {
         RewardBatch b = RewardBatch.builder().id(BATCH_ID).merchantId(MERCHANT_ID).status(RewardBatchStatus.CREATED).month(now.toString()).posType(PHYSICAL).build();
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(b));
 
-        StepVerifier.create(service.sendRewardBatch(MERCHANT_ID, BATCH_ID))
+        StepVerifier.create(service.sendRewardBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID))
                 .expectErrorSatisfies(ex -> {
                     assertInstanceOf(RewardBatchException.class, ex);
                     assertTrue(ex.getMessage().contains("REWARD_BATCH_MONTH_TOO_EARLY"));
@@ -293,10 +293,10 @@ class RewardBatchServiceImplTest {
                 .build();
 
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(current));
-        when(rewardBatchRepository.findByMerchantIdAndPosType(MERCHANT_ID, PHYSICAL))
+        when(rewardBatchRepository.findByMerchantIdAndInitiativeIdAndPosType(MERCHANT_ID, INITIATIVE_ID, PHYSICAL))
                 .thenReturn(Flux.just(previousCreated));
 
-        StepVerifier.create(service.sendRewardBatch(MERCHANT_ID, BATCH_ID))
+        StepVerifier.create(service.sendRewardBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID))
                 .expectError(RewardBatchException.class)
                 .verify();
     }
@@ -308,6 +308,7 @@ class RewardBatchServiceImplTest {
         RewardBatch current = RewardBatch.builder()
                 .id(BATCH_ID)
                 .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
                 .status(RewardBatchStatus.CREATED)
                 .month(batchMonth.toString())
                 .posType(PHYSICAL)
@@ -316,17 +317,18 @@ class RewardBatchServiceImplTest {
         RewardBatch previousSent = RewardBatch.builder()
                 .id("PREV")
                 .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
                 .status(RewardBatchStatus.SENT)
                 .month(batchMonth.minusMonths(1).toString())
                 .posType(PHYSICAL)
                 .build();
 
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(current));
-        when(rewardBatchRepository.findByMerchantIdAndPosType(MERCHANT_ID, PHYSICAL))
+        when(rewardBatchRepository.findByMerchantIdAndInitiativeIdAndPosType(MERCHANT_ID, INITIATIVE_ID, PHYSICAL))
                 .thenReturn(Flux.just(previousSent));
         when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        StepVerifier.create(service.sendRewardBatch(MERCHANT_ID, BATCH_ID))
+        StepVerifier.create(service.sendRewardBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID))
                 .verifyComplete();
 
         verify(rewardBatchRepository).save(argThat(b -> b.getStatus() == RewardBatchStatus.SENT && b.getMerchantSendDate() != null));
@@ -439,14 +441,14 @@ class RewardBatchServiceImplTest {
         }}).build();
 
         when(checksErrorMapper.toModel(any())).thenReturn(new ChecksError());
-        when(rewardBatchRepository.findByIdAndStatus(BATCH_ID, RewardBatchStatus.EVALUATING))
+        when(rewardBatchRepository.findByIdAndInitiativeIdAndMerchantIdAndStatus(BATCH_ID, INITIATIVE_ID, MERCHANT_ID, RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.empty());
 
-        StepVerifier.create(service.suspendTransactions(BATCH_ID, INITIATIVE_ID, req))
+        StepVerifier.create(service.suspendTransactions(BATCH_ID, MERCHANT_ID, INITIATIVE_ID, req))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
 
-        verify(rewardTransactionRepository, never()).updateStatusAndReturnOld(any(), any(), any(), any(), any(), any());
+        verify(rewardTransactionRepository, never()).updateStatusAndReturnOld(any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -466,11 +468,13 @@ class RewardBatchServiceImplTest {
         ChecksError model = new ChecksError();
         when(checksErrorMapper.toModel(checks)).thenReturn(model);
 
-        when(rewardBatchRepository.findByIdAndStatus(BATCH_ID, RewardBatchStatus.EVALUATING))
+        when(rewardBatchRepository.findByIdAndInitiativeIdAndMerchantIdAndStatus(BATCH_ID, INITIATIVE_ID, MERCHANT_ID, RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.just(batch));
 
         RewardTransaction trxSuspPrev = RewardTransaction.builder()
                 .id("SUSP_PREV")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
                 .rewardBatchLastMonthElaborated("2025-11")
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
@@ -478,63 +482,79 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction trxApproved = RewardTransaction.builder()
                 .id("APP")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(200L).build()))
                 .build();
 
         RewardTransaction trxToCheck = RewardTransaction.builder()
                 .id("TO_CHECK")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(300L).build()))
                 .build();
 
         RewardTransaction trxConsultable = RewardTransaction.builder()
                 .id("CONS")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(400L).build()))
                 .build();
 
         RewardTransaction trxRejected = RewardTransaction.builder()
                 .id("REJ")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(500L).build()))
                 .build();
 
         RewardTransaction trxNullAccrued = RewardTransaction.builder()
                 .id("NULL_ACC")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
                 .rewards(Map.of("OTHER", Reward.builder().accruedRewardCents(999L).build()))
                 .build();
 
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(BATCH_ID), eq("SUSP_PREV"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("SUSP_PREV"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
                 .thenReturn(Mono.just(trxSuspPrev));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(BATCH_ID), eq("APP"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth),eq( model)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("APP"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq( model)))
                 .thenReturn(Mono.just(trxApproved));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(BATCH_ID), eq("TO_CHECK"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("TO_CHECK"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
                 .thenReturn(Mono.just(trxToCheck));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(BATCH_ID), eq("CONS"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("CONS"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
                 .thenReturn(Mono.just(trxConsultable));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(BATCH_ID), eq("REJ"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("REJ"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
                 .thenReturn(Mono.just(trxRejected));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(BATCH_ID), eq("NULL_ACC"),eq( RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("NULL_ACC"), eq( RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
                 .thenReturn(Mono.just(trxNullAccrued));
 
         RewardBatch updated = RewardBatch.builder().id(BATCH_ID).build();
-        when(rewardBatchRepository.updateTotals(eq(BATCH_ID), any(BatchCountersDTO.class)))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(updated));
 
-        StepVerifier.create(service.suspendTransactions(BATCH_ID, INITIATIVE_ID, req))
+        StepVerifier.create(service.suspendTransactions(BATCH_ID, MERCHANT_ID, INITIATIVE_ID, req))
                 .expectNext(updated)
                 .verifyComplete();
 
         verify(auditUtilities).logTransactionsStatusChanged(eq(RewardBatchTrxStatus.SUSPENDED.name()), eq(INITIATIVE_ID), anyString(), eq(checks));
-        verify(rewardBatchRepository).updateTotals(eq(BATCH_ID), any(BatchCountersDTO.class));
+        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), any(BatchCountersDTO.class));
     }
 
     @Test
     void suspendTransactions_alreadySuspended_sameMonth_skipsElaboratedIncrement() {
         String batchMonth = "2025-12";
-        RewardBatch batch = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.EVALUATING).month(batchMonth).build();
+        RewardBatch batch = RewardBatch.builder()
+                .id(BATCH_ID)
+                .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
+                .status(RewardBatchStatus.EVALUATING)
+                .month(batchMonth)
+                .build();
 
         ChecksErrorDTO checks = new ChecksErrorDTO();
         checks.setCfError(true);
@@ -547,7 +567,7 @@ class RewardBatchServiceImplTest {
 
         ChecksError model = new ChecksError();
         when(checksErrorMapper.toModel(checks)).thenReturn(model);
-        when(rewardBatchRepository.findByIdAndStatus(BATCH_ID, RewardBatchStatus.EVALUATING))
+        when(rewardBatchRepository.findByIdAndInitiativeIdAndMerchantIdAndStatus(BATCH_ID, INITIATIVE_ID, MERCHANT_ID, RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.just(batch));
 
         RewardTransaction trxSuspSame = RewardTransaction.builder()
@@ -557,13 +577,13 @@ class RewardBatchServiceImplTest {
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
                 .build();
 
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(BATCH_ID), eq("SUSP_SAME"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("SUSP_SAME"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
                 .thenReturn(Mono.just(trxSuspSame));
 
-        when(rewardBatchRepository.updateTotals(eq(BATCH_ID), any(BatchCountersDTO.class)))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(batch));
 
-        StepVerifier.create(service.suspendTransactions(BATCH_ID, INITIATIVE_ID, req))
+        StepVerifier.create(service.suspendTransactions(BATCH_ID, MERCHANT_ID, INITIATIVE_ID, req))
                 .expectNext(batch)
                 .verifyComplete();
     }
@@ -578,56 +598,66 @@ class RewardBatchServiceImplTest {
                 .reason("WHY")
                 .build();
 
-        when(rewardBatchRepository.findByIdAndStatus(BATCH_ID, RewardBatchStatus.EVALUATING))
+        when(rewardBatchRepository.findByIdAndInitiativeIdAndMerchantIdAndStatus(BATCH_ID, INITIATIVE_ID, MERCHANT_ID, RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.just(batch));
 
         RewardTransaction alreadyRejected = RewardTransaction.builder()
                 .id("ALREADY_REJ")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(10L).build()))
                 .build();
 
         RewardTransaction approved = RewardTransaction.builder()
                 .id("APP")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(20L).build()))
                 .build();
 
         RewardTransaction toCheck = RewardTransaction.builder()
                 .id("TO_CHECK")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(30L).build()))
                 .build();
 
         RewardTransaction consultable = RewardTransaction.builder()
                 .id("CONS")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(40L).build()))
                 .build();
 
         RewardTransaction suspendedPrev = RewardTransaction.builder()
                 .id("SUSP_PREV")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
                 .rewardBatchLastMonthElaborated("2025-11")
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(50L).build()))
                 .build();
 
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(BATCH_ID), eq("ALREADY_REJ"), eq(RewardBatchTrxStatus.REJECTED), any(),eq(batchMonth), eq(null)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("ALREADY_REJ"), eq(RewardBatchTrxStatus.REJECTED), any(), eq(batchMonth), eq(null)))
                 .thenReturn(Mono.just(alreadyRejected));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(BATCH_ID), eq("APP"), eq(RewardBatchTrxStatus.REJECTED), any(),eq(batchMonth), eq(null)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("APP"), eq(RewardBatchTrxStatus.REJECTED), any(), eq(batchMonth), eq(null)))
                 .thenReturn(Mono.just(approved));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(BATCH_ID), eq("TO_CHECK"), eq(RewardBatchTrxStatus.REJECTED), any(), eq(batchMonth), eq(null)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("TO_CHECK"), eq(RewardBatchTrxStatus.REJECTED), any(), eq(batchMonth), eq(null)))
                 .thenReturn(Mono.just(toCheck));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(BATCH_ID), eq("CONS"), eq(RewardBatchTrxStatus.REJECTED), any(), eq(batchMonth), eq(null)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("CONS"), eq(RewardBatchTrxStatus.REJECTED), any(), eq(batchMonth), eq(null)))
                 .thenReturn(Mono.just(consultable));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(BATCH_ID), eq("SUSP_PREV"), eq(RewardBatchTrxStatus.REJECTED), any(), eq(batchMonth), eq(null)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("SUSP_PREV"), eq(RewardBatchTrxStatus.REJECTED), any(), eq(batchMonth), eq(null)))
                 .thenReturn(Mono.just(suspendedPrev));
 
         RewardBatch updated = RewardBatch.builder().id(BATCH_ID).build();
-        when(rewardBatchRepository.updateTotals(eq(BATCH_ID), any(BatchCountersDTO.class)))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(updated));
 
-        StepVerifier.create(service.rejectTransactions(BATCH_ID, INITIATIVE_ID, req))
+        StepVerifier.create(service.rejectTransactions(BATCH_ID, INITIATIVE_ID, MERCHANT_ID, req))
                 .expectNext(updated)
                 .verifyComplete();
     }
@@ -635,35 +665,48 @@ class RewardBatchServiceImplTest {
     @Test
     void approvedTransactions_allBranches() {
         String batchMonth = "2025-12";
-        RewardBatch batch = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.EVALUATING).month(batchMonth).build();
+        RewardBatch batch = RewardBatch.builder()
+                .id(BATCH_ID)
+                .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
+                .status(RewardBatchStatus.EVALUATING)
+                .month(batchMonth).build();
 
         TransactionsRequest req = TransactionsRequest.builder()
                 .transactionIds(List.of("ALREADY_APP", "TO_CHECK", "CONS", "SUSP_PREV", "REJ"))
                 .build();
 
-        when(rewardBatchRepository.findByIdAndStatus(BATCH_ID, RewardBatchStatus.EVALUATING))
+        when(rewardBatchRepository.findByIdAndInitiativeIdAndMerchantIdAndStatus(BATCH_ID, INITIATIVE_ID, MERCHANT_ID, RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.just(batch));
 
         RewardTransaction alreadyApproved = RewardTransaction.builder()
                 .id("ALREADY_APP")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(10L).build()))
                 .build();
 
         RewardTransaction toCheck = RewardTransaction.builder()
                 .id("TO_CHECK")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(20L).build()))
                 .build();
 
         RewardTransaction consultable = RewardTransaction.builder()
                 .id("CONS")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(30L).build()))
                 .build();
 
         RewardTransaction suspendedPrev = RewardTransaction.builder()
                 .id("SUSP_PREV")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
                 .rewardBatchLastMonthElaborated("2025-11")
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(40L).build()))
@@ -671,38 +714,41 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction rejected = RewardTransaction.builder()
                 .id("REJ")
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(50L).build()))
                 .build();
 
-        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "ALREADY_APP", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "ALREADY_APP", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
                 .thenReturn(Mono.just(alreadyApproved));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "TO_CHECK", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "TO_CHECK", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
                 .thenReturn(Mono.just(toCheck));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "CONS", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "CONS", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
                 .thenReturn(Mono.just(consultable));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "SUSP_PREV", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "SUSP_PREV", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
                 .thenReturn(Mono.just(suspendedPrev));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(BATCH_ID, "REJ", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "REJ", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
                 .thenReturn(Mono.just(rejected));
 
-        RewardBatch updated = RewardBatch.builder().id(BATCH_ID).build();
-        when(rewardBatchRepository.updateTotals(eq(BATCH_ID), any(BatchCountersDTO.class)))
+        RewardBatch updated = RewardBatch.builder().id(BATCH_ID)
+                .merchantId(MERCHANT_ID).initiativeId(INITIATIVE_ID).build();
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(updated));
 
-        StepVerifier.create(service.approvedTransactions(BATCH_ID, req, INITIATIVE_ID))
+        StepVerifier.create(service.approvedTransactions(BATCH_ID, req, MERCHANT_ID, INITIATIVE_ID))
                 .expectNext(updated)
                 .verifyComplete();
     }
 
     @Test
     void approvedTransactions_batchNotFoundOrInvalidState() {
-        when(rewardBatchRepository.findByIdAndStatus(BATCH_ID, RewardBatchStatus.EVALUATING))
+        when(rewardBatchRepository.findByIdAndInitiativeIdAndMerchantIdAndStatus(BATCH_ID, INITIATIVE_ID, MERCHANT_ID, RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.empty());
 
         TransactionsRequest req = TransactionsRequest.builder().transactionIds(List.of("t1")).build();
 
-        StepVerifier.create(service.approvedTransactions(BATCH_ID, req, INITIATIVE_ID))
+        StepVerifier.create(service.approvedTransactions(BATCH_ID, req, MERCHANT_ID, INITIATIVE_ID))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
     }
@@ -714,29 +760,27 @@ class RewardBatchServiceImplTest {
                 .initialAmountCents(100L)
                 .suspendedAmountCents(0L).build();
 
-        when(rewardBatchRepository.findByStatus(RewardBatchStatus.SENT)).thenReturn(Flux.just(sent));
-        when(rewardTransactionRepository.rewardTransactionsByBatchId("S1")).thenReturn(Mono.empty());
-        when(rewardTransactionRepository.sumSuspendedAccruedRewardCents("S1")).thenReturn(Mono.just(20L));
-        when(rewardBatchRepository.updateStatusAndApprovedAmountCents("S1", RewardBatchStatus.EVALUATING, 100L))
+        when(rewardBatchRepository.findByStatusAndInitiativeId(RewardBatchStatus.SENT, INITIATIVE_ID)).thenReturn(Flux.just(sent));
+        when(rewardTransactionRepository.rewardTransactionsByBatchIdAndInitiativeIdAndMerchantId("S1", INITIATIVE_ID, MERCHANT_ID)).thenReturn(Mono.empty());
+        when(rewardTransactionRepository.sumSuspendedAccruedRewardCents(INITIATIVE_ID, "S1", MERCHANT_ID)).thenReturn(Mono.just(20L));
+        when(rewardBatchRepository.updateStatusAndApprovedAmountCents("S1", MERCHANT_ID, RewardBatchStatus.EVALUATING, 100L, INITIATIVE_ID))
                 .thenReturn(Mono.just(sent));
 
-        StepVerifier.create(service.evaluatingRewardBatches(null))
+        StepVerifier.create(service.evaluatingRewardBatches(null, INITIATIVE_ID, MERCHANT_ID))
                 .expectNext(1L)
                 .verifyComplete();
     }
 
     @Test
     void evaluatingRewardBatches_withList_handlesMissingIdsAsEmpty() {
-        when(rewardBatchRepository.findByIdAndStatus("S1", RewardBatchStatus.SENT)).thenReturn(Mono.empty());
+        when(rewardBatchRepository.findByIdAndInitiativeIdAndMerchantIdAndStatus("S1", INITIATIVE_ID, MERCHANT_ID, RewardBatchStatus.SENT)).thenReturn(Mono.empty());
 
-        StepVerifier.create(service.evaluatingRewardBatches(List.of("S1")))
+        StepVerifier.create(service.evaluatingRewardBatches(List.of("S1"), INITIATIVE_ID, MERCHANT_ID))
                 .expectNext(0L)
                 .verifyComplete();
 
-        verify(rewardBatchRepository, never()).updateStatusAndApprovedAmountCents(any(), any(), anyLong());
+        verify(rewardBatchRepository, never()).updateStatusAndApprovedAmountCents(any(), eq(MERCHANT_ID), any(), anyLong(), eq(INITIATIVE_ID));
     }
-
-
 
     @Test
     void downloadApprovedRewardBatchFile_invalidRequest_missingHeaders() {
@@ -750,7 +794,7 @@ class RewardBatchServiceImplTest {
 
     @Test
     void downloadApprovedRewardBatchFile_notFound_merchantPath() {
-        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, BATCH_ID)).thenReturn(Mono.empty());
+        when(rewardBatchRepository.findByMerchantIdAndInitiativeIdAndId(MERCHANT_ID, INITIATIVE_ID, BATCH_ID)).thenReturn(Mono.empty());
 
         StepVerifier.create(service.downloadApprovedRewardBatchFile(MERCHANT_ID, OP1, INITIATIVE_ID, BATCH_ID))
                 .expectError(RewardBatchNotFound.class)
@@ -770,7 +814,7 @@ class RewardBatchServiceImplTest {
     @Test
     void downloadApprovedRewardBatchFile_notApproved() {
         RewardBatch batch = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.EVALUATING).filename("file.csv").merchantId(MERCHANT_ID).build();
-        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, BATCH_ID)).thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.findByMerchantIdAndInitiativeIdAndId(MERCHANT_ID, INITIATIVE_ID, BATCH_ID)).thenReturn(Mono.just(batch));
 
         StepVerifier.create(service.downloadApprovedRewardBatchFile(MERCHANT_ID, OP1, INITIATIVE_ID, BATCH_ID))
                 .expectError(RewardBatchNotApprovedException.class)
@@ -787,7 +831,7 @@ class RewardBatchServiceImplTest {
                 .merchantId(MERCHANT_ID)
                 .build();
 
-        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, BATCH_ID))
+        when(rewardBatchRepository.findByMerchantIdAndInitiativeIdAndId(MERCHANT_ID, INITIATIVE_ID, BATCH_ID))
                 .thenReturn(Mono.just(batch));
 
         when(approvedRewardBatchBlobService.getFileSignedUrl(anyString()))
@@ -810,7 +854,7 @@ class RewardBatchServiceImplTest {
     @ValueSource(strings = {"", "   "})
     void downloadApprovedRewardBatchFile_missingFilename(String invalid) {
         RewardBatch batch = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.APPROVED).filename(invalid).merchantId(MERCHANT_ID).build();
-        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, BATCH_ID)).thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.findByMerchantIdAndInitiativeIdAndId(MERCHANT_ID, INITIATIVE_ID, BATCH_ID)).thenReturn(Mono.just(batch));
 
         StepVerifier.create(service.downloadApprovedRewardBatchFile(MERCHANT_ID, OP1, INITIATIVE_ID, BATCH_ID))
                 .expectError(RewardBatchMissingFilenameException.class)
@@ -822,7 +866,7 @@ class RewardBatchServiceImplTest {
         RewardBatch batch = RewardBatch.builder()
                 .id(BATCH_ID).status(RewardBatchStatus.APPROVED).filename("file.csv").merchantId(MERCHANT_ID).build();
 
-        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, BATCH_ID)).thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.findByMerchantIdAndInitiativeIdAndId(MERCHANT_ID, INITIATIVE_ID, BATCH_ID)).thenReturn(Mono.just(batch));
         when(approvedRewardBatchBlobService.getFileSignedUrl(anyString())).thenReturn("signed");
 
         StepVerifier.create(service.downloadApprovedRewardBatchFile(MERCHANT_ID, OP1, INITIATIVE_ID, BATCH_ID))
@@ -846,9 +890,9 @@ class RewardBatchServiceImplTest {
 
     @Test
     void rewardBatchConfirmation_notFound() {
-        when(rewardBatchRepository.findRewardBatchById(BATCH_ID)).thenReturn(Mono.empty());
+        when(rewardBatchRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId(BATCH_ID, MERCHANT_ID, INITIATIVE_ID)).thenReturn(Mono.empty());
 
-        StepVerifier.create(service.rewardBatchConfirmation(INITIATIVE_ID, BATCH_ID))
+        StepVerifier.create(service.rewardBatchConfirmation(INITIATIVE_ID, MERCHANT_ID, BATCH_ID))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
     }
@@ -856,9 +900,9 @@ class RewardBatchServiceImplTest {
     @Test
     void rewardBatchConfirmation_invalidState() {
         RewardBatch rb = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.EVALUATING).assigneeLevel(RewardBatchAssignee.L2).build();
-        when(rewardBatchRepository.findRewardBatchById(BATCH_ID)).thenReturn(Mono.just(rb));
+        when(rewardBatchRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId(BATCH_ID, MERCHANT_ID, INITIATIVE_ID)).thenReturn(Mono.just(rb));
 
-        StepVerifier.create(service.rewardBatchConfirmation(INITIATIVE_ID, BATCH_ID))
+        StepVerifier.create(service.rewardBatchConfirmation(INITIATIVE_ID, MERCHANT_ID, BATCH_ID))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
     }
@@ -866,15 +910,15 @@ class RewardBatchServiceImplTest {
     @Test
     void rewardBatchConfirmation_previousNotApproved_blocks() {
         RewardBatch rb = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.EVALUATING).assigneeLevel(RewardBatchAssignee.L3)
-                .merchantId(MERCHANT_ID).posType(PHYSICAL).month("2025-12").build();
+                .merchantId(MERCHANT_ID).initiativeId(INITIATIVE_ID).posType(PHYSICAL).month("2025-12").build();
 
         RewardBatch prev = RewardBatch.builder().id("P1").status(RewardBatchStatus.SENT).build();
 
-        when(rewardBatchRepository.findRewardBatchById(BATCH_ID)).thenReturn(Mono.just(rb));
-        when(rewardBatchRepository.findRewardBatchByMonthBefore(MERCHANT_ID, PHYSICAL, "2025-12"))
+        when(rewardBatchRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId(BATCH_ID, MERCHANT_ID, INITIATIVE_ID)).thenReturn(Mono.just(rb));
+        when(rewardBatchRepository.findRewardBatchByMonthBefore(MERCHANT_ID, INITIATIVE_ID, PHYSICAL, "2025-12"))
                 .thenReturn(Flux.just(prev));
 
-        StepVerifier.create(service.rewardBatchConfirmation(INITIATIVE_ID, BATCH_ID))
+        StepVerifier.create(service.rewardBatchConfirmation(INITIATIVE_ID, MERCHANT_ID, BATCH_ID))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
     }
@@ -882,16 +926,16 @@ class RewardBatchServiceImplTest {
     @Test
     void rewardBatchConfirmation_success() {
         RewardBatch rb = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.EVALUATING).assigneeLevel(RewardBatchAssignee.L3)
-                .merchantId(MERCHANT_ID).posType(PHYSICAL).month("2025-12").build();
+                .merchantId(MERCHANT_ID).initiativeId(INITIATIVE_ID).posType(PHYSICAL).month("2025-12").build();
 
         RewardBatch prevApproved = RewardBatch.builder().id("P1").status(RewardBatchStatus.APPROVED).build();
 
-        when(rewardBatchRepository.findRewardBatchById(BATCH_ID)).thenReturn(Mono.just(rb));
-        when(rewardBatchRepository.findRewardBatchByMonthBefore(MERCHANT_ID, PHYSICAL, "2025-12"))
+        when(rewardBatchRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId(BATCH_ID, MERCHANT_ID, INITIATIVE_ID)).thenReturn(Mono.just(rb));
+        when(rewardBatchRepository.findRewardBatchByMonthBefore(MERCHANT_ID, INITIATIVE_ID, PHYSICAL, "2025-12"))
                 .thenReturn(Flux.just(prevApproved));
         when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        StepVerifier.create(service.rewardBatchConfirmation(INITIATIVE_ID, BATCH_ID))
+        StepVerifier.create(service.rewardBatchConfirmation(INITIATIVE_ID, MERCHANT_ID, BATCH_ID))
                 .assertNext(updated -> {
                     assertEquals(RewardBatchStatus.APPROVING, updated.getStatus());
                     assertNotNull(updated.getApprovalDate());
@@ -902,56 +946,82 @@ class RewardBatchServiceImplTest {
 
     @Test
     void rewardBatchConfirmationBatch_withIds_processesEach() {
-        doReturn(Mono.just(new RewardBatch())).when(serviceSpy).processSingleBatchConfirmation(eq(BATCH_ID), anyString());
-        doReturn(Mono.just(new RewardBatch())).when(serviceSpy).processSingleBatchConfirmation(eq(BATCH_ID_2), anyString());
+        RewardBatch b1 = RewardBatch.builder().id(BATCH_ID).merchantId(MERCHANT_ID).build();
+        RewardBatch b2 = RewardBatch.builder().id(BATCH_ID_2).merchantId(MERCHANT_ID).build();
 
-        StepVerifier.create(serviceSpy.rewardBatchConfirmationBatch(INITIATIVE_ID, List.of(BATCH_ID, BATCH_ID_2)))
+        when(rewardBatchRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId(BATCH_ID, MERCHANT_ID, INITIATIVE_ID))
+                .thenReturn(Mono.just(b1));
+        when(rewardBatchRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId(BATCH_ID_2, MERCHANT_ID, INITIATIVE_ID))
+                .thenReturn(Mono.just(b2));
+
+        doReturn(Mono.just(b1)).when(serviceSpy).processSingleBatchConfirmation(eq(b1), eq(INITIATIVE_ID));
+        doReturn(Mono.just(b2)).when(serviceSpy).processSingleBatchConfirmation(eq(b2), eq(INITIATIVE_ID));
+
+        StepVerifier.create(serviceSpy.rewardBatchConfirmationBatch(INITIATIVE_ID, MERCHANT_ID, List.of(BATCH_ID, BATCH_ID_2)))
                 .verifyComplete();
 
-        verify(serviceSpy).processSingleBatchConfirmation(BATCH_ID, INITIATIVE_ID);
-        verify(serviceSpy).processSingleBatchConfirmation(BATCH_ID_2, INITIATIVE_ID);
-        verify(rewardBatchRepository, never()).findRewardBatchByStatus(any());
+        verify(rewardBatchRepository).findRewardBatchByIdAndMerchantIdAndInitiativeId(BATCH_ID, MERCHANT_ID, INITIATIVE_ID);
+        verify(rewardBatchRepository).findRewardBatchByIdAndMerchantIdAndInitiativeId(BATCH_ID_2, MERCHANT_ID, INITIATIVE_ID);
+
+        verify(serviceSpy).processSingleBatchConfirmation(b1, INITIATIVE_ID);
+        verify(serviceSpy).processSingleBatchConfirmation(b2, INITIATIVE_ID);
+
+        verify(rewardBatchRepository, never()).findByStatusAndInitiativeId(any(), any());
     }
 
     @Test
     void rewardBatchConfirmationBatch_emptyList_fetchesApprovingAndProcesses() {
-        RewardBatch b1 = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.APPROVING).build();
+        RewardBatch b1 = RewardBatch.builder()
+                .id(BATCH_ID)
+                .merchantId(MERCHANT_ID)
+                .status(RewardBatchStatus.APPROVING)
+                .build();
 
-        when(rewardBatchRepository.findRewardBatchByStatus(RewardBatchStatus.APPROVING))
+        when(rewardBatchRepository.findByStatusAndInitiativeId(
+                RewardBatchStatus.APPROVING, INITIATIVE_ID))
                 .thenReturn(Flux.just(b1));
-        doReturn(Mono.just(b1)).when(serviceSpy).processSingleBatchConfirmation(eq(BATCH_ID), anyString());
 
-        StepVerifier.create(serviceSpy.rewardBatchConfirmationBatch(INITIATIVE_ID, Collections.emptyList()))
+        doReturn(Mono.just(b1)).when(serviceSpy).processSingleBatchConfirmation(eq(b1), eq(INITIATIVE_ID));
+
+        StepVerifier.create(serviceSpy.rewardBatchConfirmationBatch(
+                        INITIATIVE_ID, MERCHANT_ID, Collections.emptyList()))
                 .verifyComplete();
 
-        verify(serviceSpy).processSingleBatchConfirmation(BATCH_ID, INITIATIVE_ID);
+        verify(serviceSpy).processSingleBatchConfirmation(b1, INITIATIVE_ID);
     }
-
 
     @Test
     void processBatchesOrchestrator_shouldContinueOnSingleBatchError() {
-        doReturn(Mono.error(new RuntimeException("Error Batch 1")))
-                .when(serviceSpy).processSingleBatchDelivery(eq(BATCH_ID), anyString());
-        doReturn(Mono.just(new RewardBatch()))
-                .when(serviceSpy).processSingleBatchDelivery(eq(BATCH_ID_2), anyString());
+        RewardBatch b1 = RewardBatch.builder().id(BATCH_ID).merchantId(MERCHANT_ID).build();
+        RewardBatch b2 = RewardBatch.builder().id(BATCH_ID_2).merchantId(MERCHANT_ID).build();
 
-        StepVerifier.create(serviceSpy.rewardBatchDeliveryBatch(INITIATIVE_ID, List.of(BATCH_ID, BATCH_ID_2)))
+        when(rewardBatchRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId(BATCH_ID, MERCHANT_ID, INITIATIVE_ID))
+                .thenReturn(Mono.just(b1));
+        when(rewardBatchRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId(BATCH_ID_2, MERCHANT_ID, INITIATIVE_ID))
+                .thenReturn(Mono.just(b2));
+
+        doReturn(Mono.error(new RuntimeException("Error Batch 1")))
+                .when(serviceSpy).processSingleBatchDelivery(eq(b1), eq(INITIATIVE_ID));
+        doReturn(Mono.just(b2))
+                .when(serviceSpy).processSingleBatchDelivery(eq(b2), eq(INITIATIVE_ID));
+
+        StepVerifier.create(serviceSpy.rewardBatchDeliveryBatch(
+                        INITIATIVE_ID, MERCHANT_ID, List.of(BATCH_ID, BATCH_ID_2)))
                 .verifyComplete();
 
-        verify(serviceSpy).processSingleBatchDelivery(BATCH_ID, INITIATIVE_ID);
-        verify(serviceSpy).processSingleBatchDelivery(BATCH_ID_2, INITIATIVE_ID);
+        verify(serviceSpy).processSingleBatchDelivery(b1, INITIATIVE_ID);
+        verify(serviceSpy).processSingleBatchDelivery(b2, INITIATIVE_ID);
     }
 
     @Test
     void rewardBatchDeliveryBatch_Success() {
-        String initiativeId = "INIT_1";
+        String initiativeId = "INITIATIVE_ID";
         String batchId = "BATCH_1";
-        String merchantId = "MERCHANT_1";
         String fiscalCode = "FISCAL_123";
 
         RewardBatch batch = new RewardBatch();
         batch.setId(batchId);
-        batch.setMerchantId(merchantId);
+        batch.setMerchantId(MERCHANT_ID);
         batch.setStatus(RewardBatchStatus.APPROVED);
         batch.setApprovedAmountCents(1000L);
 
@@ -964,12 +1034,12 @@ class RewardBatchServiceImplTest {
         inst.setDigitalAddress("pec@test.it");
         InstitutionList instList = new InstitutionList(List.of(inst));
 
-        when(rewardBatchRepository.findRewardBatchById(batchId)).thenReturn(Mono.just(batch));
-        when(merchantRestClient.getMerchantDetail(merchantId, initiativeId)).thenReturn(Mono.just(merchantDetail));
+        when(rewardBatchRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId(batchId, MERCHANT_ID, INITIATIVE_ID)).thenReturn(Mono.just(batch));
+        when(merchantRestClient.getMerchantDetail(MERCHANT_ID, initiativeId)).thenReturn(Mono.just(merchantDetail));
         when(selfcareInstitutionsRestClient.getInstitutions(fiscalCode)).thenReturn(Mono.just(instList));
         when(erogazioniRestClient.postErogazione(any(DeliveryRequest.class))).thenReturn(Mono.empty());
 
-        StepVerifier.create(serviceSpy.rewardBatchDeliveryBatch(initiativeId, List.of(batchId)))
+        StepVerifier.create(serviceSpy.rewardBatchDeliveryBatch(initiativeId, MERCHANT_ID, List.of(batchId)))
                 .verifyComplete();
 
         verify(erogazioniRestClient).postErogazione(argThat(req ->
@@ -980,13 +1050,13 @@ class RewardBatchServiceImplTest {
     @Test
     void rewardBatchDeliveryBatch_Fail_MultipleInstitutions() {
         // Given
-        String initiativeId = "INIT_1";
+        String initiativeId = "INITIATIVE_ID";
         String batchId = "BATCH_1";
         String fiscalCode = "FISCAL_123";
 
         RewardBatch batch = new RewardBatch();
         batch.setId(batchId);
-        batch.setMerchantId("M1");
+        batch.setMerchantId(MERCHANT_ID);
         batch.setStatus(RewardBatchStatus.APPROVED);
 
         MerchantDetailDTO merchantDetail = new MerchantDetailDTO();
@@ -998,11 +1068,11 @@ class RewardBatchServiceImplTest {
 
         InstitutionList instList = new InstitutionList(List.of(new InstitutionDTO(), new InstitutionDTO()));
 
-        when(rewardBatchRepository.findRewardBatchById(batchId)).thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId(batchId, MERCHANT_ID, INITIATIVE_ID)).thenReturn(Mono.just(batch));
         when(merchantRestClient.getMerchantDetail(anyString(), anyString())).thenReturn(Mono.just(merchantDetail));
         when(selfcareInstitutionsRestClient.getInstitutions(fiscalCode)).thenReturn(Mono.just(instList));
 
-        StepVerifier.create(service.rewardBatchDeliveryBatch(initiativeId, List.of(batchId)))
+        StepVerifier.create(service.rewardBatchDeliveryBatch(initiativeId, MERCHANT_ID, List.of(batchId)))
                 .verifyComplete();
 
         verify(erogazioniRestClient, never()).postErogazione(any());
@@ -1027,6 +1097,7 @@ class RewardBatchServiceImplTest {
         RewardBatch savedBatch = RewardBatch.builder()
                 .id(BATCH_ID)
                 .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
                 .businessName(BUSINESS_NAME)
                 .month("2025-12")
                 .name("dicembre 2025")
@@ -1037,7 +1108,7 @@ class RewardBatchServiceImplTest {
 
         RewardBatch existing = RewardBatch.builder().id(BATCH_ID_2).merchantId(MERCHANT_ID).month("2026-01").name("gennaio 2026").posType(PHYSICAL).build();
 
-        when(rewardBatchRepository.findRewardBatchByFilter(null, MERCHANT_ID, PHYSICAL, "2026-01"))
+        when(rewardBatchRepository.findRewardBatchByFilter(null, MERCHANT_ID, PHYSICAL, "2026-01", INITIATIVE_ID))
                 .thenReturn(Mono.just(existing));
 
         StepVerifier.create(service.createRewardBatchAndSave(savedBatch))
@@ -1050,8 +1121,9 @@ class RewardBatchServiceImplTest {
     @Test
     void createRewardBatchAndSave_createsWhenMissing() {
         RewardBatch savedBatch = RewardBatch.builder()
-                .id(BATCH_ID)
+                .id("ID")
                 .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
                 .businessName(BUSINESS_NAME)
                 .month("2025-12")
                 .name("dicembre 2025")
@@ -1059,19 +1131,19 @@ class RewardBatchServiceImplTest {
                 .partial(false)
                 .build();
 
-        when(rewardBatchRepository.findRewardBatchByFilter(null, MERCHANT_ID, PHYSICAL, "2026-01"))
+        when(rewardBatchRepository.findRewardBatchByFilter(null, MERCHANT_ID, PHYSICAL, "2026-01", INITIATIVE_ID))
                 .thenReturn(Mono.empty());
 
         when(rewardBatchRepository.save(any()))
                 .thenAnswer(inv -> {
                     RewardBatch b = inv.getArgument(0);
-                    b.setId(BATCH_ID_2);
+                    b.setId(BATCH_ID);
                     return Mono.just(b);
                 });
 
         StepVerifier.create(service.createRewardBatchAndSave(savedBatch))
                 .assertNext(b -> {
-                    assertEquals(BATCH_ID_2, b.getId());
+                    assertEquals(BATCH_ID, b.getId());
                     assertEquals("2026-01", b.getMonth());
                     assertEquals(RewardBatchStatus.CREATED, b.getStatus());
                     assertEquals(RewardBatchAssignee.L1, b.getAssigneeLevel());
@@ -1424,7 +1496,7 @@ class RewardBatchServiceImplTest {
 
     @Test
     void postponeTransaction_transactionNotFound() {
-        when(rewardTransactionRepository.findTransactionInBatch(MERCHANT_ID, BATCH_ID, "T1"))
+        when(rewardTransactionRepository.findTransactionInBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "T1"))
                 .thenReturn(Mono.empty());
 
         StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", LocalDate.now()))
@@ -1441,7 +1513,7 @@ class RewardBatchServiceImplTest {
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
                 .build();
 
-        when(rewardTransactionRepository.findTransactionInBatch(MERCHANT_ID, BATCH_ID, "T1"))
+        when(rewardTransactionRepository.findTransactionInBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "T1"))
                 .thenReturn(Mono.just(trx));
 
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.empty());
@@ -1469,7 +1541,7 @@ class RewardBatchServiceImplTest {
                 .status(RewardBatchStatus.SENT)
                 .build();
 
-        when(rewardTransactionRepository.findTransactionInBatch(MERCHANT_ID, BATCH_ID, "T1"))
+        when(rewardTransactionRepository.findTransactionInBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "T1"))
                 .thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(current));
 
@@ -1498,7 +1570,7 @@ class RewardBatchServiceImplTest {
 
         LocalDate initiativeEnd = LocalDate.of(2026, 1, 6);
 
-        when(rewardTransactionRepository.findTransactionInBatch(MERCHANT_ID, BATCH_ID, "T1"))
+        when(rewardTransactionRepository.findTransactionInBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "T1"))
                 .thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(current));
 
@@ -1512,6 +1584,7 @@ class RewardBatchServiceImplTest {
         RewardTransaction trx = RewardTransaction.builder()
                 .id("T1")
                 .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
                 .rewardBatchId(BATCH_ID)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
                 .build();
@@ -1519,6 +1592,7 @@ class RewardBatchServiceImplTest {
         RewardBatch current = RewardBatch.builder()
                 .id(BATCH_ID)
                 .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
                 .businessName(BUSINESS_NAME)
                 .posType(PHYSICAL)
                 .month("2026-01")
@@ -1528,24 +1602,25 @@ class RewardBatchServiceImplTest {
         RewardBatch next = RewardBatch.builder()
                 .id(BATCH_ID_2)
                 .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
                 .businessName(BUSINESS_NAME)
                 .posType(PHYSICAL)
                 .month("2026-02")
                 .status(RewardBatchStatus.CREATED)
                 .build();
 
-        when(rewardTransactionRepository.findTransactionInBatch(MERCHANT_ID, BATCH_ID, "T1"))
+        when(rewardTransactionRepository.findTransactionInBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "T1"))
                 .thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(current));
 
-        doReturn(Mono.just(next)).when(serviceSpy).findOrCreateBatch(MERCHANT_ID, PHYSICAL, "2026-02", BUSINESS_NAME);
+        doReturn(Mono.just(next)).when(serviceSpy).findOrCreateBatch(INITIATIVE_ID, MERCHANT_ID, PHYSICAL, "2026-02", BUSINESS_NAME);
 
         when(rewardTransactionRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        when(rewardBatchRepository.updateTotals(eq(BATCH_ID), any()))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), any()))
                 .thenReturn(Mono.empty());
 
-        when(rewardBatchRepository.updateTotals(eq(BATCH_ID_2), any()))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID_2), any()))
                 .thenReturn(Mono.empty());
 
 
@@ -1553,7 +1628,7 @@ class RewardBatchServiceImplTest {
                 .verifyComplete();
 
         verify(rewardBatchRepository, times(2))
-                .updateTotals(anyString(), any());
+                .updateTotals(anyString(), anyString(), anyString(), any());
 
 
 
@@ -1637,27 +1712,30 @@ class RewardBatchServiceImplTest {
         RewardBatch currentBatch = new RewardBatch();
         currentBatch.setId(rewardBatchId);
         currentBatch.setStatus(RewardBatchStatus.CREATED);
+        currentBatch.setInitiativeId(INITIATIVE_ID);
         currentBatch.setMonth("2026-01");
-        currentBatch.setMerchantId(merchantId);
+        currentBatch.setMerchantId(MERCHANT_ID);
         currentBatch.setBusinessName(BUSINESS_NAME);
 
         RewardBatch nextBatch = new RewardBatch();
         nextBatch.setId(BATCH_ID_2);
+        nextBatch.setMerchantId(MERCHANT_ID);
+        nextBatch.setInitiativeId(INITIATIVE_ID);
         nextBatch.setStatus(RewardBatchStatus.CREATED);
 
-        when(rewardTransactionRepository.findTransactionInBatch(merchantId, rewardBatchId, transactionId))
+        when(rewardTransactionRepository.findTransactionInBatch(initiativeId, merchantId, rewardBatchId, transactionId))
                 .thenReturn(Mono.just(trx));
 
         when(rewardBatchRepository.findById(rewardBatchId))
                 .thenReturn(Mono.just(currentBatch));
 
         doReturn(Mono.just(nextBatch)).when(serviceSpy)
-                .findOrCreateBatch(any(), any(), any(), any());
+                .findOrCreateBatch(any(), any(), any(), any(), any());
 
-        when(rewardBatchRepository.updateTotals(eq(rewardBatchId), any()))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(rewardBatchId), any()))
                 .thenReturn(Mono.empty());
 
-        when(rewardBatchRepository.updateTotals(eq(BATCH_ID_2), any()))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID_2), any()))
                 .thenReturn(Mono.empty());
 
         when(rewardTransactionRepository.save(any()))
@@ -1666,7 +1744,7 @@ class RewardBatchServiceImplTest {
         StepVerifier.create(
                         serviceSpy.postponeTransaction(
                                 merchantId,
-                                initiativeId,
+                                INITIATIVE_ID,
                                 rewardBatchId,
                                 transactionId,
                                 initiativeEndDate
@@ -1675,7 +1753,7 @@ class RewardBatchServiceImplTest {
                 .verifyComplete();
 
         verify(rewardBatchRepository, times(2))
-                .updateTotals(anyString(), any(BatchCountersDTO.class));
+                .updateTotals(eq(INITIATIVE_ID), anyString(), anyString(), any(BatchCountersDTO.class));
 
         verify(rewardTransactionRepository).save(trx);
     }
@@ -1707,9 +1785,9 @@ class RewardBatchServiceImplTest {
                 .errors(List.of(error))
                 .build();
 
-        when(rewardBatchRepository.findByIdAndStatus(BATCH_ID, RewardBatchStatus.PENDING_REFUND))
+        when(rewardBatchRepository.findByIdAndInitiativeIdAndMerchantIdAndStatus(BATCH_ID, INITIATIVE_ID, MERCHANT_ID, RewardBatchStatus.PENDING_REFUND))
                 .thenReturn(Mono.just(batch1));
-        when(rewardBatchRepository.findByIdAndStatus(BATCH_ID_2, RewardBatchStatus.PENDING_REFUND))
+        when(rewardBatchRepository.findByIdAndInitiativeIdAndMerchantIdAndStatus(BATCH_ID_2, INITIATIVE_ID, MERCHANT_ID, RewardBatchStatus.PENDING_REFUND))
                 .thenReturn(Mono.just(batch2));
 
         when(erogazioniRestClient.getOutcome(BATCH_ID)).thenReturn(Mono.just(outcome1));
@@ -1718,7 +1796,7 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.save(any(RewardBatch.class)))
                 .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        StepVerifier.create(service.checkRewardBatchesOutcomes(INITIATIVE_ID, List.of(BATCH_ID, BATCH_ID_2)))
+        StepVerifier.create(service.checkRewardBatchesOutcomes(INITIATIVE_ID, List.of(BATCH_ID, BATCH_ID_2), MERCHANT_ID))
                 .verifyComplete();
 
         assertEquals(RewardBatchStatus.REFUNDED, batch1.getStatus());
@@ -1727,8 +1805,8 @@ class RewardBatchServiceImplTest {
         assertEquals(RewardBatchStatus.NOT_REFUNDED, batch2.getStatus());
         assertEquals("ERR01 - Errore", batch2.getRefundErrorMessage());
 
-        verify(rewardBatchRepository).findByIdAndStatus(BATCH_ID, RewardBatchStatus.PENDING_REFUND);
-        verify(rewardBatchRepository).findByIdAndStatus(BATCH_ID_2, RewardBatchStatus.PENDING_REFUND);
+        verify(rewardBatchRepository).findByIdAndInitiativeIdAndMerchantIdAndStatus(BATCH_ID, INITIATIVE_ID, MERCHANT_ID, RewardBatchStatus.PENDING_REFUND);
+        verify(rewardBatchRepository).findByIdAndInitiativeIdAndMerchantIdAndStatus(BATCH_ID_2, INITIATIVE_ID, MERCHANT_ID, RewardBatchStatus.PENDING_REFUND);
         verify(erogazioniRestClient).getOutcome(BATCH_ID);
         verify(erogazioniRestClient).getOutcome(BATCH_ID_2);
         verify(rewardBatchRepository, times(2)).save(any());
@@ -1748,17 +1826,17 @@ class RewardBatchServiceImplTest {
                 .erogazione(erogazione)
                 .build();
 
-        when(rewardBatchRepository.findByStatus(RewardBatchStatus.PENDING_REFUND))
+        when(rewardBatchRepository.findByStatusAndInitiativeId(RewardBatchStatus.PENDING_REFUND, INITIATIVE_ID))
                 .thenReturn(Flux.just(batch1));
 
         when(erogazioniRestClient.getOutcome(BATCH_ID)).thenReturn(Mono.just(outcome));
         when(rewardBatchRepository.save(any(RewardBatch.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        StepVerifier.create(service.checkRewardBatchesOutcomes(INITIATIVE_ID, null))
+        StepVerifier.create(service.checkRewardBatchesOutcomes(INITIATIVE_ID, null, MERCHANT_ID))
                 .verifyComplete();
 
         assertEquals(RewardBatchStatus.REFUNDED, batch1.getStatus());
-        verify(rewardBatchRepository).findByStatus(RewardBatchStatus.PENDING_REFUND);
+        verify(rewardBatchRepository).findByStatusAndInitiativeId(RewardBatchStatus.PENDING_REFUND, INITIATIVE_ID);
         verify(erogazioniRestClient).getOutcome(BATCH_ID);
         verify(rewardBatchRepository).save(batch1);
     }
@@ -1972,16 +2050,18 @@ class RewardBatchServiceImplTest {
         RewardBatch targetBatch = RewardBatch.builder()
                 .id(BATCH_ID_2)
                 .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
+                .posType(PHYSICAL)
                 .month(targetMonth)
                 .build();
 
         doReturn(Mono.just(targetBatch)).when(serviceSpy)
-                .findOrCreateBatch(MERCHANT_ID, PHYSICAL, targetMonth, BUSINESS_NAME);
+                .findOrCreateBatch(INITIATIVE_ID, MERCHANT_ID, PHYSICAL, targetMonth, BUSINESS_NAME);
 
         doReturn(Mono.just(300L)).when(serviceSpy)
                 .updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, originalMonth);
 
-        when(rewardBatchRepository.updateTotals(eq(BATCH_ID_2), any(BatchCountersDTO.class)))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(targetBatch));
 
         Mono<RewardBatch> result = ReflectionTestUtils.invokeMethod(
@@ -1997,9 +2077,9 @@ class RewardBatchServiceImplTest {
                 .expectNext(originalBatch)
                 .verifyComplete();
 
-        verify(serviceSpy).findOrCreateBatch(MERCHANT_ID, PHYSICAL, targetMonth, BUSINESS_NAME);
+        verify(serviceSpy).findOrCreateBatch(INITIATIVE_ID, MERCHANT_ID, PHYSICAL, targetMonth, BUSINESS_NAME);
         verify(serviceSpy).updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, originalMonth);
-        verify(rewardBatchRepository).updateTotals(eq(BATCH_ID_2), any(BatchCountersDTO.class));
+        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class));
     }
 
     @Test
@@ -2018,16 +2098,18 @@ class RewardBatchServiceImplTest {
         RewardBatch targetBatch = RewardBatch.builder()
                 .id(BATCH_ID_2)
                 .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
+                .posType(PHYSICAL)
                 .month(originalMonth)
                 .build();
 
         doReturn(Mono.just(targetBatch)).when(serviceSpy)
-                .findOrCreateBatch(MERCHANT_ID, PHYSICAL, originalMonth, BUSINESS_NAME);
+                .findOrCreateBatch(INITIATIVE_ID, MERCHANT_ID, PHYSICAL, originalMonth, BUSINESS_NAME);
 
         doReturn(Mono.just(100L)).when(serviceSpy)
                 .updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, originalMonth);
 
-        when(rewardBatchRepository.updateTotals(eq(BATCH_ID_2), any(BatchCountersDTO.class)))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(targetBatch));
 
         Mono<RewardBatch> result = ReflectionTestUtils.invokeMethod(
@@ -2043,9 +2125,9 @@ class RewardBatchServiceImplTest {
                 .expectNext(originalBatch)
                 .verifyComplete();
 
-        verify(serviceSpy).findOrCreateBatch(MERCHANT_ID, PHYSICAL, originalMonth, BUSINESS_NAME);
+        verify(serviceSpy).findOrCreateBatch(INITIATIVE_ID, MERCHANT_ID, PHYSICAL, originalMonth, BUSINESS_NAME);
         verify(serviceSpy).updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, originalMonth);
-        verify(rewardBatchRepository).updateTotals(eq(BATCH_ID_2), any(BatchCountersDTO.class));
+        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class));
     }
 
     @Test

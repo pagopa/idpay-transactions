@@ -211,9 +211,10 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
   @Override
   public Mono<RewardTransaction> findTransaction(
-      String merchantId, String transactionId) {
+          String initiativeId, String merchantId, String transactionId) {
     Criteria criteria = Criteria
         .where(Fields.merchantId).is(merchantId)
+        .and(Fields.initiativeId).is(initiativeId)
         .and(Fields.id).is(transactionId)
         .and(Fields.status)
         .in(SyncTrxStatus.REWARDED, SyncTrxStatus.REFUNDED, SyncTrxStatus.INVOICED);
@@ -335,10 +336,12 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
 
   @Override
-  public Mono<Void> rewardTransactionsByBatchId(String batchId) {
+  public Mono<Void> rewardTransactionsByBatchIdAndInitiativeIdAndMerchantId(String batchId, String initiativeId, String merchantId) {
     Criteria batchCriteria = Criteria.where(Fields.rewardBatchId).is(batchId);
     Criteria samplingBatchCriteria = Criteria.where(Fields.rewardBatchId).is(batchId)
-        .and(Fields.rewardBatchTrxStatus).ne(RewardBatchTrxStatus.SUSPENDED);
+        .and(Fields.rewardBatchTrxStatus).ne(RewardBatchTrxStatus.SUSPENDED)
+        .and(Fields.initiativeId).is(initiativeId)
+        .and(Fields.merchantId).is(merchantId);
 
     Mono<Long> totalMono = mongoTemplate.updateMulti(
             Query.query(batchCriteria),
@@ -379,11 +382,13 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
   }
 
   @Override
-  public Mono<Long> sumSuspendedAccruedRewardCents(String rewardBatchId) {
+  public Mono<Long> sumSuspendedAccruedRewardCents(String initiativeId, String rewardBatchId, String merchantId) {
 
     MatchOperation match = Aggregation.match(
         Criteria.where("rewardBatchId").is(rewardBatchId)
             .and("rewardBatchTrxStatus").is(RewardBatchTrxStatus.SUSPENDED)
+            .and("initiativeId").is(initiativeId)
+            .and("merchantId").is(merchantId)
     );
 
     Aggregation agg = Aggregation.newAggregation(
@@ -401,11 +406,13 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
   }
 
   @Override
-  public Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus newStatus,
+  public Mono<RewardTransaction> updateStatusAndReturnOld(String initiativeId, String merchantId, String batchId, String trxId, RewardBatchTrxStatus newStatus,
                                                           ReasonDTO reasons, String batchMonth, ChecksError checksError) {
 
     Criteria base = Criteria.where(Fields.id).is(trxId)
-            .and(Fields.rewardBatchId).is(batchId);
+            .and(Fields.rewardBatchId).is(batchId)
+            .and(Fields.initiativeId).is(initiativeId)
+            .and(Fields.merchantId).is(merchantId);
 
     Query findQuery = Query.query(base);
     findQuery.fields().include(Fields.rewardBatchTrxStatus);
@@ -462,12 +469,14 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
   }
 
   @Override
-  public Flux<RewardTransaction> findInvoicedTransactionsWithoutBatch(int pageSize) {
+  public Flux<RewardTransaction> findInvoicedTransactionsWithoutBatch(String initiativeId, String merchantId, int pageSize) {
     Pageable pageable = PageRequest.of(0, pageSize);
 
     Criteria criteria = Criteria
         .where(Fields.status).is(SyncTrxStatus.INVOICED)
-        .and(Fields.rewardBatchId).isNull();
+        .and(Fields.rewardBatchId).isNull()
+        .and(Fields.initiativeId).is(initiativeId)
+        .and(Fields.merchantId).is(merchantId);
 
     Query query = Query.query(criteria).with(pageable);
 
@@ -475,10 +484,12 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
   }
 
   @Override
-  public Mono<RewardTransaction> findInvoicedTrxByIdWithoutBatch(String trxId) {
+  public Mono<RewardTransaction> findInvoicedTrxByIdWithoutBatch(String initiativeId, String merchantId, String trxId) {
     Criteria criteria = Criteria.where(Fields.id).is(trxId)
         .and(Fields.status).is(SyncTrxStatus.INVOICED)
-        .and(Fields.rewardBatchId).isNull();
+        .and(Fields.rewardBatchId).isNull()
+        .and(Fields.initiativeId).is(initiativeId)
+        .and(Fields.merchantId).is(merchantId);
 
     Query query = Query.query(criteria);
 
@@ -487,10 +498,12 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
   @Override
   public Flux<FranchisePointOfSaleDTO> findDistinctFranchiseAndPosByRewardBatchId(
-      String rewardBatchId) {
+          String initiativeId, String merchantId, String rewardBatchId) {
 
     MatchOperation match = Aggregation.match(
         Criteria.where(RewardTransaction.Fields.rewardBatchId).is(rewardBatchId)
+                .and(Fields.initiativeId).is(initiativeId)
+                .and(Fields.merchantId).is(merchantId)
     );
 
     GroupOperation group = Aggregation.group(
@@ -515,10 +528,11 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     );
   }
 
-    public Mono<RewardTransaction> findTransactionInBatch (String merchantId, String
+    public Mono<RewardTransaction> findTransactionInBatch (String initiativeId, String merchantId, String
     rewardBatchId, String transactionId){
       Criteria criteria = Criteria
           .where(RewardTransaction.Fields.id).is(transactionId)
+          .and(Fields.initiativeId).is(initiativeId)
           .and(RewardTransaction.Fields.merchantId).is(merchantId)
           .and(RewardTransaction.Fields.rewardBatchId).is(rewardBatchId);
 
