@@ -422,7 +422,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                         acc.decrementSuspendedAmountCents(accrued);
                                     }
 
-                                    checkAndUpdateTrxElaborated(acc, trxOld2ActualRewardBatchMonth, trxOld);
                                 }
 
                             }
@@ -445,12 +444,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 });
     }
 
-    private void checkAndUpdateTrxElaborated(BatchCountersDTO acc, Pair<RewardTransaction, String> trxOld2ActualRewardBatchMonth, RewardTransaction trxOld) {
-        if(trxOld.getRewardBatchLastMonthElaborated() != null &&
-                (getYearMonth(trxOld.getRewardBatchLastMonthElaborated()).isBefore(getYearMonth(trxOld2ActualRewardBatchMonth.getRight())))) {
-            acc.incrementTrxElaborated();
-        }
-    }
+
 
 
     @Override
@@ -479,7 +473,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                 acc.incrementApprovedAmountCents(trxOld.getRewards().get(initiativeId).getAccruedRewardCents());
                                 acc.decrementSuspendedAmountCents(trxOld.getRewards().get(initiativeId).getAccruedRewardCents());
                             }
-                            checkAndUpdateTrxElaborated(acc, trxOld2ActualBatchMonth, trxOld);
                         }
 
                         case RewardBatchTrxStatus.REJECTED -> {
