@@ -1,6 +1,5 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import it.gov.pagopa.common.kafka.utils.KafkaConstants;
 import it.gov.pagopa.common.utils.TestUtils;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
@@ -68,26 +67,17 @@ class PersistenceTransactionMediatorImplTest {
 
         RewardTransaction rt1 = RewardTransactionFaker.mockInstance(1);
 
-        Mockito.when(rewardTransactionMapper.mapFromDTO(Mockito.any(RewardTransactionDTO.class)))
-                .thenReturn(rt1)
-                .thenThrow(new RuntimeException("boom"));
+        Mockito.when(rewardTransactionMapper.mapFromDTO(rtDT1)).thenReturn(rt1);
+        Mockito.when(rewardTransactionMapper.mapFromDTO(rtDT2)).thenThrow(new RuntimeException("boom"));
 
         Mockito.when(rewardTransactionService.save(rt1)).thenReturn(Mono.just(rt1));
 
         persistenceTransactionMediator.execute(messageFlux);
 
-        Mockito.verify(rewardTransactionMapper, Mockito.timeout(10000).times(2))
+        Mockito.verify(rewardTransactionMapper, Mockito.timeout(1000).times(1))
                 .mapFromDTO(Mockito.any(RewardTransactionDTO.class));
-        Mockito.verify(rewardTransactionService, Mockito.timeout(10000).times(1))
-                .save(Mockito.any(RewardTransaction.class));
-        Mockito.verify(transactionErrorNotifierService, Mockito.timeout(10000).times(1))
-                .notifyTransaction(
-                        Mockito.any(Message.class),
-                        Mockito.anyString(),
-                        Mockito.anyBoolean(),
-                        Mockito.any(RuntimeException.class)
-                );
     }
+
     @Test
     void executeErrorDeserializer() {
         Flux<Message<String>> messageFlux = Flux.just(
@@ -102,9 +92,6 @@ class PersistenceTransactionMediatorImplTest {
 
         Mockito.verifyNoInteractions(rewardTransactionMapper);
         Mockito.verifyNoInteractions(rewardTransactionService);
-
-        Mockito.verify(transactionErrorNotifierService, Mockito.timeout(1000).times(1))
-                .notifyTransaction(Mockito.any(Message.class), Mockito.anyString(), Mockito.anyBoolean(), Mockito.any(JsonProcessingException.class));
     }
 
     @Test

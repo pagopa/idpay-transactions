@@ -1,11 +1,11 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
-import com.nimbusds.oauth2.sdk.util.StringUtils;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -132,7 +132,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   private RewardBatchAssignee parseAssigneeLevel(String level) {
     try {
       return StringUtils.isNotBlank(level) ? RewardBatchAssignee.valueOf(level) : null;
-    } catch (IllegalArgumentException e) {
+    } catch (IllegalArgumentException _) {
       return null;
     }
   }
