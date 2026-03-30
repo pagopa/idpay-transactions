@@ -7,6 +7,7 @@ import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.dto.batch.UpdateStatusBatchDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
@@ -406,13 +407,13 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
   }
 
   @Override
-  public Mono<RewardTransaction> updateStatusAndReturnOld(String initiativeId, String merchantId, String batchId, String trxId, RewardBatchTrxStatus newStatus,
+  public Mono<RewardTransaction> updateStatusAndReturnOld(UpdateStatusBatchDTO dto, String trxId, RewardBatchTrxStatus newStatus,
                                                           ReasonDTO reasons, String batchMonth, ChecksError checksError) {
 
     Criteria base = Criteria.where(Fields.id).is(trxId)
-            .and(Fields.rewardBatchId).is(batchId)
-            .and(Fields.initiativeId).is(initiativeId)
-            .and(Fields.merchantId).is(merchantId);
+            .and(Fields.rewardBatchId).is(dto.getBatchId())
+            .and(Fields.initiativeId).is(dto.getInitiativeId())
+            .and(Fields.merchantId).is(dto.getMerchantId());
 
     Query findQuery = Query.query(base);
     findQuery.fields().include(Fields.rewardBatchTrxStatus);
@@ -424,7 +425,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                             )
                             .flatMap(current -> {
                               if (current == null) {
-                                log.info("Transaction not found for id {} and reward batch {}", trxId, batchId);
+                                log.info("Transaction not found for id {} and reward batch {}", trxId, dto.getBatchId());
                                 return Mono.empty();
                               }
 
@@ -453,7 +454,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
 
                               Criteria cond = Criteria.where(Fields.id).is(trxId)
-                                      .and(Fields.rewardBatchId).is(batchId)
+                                      .and(Fields.rewardBatchId).is(dto.getBatchId())
                                       .and(Fields.rewardBatchTrxStatus).is(currentStatus);
 
                               return mongoTemplate.findAndModify(

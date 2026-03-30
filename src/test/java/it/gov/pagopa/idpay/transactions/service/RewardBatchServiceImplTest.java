@@ -18,6 +18,7 @@ import it.gov.pagopa.idpay.transactions.dto.ChecksErrorDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
+import it.gov.pagopa.idpay.transactions.dto.batch.UpdateStatusBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -448,7 +449,7 @@ class RewardBatchServiceImplTest {
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
 
-        verify(rewardTransactionRepository, never()).updateStatusAndReturnOld(any(), any(), any(), any(), any(), any(), any(), any());
+        verify(rewardTransactionRepository, never()).updateStatusAndReturnOld(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -519,18 +520,23 @@ class RewardBatchServiceImplTest {
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
                 .rewards(Map.of("OTHER", Reward.builder().accruedRewardCents(999L).build()))
                 .build();
+        UpdateStatusBatchDTO dto = UpdateStatusBatchDTO.builder()
+                .batchId(BATCH_ID)
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
+                .build();
 
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("SUSP_PREV"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(dto), eq("SUSP_PREV"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
                 .thenReturn(Mono.just(trxSuspPrev));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("APP"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq( model)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(dto), eq("APP"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq( model)))
                 .thenReturn(Mono.just(trxApproved));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("TO_CHECK"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(dto), eq("TO_CHECK"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
                 .thenReturn(Mono.just(trxToCheck));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("CONS"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(dto), eq("CONS"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
                 .thenReturn(Mono.just(trxConsultable));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("REJ"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(dto), eq("REJ"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
                 .thenReturn(Mono.just(trxRejected));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("NULL_ACC"), eq( RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(dto), eq("NULL_ACC"), eq( RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
                 .thenReturn(Mono.just(trxNullAccrued));
 
         RewardBatch updated = RewardBatch.builder().id(BATCH_ID).build();
@@ -577,7 +583,13 @@ class RewardBatchServiceImplTest {
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
                 .build();
 
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("SUSP_SAME"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
+        UpdateStatusBatchDTO dto = UpdateStatusBatchDTO.builder()
+                .batchId(BATCH_ID)
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
+                .build();
+
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(dto), eq("SUSP_SAME"), eq(RewardBatchTrxStatus.SUSPENDED), any(), eq(batchMonth), eq(model)))
                 .thenReturn(Mono.just(trxSuspSame));
 
         when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), any(BatchCountersDTO.class)))
@@ -642,15 +654,21 @@ class RewardBatchServiceImplTest {
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(50L).build()))
                 .build();
 
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("ALREADY_REJ"), eq(RewardBatchTrxStatus.REJECTED), any(), eq(batchMonth), eq(null)))
+        UpdateStatusBatchDTO dto = UpdateStatusBatchDTO.builder()
+                .batchId(BATCH_ID)
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
+                .build();
+
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(dto), eq("ALREADY_REJ"), eq(RewardBatchTrxStatus.REJECTED), any(), eq(batchMonth), eq(null)))
                 .thenReturn(Mono.just(alreadyRejected));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("APP"), eq(RewardBatchTrxStatus.REJECTED), any(), eq(batchMonth), eq(null)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(dto), eq("APP"), eq(RewardBatchTrxStatus.REJECTED), any(), eq(batchMonth), eq(null)))
                 .thenReturn(Mono.just(approved));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("TO_CHECK"), eq(RewardBatchTrxStatus.REJECTED), any(), eq(batchMonth), eq(null)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(dto), eq("TO_CHECK"), eq(RewardBatchTrxStatus.REJECTED), any(), eq(batchMonth), eq(null)))
                 .thenReturn(Mono.just(toCheck));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("CONS"), eq(RewardBatchTrxStatus.REJECTED), any(), eq(batchMonth), eq(null)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(dto), eq("CONS"), eq(RewardBatchTrxStatus.REJECTED), any(), eq(batchMonth), eq(null)))
                 .thenReturn(Mono.just(consultable));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(BATCH_ID), eq("SUSP_PREV"), eq(RewardBatchTrxStatus.REJECTED), any(), eq(batchMonth), eq(null)))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(eq(dto), eq("SUSP_PREV"), eq(RewardBatchTrxStatus.REJECTED), any(), eq(batchMonth), eq(null)))
                 .thenReturn(Mono.just(suspendedPrev));
 
         RewardBatch updated = RewardBatch.builder().id(BATCH_ID).build();
@@ -720,15 +738,21 @@ class RewardBatchServiceImplTest {
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(50L).build()))
                 .build();
 
-        when(rewardTransactionRepository.updateStatusAndReturnOld(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "ALREADY_APP", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
+        UpdateStatusBatchDTO dto = UpdateStatusBatchDTO.builder()
+                .batchId(BATCH_ID)
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
+                .build();
+
+        when(rewardTransactionRepository.updateStatusAndReturnOld(dto, "ALREADY_APP", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
                 .thenReturn(Mono.just(alreadyApproved));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "TO_CHECK", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(dto, "TO_CHECK", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
                 .thenReturn(Mono.just(toCheck));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "CONS", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(dto, "CONS", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
                 .thenReturn(Mono.just(consultable));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "SUSP_PREV", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(dto, "SUSP_PREV", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
                 .thenReturn(Mono.just(suspendedPrev));
-        when(rewardTransactionRepository.updateStatusAndReturnOld(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "REJ", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
+        when(rewardTransactionRepository.updateStatusAndReturnOld(dto, "REJ", RewardBatchTrxStatus.APPROVED, null, batchMonth, null))
                 .thenReturn(Mono.just(rejected));
 
         RewardBatch updated = RewardBatch.builder().id(BATCH_ID)

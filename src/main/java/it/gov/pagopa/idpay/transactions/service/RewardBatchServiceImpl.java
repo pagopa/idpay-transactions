@@ -19,6 +19,7 @@ import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.dto.batch.TrxSuspendedBatchInfo;
+import it.gov.pagopa.idpay.transactions.dto.batch.UpdateStatusBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.*;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
@@ -242,6 +243,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
         ChecksError checksErrorModel = checksErrorMapper.toModel(request.getChecksError());
         ReasonDTO reason = generateReasonDto(request);
+        UpdateStatusBatchDTO dto = UpdateStatusBatchDTO.builder()
+                .batchId(rewardBatchId)
+                .initiativeId(initiativeId)
+                .merchantId(merchantId)
+                .build();
 
         return rewardBatchRepository.findByIdAndInitiativeIdAndMerchantIdAndStatus(rewardBatchId, initiativeId, merchantId, RewardBatchStatus.EVALUATING)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(NOT_FOUND,
@@ -249,7 +255,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()).map(trxId -> Pair.of(trxId, batch.getMonth())))
                 .flatMap(trxId2ActualBatchMonth -> rewardTransactionRepository
-                        .updateStatusAndReturnOld(initiativeId, merchantId, rewardBatchId, trxId2ActualBatchMonth.getLeft(), RewardBatchTrxStatus.SUSPENDED, reason, trxId2ActualBatchMonth.getRight(), checksErrorModel)
+                        .updateStatusAndReturnOld(dto, trxId2ActualBatchMonth.getLeft(), RewardBatchTrxStatus.SUSPENDED, reason, trxId2ActualBatchMonth.getRight(), checksErrorModel)
                         .map(trxOld -> Pair.of(trxOld, trxId2ActualBatchMonth.getRight()))
                 )
                 .reduce(BatchCountersDTO.newBatch(), (acc, trxOld2ActualRewardBatch) -> {
@@ -358,6 +364,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
         ChecksError checksErrorModel = checksErrorMapper.toModel(request.getChecksError());
         ReasonDTO reason = generateReasonDto(request);
+        UpdateStatusBatchDTO dto = UpdateStatusBatchDTO.builder()
+                .batchId(rewardBatchId)
+                .initiativeId(initiativeId)
+                .merchantId(merchantId)
+                .build();
 
 
         return rewardBatchRepository.findByIdAndInitiativeIdAndMerchantIdAndStatus(rewardBatchId, initiativeId, merchantId, RewardBatchStatus.EVALUATING)
@@ -367,7 +378,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds())
                         .map(trxId -> Pair.of(trxId, batch.getMonth())))
                 .flatMap(trxId2ActualBatchMont -> rewardTransactionRepository
-                        .updateStatusAndReturnOld(initiativeId, merchantId, rewardBatchId, trxId2ActualBatchMont.getLeft(), RewardBatchTrxStatus.REJECTED, reason, trxId2ActualBatchMont.getRight(), checksErrorModel)
+                        .updateStatusAndReturnOld(dto, trxId2ActualBatchMont.getLeft(), RewardBatchTrxStatus.REJECTED, reason, trxId2ActualBatchMont.getRight(), checksErrorModel)
                         .map(trxOld -> {
                             if (trxOld != null) {
                                 log.info(
@@ -457,13 +468,19 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     @Override
     public Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String merchantId, String initiativeId) {
+        UpdateStatusBatchDTO dto = UpdateStatusBatchDTO.builder()
+                .batchId(rewardBatchId)
+                .initiativeId(initiativeId)
+                .merchantId(merchantId)
+                .build();
+
         return rewardBatchRepository.findByIdAndInitiativeIdAndMerchantIdAndStatus(rewardBatchId, initiativeId, merchantId, RewardBatchStatus.EVALUATING)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(NOT_FOUND,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
                         ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds())
                         .map(trxId -> Pair.of(trxId, batch.getMonth())))
-                .flatMap(trxIdAndMonthElaborated -> rewardTransactionRepository.updateStatusAndReturnOld(initiativeId, merchantId, rewardBatchId, trxIdAndMonthElaborated.getLeft(), RewardBatchTrxStatus.APPROVED, null, trxIdAndMonthElaborated.getRight(), null)
+                .flatMap(trxIdAndMonthElaborated -> rewardTransactionRepository.updateStatusAndReturnOld(dto, trxIdAndMonthElaborated.getLeft(), RewardBatchTrxStatus.APPROVED, null, trxIdAndMonthElaborated.getRight(), null)
                         .map(trxOld -> Pair.of(trxOld, trxIdAndMonthElaborated.getRight())))
                 .reduce(BatchCountersDTO.newBatch(), (acc, trxOld2ActualBatchMonth) -> {
                     RewardTransaction trxOld = trxOld2ActualBatchMonth.getLeft();
