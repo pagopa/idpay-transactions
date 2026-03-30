@@ -370,78 +370,42 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .merchantId(merchantId)
                 .build();
 
-
-        return rewardBatchRepository.findByIdAndInitiativeIdAndMerchantIdAndStatus(rewardBatchId, initiativeId, merchantId, RewardBatchStatus.EVALUATING)
-                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(NOT_FOUND,
+        return rewardBatchRepository.findByIdAndInitiativeIdAndMerchantIdAndStatus(
+                        rewardBatchId,
+                        initiativeId,
+                        merchantId,
+                        RewardBatchStatus.EVALUATING
+                )
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        NOT_FOUND,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
-                        ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))
+                        ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId)
+                )))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds())
-                        .map(trxId -> Pair.of(trxId, batch.getMonth())))
-                .flatMap(trxId2ActualBatchMont -> rewardTransactionRepository
-                        .updateStatusAndReturnOld(dto, trxId2ActualBatchMont.getLeft(), RewardBatchTrxStatus.REJECTED, reason, trxId2ActualBatchMont.getRight(), checksErrorModel)
-                        .map(trxOld -> {
-                            if (trxOld != null) {
-                                log.info(
-                                        "[REJECT_TRANSACTION] Transaction {} rejected. batchId: {}, initiativeId: {}",
-                                        trxOld.getId(),
-                                        Utilities.sanitizeString(rewardBatchId),
-                                        Utilities.sanitizeString(initiativeId)
-                                );
-                            }
-                            return Pair.of(trxOld, trxId2ActualBatchMont.getRight());
-                        })
+                        .flatMap(trxId -> rewardTransactionRepository
+                                .updateStatusAndReturnOld(
+                                        dto,
+                                        trxId,
+                                        RewardBatchTrxStatus.REJECTED,
+                                        reason,
+                                        batch.getMonth(),
+                                        checksErrorModel
+                                )
+                                .doOnNext(trxOld -> {
+                                    if (trxOld != null) {
+                                        log.info(
+                                                "[REJECT_TRANSACTION] Transaction {} rejected. batchId: {}, initiativeId: {}",
+                                                trxOld.getId(),
+                                                Utilities.sanitizeString(rewardBatchId),
+                                                Utilities.sanitizeString(initiativeId)
+                                        );
+                                    }
+                                })
+                        )
                 )
                 .reduce(BatchCountersDTO.newBatch(),
-                        (acc, trxOld2ActualRewardBatchMonth) -> {
-
-                            RewardTransaction trxOld = trxOld2ActualRewardBatchMonth.getLeft();
-
-                            if (trxOld == null) {
-                                return acc;
-                            }
-
-                            Long accrued = trxOld.getRewards().get(initiativeId) != null
-                                    ? trxOld.getRewards().get(initiativeId).getAccruedRewardCents()
-                                    : null;
-
-                            switch (trxOld.getRewardBatchTrxStatus()) {
-
-                                case RewardBatchTrxStatus.REJECTED ->
-                                        log.info("Skipping  handler  for transaction  {}:  status  is already  REJECTED",  trxOld.getId());
-
-                                case RewardBatchTrxStatus.APPROVED -> {
-                                    acc.incrementTrxRejected();
-
-                                    if (accrued != null) {
-                                        acc.decrementApprovedAmountCents(accrued);
-                                    }
-                                }
-
-                                case RewardBatchTrxStatus.TO_CHECK,
-                                     RewardBatchTrxStatus.CONSULTABLE -> {
-                                    acc.incrementTrxElaborated();
-                                    acc.incrementTrxRejected();
-
-                                    if (accrued != null) {
-                                        acc.decrementApprovedAmountCents(accrued);
-                                    }
-                                }
-
-                                case RewardBatchTrxStatus.SUSPENDED -> {
-                                    acc.decrementTrxSuspended();
-                                    acc.incrementTrxRejected();
-                                    if (accrued != null) {
-                                        acc.decrementSuspendedAmountCents(accrued);
-                                    }
-
-                                }
-
-                            }
-
-                            return acc;
-                        })
+                        (acc, trxOld) -> buildRejectCounters(acc, trxOld, initiativeId))
                 .flatMap(acc -> {
-
                     auditUtilities.logTransactionsStatusChanged(
                             RewardBatchTrxStatus.REJECTED.name(),
                             initiativeId,
@@ -453,12 +417,56 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             initiativeId,
                             merchantId,
                             rewardBatchId,
-                            acc);
+                            acc
+                    );
                 });
     }
 
+    private BatchCountersDTO buildRejectCounters(BatchCountersDTO acc, RewardTransaction trxOld, String initiativeId) {
+        if (trxOld == null) {
+            return acc;
+        }
 
+        Long accrued = trxOld.getRewards().get(initiativeId) != null
+                ? trxOld.getRewards().get(initiativeId).getAccruedRewardCents()
+                : null;
 
+        applyCountersByStatus(acc, trxOld, accrued);
+        return acc;
+    }
+
+    private void applyCountersByStatus(BatchCountersDTO acc, RewardTransaction trxOld, Long accrued) {
+        switch (trxOld.getRewardBatchTrxStatus()) {
+            case RewardBatchTrxStatus.REJECTED ->
+                    log.info("Skipping handler for transaction {}: status is already REJECTED", trxOld.getId());
+
+            case RewardBatchTrxStatus.APPROVED -> {
+                acc.incrementTrxRejected();
+                if (accrued != null) {
+                    acc.decrementApprovedAmountCents(accrued);
+                }
+            }
+
+            case RewardBatchTrxStatus.TO_CHECK,
+                 RewardBatchTrxStatus.CONSULTABLE -> {
+                acc.incrementTrxElaborated();
+                acc.incrementTrxRejected();
+
+                if (accrued != null) {
+                    acc.decrementApprovedAmountCents(accrued);
+                }
+            }
+
+            case RewardBatchTrxStatus.SUSPENDED -> {
+                acc.decrementTrxSuspended();
+                acc.incrementTrxRejected();
+
+                if (accrued != null) {
+                    acc.decrementSuspendedAmountCents(accrued);
+                }
+            }
+        }
+    }
 
     @Override
     public Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String merchantId, String initiativeId) {

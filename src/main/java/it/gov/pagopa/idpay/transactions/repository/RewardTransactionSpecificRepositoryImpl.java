@@ -31,6 +31,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -407,66 +408,74 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
   }
 
   @Override
-  public Mono<RewardTransaction> updateStatusAndReturnOld(UpdateStatusBatchDTO dto, String trxId, RewardBatchTrxStatus newStatus,
-                                                          ReasonDTO reasons, String batchMonth, ChecksError checksError) {
+  public Mono<RewardTransaction> updateStatusAndReturnOld(
+          UpdateStatusBatchDTO dto,
+          String trxId,
+          RewardBatchTrxStatus newStatus,
+          ReasonDTO reasons,
+          String batchMonth,
+          ChecksError checksError
+  ) {
 
-    Criteria base = Criteria.where(Fields.id).is(trxId)
-            .and(Fields.rewardBatchId).is(dto.getBatchId())
-            .and(Fields.initiativeId).is(dto.getInitiativeId())
-            .and(Fields.merchantId).is(dto.getMerchantId());
+      Criteria base = Criteria.where(Fields.id).is(trxId)
+              .and(Fields.rewardBatchId).is(dto.getBatchId())
+              .and(Fields.initiativeId).is(dto.getInitiativeId())
+              .and(Fields.merchantId).is(dto.getMerchantId());
 
-    Query findQuery = Query.query(base);
-    findQuery.fields().include(Fields.rewardBatchTrxStatus);
-    return Mono.defer(() ->
+      Query findQuery = Query.query(base);
+      findQuery.fields().include(Fields.rewardBatchTrxStatus);
 
-                    mongoTemplate.findOne(
-                                    findQuery,
-                                    RewardTransaction.class
-                            )
-                            .flatMap(current -> {
-                              if (current == null) {
-                                log.info("Transaction not found for id {} and reward batch {}", trxId, dto.getBatchId());
-                                return Mono.empty();
-                              }
+      return Mono.defer(() ->
+              mongoTemplate.findOne(findQuery, RewardTransaction.class)
+                      .flatMap(current -> {
+                          if (current == null) {
+                              log.info("Transaction not found for id {} and reward batch {}", trxId, dto.getBatchId());
+                              return Mono.empty();
+                          }
 
-                              RewardBatchTrxStatus currentStatus = current.getRewardBatchTrxStatus();
+                          RewardBatchTrxStatus currentStatus = current.getRewardBatchTrxStatus();
+                          Update update = createUpdate(currentStatus, newStatus, reasons, batchMonth, checksError);
 
-                              Update update = new Update()
-                                      .set(Fields.rewardBatchTrxStatus, newStatus)
-                                      .set(Fields.rewardBatchLastMonthElaborated, batchMonth);
+                          Criteria cond = Criteria.where(Fields.id).is(trxId)
+                                  .and(Fields.rewardBatchId).is(dto.getBatchId())
+                                  .and(Fields.rewardBatchTrxStatus).is(currentStatus);
 
-                              if (checksError != null) {
-                                update.set(RewardTransaction.Fields.checksError, checksError);
-                              } else {
-                                update.unset(RewardTransaction.Fields.checksError);
-                              }
+                          return mongoTemplate.findAndModify(
+                                  Query.query(cond),
+                                  update,
+                                  FindAndModifyOptions.options().returnNew(false).upsert(false),
+                                  RewardTransaction.class
+                          );
+                      })
+      );
+  }
 
+  private Update createUpdate(
+          RewardBatchTrxStatus currentStatus,
+          RewardBatchTrxStatus newStatus,
+          ReasonDTO reasons,
+          String batchMonth,
+          ChecksError checksError
+  ) {
+      Update update = new Update()
+              .set(Fields.rewardBatchTrxStatus, newStatus)
+              .set(Fields.rewardBatchLastMonthElaborated, batchMonth);
 
-                              if (reasons == null) {
-                                update.unset(RewardTransaction.Fields.rewardBatchRejectionReason);
-                              } else {
-                                if (currentStatus != null && currentStatus.equals(newStatus)) {
-                                  update.push(RewardTransaction.Fields.rewardBatchRejectionReason).value(reasons);
-                                } else {
-                                  update.set(RewardTransaction.Fields.rewardBatchRejectionReason, List.of(reasons));
-                                }
-                              }
+      if (checksError != null) {
+          update.set(RewardTransaction.Fields.checksError, checksError);
+      } else {
+          update.unset(RewardTransaction.Fields.checksError);
+      }
 
+      if (reasons == null) {
+          update.unset(RewardTransaction.Fields.rewardBatchRejectionReason);
+      } else if (Objects.equals(currentStatus, newStatus)) {
+          update.push(RewardTransaction.Fields.rewardBatchRejectionReason).value(reasons);
+      } else {
+          update.set(RewardTransaction.Fields.rewardBatchRejectionReason, List.of(reasons));
+      }
 
-                              Criteria cond = Criteria.where(Fields.id).is(trxId)
-                                      .and(Fields.rewardBatchId).is(dto.getBatchId())
-                                      .and(Fields.rewardBatchTrxStatus).is(currentStatus);
-
-                              return mongoTemplate.findAndModify(
-                                      Query.query(cond),
-                                      update,
-                                      FindAndModifyOptions.options()
-                                              .returnNew(false)
-                                              .upsert(false),
-                                      RewardTransaction.class
-                              );
-                            })
-            );
+      return update;
   }
 
   @Override

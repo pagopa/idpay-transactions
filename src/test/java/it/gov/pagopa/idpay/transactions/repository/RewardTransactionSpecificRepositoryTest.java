@@ -112,6 +112,20 @@ class RewardTransactionSpecificRepositoryTest {
                 .expectNextCount(0)
                 .verifyComplete();
     }
+
+    @Test
+    void updateStatusAndReturnOld_whenTransactionNotFound_shouldCompleteWithoutResult() {
+        UpdateStatusBatchDTO dto = UpdateStatusBatchDTO.builder()
+                .batchId(BATCH_ID)
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
+                .build();
+
+        StepVerifier.create(rewardTransactionSpecificRepository.updateStatusAndReturnOld(
+                        dto, "missing-trx", RewardBatchTrxStatus.REJECTED, null, "2024-01", null))
+                .verifyComplete();
+    }
+
     @Test
     void findByFilterTrx_withNullPageable_shouldUseDefaultSortAndNotFail() {
         RewardTransaction trx = RewardTransactionFaker.mockInstanceBuilder(1)
