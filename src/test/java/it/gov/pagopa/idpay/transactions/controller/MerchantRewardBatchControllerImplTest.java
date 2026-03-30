@@ -21,6 +21,7 @@ import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
@@ -689,26 +690,26 @@ class MerchantRewardBatchControllerImplTest {
 
     @Test
     void evaluatingRewardBatches_notFound() {
-        RewardBatchesRequest batchRequest =
-                RewardBatchesRequest.builder()
-                        .rewardBatchIds(List.of("BATCH_ID"))
-                        .build();
+        RewardBatchesRequest batchRequest = RewardBatchesRequest.builder()
+                .rewardBatchIds(List.of("BATCH_ID"))
+                .build();
 
-        when(rewardBatchService.evaluatingRewardBatches(
-                eq(batchRequest.getRewardBatchIds()),
-                eq(INITIATIVE_ID),
-                eq(MERCHANT_ID)))
-                .thenReturn(Mono.error(new ClientExceptionWithBody(
-                        HttpStatus.NOT_FOUND,
-                        ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
-                        "not found"
-                )));
+        doReturn(Mono.error(new ClientExceptionWithBody(
+                HttpStatus.NOT_FOUND,
+                ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
+                "not found"
+        ))).when(rewardBatchService).evaluatingRewardBatches(
+                ArgumentMatchers.<List<String>>any(),
+                ArgumentMatchers.nullable(String.class),
+                ArgumentMatchers.nullable(String.class)
+        );
 
         webClient.post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/evaluate", INITIATIVE_ID)
                 .header("merchantId", MERCHANT_ID)
                 .bodyValue(batchRequest)
-                .exchange();
+                .exchange()
+                .expectStatus().isNotFound();
     }
 
     @Test
