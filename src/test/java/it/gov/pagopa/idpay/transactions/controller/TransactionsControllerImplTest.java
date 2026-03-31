@@ -27,7 +27,7 @@ class TransactionsControllerImplTest {
     @Autowired
     protected WebTestClient webClient;
 
-    private final static String INITIATIVE_ID = "INIT01";
+    private static final String INITIATIVE_ID = "INIT01";
     private  static final String MERCHANT_ID = "MERCH01";
 
     @Test

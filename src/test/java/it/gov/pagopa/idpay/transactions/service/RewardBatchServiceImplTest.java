@@ -978,8 +978,8 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId(BATCH_ID_2, MERCHANT_ID, INITIATIVE_ID))
                 .thenReturn(Mono.just(b2));
 
-        doReturn(Mono.just(b1)).when(serviceSpy).processSingleBatchConfirmation(eq(b1), eq(INITIATIVE_ID));
-        doReturn(Mono.just(b2)).when(serviceSpy).processSingleBatchConfirmation(eq(b2), eq(INITIATIVE_ID));
+        doReturn(Mono.just(b1)).when(serviceSpy).processSingleBatchConfirmation(b1, INITIATIVE_ID);
+        doReturn(Mono.just(b2)).when(serviceSpy).processSingleBatchConfirmation(b2, INITIATIVE_ID);
 
         StepVerifier.create(serviceSpy.rewardBatchConfirmationBatch(INITIATIVE_ID, MERCHANT_ID, List.of(BATCH_ID, BATCH_ID_2)))
                 .verifyComplete();
@@ -1005,7 +1005,7 @@ class RewardBatchServiceImplTest {
                 RewardBatchStatus.APPROVING, INITIATIVE_ID))
                 .thenReturn(Flux.just(b1));
 
-        doReturn(Mono.just(b1)).when(serviceSpy).processSingleBatchConfirmation(eq(b1), eq(INITIATIVE_ID));
+        doReturn(Mono.just(b1)).when(serviceSpy).processSingleBatchConfirmation(b1, INITIATIVE_ID);
 
         StepVerifier.create(serviceSpy.rewardBatchConfirmationBatch(
                         INITIATIVE_ID, MERCHANT_ID, Collections.emptyList()))
@@ -1025,9 +1025,9 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Mono.just(b2));
 
         doReturn(Mono.error(new RuntimeException("Error Batch 1")))
-                .when(serviceSpy).processSingleBatchDelivery(eq(b1), eq(INITIATIVE_ID));
+                .when(serviceSpy).processSingleBatchDelivery(b1, INITIATIVE_ID);
         doReturn(Mono.just(b2))
-                .when(serviceSpy).processSingleBatchDelivery(eq(b2), eq(INITIATIVE_ID));
+                .when(serviceSpy).processSingleBatchDelivery(b2, INITIATIVE_ID);
 
         StepVerifier.create(serviceSpy.rewardBatchDeliveryBatch(
                         INITIATIVE_ID, MERCHANT_ID, List.of(BATCH_ID, BATCH_ID_2)))

@@ -51,8 +51,8 @@ class RewardTransactionServiceImplTest {
     private MerchantRestClient merchantRestClient;
 
     private RewardTransactionService rewardTransactionService;
-    private final static String INITIATIVE_ID = "INIT01";
-    private final static String MERCHANT_ID = "MERCH01";
+    private static final String INITIATIVE_ID = "INIT01";
+    private static final String MERCHANT_ID = "MERCH01";
 
     @BeforeEach
     void setUp(){
