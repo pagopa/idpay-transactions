@@ -54,8 +54,9 @@ public class BatchCountersDTO {
     return this;
   }
 
-  public void decrementApprovedAmountCents(Long amountCents) {
+  public BatchCountersDTO decrementApprovedAmountCents(Long amountCents) {
     this.approvedAmountCents = this.approvedAmountCents - amountCents;
+    return this;
   }
 
   public BatchCountersDTO incrementSuspendedAmountCents(Long amountCents) {

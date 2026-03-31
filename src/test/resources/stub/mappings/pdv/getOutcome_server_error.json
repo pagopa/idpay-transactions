@@ -1,0 +1,12 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPath": "/esiti",
+    "queryParameters": {
+      "idRichiesta": { "equalTo": "BATCH_RETRY" }
+    }
+  },
+  "response": {
+    "status": 500
+  }
+}

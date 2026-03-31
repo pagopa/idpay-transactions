@@ -16,6 +16,7 @@ import it.gov.pagopa.idpay.transactions.dto.mapper.RewardBatchMapper;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.service.RewardBatchService;
+import it.gov.pagopa.idpay.transactions.usecase.rewardbatch.GetRewardBatchByIdUseCase;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
@@ -52,6 +53,9 @@ class MerchantRewardBatchControllerImplTest {
 
   @MockitoBean
   RewardBatchMapper rewardBatchMapper;
+
+  @MockitoBean
+  GetRewardBatchByIdUseCase getRewardBatchByIdUseCase;
 
 
   private static final String MERCHANT_ID = "MERCHANT_ID";
@@ -265,6 +269,61 @@ class MerchantRewardBatchControllerImplTest {
     verify(rewardBatchService, times(1))
         .getRewardBatches(eq(MERCHANT_ID), isNull(), isNull(), isNull(), isNull(), any(Pageable.class));
     verify(rewardBatchMapper, times(1)).toDTO(batch);
+  }
+
+  @Test
+  void getRewardBatchByIdOk() {
+    RewardBatch batch = RewardBatch.builder()
+        .id(REWARD_BATCH_ID_1)
+        .name("Reward Batch 1")
+        .build();
+
+    RewardBatchDTO dto = RewardBatchDTO.builder()
+        .id(batch.getId())
+        .name(batch.getName())
+        .build();
+
+    when(getRewardBatchByIdUseCase.execute(MERCHANT_ID, REWARD_BATCH_ID_1))
+        .thenReturn(Mono.just(batch));
+
+    when(rewardBatchMapper.toDTO(batch))
+        .thenReturn(Mono.just(dto));
+
+    webClient.get()
+        .uri(uriBuilder -> uriBuilder
+            .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}")
+            .build(INITIATIVE_ID, REWARD_BATCH_ID_1))
+        .header("x-merchant-id", MERCHANT_ID)
+        .exchange()
+        .expectStatus().isOk()
+        .expectBody(RewardBatchDTO.class)
+        .value(response -> {
+          assertNotNull(response);
+          assertEquals(REWARD_BATCH_ID_1, response.getId());
+          assertEquals("Reward Batch 1", response.getName());
+        });
+
+    verify(getRewardBatchByIdUseCase, times(1)).execute(MERCHANT_ID, REWARD_BATCH_ID_1);
+    verify(rewardBatchMapper, times(1)).toDTO(batch);
+  }
+
+  @Test
+  void getRewardBatchById_notFound() {
+    when(getRewardBatchByIdUseCase.execute(MERCHANT_ID, REWARD_BATCH_ID_1))
+        .thenReturn(Mono.error(new RewardBatchNotFound(
+            ExceptionCode.REWARD_BATCH_NOT_FOUND,
+            ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(REWARD_BATCH_ID_1))));
+
+    webClient.get()
+        .uri(uriBuilder -> uriBuilder
+            .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}")
+            .build(INITIATIVE_ID, REWARD_BATCH_ID_1))
+        .header("x-merchant-id", MERCHANT_ID)
+        .exchange()
+        .expectStatus().isNotFound();
+
+    verify(getRewardBatchByIdUseCase, times(1)).execute(MERCHANT_ID, REWARD_BATCH_ID_1);
+    verify(rewardBatchMapper, never()).toDTO(any());
   }
 
   @Test

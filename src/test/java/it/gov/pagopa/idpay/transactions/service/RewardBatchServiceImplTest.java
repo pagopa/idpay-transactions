@@ -1373,6 +1373,23 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
+    void mapTransactionToCsvRow_nullAdditionalProperties_productInfoIsNewline() {
+        RewardTransaction trx = RewardTransaction.builder()
+                .id("T1").fiscalCode("CF").trxCode("CODE")
+                .effectiveAmountCents(1000L)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
+                .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(500L).build()))
+                .additionalProperties(null)
+                .invoiceData(it.gov.pagopa.idpay.transactions.dto.InvoiceData.builder().filename("f.pdf").build())
+                .build();
+
+        String row = ReflectionTestUtils.invokeMethod(service, "mapTransactionToCsvRow", trx, INITIATIVE_ID);
+        // productInfo is the second field
+        String productInfoField = row.split(";")[1];
+        assertEquals("\"\n\"", productInfoField);
+    }
+
+    @Test
     void uploadCsvToBlob_success_status201() {
         @SuppressWarnings("unchecked")
         Response<BlockBlobItem> resp = Mockito.mock(Response.class);
@@ -1936,5 +1953,139 @@ class RewardBatchServiceImplTest {
         StepVerifier.create(service.updateBatch(batch, outcome))
                 .assertNext(b -> assertEquals(RewardBatchStatus.PENDING_REFUND, b.getStatus()))
                 .verifyComplete();
+    }
+
+    @Test
+    void handleSuspendedTransactions_whenOriginalBatchMonthIsPast_createsOrUsesCurrentMonthBatch() {
+        String originalMonth = YearMonth.now().minusMonths(1).toString();
+        String targetMonth = YearMonth.now().toString();
+
+        RewardBatch originalBatch = RewardBatch.builder()
+                .id(BATCH_ID)
+                .merchantId(MERCHANT_ID)
+                .businessName(BUSINESS_NAME)
+                .posType(PHYSICAL)
+                .month(originalMonth)
+                .numberOfTransactionsSuspended(2L)
+                .build();
+
+        RewardBatch targetBatch = RewardBatch.builder()
+                .id(BATCH_ID_2)
+                .merchantId(MERCHANT_ID)
+                .month(targetMonth)
+                .build();
+
+        doReturn(Mono.just(targetBatch)).when(serviceSpy)
+                .findOrCreateBatch(MERCHANT_ID, PHYSICAL, targetMonth, BUSINESS_NAME);
+
+        doReturn(Mono.just(300L)).when(serviceSpy)
+                .updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, originalMonth);
+
+        when(rewardBatchRepository.updateTotals(eq(BATCH_ID_2), any(BatchCountersDTO.class)))
+                .thenReturn(Mono.just(targetBatch));
+
+        Mono<RewardBatch> result = ReflectionTestUtils.invokeMethod(
+                serviceSpy,
+                "handleSuspendedTransactions",
+                originalBatch,
+                INITIATIVE_ID
+        );
+
+        assertNotNull(result);
+
+        StepVerifier.create(result)
+                .expectNext(originalBatch)
+                .verifyComplete();
+
+        verify(serviceSpy).findOrCreateBatch(MERCHANT_ID, PHYSICAL, targetMonth, BUSINESS_NAME);
+        verify(serviceSpy).updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, originalMonth);
+        verify(rewardBatchRepository).updateTotals(eq(BATCH_ID_2), any(BatchCountersDTO.class));
+    }
+
+    @Test
+    void handleSuspendedTransactions_whenOriginalBatchMonthIsFuture_createsOrUsesFutureMonthBatch() {
+        String originalMonth = YearMonth.now().plusMonths(2).toString();
+
+        RewardBatch originalBatch = RewardBatch.builder()
+                .id(BATCH_ID)
+                .merchantId(MERCHANT_ID)
+                .businessName(BUSINESS_NAME)
+                .posType(PHYSICAL)
+                .month(originalMonth)
+                .numberOfTransactionsSuspended(1L)
+                .build();
+
+        RewardBatch targetBatch = RewardBatch.builder()
+                .id(BATCH_ID_2)
+                .merchantId(MERCHANT_ID)
+                .month(originalMonth)
+                .build();
+
+        doReturn(Mono.just(targetBatch)).when(serviceSpy)
+                .findOrCreateBatch(MERCHANT_ID, PHYSICAL, originalMonth, BUSINESS_NAME);
+
+        doReturn(Mono.just(100L)).when(serviceSpy)
+                .updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, originalMonth);
+
+        when(rewardBatchRepository.updateTotals(eq(BATCH_ID_2), any(BatchCountersDTO.class)))
+                .thenReturn(Mono.just(targetBatch));
+
+        Mono<RewardBatch> result = ReflectionTestUtils.invokeMethod(
+                serviceSpy,
+                "handleSuspendedTransactions",
+                originalBatch,
+                INITIATIVE_ID
+        );
+
+        assertNotNull(result);
+
+        StepVerifier.create(result)
+                .expectNext(originalBatch)
+                .verifyComplete();
+
+        verify(serviceSpy).findOrCreateBatch(MERCHANT_ID, PHYSICAL, originalMonth, BUSINESS_NAME);
+        verify(serviceSpy).updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, originalMonth);
+        verify(rewardBatchRepository).updateTotals(eq(BATCH_ID_2), any(BatchCountersDTO.class));
+    }
+
+    @Test
+    void getTargetMonth_whenOriginalMonthIsInFuture_returnsOriginalMonth() {
+        String futureMonth = YearMonth.now().plusMonths(2).toString();
+
+        String result = service.getTargetMonth(futureMonth);
+
+        assertEquals(futureMonth, result);
+    }
+
+    @Test
+    void getTargetMonth_whenOriginalMonthIsCurrent_returnsCurrentMonth() {
+        String currentMonth = YearMonth.now().toString();
+
+        String result = service.getTargetMonth(currentMonth);
+
+        assertEquals(currentMonth, result);
+    }
+
+    @Test
+    void getTargetMonth_whenOriginalMonthIsInPast_returnsCurrentMonth() {
+        String pastMonth = YearMonth.now().minusMonths(2).toString();
+        String currentMonth = YearMonth.now().toString();
+
+        String result = service.getTargetMonth(pastMonth);
+
+        assertEquals(currentMonth, result);
+    }
+
+    @Test
+    void generateAndSaveCsv_batchNotFound_switchIfEmpty() {
+        when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.empty());
+        Mono<String> generated = service.generateAndSaveCsv(BATCH_ID, INITIATIVE_ID, MERCHANT_ID);
+        StepVerifier.create(generated)
+                .expectErrorSatisfies(throwable -> {
+                    assertInstanceOf(ClientExceptionWithBody.class, throwable);
+                    ClientExceptionWithBody ex = (ClientExceptionWithBody) throwable;
+                    assertEquals(HttpStatus.NOT_FOUND, ex.getHttpStatus());
+                })
+                .verify();
     }
 }
