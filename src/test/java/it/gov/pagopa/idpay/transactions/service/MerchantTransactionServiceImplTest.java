@@ -29,7 +29,8 @@ import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -60,7 +61,7 @@ class MerchantTransactionServiceImplTest {
 
     @Test
     void getMerchantTransactionList_withFiscalCode() {
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
 
         RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
@@ -121,7 +122,7 @@ class MerchantTransactionServiceImplTest {
 
     @Test
     void getMerchantTransactionList_noFiscalCode() {
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
 
         RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
@@ -213,7 +214,7 @@ class MerchantTransactionServiceImplTest {
      */
     @Test
     void getMerchantTransactionList_nonOperatorToCheckExposedAsConsultable() {
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
 
         RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
@@ -277,7 +278,7 @@ class MerchantTransactionServiceImplTest {
      */
     @Test
     void getMerchantTransactions_nonOperatorConsultableFilterIncludesToCheck() {
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
 
         RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
@@ -344,7 +345,7 @@ class MerchantTransactionServiceImplTest {
 
     @Test
     void getMerchantTransactionList_withoutChecksErrorAndReason() {
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
 
         RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
@@ -407,16 +408,16 @@ class MerchantTransactionServiceImplTest {
 
     @Test
     void getMerchantTransactionList_withChecksErrorAndReasons() {
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
 
         ChecksError checksError = new ChecksError(true,true,true,true,true,true,true, true);
 
         ReasonDTO reason1 = new ReasonDTO();
-        reason1.setDate(now.minusDays(5));
+        reason1.setDate(now.minus(5, ChronoUnit.DAYS));
         reason1.setReason("Days 5");
 
         ReasonDTO reason2 = new ReasonDTO();
-        reason2.setDate(now.minusDays(3));
+        reason2.setDate(now.minus(3,ChronoUnit.DAYS));
         reason2.setReason("Days 3");
 
         RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)

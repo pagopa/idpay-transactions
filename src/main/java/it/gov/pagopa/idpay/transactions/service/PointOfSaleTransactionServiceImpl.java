@@ -16,7 +16,8 @@ import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.service.invoice_lifecycle.InvoiceLifecyclePolicy;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
-import java.time.LocalDateTime;
+
+import java.time.Instant;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -215,8 +216,8 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                             .filename(file.filename())
                             .docNumber(docNumber)
                             .build());
-                    trx.setInvoiceUploadDate(LocalDateTime.now());
-                    trx.setUpdateDate(LocalDateTime.now());
+                    trx.setInvoiceUploadDate(Instant.now());
+                    trx.setUpdateDate(Instant.now());
                     return rewardTransactionRepository.save(trx);
                 }));
     }
@@ -295,7 +296,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     oldTransaction.setStatus(SyncTrxStatus.INVOICED.name());
                     oldTransaction.setRewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED);
                     oldTransaction.setRewardBatchId(newBatch.getId());
-                    oldTransaction.setUpdateDate(LocalDateTime.now());
+                    oldTransaction.setUpdateDate(Instant.now());
 
                     return rewardTransactionRepository.save(oldTransaction)
                             .then(rewardBatchRepository.updateTotals(oldBatch.getId(), oldBatchCounter))
@@ -368,7 +369,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                             rt.setSamplingKey(0);
 
                                             rt.setStatus(SyncTrxStatus.REFUNDED.toString());
-                                            rt.setUpdateDate(LocalDateTime.now());
+                                            rt.setUpdateDate(Instant.now());
 
                                             rt.setCreditNoteData(InvoiceData.builder()
                                                     .filename(file.filename())

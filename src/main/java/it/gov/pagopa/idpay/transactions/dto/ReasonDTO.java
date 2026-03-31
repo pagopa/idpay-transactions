@@ -5,7 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Data
 @AllArgsConstructor
@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 public class ReasonDTO {
 
     @NotNull
-    private LocalDateTime date;
+    private Instant date;
     @NotNull
     private String reason;
 }

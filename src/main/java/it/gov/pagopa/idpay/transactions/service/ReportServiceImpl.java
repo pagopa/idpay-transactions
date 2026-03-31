@@ -28,7 +28,9 @@ import org.springframework.http.HttpStatus;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -271,7 +273,7 @@ public class ReportServiceImpl implements ReportService {
                                                               String initiativeId,
                                                               ReportRequest request) {
 
-        if(!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay())
+        if(!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant())
             && request.getStartPeriod().isBefore(request.getEndPeriod()))){
             return Mono.error(new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
@@ -294,8 +296,10 @@ public class ReportServiceImpl implements ReportService {
                         ERROR_MESSAGE_MERCHANT_NOT_FOUND.formatted(merchantId, initiativeId) )))
                 .flatMap(merchant -> {
 
-                    String formattedDate = LocalDateTime.now().format(FILE_NAME_FORMAT);
-                    String fileName = String.format("Report_%s.csv", formattedDate);
+
+                    ZonedDateTime now = Instant.now().atZone(ZoneId.systemDefault());
+                    String formattedDate = now.format(FILE_NAME_FORMAT);
+                    String fileName = "Report_" + formattedDate + ".csv";
 
                     Report reportEntity = Report.builder()
                             .initiativeId(initiativeId)
@@ -304,7 +308,7 @@ public class ReportServiceImpl implements ReportService {
                             .endPeriod(request.getEndPeriod())
                             .merchantId(merchantId)
                             .businessName(merchant.getBusinessName())
-                            .requestDate(LocalDateTime.now())
+                            .requestDate(Instant.now())
                             .operatorLevel(operatorLevel)
                             .fileName(fileName)
                             .reportType(request.getReportType())
@@ -330,7 +334,7 @@ public class ReportServiceImpl implements ReportService {
                                                      String initiativeId,
                                                      ReportRequest request) {
 
-        if (!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay())
+        if (!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant())
                 && request.getStartPeriod().isBefore(request.getEndPeriod()))) {
             return Mono.error(new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
@@ -339,15 +343,17 @@ public class ReportServiceImpl implements ReportService {
         }
 
         RewardBatchAssignee operatorLevel = resolveOperatorLevel(organizationRole);
-        String formattedDate = LocalDateTime.now().format(FILE_NAME_FORMAT);
-        String fileName = String.format("Report_%s.csv", formattedDate);
+
+        ZonedDateTime now = Instant.now().atZone(ZoneId.systemDefault());
+        String formattedDate = now.format(FILE_NAME_FORMAT);
+        String fileName = "Report_" + formattedDate + ".csv";
 
         Report reportEntity = Report.builder()
                 .initiativeId(initiativeId)
                 .reportStatus(ReportStatus.INSERTED)
                 .startPeriod(request.getStartPeriod())
                 .endPeriod(request.getEndPeriod())
-                .requestDate(LocalDateTime.now())
+                .requestDate(Instant.now())
                 .operatorLevel(operatorLevel)
                 .fileName(fileName)
                 .reportType(request.getReportType())
@@ -393,7 +399,7 @@ public class ReportServiceImpl implements ReportService {
                         report.setReportStatus(request.getReportStatus());
                     }
                     if(ReportStatus.GENERATED.equals(request.getReportStatus())){
-                        report.setElaborationDate(LocalDateTime.now());
+                        report.setElaborationDate(Instant.now());
                     }
 
                     return reportRepository.save(report);

@@ -17,7 +17,7 @@ import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 import org.springframework.http.HttpStatusCode;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import static it.gov.pagopa.idpay.transactions.utils.Utilities.sanitizeString;
 
@@ -114,7 +114,7 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
                     return Mono.just(DeliveryOutcomeDTO.builder()
                             .succeded(false)
                             .message("Technical error: " + detailedMessage)
-                            .timestamp(LocalDateTime.now())
+                            .timestamp(Instant.now())
                             .build());
                 });
     }

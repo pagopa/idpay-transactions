@@ -20,7 +20,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 
@@ -50,7 +50,7 @@ class RewardBatchSpecificRepositoryImplTest {
   @BeforeEach
   void setUp() {
     rewardBatchRepository.deleteAll().block();
-
+    ZoneId zone = ZoneId.systemDefault();
     batch1 = RewardBatch.builder()
         .id("batch1")
         .merchantId(MERCHANT)
@@ -61,8 +61,17 @@ class RewardBatchSpecificRepositoryImplTest {
         .assigneeLevel(RewardBatchAssignee.L1)
         .partial(false)
         .name("novembre 2025")
-        .startDate(LocalDateTime.of(2025, 11, 1, 0, 0))
-        .endDate(LocalDateTime.of(2025, 11, 30, 23, 59))
+            .startDate(
+                    LocalDate.of(2025, 11, 1)
+                            .atStartOfDay(zone)
+                            .toInstant()
+            )
+            .endDate(
+                    LocalDate.of(2025, 11, 30)
+                            .atTime(23, 59)
+                            .atZone(zone)
+                            .toInstant()
+            )
         .initialAmountCents(ZERO_LONG)
         .approvedAmountCents(ZERO_LONG)
         .numberOfTransactions(ZERO_LONG)
@@ -82,8 +91,17 @@ class RewardBatchSpecificRepositoryImplTest {
         .status(RewardBatchStatus.CREATED)
         .partial(false)
         .name("novembre 2025")
-        .startDate(LocalDateTime.of(2025, 11, 1, 0, 0))
-        .endDate(LocalDateTime.of(2025, 11, 30, 23, 59))
+        .startDate(
+                LocalDate.of(2025, 11, 1)
+                        .atStartOfDay(zone)
+                        .toInstant()
+        )
+        .endDate(
+                LocalDate.of(2025, 11, 30)
+                        .atTime(23, 59)
+                        .atZone(zone)
+                        .toInstant()
+        )
         .initialAmountCents(ZERO_LONG)
         .numberOfTransactions(ZERO_LONG)
         .numberOfTransactionsElaborated(ZERO_LONG)

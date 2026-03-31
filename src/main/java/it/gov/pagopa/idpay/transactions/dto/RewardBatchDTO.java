@@ -3,7 +3,7 @@ package it.gov.pagopa.idpay.transactions.dto;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import lombok.AllArgsConstructor;
@@ -26,9 +26,9 @@ public class RewardBatchDTO {
   Boolean partial;
   String name;
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-  LocalDateTime startDate;
+  Instant startDate;
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-  LocalDateTime endDate;
+  Instant endDate;
   Long approvedAmountCents;
   Long suspendedAmountCents;
   Long initialAmountCents;
@@ -39,9 +39,9 @@ public class RewardBatchDTO {
   String reportPath;
   String assigneeLevel;
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-  LocalDateTime merchantSendDate;
+  Instant merchantSendDate;
 
   private LocalDate refundValutaDate;
   private String refundErrorMessage;
-  private LocalDateTime refundOutcomeTimestamp;
+  private Instant refundOutcomeTimestamp;
 }

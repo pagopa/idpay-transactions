@@ -17,7 +17,7 @@ import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -152,7 +152,7 @@ class ErogazioniRestClientImplTest extends BaseWireMockTest {
                 .erogazione(ErogazioneDTO.builder()
                         .idPratica(id)
                         .importo(10.0)
-                        .dataAmmissione(LocalDateTime.now())
+                        .dataAmmissione(Instant.now())
                         .build())
                 .build();
     }

@@ -22,7 +22,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -117,7 +117,7 @@ class CommandsMediatorServiceImplTest {
         //given
         QueueCommandOperationDTO payload = QueueCommandOperationDTO.builder()
                 .entityId("DUMMY_INITITATIVEID")
-                .operationTime(LocalDateTime.now())
+                .operationTime(Instant.now())
                 .operationType(CommandsConstants.COMMANDS_OPERATION_TYPE_DELETE_INITIATIVE)
                 .build();
 
@@ -139,7 +139,7 @@ class CommandsMediatorServiceImplTest {
         //given
         QueueCommandOperationDTO payload = QueueCommandOperationDTO.builder()
                 .entityId("DUMMY_INITITATIVEID")
-                .operationTime(LocalDateTime.now())
+                .operationTime(Instant.now())
                 .operationType("OTHER_OPERATION_TYPE")
                 .build();
 

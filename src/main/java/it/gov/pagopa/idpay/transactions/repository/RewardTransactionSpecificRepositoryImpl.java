@@ -28,7 +28,7 @@ import org.springframework.data.mongodb.core.query.Update;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -44,7 +44,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
   @Override
   public Flux<RewardTransaction> findByIdTrxIssuer(String idTrxIssuer, String userId,
-      LocalDateTime trxDateStart, LocalDateTime trxDateEnd, Long amountCents, Pageable pageable) {
+      Instant trxDateStart, Instant trxDateEnd, Long amountCents, Pageable pageable) {
     Criteria criteria = Criteria.where(RewardTransaction.Fields.idTrxIssuer).is(idTrxIssuer);
     if (userId != null) {
       criteria.and(RewardTransaction.Fields.userId).is(userId);
@@ -71,8 +71,8 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
   }
 
   @Override
-  public Flux<RewardTransaction> findByRange(String userId, LocalDateTime trxDateStart,
-      LocalDateTime trxDateEnd, Long amountCents, Pageable pageable) {
+  public Flux<RewardTransaction> findByRange(String userId, Instant trxDateStart,
+      Instant trxDateEnd, Long amountCents, Pageable pageable) {
     Criteria criteria = Criteria
         .where(RewardTransaction.Fields.userId).is(userId)
         .and(RewardTransaction.Fields.trxDate)

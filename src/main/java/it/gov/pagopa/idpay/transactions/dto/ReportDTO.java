@@ -8,7 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Data
 @AllArgsConstructor
@@ -19,12 +19,12 @@ public class ReportDTO {
     String id;
     String initiativeId;
     ReportStatus reportStatus;
-    LocalDateTime startPeriod;
-    LocalDateTime endPeriod;
+    Instant startPeriod;
+    Instant endPeriod;
     String merchantId;
     String businessName;
-    LocalDateTime requestDate;
-    LocalDateTime elaborationDate;
+    Instant requestDate;
+    Instant elaborationDate;
     RewardBatchAssignee operatorLevel;
     String fileName;
     ReportType reportType;

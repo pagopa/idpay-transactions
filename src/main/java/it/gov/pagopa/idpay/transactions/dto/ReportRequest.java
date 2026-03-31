@@ -7,7 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Data
 @AllArgsConstructor
@@ -16,9 +16,9 @@ import java.time.LocalDateTime;
 public class ReportRequest {
 
     @NotNull
-    private LocalDateTime startPeriod;
+    private Instant startPeriod;
     @NotNull
-    private LocalDateTime endPeriod;
+    private Instant endPeriod;
     @NotNull
     private ReportType reportType;
 

@@ -11,8 +11,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -27,7 +26,7 @@ public class RewardTransactionDTO {
     private String idTrxAcquirer;
     private String acquirerCode;
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private OffsetDateTime trxDate;
+    private Instant trxDate;
     private String hpan;
     private String operationType;
     private String circuitType;
@@ -61,11 +60,11 @@ public class RewardTransactionDTO {
     private String operationTypeTranscoded;
     private Long effectiveAmountCents;
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private OffsetDateTime trxChargeDate;
+    private Instant trxChargeDate;
     private RefundInfo refundInfo;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private LocalDateTime elaborationDateTime;
+    private Instant elaborationDateTime;
     private String channel;
     private Map<String, String> additionalProperties;
     private InvoiceData invoiceData;
@@ -75,7 +74,7 @@ public class RewardTransactionDTO {
     private PosType pointOfSaleType;
     private String businessName;
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-    private LocalDateTime updateDate;
+    private Instant updateDate;
 
     private Boolean extendedAuthorization;
     private Long voucherAmountCents;

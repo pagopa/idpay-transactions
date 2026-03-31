@@ -9,7 +9,7 @@ import lombok.experimental.FieldNameConstants;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -26,7 +26,7 @@ public class RewardTransaction {
     private String id;
     private String idTrxAcquirer;
     private String acquirerCode;
-    private LocalDateTime trxDate;
+    private Instant trxDate;
     private String hpan;
     private String operationType;
     private String circuitType;
@@ -60,10 +60,10 @@ public class RewardTransaction {
 
     private String operationTypeTranscoded;
     private Long effectiveAmountCents;
-    private LocalDateTime trxChargeDate;
+    private Instant trxChargeDate;
     private RefundInfo refundInfo;
 
-    private LocalDateTime elaborationDateTime;
+    private Instant elaborationDateTime;
     private String channel;
     private Map<String, String> additionalProperties;
     private InvoiceData invoiceData;
@@ -73,15 +73,15 @@ public class RewardTransaction {
     private String rewardBatchId;
     private RewardBatchTrxStatus rewardBatchTrxStatus;
     private List<ReasonDTO> rewardBatchRejectionReason;
-    private LocalDateTime rewardBatchInclusionDate;
+    private Instant rewardBatchInclusionDate;
     private String franchiseName;
     private PosType pointOfSaleType;
     private String businessName;
-    private LocalDateTime invoiceUploadDate;
+    private Instant invoiceUploadDate;
 
     //key used for randomly select a transaction for evaluation
     private int samplingKey;
-    private LocalDateTime updateDate;
+    private Instant updateDate;
     private Boolean extendedAuthorization;
     private Long voucherAmountCents;
 

@@ -10,12 +10,12 @@ import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 public interface RewardTransactionSpecificRepository {
-    Flux<RewardTransaction> findByIdTrxIssuer(String idTrxIssuer, String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, Long amountCents, Pageable pageable);
-    Flux<RewardTransaction> findByRange(String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, Long amountCents, Pageable pageable);
+    Flux<RewardTransaction> findByIdTrxIssuer(String idTrxIssuer, String userId, Instant trxDateStart, Instant trxDateEnd, Long amountCents, Pageable pageable);
+    Flux<RewardTransaction> findByRange(String userId, Instant trxDateStart, Instant trxDateEnd, Long amountCents, Pageable pageable);
     Flux<RewardTransaction> findByFilter(TrxFiltersDTO filters, String userId, boolean includeToCheckWithConsultable, Pageable pageable);
     Mono<Long> getCount(TrxFiltersDTO filters, String pointOfSaleId, String productGtin, String userId, boolean includeToCheckWithConsultable);
     Mono<RewardTransaction> findOneByInitiativeId(String initiativeId);

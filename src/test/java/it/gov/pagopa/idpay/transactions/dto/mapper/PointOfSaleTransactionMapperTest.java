@@ -15,7 +15,7 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.counters.RewardCounters;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -70,7 +70,7 @@ class PointOfSaleTransactionMapperTest {
                 .amountCents(5000L)
                 .status("REWARDED")
                 .rewardBatchTrxStatus(REWARD_BATCH_TRX_STATUS)
-                .elaborationDateTime(LocalDateTime.now())
+                .elaborationDateTime(Instant.now())
                 .rewards(getReward())
                 .build();
 
@@ -95,7 +95,7 @@ class PointOfSaleTransactionMapperTest {
                 .amountCents(5000L)
                 .status("REWARDED")
                 .rewardBatchTrxStatus(REWARD_BATCH_TRX_STATUS)
-                .elaborationDateTime(LocalDateTime.now())
+                .elaborationDateTime(Instant.now())
                 .rewards(getReward())
                 .build();
 
@@ -123,7 +123,7 @@ class PointOfSaleTransactionMapperTest {
                 .amountCents(8000L)
                 .status("CANCELLED")
                 .rewardBatchTrxStatus(REWARD_BATCH_TRX_STATUS)
-                .elaborationDateTime(LocalDateTime.now())
+                .elaborationDateTime(Instant.now())
                 .rewards(null)
                 .build();
 
@@ -156,7 +156,7 @@ class PointOfSaleTransactionMapperTest {
                 .amountCents(10000L)
                 .status("CANCELLED")
                 .rewardBatchTrxStatus(REWARD_BATCH_TRX_STATUS)
-                .elaborationDateTime(LocalDateTime.now())
+                .elaborationDateTime(Instant.now())
                 .rewards(rewards)
                 .build();
 
@@ -186,7 +186,7 @@ class PointOfSaleTransactionMapperTest {
                         .filename("invoice.pdf")
                         .docNumber("DOC123")
                         .build())
-                .elaborationDateTime(LocalDateTime.now())
+                .elaborationDateTime(Instant.now())
                 .rewards(getReward())
                 .build();
 
@@ -211,7 +211,7 @@ class PointOfSaleTransactionMapperTest {
                         .filename("creditNote.pdf")
                         .docNumber("CN456")
                         .build())
-                .elaborationDateTime(LocalDateTime.now())
+                .elaborationDateTime(Instant.now())
                 .rewards(getReward())
                 .build();
 

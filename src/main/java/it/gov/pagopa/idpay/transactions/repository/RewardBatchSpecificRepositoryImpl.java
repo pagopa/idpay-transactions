@@ -18,7 +18,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.*;
 
 public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRepository {
@@ -223,7 +223,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
             new Update()
                     .set(RewardBatch.Fields.status, rewardBatchStatus)
                     .set(RewardBatch.Fields.approvedAmountCents, approvedAmountCents)
-                    .set(RewardBatch.Fields.updateDate, LocalDateTime.now()),
+                    .set(RewardBatch.Fields.updateDate, Instant.now()),
             FindAndModifyOptions.options().returnNew(true),
             RewardBatch.class);
   }

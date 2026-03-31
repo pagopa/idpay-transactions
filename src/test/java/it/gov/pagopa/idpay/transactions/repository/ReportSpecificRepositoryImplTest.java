@@ -15,7 +15,9 @@ import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import reactor.test.StepVerifier;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -48,6 +50,7 @@ class ReportSpecificRepositoryImplTest {
 
     @Test
     void findReportsCombined_shouldReturnReports_whenCriteriaMatch() {
+        ZoneId zone = ZoneId.systemDefault();
         Report report = Report.builder()
                 .id("R1")
                 .initiativeId(INITIATIVE_ID)
@@ -57,10 +60,19 @@ class ReportSpecificRepositoryImplTest {
                 .reportType(ReportType.MERCHANT_TRANSACTIONS)
                 .operatorLevel(null)
                 .fileName("file1.csv")
-                .startPeriod(LocalDateTime.of(2026, 2, 1, 0, 0))
-                .endPeriod(LocalDateTime.of(2026, 2, 28, 23, 59))
-                .requestDate(LocalDateTime.now())
-                .elaborationDate(LocalDateTime.now())
+                .startPeriod(
+                        LocalDate.of(2026, 2, 1)
+                                .atStartOfDay(zone)
+                                .toInstant()
+                )
+                .endPeriod(
+                        LocalDate.of(2026, 2, 28)
+                                .atTime(23, 59)
+                                .atZone(zone)
+                                .toInstant()
+                )
+                .requestDate(Instant.now())
+                .elaborationDate(Instant.now())
                 .build();
 
         reportRepository.save(report).block();

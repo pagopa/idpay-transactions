@@ -8,7 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 
 /**
@@ -27,8 +27,8 @@ public interface TransactionsController {
     Flux<RewardTransaction> findAll(
             @RequestParam(value = "idTrxIssuer", required = false) String idTrxIssuer,
             @RequestParam(value = "userId", required = false) String userId,
-            @RequestParam(value = "trxDateStart", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime trxDateStart,
-            @RequestParam(value = "trxDateEnd", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime trxDateEnd,
+            @RequestParam(value = "trxDateStart", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant trxDateStart,
+            @RequestParam(value = "trxDateEnd", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant trxDateEnd,
             @RequestParam(value = "amountCents", required = false) Long amountCents,
             @PageableDefault(size = 2000) Pageable pageable
     );

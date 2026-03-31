@@ -3,10 +3,6 @@ package it.gov.pagopa.idpay.transactions.dto.mapper;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionKafkaDTO;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-
 public class RewardTransactionKafkaMapper {
 
     private RewardTransactionKafkaMapper() {
@@ -24,7 +20,7 @@ public class RewardTransactionKafkaMapper {
                 .id(model.getId())
                 .idTrxAcquirer(model.getIdTrxAcquirer())
                 .acquirerCode(model.getAcquirerCode())
-                .trxDate(toOffset(model.getTrxDate()))
+                .trxDate(model.getTrxDate())
                 .hpan(model.getHpan())
                 .operationType(model.getOperationType())
                 .circuitType(model.getCircuitType())
@@ -60,7 +56,7 @@ public class RewardTransactionKafkaMapper {
 
                 .operationTypeTranscoded(model.getOperationTypeTranscoded())
                 .effectiveAmountCents(model.getEffectiveAmountCents())
-                .trxChargeDate(toOffset(model.getTrxChargeDate()))
+                .trxChargeDate(model.getTrxChargeDate())
                 .refundInfo(model.getRefundInfo())
 
                 .elaborationDateTime(model.getElaborationDateTime())
@@ -81,7 +77,5 @@ public class RewardTransactionKafkaMapper {
                 .build();
     }
 
-    private static OffsetDateTime toOffset(LocalDateTime ldt) {
-        return ldt == null ? null : ldt.atOffset(ZoneOffset.UTC);
-    }
+
 }

@@ -2,7 +2,7 @@ package it.gov.pagopa.idpay.transactions.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -23,12 +23,12 @@ public class PointOfSaleTransactionDTO {
   Long rewardAmountCents;
   Long authorizedAmountCents;
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-  LocalDateTime trxDate;
+  Instant trxDate;
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-  LocalDateTime trxChargeDate;
+  Instant trxChargeDate;
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   @JsonProperty("updateDate")
-  LocalDateTime elaborationDateTime;
+  Instant elaborationDateTime;
   String status;
   String rewardBatchTrxStatus;
   String channel;

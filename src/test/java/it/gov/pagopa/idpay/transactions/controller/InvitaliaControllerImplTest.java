@@ -17,7 +17,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -83,7 +83,7 @@ class InvitaliaControllerImplTest {
                 .erogazione(ErogazioneDTO.builder()
                         .idPratica("PRATICA_ID")
                         .importo(10.0)
-                        .dataAmmissione(LocalDateTime.now())
+                        .dataAmmissione(Instant.now())
                         .ibanBeneficiario("IT12X0123401234000000123456")
                         .intestatarioContoCorrente("Mario Rossi")
                         .autorizzatore("Gianluca Fiorillo")

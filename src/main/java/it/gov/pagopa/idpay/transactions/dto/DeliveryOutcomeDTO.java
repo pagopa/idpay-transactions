@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import org.springframework.format.annotation.DateTimeFormat;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 @Data
@@ -22,6 +22,6 @@ public class DeliveryOutcomeDTO {
   List<DeliveryErrorDTO> errors;
   String data;
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
-  private LocalDateTime timestamp;
+  private Instant timestamp;
 
 }

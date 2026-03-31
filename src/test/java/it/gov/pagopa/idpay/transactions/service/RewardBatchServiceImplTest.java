@@ -52,8 +52,8 @@ import reactor.test.StepVerifier;
 
 import java.lang.reflect.Method;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -1255,10 +1255,13 @@ class RewardBatchServiceImplTest {
 
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(batch));
         when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-
+        ZoneId zone = ZoneId.systemDefault();
         RewardTransaction trxWithCF = RewardTransaction.builder()
                 .id("T1")
-                .trxChargeDate(LocalDateTime.of(2025, 12, 10, 10, 30))
+                .trxChargeDate(LocalDate.of(2025, 12, 10)
+                                .atTime(10, 30)
+                                .atZone(zone)
+                                .toInstant())
                 .fiscalCode("CF1")
                 .trxCode("CODE")
                 .effectiveAmountCents(1000L)

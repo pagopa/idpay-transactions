@@ -54,16 +54,16 @@ public class BaseWireMockTest {
     }
 
     //region desc=Setting WireMock
-    private static boolean WIREMOCK_REQUEST_CLIENT_AUTH = true;
-    private static boolean USE_TRUSTORE_OK = true;
+    private static boolean wiremockRequestClientAuth = true;
+    private static boolean useTrustoreOk = true;
     public static final String TRUSTSTORE_PATH = "src/test/resources/wiremockKeyStore.p12";
     private static final String TRUSTSTORE_KO_PATH = "src/test/resources/wiremockTrustStoreKO.p12";
     @RegisterExtension
     static com.github.tomakehurst.wiremock.junit5.WireMockExtension serverWireMockExtension = initServerWiremock();
 
     public static void configureServerWiremockBeforeAll(boolean needClientAuth, boolean useTrustoreOk) {
-        WIREMOCK_REQUEST_CLIENT_AUTH = needClientAuth;
-        USE_TRUSTORE_OK = useTrustoreOk;
+        wiremockRequestClientAuth = needClientAuth;
+        BaseWireMockTest.useTrustoreOk = useTrustoreOk;
         initServerWiremock();
     }
 
@@ -91,8 +91,8 @@ public class BaseWireMockTest {
                 httpPort,
                 httpsPort,
                 "src/test/resources/stub",
-                WIREMOCK_REQUEST_CLIENT_AUTH,
-                USE_TRUSTORE_OK ? TRUSTSTORE_PATH : TRUSTSTORE_KO_PATH,
+                wiremockRequestClientAuth,
+                useTrustoreOk ? TRUSTSTORE_PATH : TRUSTSTORE_KO_PATH,
                 "idpay");
 
         if(start){
@@ -108,9 +108,9 @@ public class BaseWireMockTest {
 
     @AfterAll
     static void restoreWireMockConfig() {
-        if(!USE_TRUSTORE_OK || !WIREMOCK_REQUEST_CLIENT_AUTH) {
-            USE_TRUSTORE_OK = true;
-            WIREMOCK_REQUEST_CLIENT_AUTH = true;
+        if(!useTrustoreOk || !wiremockRequestClientAuth) {
+            useTrustoreOk = true;
+            wiremockRequestClientAuth = true;
             initServerWiremock();
         }
     }
@@ -120,7 +120,7 @@ public class BaseWireMockTest {
         public void initialize(@NonNull ConfigurableApplicationContext applicationContext) {
 
             applicationContext.getEnvironment().getPropertySources().stream()
-                    .filter(propertySource -> propertySource instanceof EnumerablePropertySource)
+                    .filter(EnumerablePropertySource.class::isInstance)
                     .map(propertySource -> (EnumerablePropertySource<?>) propertySource)
                     .flatMap(propertySource -> Arrays.stream(propertySource.getPropertyNames()))
                     .forEach(key -> {

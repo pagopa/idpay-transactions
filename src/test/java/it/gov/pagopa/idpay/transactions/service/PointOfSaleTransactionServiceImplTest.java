@@ -48,8 +48,9 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 
@@ -1037,7 +1038,7 @@ class PointOfSaleTransactionServiceImplTest {
         reward.setAccruedRewardCents(123L);
 
         RewardTransaction trx = new RewardTransaction();
-        trx.setUpdateDate(LocalDateTime.now().minusDays(1));
+        trx.setUpdateDate(Instant.now().minus(1, ChronoUnit.DAYS));
         trx.setInitiatives(List.of(INITIATIVE_ID));
         trx.setRewards(Map.of(INITIATIVE_ID, reward));
         trx.setPointOfSaleType(PosType.PHYSICAL);

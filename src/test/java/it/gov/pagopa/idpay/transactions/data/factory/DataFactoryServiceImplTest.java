@@ -15,7 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.test.StepVerifier;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import static org.mockito.Mockito.*;
 
@@ -51,7 +51,7 @@ class DataFactoryServiceImplTest {
     @Test
     void triggerTransactionReport_Pipeline_success() {
 
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
         Report report = Report.builder()
                 .id("REPORT_ID")
                 .merchantId("MERCHANT")
