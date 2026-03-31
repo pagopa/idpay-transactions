@@ -109,8 +109,11 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   @Override
   public  Mono<Void> rewardBatchConfirmationBatch(String initiativeId, String merchantId, RewardBatchesRequest request) {
     List<String> rewardBatchIds = request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
+      List<String> sanitizedBatchIds = rewardBatchIds.stream()
+              .map(Utilities::sanitizeString)
+              .toList();
     log.info("[REWARD_BATCH_CONFIRMATION_BATCH] Batch confirmation for initiative {} and batchs {}",
-            Utilities.sanitizeString(initiativeId), rewardBatchIds);
+            Utilities.sanitizeString(initiativeId), sanitizedBatchIds);
     return rewardBatchService.rewardBatchConfirmationBatch(initiativeId, merchantId, rewardBatchIds);
   }
 
