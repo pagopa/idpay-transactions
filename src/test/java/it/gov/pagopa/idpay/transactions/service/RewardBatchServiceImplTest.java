@@ -1687,7 +1687,7 @@ class RewardBatchServiceImplTest {
         RewardBatch batch2 = RewardBatch.builder().id(BATCH_ID_2).status(RewardBatchStatus.PENDING_REFUND).build();
 
         ErogazioneOutcomeDTO erogazione1 = ErogazioneOutcomeDTO.builder()
-                .status("COMPLETATO")
+                .status("COMPLETATA")
                 .dateValue(LocalDate.now())
                 .build();
 
@@ -1697,7 +1697,7 @@ class RewardBatchServiceImplTest {
                 .build();
 
         ErogazioneOutcomeDTO erogazione2 = ErogazioneOutcomeDTO.builder()
-                .status("RIFIUTATO")
+                .status("RIFIUTATA")
                 .build();
 
         ErrorDTO error = new ErrorDTO("ERR01", "Errore");
@@ -1739,7 +1739,7 @@ class RewardBatchServiceImplTest {
         RewardBatch batch1 = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.PENDING_REFUND).build();
 
         ErogazioneOutcomeDTO erogazione = ErogazioneOutcomeDTO.builder()
-                .status("COMPLETATO")
+                .status("COMPLETATA")
                 .dateValue(LocalDate.now())
                 .build();
 
@@ -1764,11 +1764,11 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void updateBatch_completato_setsRefunded() {
+    void updateBatch_completata_setsRefunded() {
         RewardBatch batch = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.PENDING_REFUND).build();
 
         ErogazioneOutcomeDTO erogazione = ErogazioneOutcomeDTO.builder()
-                .status("COMPLETATO")
+                .status("COMPLETATA")
                 .dateValue(LocalDate.now())
                 .build();
 
@@ -1791,14 +1791,14 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void updateBatch_rifiutato_setsNotRefunded_withoutErrors() {
+    void updateBatch_rifiutata_setsNotRefunded_withoutErrors() {
         RewardBatch batch = RewardBatch.builder()
                 .id(BATCH_ID)
                 .status(RewardBatchStatus.PENDING_REFUND)
                 .build();
 
         ErogazioneOutcomeDTO erogazione = ErogazioneOutcomeDTO.builder()
-                .status("RIFIUTATO")
+                .status("RIFIUTATA")
                 .build();
 
         InvitaliaOutcomeResponseDTO outcome = InvitaliaOutcomeResponseDTO.builder()
@@ -1860,7 +1860,7 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void updateBatch_rifiutato_withoutErrors_setsNotRefunded() {
+    void updateBatch_rifiutata_withoutErrors_setsNotRefunded() {
 
         RewardBatch batch = RewardBatch.builder()
                 .id(BATCH_ID)
@@ -1868,7 +1868,7 @@ class RewardBatchServiceImplTest {
                 .build();
 
         ErogazioneOutcomeDTO erogazione = ErogazioneOutcomeDTO.builder()
-                .status("RIFIUTATO")
+                .status("RIFIUTATA")
                 .build();
 
         InvitaliaOutcomeResponseDTO outcome = InvitaliaOutcomeResponseDTO.builder()
@@ -1888,7 +1888,7 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void updateBatch_rifiutato_withEmptyErrors_setsNotRefunded() {
+    void updateBatch_rifiutata_withEmptyErrors_setsNotRefunded() {
 
         RewardBatch batch = RewardBatch.builder()
                 .id(BATCH_ID)
@@ -1896,7 +1896,7 @@ class RewardBatchServiceImplTest {
                 .build();
 
         ErogazioneOutcomeDTO erogazione = ErogazioneOutcomeDTO.builder()
-                .status("RIFIUTATO")
+                .status("RIFIUTATA")
                 .build();
 
         InvitaliaOutcomeResponseDTO outcome = InvitaliaOutcomeResponseDTO.builder()

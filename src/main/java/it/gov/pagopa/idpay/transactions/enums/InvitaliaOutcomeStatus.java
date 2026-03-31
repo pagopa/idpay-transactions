@@ -1,8 +1,8 @@
 package it.gov.pagopa.idpay.transactions.enums;
 
 public enum InvitaliaOutcomeStatus {
-    COMPLETATO,
-    RIFIUTATO,
+    COMPLETATA,
+    RIFIUTATA,
     IN_LAVORAZIONE,
     ERRORE
 }
