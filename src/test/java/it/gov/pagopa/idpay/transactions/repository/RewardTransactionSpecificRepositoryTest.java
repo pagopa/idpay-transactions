@@ -509,7 +509,7 @@ class RewardTransactionSpecificRepositoryTest {
         rewardTransactionRepository.saveAll(List.of(t1, t2, t3)).collectList().block();
 
         List<RewardTransaction> page2 = rewardTransactionSpecificRepository
-                .findInvoicedTransactionsWithoutBatch(INITIATIVE_ID, MERCHANT_ID,2)
+                .findInvoicedTransactionsWithoutBatch(2)
                 .collectList()
                 .block();
 
@@ -741,8 +741,8 @@ class RewardTransactionSpecificRepositoryTest {
 
         rewardTransactionRepository.saveAll(List.of(ok, ko)).collectList().block();
 
-        RewardTransaction found = rewardTransactionSpecificRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, "ok").block();
-        RewardTransaction notFound = rewardTransactionSpecificRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, "ko").block();
+        RewardTransaction found = rewardTransactionSpecificRepository.findTransaction(MERCHANT_ID, "ok").block();
+        RewardTransaction notFound = rewardTransactionSpecificRepository.findTransaction(MERCHANT_ID, "ko").block();
 
         assertNotNull(found);
         assertEquals("ok", found.getId());
@@ -1021,7 +1021,7 @@ class RewardTransactionSpecificRepositoryTest {
         rewardTransactionRepository.saveAll(List.of(t1, t2, t3)).collectList().block();
 
         List<it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO> out =
-                rewardTransactionSpecificRepository.findDistinctFranchiseAndPosByRewardBatchId(INITIATIVE_ID, MERCHANT_ID, BATCH_ID)
+                rewardTransactionSpecificRepository.findDistinctFranchiseAndPosByRewardBatchId(BATCH_ID, MERCHANT_ID)
                         .collectList()
                         .block();
 

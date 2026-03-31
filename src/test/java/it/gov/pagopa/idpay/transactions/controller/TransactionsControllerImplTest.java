@@ -233,8 +233,7 @@ class TransactionsControllerImplTest {
     @Test
     void cleanupInvoicedTransactions_defaultChunkSize() {
         Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(
-            Mockito.anyString(), Mockito.anyString(), Mockito.anyInt(),
-            Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
+            Mockito.anyInt(), Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
             .thenReturn(Mono.empty());
 
         webClient.post()
@@ -249,8 +248,6 @@ class TransactionsControllerImplTest {
 
         Mockito.verify(rewardTransactionService, Mockito.times(1))
             .assignInvoicedTransactionsToBatches(
-                Mockito.eq(INITIATIVE_ID),
-                Mockito.eq(MERCHANT_ID),
                 Mockito.eq(200),
                 Mockito.eq(1),
                 Mockito.eq(false),
@@ -260,8 +257,7 @@ class TransactionsControllerImplTest {
     @Test
     void cleanupInvoicedTransactions_customChunkSize() {
         Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(
-                Mockito.anyString(), Mockito.anyString(), Mockito.anyInt(),
-                Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
+                Mockito.anyInt(), Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
             .thenReturn(Mono.empty());
 
         int customChunkSize = 500;
@@ -280,8 +276,6 @@ class TransactionsControllerImplTest {
 
         Mockito.verify(rewardTransactionService, Mockito.times(1))
             .assignInvoicedTransactionsToBatches(
-                Mockito.eq(INITIATIVE_ID),
-                Mockito.eq(MERCHANT_ID),
                 Mockito.eq(customChunkSize),
                 Mockito.eq(customIteration), Mockito.eq(false),
                 Mockito.isNull()

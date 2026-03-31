@@ -212,11 +212,9 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
 
   @Override
-  public Mono<RewardTransaction> findTransaction(
-          String initiativeId, String merchantId, String transactionId) {
+  public Mono<RewardTransaction> findTransaction(String merchantId, String transactionId) {
     Criteria criteria = Criteria
         .where(Fields.merchantId).is(merchantId)
-        .and(Fields.initiativeId).is(initiativeId)
         .and(Fields.id).is(transactionId)
         .and(Fields.status)
         .in(SyncTrxStatus.REWARDED, SyncTrxStatus.REFUNDED, SyncTrxStatus.INVOICED);
@@ -479,14 +477,12 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
   }
 
   @Override
-  public Flux<RewardTransaction> findInvoicedTransactionsWithoutBatch(String initiativeId, String merchantId, int pageSize) {
+  public Flux<RewardTransaction> findInvoicedTransactionsWithoutBatch(int pageSize) {
     Pageable pageable = PageRequest.of(0, pageSize);
 
     Criteria criteria = Criteria
         .where(Fields.status).is(SyncTrxStatus.INVOICED)
-        .and(Fields.rewardBatchId).isNull()
-        .and(Fields.initiativeId).is(initiativeId)
-        .and(Fields.merchantId).is(merchantId);
+        .and(Fields.rewardBatchId).isNull();
 
     Query query = Query.query(criteria).with(pageable);
 
@@ -508,11 +504,10 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
   @Override
   public Flux<FranchisePointOfSaleDTO> findDistinctFranchiseAndPosByRewardBatchId(
-          String initiativeId, String merchantId, String rewardBatchId) {
+          String rewardBatchId, String merchantId) {
 
     MatchOperation match = Aggregation.match(
         Criteria.where(RewardTransaction.Fields.rewardBatchId).is(rewardBatchId)
-                .and(Fields.initiativeId).is(initiativeId)
                 .and(Fields.merchantId).is(merchantId)
     );
 

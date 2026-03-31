@@ -28,19 +28,18 @@ public interface RewardTransactionSpecificRepository {
     /**
      * Retrieves a transaction in status REWARDED, REFUNDED or INVOICED using the provided paramaters
      *
-     * @param initiativeId
      * @param merchantId
      * @param transactionId
      * @return Mono containing a transaction, or empty if no document matches the criteria
      */
-    Mono<RewardTransaction> findTransaction(String initiativeId, String merchantId, String transactionId);
+    Mono<RewardTransaction> findTransaction(String merchantId, String transactionId);
     Flux<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId);
     Mono<Long> sumSuspendedAccruedRewardCents(String initiativeId, String rewardBatchId, String merchantId);
     Mono<Void> rewardTransactionsByBatchIdAndInitiativeIdAndMerchantId(String batchId, String initiativeId, String merchantId);
     Mono<RewardTransaction> updateStatusAndReturnOld(UpdateStatusBatchDTO dto, String trxId, RewardBatchTrxStatus status, ReasonDTO reasons, String batchMonth, ChecksError checksError);
-    Flux<RewardTransaction> findInvoicedTransactionsWithoutBatch(String initiativeId, String merchantId, int pageSize);
+    Flux<RewardTransaction> findInvoicedTransactionsWithoutBatch(int pageSize);
     Mono<RewardTransaction> findInvoicedTrxByIdWithoutBatch(String initiativeId, String merchantId, String trxId);
-    Flux<FranchisePointOfSaleDTO> findDistinctFranchiseAndPosByRewardBatchId(String initiativeId, String merchantId, String rewardBatchId);
+    Flux<FranchisePointOfSaleDTO> findDistinctFranchiseAndPosByRewardBatchId(String rewardBatchId, String merchantId);
     Mono<RewardTransaction> findTransactionInBatch(String initiativeId, String merchantId, String rewardBatchId, String transactionId);
 
 }

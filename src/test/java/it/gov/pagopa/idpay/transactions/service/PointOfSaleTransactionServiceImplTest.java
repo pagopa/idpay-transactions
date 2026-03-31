@@ -195,11 +195,11 @@ class PointOfSaleTransactionServiceImplTest {
                 .invoiceData(InvoiceData.builder().filename("invoice.pdf").build())
                 .build();
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
         when(invoiceStorageClient.getFileSignedUrl(anyString())).thenReturn("tokenUrl");
 
-        StepVerifier.create(service.downloadTransactionInvoice(INITIATIVE_ID, MERCHANT_ID, POS_ID, TRX_ID))
+        StepVerifier.create(service.downloadTransactionInvoice(MERCHANT_ID, POS_ID, TRX_ID))
                 .assertNext(dto -> assertEquals("tokenUrl", dto.getInvoiceUrl()))
                 .verifyComplete();
 
@@ -214,11 +214,11 @@ class PointOfSaleTransactionServiceImplTest {
                 .invoiceData(InvoiceData.builder().filename("invoice.pdf").build())
                 .build();
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
         when(invoiceStorageClient.getFileSignedUrl(anyString())).thenReturn("tokenUrl");
 
-        StepVerifier.create(service.downloadTransactionInvoice(INITIATIVE_ID, MERCHANT_ID, POS_ID, TRX_ID))
+        StepVerifier.create(service.downloadTransactionInvoice(MERCHANT_ID, POS_ID, TRX_ID))
                 .assertNext(dto -> assertEquals("tokenUrl", dto.getInvoiceUrl()))
                 .verifyComplete();
     }
@@ -230,11 +230,11 @@ class PointOfSaleTransactionServiceImplTest {
                 .creditNoteData(InvoiceData.builder().filename("cn.pdf").build())
                 .build();
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
         when(invoiceStorageClient.getFileSignedUrl(anyString())).thenReturn("cnUrl");
 
-        StepVerifier.create(service.downloadTransactionInvoice(INITIATIVE_ID, MERCHANT_ID, POS_ID, TRX_ID))
+        StepVerifier.create(service.downloadTransactionInvoice(MERCHANT_ID, POS_ID, TRX_ID))
                 .assertNext(dto -> assertEquals("cnUrl", dto.getInvoiceUrl()))
                 .verifyComplete();
 
@@ -244,10 +244,10 @@ class PointOfSaleTransactionServiceImplTest {
 
     @Test
     void downloadTransactionInvoice_missingTransaction_throws() {
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.empty());
 
-        StepVerifier.create(service.downloadTransactionInvoice(INITIATIVE_ID, MERCHANT_ID, POS_ID, TRX_ID))
+        StepVerifier.create(service.downloadTransactionInvoice(MERCHANT_ID, POS_ID, TRX_ID))
                 .expectError(ClientExceptionNoBody.class)
                 .verify();
 
@@ -261,10 +261,10 @@ class PointOfSaleTransactionServiceImplTest {
                 .invoiceData(null)
                 .build();
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
 
-        StepVerifier.create(service.downloadTransactionInvoice(INITIATIVE_ID, MERCHANT_ID, POS_ID, TRX_ID))
+        StepVerifier.create(service.downloadTransactionInvoice(MERCHANT_ID, POS_ID, TRX_ID))
                 .expectError(ClientExceptionNoBody.class)
                 .verify();
     }
@@ -276,10 +276,10 @@ class PointOfSaleTransactionServiceImplTest {
                 .creditNoteData(null)
                 .build();
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
 
-        StepVerifier.create(service.downloadTransactionInvoice(INITIATIVE_ID, MERCHANT_ID, POS_ID, TRX_ID))
+        StepVerifier.create(service.downloadTransactionInvoice(MERCHANT_ID, POS_ID, TRX_ID))
                 .expectError(ClientExceptionNoBody.class)
                 .verify();
     }
@@ -291,10 +291,10 @@ class PointOfSaleTransactionServiceImplTest {
                 .invoiceData(InvoiceData.builder().filename(null).build())
                 .build();
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
 
-        StepVerifier.create(service.downloadTransactionInvoice(INITIATIVE_ID, MERCHANT_ID, POS_ID, TRX_ID))
+        StepVerifier.create(service.downloadTransactionInvoice(MERCHANT_ID, POS_ID, TRX_ID))
                 .expectError(ClientExceptionNoBody.class)
                 .verify();
 
@@ -308,10 +308,10 @@ class PointOfSaleTransactionServiceImplTest {
                 .invoiceData(InvoiceData.builder().filename("x.pdf").build())
                 .build();
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
 
-        StepVerifier.create(service.downloadTransactionInvoice(INITIATIVE_ID, MERCHANT_ID, POS_ID, TRX_ID))
+        StepVerifier.create(service.downloadTransactionInvoice(MERCHANT_ID, POS_ID, TRX_ID))
                 .expectError(ClientExceptionNoBody.class)
                 .verify();
 
@@ -362,7 +362,6 @@ class PointOfSaleTransactionServiceImplTest {
         Mono<Void> result = ReflectionTestUtils.invokeMethod(
                 service, "replaceInvoiceFile", fp, oldInvoice, MERCHANT_ID, POS_ID, TRX_ID);
 
-        assertNotNull(result);
         StepVerifier.create(result).verifyComplete();
 
         verify(invoiceStorageClient).deleteFile(
@@ -378,14 +377,14 @@ class PointOfSaleTransactionServiceImplTest {
     void updateInvoiceTransaction_transactionNotFound_throws() {
         FilePart fp = mockFilePart("invoice.pdf", true);
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.empty());
 
-        StepVerifier.create(service.updateInvoiceTransaction(INITIATIVE_ID, TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
+        StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
                 .expectError(ClientExceptionNoBody.class)
                 .verify();
 
-        verify(rewardTransactionRepository).findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID);
+        verify(rewardTransactionRepository).findTransaction(MERCHANT_ID, TRX_ID);
     }
 
     @Test
@@ -398,14 +397,14 @@ class PointOfSaleTransactionServiceImplTest {
         trx.setPointOfSaleId(POS_ID);
         trx.setInvoiceData(InvoiceData.builder().filename("old.pdf").build());
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
 
-        StepVerifier.create(service.updateInvoiceTransaction(INITIATIVE_ID, TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
+        StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
                 .expectError(ClientExceptionNoBody.class)
                 .verify();
 
-        verify(rewardBatchRepository, never()).findRewardBatchByIdAndMerchantIdAndInitiativeId(anyString(), anyString(), anyString());
+        verify(rewardBatchRepository, never()).findByMerchantIdAndInitiativeIdAndId(anyString(),anyString(),anyString());
     }
 
     @Test
@@ -419,12 +418,12 @@ class PointOfSaleTransactionServiceImplTest {
         trx.setPointOfSaleId(POS_ID);
         trx.setInvoiceData(InvoiceData.builder().filename("old.pdf").build());
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
-        when(rewardBatchRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId("B404", MERCHANT_ID, INITIATIVE_ID))
+        when(rewardBatchRepository.findByMerchantIdAndInitiativeIdAndId(MERCHANT_ID, INITIATIVE_ID, "B404"))
                 .thenReturn(Mono.empty());
 
-        StepVerifier.create(service.updateInvoiceTransaction(INITIATIVE_ID, TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
+        StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
                 .expectError(ClientExceptionNoBody.class)
                 .verify();
     }
@@ -443,22 +442,21 @@ class PointOfSaleTransactionServiceImplTest {
         RewardBatch batch = new RewardBatch();
         batch.setId("B1");
         batch.setMerchantId(MERCHANT_ID);
-        batch.setInitiativeId(INITIATIVE_ID);
         batch.setStatus(RewardBatchStatus.CREATED);
         batch.setMonth("2024-01");
 
         stubUploadOk();
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
-        when(rewardBatchRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId("B1", MERCHANT_ID, INITIATIVE_ID))
+        when(rewardBatchRepository.findByMerchantIdAndInitiativeIdAndId(MERCHANT_ID, INITIATIVE_ID, "B1"))
                 .thenReturn(Mono.just(batch));
         when(invoiceLifeCyclePolicy.validate(trx, batch))
                 .thenReturn(Mono.just(trx));
         when(rewardTransactionRepository.save(any()))
                 .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        StepVerifier.create(service.updateInvoiceTransaction(INITIATIVE_ID, TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
+        StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
                 .verifyComplete();
 
         verify(invoiceLifeCyclePolicy).validate(trx, batch);
@@ -481,27 +479,26 @@ class PointOfSaleTransactionServiceImplTest {
         RewardBatch batch = new RewardBatch();
         batch.setId("B1");
         batch.setMerchantId(MERCHANT_ID);
-        batch.setInitiativeId(INITIATIVE_ID);
         batch.setStatus(RewardBatchStatus.CREATED);
         batch.setMonth("2024-01");
 
         stubUploadOk();
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
-        when(rewardBatchRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId("B1", MERCHANT_ID, INITIATIVE_ID))
+        when(rewardBatchRepository.findByMerchantIdAndInitiativeIdAndId(MERCHANT_ID, INITIATIVE_ID, "B1"))
                 .thenReturn(Mono.just(batch));
         when(invoiceLifeCyclePolicy.validate(trx, batch))
                 .thenReturn(Mono.just(trx));
         when(rewardTransactionRepository.save(any()))
                 .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
-        StepVerifier.create(service.updateInvoiceTransaction(INITIATIVE_ID, TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
+        StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
                 .verifyComplete();
 
         verify(invoiceLifeCyclePolicy).validate(trx, batch);
-        verify(rewardBatchRepository, never()).updateTotals(anyString(), anyString(), anyString(), any());
-        verify(rewardBatchService, never()).findOrCreateBatch(anyString(), anyString(), any(), anyString(), anyString());
+        verify(rewardBatchRepository, never()).updateTotals(anyString(),anyString(),anyString(), any());
+        verify(rewardBatchService, never()).findOrCreateBatch(anyString(),anyString(), any(), anyString(), anyString());
         verify(rewardTransactionRepository, times(1)).save(any());
     }
 
@@ -533,9 +530,9 @@ class PointOfSaleTransactionServiceImplTest {
 
         stubUploadOk();
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
-        when(rewardBatchRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId("OLD", MERCHANT_ID, INITIATIVE_ID))
+        when(rewardBatchRepository.findByMerchantIdAndInitiativeIdAndId(MERCHANT_ID, INITIATIVE_ID, "OLD"))
                 .thenReturn(Mono.just(oldBatch));
         when(invoiceLifeCyclePolicy.validate(trx, oldBatch))
                 .thenReturn(Mono.just(trx));
@@ -547,22 +544,22 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardBatchService.findOrCreateBatch(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(PosType.PHYSICAL), anyString(), eq("Biz")))
                 .thenReturn(Mono.just(newBatch));
 
-        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq("MERCHANTID1"), eq("OLD"), any(BatchCountersDTO.class)))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq("OLD"), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(oldBatch));
-        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq("MERCHANTID1"), eq("NEW"), any(BatchCountersDTO.class)))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq("NEW"), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(newBatch));
 
-        StepVerifier.create(service.updateInvoiceTransaction(INITIATIVE_ID, TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
+        StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
                 .verifyComplete();
 
         verify(invoiceLifeCyclePolicy).validate(trx, oldBatch);
 
-        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq("MERCHANTID1"), eq("OLD"), argThat(c ->
+        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID),eq("OLD"), argThat(c ->
                 Long.valueOf(-1L).equals(c.getNumberOfTransactions()) &&
                         Long.valueOf(0L).equals(c.getTrxElaborated())
         ));
 
-        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq("MERCHANTID1"), eq("NEW"), argThat(c ->
+        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID),eq("NEW"), argThat(c ->
                 Long.valueOf(123L).equals(c.getInitialAmountCents()) &&
                         Long.valueOf(1L).equals(c.getNumberOfTransactions()) &&
                         Long.valueOf(1L).equals(c.getTrxSuspended()) &&
@@ -607,9 +604,9 @@ class PointOfSaleTransactionServiceImplTest {
 
         stubUploadOk();
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
-        when(rewardBatchRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId("OLD", MERCHANT_ID, INITIATIVE_ID))
+        when(rewardBatchRepository.findByMerchantIdAndInitiativeIdAndId(MERCHANT_ID, INITIATIVE_ID, "OLD"))
                 .thenReturn(Mono.just(oldBatch));
         when(invoiceLifeCyclePolicy.validate(trx, oldBatch))
                 .thenReturn(Mono.just(trx));
@@ -619,22 +616,22 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardBatchService.findOrCreateBatch(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(PosType.PHYSICAL), anyString(), eq("Biz")))
                 .thenReturn(Mono.just(newBatch));
 
-        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq("MERCHANTID1"), eq("OLD"), any(BatchCountersDTO.class)))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq("OLD"), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(oldBatch));
-        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq("MERCHANTID1"), eq("NEW"), any(BatchCountersDTO.class)))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq("NEW"), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(newBatch));
 
-        StepVerifier.create(service.updateInvoiceTransaction(INITIATIVE_ID, TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
+        StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
                 .verifyComplete();
 
         verify(invoiceLifeCyclePolicy).validate(trx, oldBatch);
 
-        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq("MERCHANTID1"), eq("OLD"), argThat(c ->
+        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq("OLD"), argThat(c ->
                 Long.valueOf(-1L).equals(c.getNumberOfTransactions()) &&
                         Long.valueOf(-1L).equals(c.getTrxElaborated())
         ));
 
-        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq("MERCHANTID1"), eq("NEW"), argThat(c ->
+        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq("NEW"), argThat(c ->
                 Long.valueOf(123L).equals(c.getInitialAmountCents()) &&
                         Long.valueOf(1L).equals(c.getNumberOfTransactions()) &&
                         Long.valueOf(1L).equals(c.getTrxSuspended()) &&
@@ -671,9 +668,9 @@ class PointOfSaleTransactionServiceImplTest {
 
         stubUploadOk();
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
-        when(rewardBatchRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId("OLD", MERCHANT_ID, INITIATIVE_ID))
+        when(rewardBatchRepository.findByMerchantIdAndInitiativeIdAndId(MERCHANT_ID, INITIATIVE_ID,  "OLD"))
                 .thenReturn(Mono.just(oldBatch));
         when(invoiceLifeCyclePolicy.validate(trx, oldBatch))
                 .thenReturn(Mono.just(trx));
@@ -683,22 +680,22 @@ class PointOfSaleTransactionServiceImplTest {
         when(rewardBatchService.findOrCreateBatch(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq(PosType.PHYSICAL), anyString(), eq("Biz")))
                 .thenReturn(Mono.just(newBatch));
 
-        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq("MERCHANTID1"), eq("OLD"), any(BatchCountersDTO.class)))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq("OLD"), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(oldBatch));
-        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq("MERCHANTID1"), eq("NEW"), any(BatchCountersDTO.class)))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq("NEW"), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(newBatch));
 
-        StepVerifier.create(service.updateInvoiceTransaction(INITIATIVE_ID, TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
+        StepVerifier.create(service.updateInvoiceTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
                 .verifyComplete();
 
         verify(invoiceLifeCyclePolicy).validate(trx, oldBatch);
 
-        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq("MERCHANTID1"), eq("OLD"), argThat(c ->
+        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq("OLD"), argThat(c ->
                 Long.valueOf(-1L).equals(c.getNumberOfTransactions()) &&
                         Long.valueOf(-1L).equals(c.getTrxElaborated())
         ));
 
-        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq("MERCHANTID1"), eq("NEW"), argThat(c ->
+        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq("NEW"), argThat(c ->
                 Long.valueOf(123L).equals(c.getInitialAmountCents()) &&
                         Long.valueOf(1L).equals(c.getNumberOfTransactions()) &&
                         Long.valueOf(1L).equals(c.getTrxSuspended()) &&
@@ -711,10 +708,10 @@ class PointOfSaleTransactionServiceImplTest {
     void reversalTransaction_missingTransaction_throws400() {
         FilePart fp = mockFilePart("credit-note.pdf", true);
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.empty());
 
-        StepVerifier.create(service.reversalTransaction(INITIATIVE_ID, TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
+        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
                 .expectError(ClientExceptionNoBody.class)
                 .verify();
     }
@@ -732,14 +729,14 @@ class PointOfSaleTransactionServiceImplTest {
         batch.setId("B1");
         batch.setStatus(RewardBatchStatus.CREATED);
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findById("B1"))
                 .thenReturn(Mono.just(batch));
         when(invoiceLifeCyclePolicy.validate(trx, batch))
                 .thenReturn(Mono.error(new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, "CODE", "not allowed")));
 
-        StepVerifier.create(service.reversalTransaction(INITIATIVE_ID, TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
+        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
 
@@ -756,12 +753,12 @@ class PointOfSaleTransactionServiceImplTest {
         trx.setStatus(SyncTrxStatus.INVOICED.toString());
         trx.setRewardBatchId("B404");
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findById("B404"))
                 .thenReturn(Mono.empty());
 
-        StepVerifier.create(service.reversalTransaction(INITIATIVE_ID, TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
+        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
 
@@ -779,12 +776,12 @@ class PointOfSaleTransactionServiceImplTest {
         trx.setRewardBatchId(null);
         trx.setRewardBatchTrxStatus(null);
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findById((String) null))
                 .thenReturn(Mono.empty());
 
-        StepVerifier.create(service.reversalTransaction(INITIATIVE_ID, TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
+        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
                 .expectErrorMatches(ex ->
                         ex instanceof ClientExceptionWithBody ceb &&
                                 ceb.getHttpStatus() == HttpStatus.NOT_FOUND)
@@ -807,12 +804,11 @@ class PointOfSaleTransactionServiceImplTest {
 
         RewardBatch batch = new RewardBatch();
         batch.setId("B1");
-        batch.setInitiativeId(INITIATIVE_ID);
         batch.setStatus(RewardBatchStatus.CREATED);
 
         stubUploadOk();
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findById("B1"))
                 .thenReturn(Mono.just(batch));
@@ -820,15 +816,15 @@ class PointOfSaleTransactionServiceImplTest {
                 .thenReturn(Mono.just(trx));
         when(rewardTransactionRepository.save(any()))
                 .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq("MERCHANTID1"), eq("B1"), any(BatchCountersDTO.class)))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq("B1"), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(batch));
         when(transactionNotifierService.notify(any(), any()))
                 .thenReturn(true);
 
-        StepVerifier.create(service.reversalTransaction(INITIATIVE_ID, TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
+        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
                 .verifyComplete();
 
-        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq("MERCHANTID1"), eq("B1"), argThat(c ->
+        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq("B1"), argThat(c ->
                 Long.valueOf(-1L).equals(c.getNumberOfTransactions()) &&
                         Long.valueOf(-123L).equals(c.getInitialAmountCents())
         ));
@@ -846,12 +842,11 @@ class PointOfSaleTransactionServiceImplTest {
 
         RewardBatch batch = new RewardBatch();
         batch.setId("B1");
-        batch.setInitiativeId(INITIATIVE_ID);
         batch.setStatus(RewardBatchStatus.CREATED);
 
         stubUploadOk();
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findById("B1"))
                 .thenReturn(Mono.just(batch));
@@ -859,15 +854,15 @@ class PointOfSaleTransactionServiceImplTest {
                 .thenReturn(Mono.just(trx));
         when(rewardTransactionRepository.save(any()))
                 .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq("MERCHANTID1"), eq("B1"), any(BatchCountersDTO.class)))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq("B1"), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(batch));
         when(transactionNotifierService.notify(any(), any()))
                 .thenReturn(true);
 
-        StepVerifier.create(service.reversalTransaction(INITIATIVE_ID, TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
+        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
                 .verifyComplete();
 
-        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq("MERCHANTID1"), eq("B1"), argThat(c ->
+        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq("B1"), argThat(c ->
                 Long.valueOf(-1L).equals(c.getNumberOfTransactions()) &&
                         Long.valueOf(-123L).equals(c.getInitialAmountCents()) &&
                         Long.valueOf(-123L).equals(c.getSuspendedAmountCents()) &&
@@ -888,12 +883,11 @@ class PointOfSaleTransactionServiceImplTest {
 
         RewardBatch batch = new RewardBatch();
         batch.setId("B1");
-        batch.setInitiativeId(INITIATIVE_ID);
         batch.setStatus(RewardBatchStatus.APPROVED);
 
         stubUploadOk();
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findById("B1"))
                 .thenReturn(Mono.just(batch));
@@ -901,15 +895,15 @@ class PointOfSaleTransactionServiceImplTest {
                 .thenReturn(Mono.just(trx));
         when(rewardTransactionRepository.save(any()))
                 .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq("MERCHANTID1"), eq("B1"), any(BatchCountersDTO.class)))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq("B1"), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(batch));
         when(transactionNotifierService.notify(any(), any()))
                 .thenReturn(true);
 
-        StepVerifier.create(service.reversalTransaction(INITIATIVE_ID, TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
+        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
                 .verifyComplete();
 
-        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq("MERCHANTID1"), eq("B1"), argThat(c ->
+        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq("B1"), argThat(c ->
                 Long.valueOf(-1L).equals(c.getNumberOfTransactions()) &&
                         Long.valueOf(-123L).equals(c.getInitialAmountCents()) &&
                         Long.valueOf(-1L).equals(c.getTrxRejected()) &&
@@ -931,14 +925,14 @@ class PointOfSaleTransactionServiceImplTest {
         batch.setId("B1");
         batch.setStatus(RewardBatchStatus.CREATED);
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findById("B1"))
                 .thenReturn(Mono.just(batch));
         when(invoiceLifeCyclePolicy.validate(trx, batch))
                 .thenReturn(Mono.just(trx));
 
-        StepVerifier.create(service.reversalTransaction(INITIATIVE_ID, TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
+        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
 
@@ -957,7 +951,6 @@ class PointOfSaleTransactionServiceImplTest {
 
         RewardBatch batch = new RewardBatch();
         batch.setId("B1");
-        batch.setInitiativeId(INITIATIVE_ID);
         batch.setStatus(RewardBatchStatus.CREATED);
 
         @SuppressWarnings("unchecked")
@@ -965,7 +958,7 @@ class PointOfSaleTransactionServiceImplTest {
 
         stubUploadOk();
 
-        when(rewardTransactionRepository.findTransaction(INITIATIVE_ID, MERCHANT_ID, TRX_ID))
+        when(rewardTransactionRepository.findTransaction(MERCHANT_ID, TRX_ID))
                 .thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findById("B1"))
                 .thenReturn(Mono.just(batch));
@@ -973,14 +966,14 @@ class PointOfSaleTransactionServiceImplTest {
                 .thenReturn(Mono.just(trx));
         when(rewardTransactionRepository.save(any()))
                 .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq("MERCHANTID1"), eq("B1"), any(BatchCountersDTO.class)))
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(MERCHANT_ID), eq("B1"), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(batch));
         when(transactionNotifierService.notify(any(), any()))
                 .thenReturn(false);
         when(transactionNotifierService.buildMessage(any(), any()))
                 .thenReturn(message);
 
-        StepVerifier.create(service.reversalTransaction(INITIATIVE_ID, TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
+        StepVerifier.create(service.reversalTransaction(TRX_ID, MERCHANT_ID, fp, DOC_NUMBER, invoiceLifeCyclePolicy))
                 .expectError(IllegalStateException.class)
                 .verify();
 
@@ -1003,10 +996,10 @@ class PointOfSaleTransactionServiceImplTest {
         dto2.setFranchiseName("FRANCHISE_2");
         dto2.setPointOfSaleId("POS_2");
 
-        when(rewardTransactionRepository.findDistinctFranchiseAndPosByRewardBatchId(INITIATIVE_ID, MERCHANT_ID, rewardBatchId))
+        when(rewardTransactionRepository.findDistinctFranchiseAndPosByRewardBatchId(rewardBatchId, MERCHANT_ID))
                 .thenReturn(Flux.just(dto1, dto2));
 
-        StepVerifier.create(service.getDistinctFranchiseAndPosByRewardBatchId(INITIATIVE_ID, MERCHANT_ID, rewardBatchId))
+        StepVerifier.create(service.getDistinctFranchiseAndPosByRewardBatchId(rewardBatchId, MERCHANT_ID))
                 .assertNext(list -> {
                     assertEquals(2, list.size());
                     assertEquals("FRANCHISE_1", list.get(0).getFranchiseName());
@@ -1019,10 +1012,10 @@ class PointOfSaleTransactionServiceImplTest {
     void getDistinctFranchiseAndPosByRewardBatchId_propagatesError() {
         String rewardBatchId = "BATCH_ERROR";
 
-        when(rewardTransactionRepository.findDistinctFranchiseAndPosByRewardBatchId(INITIATIVE_ID, MERCHANT_ID, rewardBatchId))
+        when(rewardTransactionRepository.findDistinctFranchiseAndPosByRewardBatchId(rewardBatchId, MERCHANT_ID))
                 .thenReturn(Flux.error(new RuntimeException("mongo failure")));
 
-        StepVerifier.create(service.getDistinctFranchiseAndPosByRewardBatchId(INITIATIVE_ID, MERCHANT_ID, rewardBatchId))
+        StepVerifier.create(service.getDistinctFranchiseAndPosByRewardBatchId(rewardBatchId, MERCHANT_ID))
                 .expectErrorMatches(e -> e instanceof RuntimeException && "mongo failure".equals(e.getMessage()))
                 .verify();
     }
@@ -1031,10 +1024,10 @@ class PointOfSaleTransactionServiceImplTest {
     void getDistinctFranchiseAndPosByRewardBatchId_returnsEmptyList() {
         String rewardBatchId = "BATCH_EMPTY";
 
-        when(rewardTransactionRepository.findDistinctFranchiseAndPosByRewardBatchId(INITIATIVE_ID, MERCHANT_ID, rewardBatchId))
+        when(rewardTransactionRepository.findDistinctFranchiseAndPosByRewardBatchId(rewardBatchId, MERCHANT_ID))
                 .thenReturn(Flux.empty());
 
-        StepVerifier.create(service.getDistinctFranchiseAndPosByRewardBatchId(INITIATIVE_ID, MERCHANT_ID, rewardBatchId))
+        StepVerifier.create(service.getDistinctFranchiseAndPosByRewardBatchId(rewardBatchId, MERCHANT_ID))
                 .assertNext(List::isEmpty)
                 .verifyComplete();
     }
