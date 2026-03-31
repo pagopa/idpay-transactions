@@ -685,11 +685,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
         String status = response.getErogazione().getStatus();
 
-        if (InvitaliaOutcomeStatus.COMPLETATO.name().equalsIgnoreCase(status)) {
+        if (InvitaliaOutcomeStatus.COMPLETATA.name().equalsIgnoreCase(status)) {
             batch.setStatus(RewardBatchStatus.REFUNDED);
             batch.setRefundValutaDate(response.getErogazione().getDateValue());
 
-        } else if (InvitaliaOutcomeStatus.RIFIUTATO.name().equalsIgnoreCase(status)) {
+        } else if (InvitaliaOutcomeStatus.RIFIUTATA.name().equalsIgnoreCase(status)) {
 
             batch.setStatus(RewardBatchStatus.NOT_REFUNDED);
 
