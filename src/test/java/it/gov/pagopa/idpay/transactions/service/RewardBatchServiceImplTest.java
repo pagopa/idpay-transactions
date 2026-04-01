@@ -2064,6 +2064,12 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(targetBatch));
 
+        when(rewardTransactionRepository.findByFilter(
+                BATCH_ID,
+                INITIATIVE_ID,
+                List.of(RewardBatchTrxStatus.SUSPENDED)
+        )).thenReturn(Flux.just(new RewardTransaction()));
+
         Mono<RewardBatch> result = ReflectionTestUtils.invokeMethod(
                 serviceSpy,
                 "handleSuspendedTransactions",
@@ -2111,6 +2117,12 @@ class RewardBatchServiceImplTest {
 
         when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(targetBatch));
+
+        when(rewardTransactionRepository.findByFilter(
+                BATCH_ID,
+                INITIATIVE_ID,
+                List.of(RewardBatchTrxStatus.SUSPENDED)
+        )).thenReturn(Flux.just(new RewardTransaction()));
 
         Mono<RewardBatch> result = ReflectionTestUtils.invokeMethod(
                 serviceSpy,
