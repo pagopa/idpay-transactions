@@ -183,7 +183,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
         String oldBatchId = requireRewardBatchId(trx);
 
-        return rewardBatchRepository.findByMerchantIdAndInitiativeIdAndId(trx.getMerchantId(), trx.getInitiativeId(), oldBatchId)
+        return rewardBatchRepository.findByMerchantIdAndInitiativeIdAndId(trx.getMerchantId(), trx.getInitiatives().getFirst(), oldBatchId)
                 .switchIfEmpty(Mono.defer(() -> Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_NOT_FOUND))))
                 .flatMap(oldBatch ->
 
