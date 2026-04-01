@@ -884,6 +884,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .count()
                 .flatMap(countToMove ->
                         findOrCreateBatch(
+                                originalBatch.getInitiativeId(),
                                 originalBatch.getMerchantId(),
                                 originalBatch.getPosType(),
                                 getTargetMonth(originalBatch.getMonth()),
@@ -902,7 +903,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                             .incrementSuspendedAmountCents(totalAccrued)
                                             .incrementTrxSuspended(countToMove);
 
-                                    return rewardBatchRepository.updateTotals(newBatch.getId(), batchCounters);
+                                    return rewardBatchRepository.updateTotals(newBatch.getInitiativeId(), newBatch.getId(), batchCounters);
                                 })
                         )
                 )
