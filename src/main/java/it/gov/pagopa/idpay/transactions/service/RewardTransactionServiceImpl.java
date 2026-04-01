@@ -250,7 +250,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
                         .incrementInitialAmountCents(accruedRewardCents)
                         .incrementNumberOfTransactions(1L);
 
-              return rewardBatchRepository.updateTotals(rewardBatch.getInitiativeId(), rewardBatch.getMerchantId(), rewardBatch.getId(), counters)
+              return rewardBatchRepository.updateTotals(rewardBatch.getInitiativeId(), rewardBatch.getId(), counters)
                   .map(batch -> {
                     trx.setRewardBatchId(batch.getId());
                     trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);

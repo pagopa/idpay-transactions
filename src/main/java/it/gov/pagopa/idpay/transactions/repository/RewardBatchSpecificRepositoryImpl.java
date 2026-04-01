@@ -132,7 +132,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Mono<RewardBatch> updateTotals(String initiativeId, String merchantId, String rewardBatchId, BatchCountersDTO acc) {
+  public Mono<RewardBatch> updateTotals(String initiativeId, String rewardBatchId, BatchCountersDTO acc) {
 
     Update update = new Update();
     if (acc.getTrxElaborated() != 0) {
@@ -162,7 +162,6 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
       Query query = Query.query(
               Criteria.where("_id").is(rewardBatchId)
                       .and(RewardBatch.Fields.initiativeId).is(initiativeId)
-                      .and(RewardBatch.Fields.merchantId).is(merchantId)
       );
 
     return mongoTemplate.findAndModify(
@@ -177,8 +176,8 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
   }
 
   @Override
-  public Mono<RewardBatch> findRewardBatchByIdAndMerchantIdAndInitiativeId(String rewardBatchId, String merchantId, String initiativeId) {
-    Criteria criteria = getCriteriaFindRewardBatchByIdAndMerchantIdAndInitiativeId(rewardBatchId, merchantId, initiativeId);
+  public Mono<RewardBatch> findRewardBatchByIdAndInitiativeId(String rewardBatchId, String initiativeId) {
+    Criteria criteria = getCriteriaFindRewardBatchByIdAndInitiativeId(rewardBatchId, initiativeId);
 
     return mongoTemplate.findOne(
             Query.query(criteria),
@@ -205,9 +204,9 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
 
   }
   @Override
-  public Mono<RewardBatch> updateStatusAndApprovedAmountCents(String rewardBatchId, String merchantId, RewardBatchStatus rewardBatchStatus, Long approvedAmountCents, String initiativeId) {
+  public Mono<RewardBatch> updateStatusAndApprovedAmountCents(String rewardBatchId, RewardBatchStatus rewardBatchStatus, Long approvedAmountCents, String initiativeId) {
     return mongoTemplate.findAndModify(
-            Query.query(getCriteriaFindRewardBatchByIdAndMerchantIdAndInitiativeId(rewardBatchId, merchantId, initiativeId)),
+            Query.query(getCriteriaFindRewardBatchByIdAndInitiativeId(rewardBatchId, initiativeId)),
             new Update()
                     .set(RewardBatch.Fields.status, rewardBatchStatus)
                     .set(RewardBatch.Fields.approvedAmountCents, approvedAmountCents)
@@ -238,9 +237,8 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
 
 
 
-    private static Criteria getCriteriaFindRewardBatchByIdAndMerchantIdAndInitiativeId(String rewardBatchId, String merchantId, String initiativeId) {
+    private static Criteria getCriteriaFindRewardBatchByIdAndInitiativeId(String rewardBatchId, String initiativeId) {
     return Criteria.where("_id").is(rewardBatchId.trim())
-            .and(RewardBatch.Fields.merchantId).is(merchantId)
             .and(RewardBatch.Fields.initiativeId).is(initiativeId);
   }
 

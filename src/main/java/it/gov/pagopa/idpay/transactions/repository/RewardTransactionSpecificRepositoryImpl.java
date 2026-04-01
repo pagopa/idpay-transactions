@@ -7,7 +7,6 @@ import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
-import it.gov.pagopa.idpay.transactions.dto.batch.UpdateStatusBatchDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
@@ -336,12 +335,11 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
 
   @Override
-  public Mono<Void> rewardTransactionsByBatchIdAndInitiativeIdAndMerchantId(String batchId, String initiativeId, String merchantId) {
+  public Mono<Void> rewardTransactionsByBatchIdAndInitiativeId(String batchId, String initiativeId) {
     Criteria batchCriteria = Criteria.where(Fields.rewardBatchId).is(batchId);
     Criteria samplingBatchCriteria = Criteria.where(Fields.rewardBatchId).is(batchId)
         .and(Fields.rewardBatchTrxStatus).ne(RewardBatchTrxStatus.SUSPENDED)
-        .and(Fields.initiativeId).is(initiativeId)
-        .and(Fields.merchantId).is(merchantId);
+        .and(Fields.initiativeId).is(initiativeId);
 
     Mono<Long> totalMono = mongoTemplate.updateMulti(
             Query.query(batchCriteria),
@@ -382,13 +380,12 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
   }
 
   @Override
-  public Mono<Long> sumSuspendedAccruedRewardCents(String initiativeId, String rewardBatchId, String merchantId) {
+  public Mono<Long> sumSuspendedAccruedRewardCents(String initiativeId, String rewardBatchId) {
 
     MatchOperation match = Aggregation.match(
         Criteria.where("rewardBatchId").is(rewardBatchId)
             .and("rewardBatchTrxStatus").is(RewardBatchTrxStatus.SUSPENDED)
             .and("initiativeId").is(initiativeId)
-            .and("merchantId").is(merchantId)
     );
 
     Aggregation agg = Aggregation.newAggregation(
@@ -407,7 +404,8 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
   @Override
   public Mono<RewardTransaction> updateStatusAndReturnOld(
-          UpdateStatusBatchDTO dto,
+          String initiativeId,
+          String batchId,
           String trxId,
           RewardBatchTrxStatus newStatus,
           ReasonDTO reasons,
@@ -416,9 +414,8 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
   ) {
 
       Criteria base = Criteria.where(Fields.id).is(trxId)
-              .and(Fields.rewardBatchId).is(dto.getBatchId())
-              .and(Fields.initiativeId).is(dto.getInitiativeId())
-              .and(Fields.merchantId).is(dto.getMerchantId());
+              .and(Fields.rewardBatchId).is(batchId)
+              .and(Fields.initiativeId).is(initiativeId);
 
       Query findQuery = Query.query(base);
       findQuery.fields().include(Fields.rewardBatchTrxStatus);
@@ -427,7 +424,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
               mongoTemplate.findOne(findQuery, RewardTransaction.class)
                       .flatMap(current -> {
                           if (current == null) {
-                              log.info("Transaction not found for id {} and reward batch {}", trxId, dto.getBatchId());
+                              log.info("Transaction not found for id {} and reward batch {}", trxId, batchId);
                               return Mono.empty();
                           }
 
@@ -435,7 +432,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
                           Update update = createUpdate(currentStatus, newStatus, reasons, batchMonth, checksError);
 
                           Criteria cond = Criteria.where(Fields.id).is(trxId)
-                                  .and(Fields.rewardBatchId).is(dto.getBatchId())
+                                  .and(Fields.rewardBatchId).is(batchId)
                                   .and(Fields.rewardBatchTrxStatus).is(currentStatus);
 
                           return mongoTemplate.findAndModify(

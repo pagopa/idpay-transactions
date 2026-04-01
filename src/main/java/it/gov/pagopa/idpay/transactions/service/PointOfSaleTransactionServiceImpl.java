@@ -298,8 +298,8 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     oldTransaction.setUpdateDate(LocalDateTime.now());
 
                     return rewardTransactionRepository.save(oldTransaction)
-                            .then(rewardBatchRepository.updateTotals(oldBatch.getInitiativeId(), oldBatch.getMerchantId(), oldBatch.getId(), oldBatchCounter))
-                            .then(rewardBatchRepository.updateTotals(newBatch.getInitiativeId(), newBatch.getMerchantId(), newBatch.getId(), newBatchCounter))
+                            .then(rewardBatchRepository.updateTotals(oldBatch.getInitiativeId(), oldBatch.getId(), oldBatchCounter))
+                            .then(rewardBatchRepository.updateTotals(newBatch.getInitiativeId(), newBatch.getId(), newBatchCounter))
                             .thenReturn(oldTransaction);
                 });
     }
@@ -381,7 +381,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
                                     Mono<Void> updateBatchTotalsMono =
                                             oldRewardBatchId != null
-                                                    ? rewardBatchRepository.updateTotals(initiativeId, merchantId, oldRewardBatchId, counters).then()
+                                                    ? rewardBatchRepository.updateTotals(initiativeId, oldRewardBatchId, counters).then()
                                                     : Mono.empty();
 
 

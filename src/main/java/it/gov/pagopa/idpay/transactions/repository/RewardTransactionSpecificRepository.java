@@ -2,7 +2,6 @@ package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
-import it.gov.pagopa.idpay.transactions.dto.batch.UpdateStatusBatchDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
@@ -34,9 +33,9 @@ public interface RewardTransactionSpecificRepository {
      */
     Mono<RewardTransaction> findTransaction(String merchantId, String transactionId);
     Flux<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId);
-    Mono<Long> sumSuspendedAccruedRewardCents(String initiativeId, String rewardBatchId, String merchantId);
-    Mono<Void> rewardTransactionsByBatchIdAndInitiativeIdAndMerchantId(String batchId, String initiativeId, String merchantId);
-    Mono<RewardTransaction> updateStatusAndReturnOld(UpdateStatusBatchDTO dto, String trxId, RewardBatchTrxStatus status, ReasonDTO reasons, String batchMonth, ChecksError checksError);
+    Mono<Long> sumSuspendedAccruedRewardCents(String initiativeId, String rewardBatchId);
+    Mono<Void> rewardTransactionsByBatchIdAndInitiativeId(String batchId, String initiativeId);
+    Mono<RewardTransaction> updateStatusAndReturnOld(String initiativeId, String batchId, String trxId, RewardBatchTrxStatus status, ReasonDTO reasons, String batchMonth, ChecksError checksError);
     Flux<RewardTransaction> findInvoicedTransactionsWithoutBatch(int pageSize);
     Mono<RewardTransaction> findInvoicedTrxByIdWithoutBatch(String initiativeId, String merchantId, String trxId);
     Flux<FranchisePointOfSaleDTO> findDistinctFranchiseAndPosByRewardBatchId(String rewardBatchId, String merchantId);

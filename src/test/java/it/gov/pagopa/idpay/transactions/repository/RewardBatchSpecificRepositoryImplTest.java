@@ -483,7 +483,6 @@ class RewardBatchSpecificRepositoryImplTest {
     RewardBatch updated = rewardBatchSpecificRepository
             .updateTotals(
                     INITIATIVE_ID,
-                    MERCHANT,
                     batch1.getId(),
                     BatchCountersDTO.newBatch()
                             .incrementTrxSuspended(modifiedCount))
@@ -501,7 +500,6 @@ class RewardBatchSpecificRepositoryImplTest {
   void updateTotals_shouldUpdateElaboratedTrxNumber() {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             INITIATIVE_ID,
-            MERCHANT,
             batch1.getId(),
             BatchCountersDTO.newBatch().incrementTrxElaborated(3L)).block();
 
@@ -518,7 +516,6 @@ class RewardBatchSpecificRepositoryImplTest {
   void updateTotals_shouldUpdateSuspendedTrxNumber() {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             INITIATIVE_ID,
-            MERCHANT,
             batch1.getId(),
             BatchCountersDTO.newBatch()
                     .incrementTrxSuspended(2L)).block();
@@ -536,7 +533,6 @@ class RewardBatchSpecificRepositoryImplTest {
   void updateTotals_shouldUpdateRejectedTrxNumber() {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             INITIATIVE_ID,
-            MERCHANT,
             batch1.getId(),
             BatchCountersDTO.newBatch()
                     .incrementTrxRejected(4L)).block();
@@ -555,7 +551,6 @@ class RewardBatchSpecificRepositoryImplTest {
   void updateTotals_shouldUpdateApprovedAmount() {
     RewardBatch updated = rewardBatchSpecificRepository.updateTotals(
             INITIATIVE_ID,
-            MERCHANT,
             batch1.getId(),
             BatchCountersDTO.newBatch()
                     .incrementApprovedAmountCents(500L)).block();
@@ -667,8 +662,8 @@ class RewardBatchSpecificRepositoryImplTest {
 
   @Test
   void findRewardBatchByIdAndMerchantIdAndInitiativeId_ShouldReturnDocument() {
-    Mono<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId(
-            batch1.getId(), batch1.getMerchantId(), batch1.getInitiativeId());
+    Mono<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByIdAndInitiativeId(
+            batch1.getId(), batch1.getInitiativeId());
 
     StepVerifier.create(result)
             .expectNextMatches(batch ->
@@ -714,7 +709,7 @@ class RewardBatchSpecificRepositoryImplTest {
     rewardBatchRepository.save(rewardBatch).block();
 
     RewardBatch resultUpdated = rewardBatchRepository
-            .updateStatusAndApprovedAmountCents(rewardBatch.getId(), MERCHANT, RewardBatchStatus.EVALUATING, 200L, INITIATIVE_ID)
+            .updateStatusAndApprovedAmountCents(rewardBatch.getId(), RewardBatchStatus.EVALUATING, 200L, INITIATIVE_ID)
             .block();
 
     assertNotNull(resultUpdated);
@@ -769,7 +764,7 @@ class RewardBatchSpecificRepositoryImplTest {
 
     @Test
     void findRewardBatchByIdAndMerchantIdAndInitiativeId_shouldTrimInput() {
-        Mono<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByIdAndMerchantIdAndInitiativeId("  " + batch1.getId() + "  ", MERCHANT, INITIATIVE_ID);
+        Mono<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByIdAndInitiativeId("  " + batch1.getId() + "  ", INITIATIVE_ID);
 
         StepVerifier.create(result)
                 .expectNextMatches(b -> b.getId().equals(batch1.getId()))
@@ -812,7 +807,7 @@ class RewardBatchSpecificRepositoryImplTest {
         rewardBatchRepository.save(created).block();
 
         RewardBatch updated = rewardBatchSpecificRepository
-                .updateStatusAndApprovedAmountCents(created.getId(), created.getMerchantId(), RewardBatchStatus.APPROVED, 1234L, created.getInitiativeId())
+                .updateStatusAndApprovedAmountCents(created.getId(), RewardBatchStatus.APPROVED, 1234L, created.getInitiativeId())
                 .block();
 
         assertNotNull(updated);
