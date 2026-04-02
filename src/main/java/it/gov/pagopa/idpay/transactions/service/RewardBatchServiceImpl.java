@@ -1335,8 +1335,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         .doOnNext(match -> log.info("[CANCEL_EMPTY_BATCHES] Matching docs={}", match))
                 )
                 .thenMany(reactiveMongoTemplate.find(toDeleteQuery, RewardBatch.class)
-                        .doOnNext(b -> log.info("[CANCEL_EMPTY_BATCHES] WILL DELETE id={} month={} nTrx={}",
-                                b.getId(), b.getMonth(), b.getNumberOfTransactions()))
+                        .doOnNext(b -> log.info("[CANCEL_EMPTY_BATCHES] WILL DELETE rewardBatch={}",b))
                 )
                 .concatMap(b ->
                         reactiveMongoTemplate.remove(
