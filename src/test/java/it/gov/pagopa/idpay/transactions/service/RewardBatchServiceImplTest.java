@@ -988,6 +988,7 @@ class RewardBatchServiceImplTest {
         batch.setId(batchId);
         batch.setMerchantId("M1");
         batch.setStatus(RewardBatchStatus.APPROVED);
+        batch.setApprovedAmountCents(10000L);
 
         MerchantDetailDTO merchantDetail = new MerchantDetailDTO();
         merchantDetail.setFiscalCode(fiscalCode);
@@ -1006,6 +1007,28 @@ class RewardBatchServiceImplTest {
                 .verifyComplete();
 
         verify(erogazioniRestClient, never()).postErogazione(any());
+    }
+
+    @Test
+    void rewardBatchDeliveryBatch_Fail_ApprovedAmountZero() {
+        // Given
+        String initiativeId = "INIT_1";
+        String batchId = "BATCH_1";
+
+        RewardBatch batch = new RewardBatch();
+        batch.setId(batchId);
+        batch.setMerchantId("M1");
+        batch.setStatus(RewardBatchStatus.APPROVED);
+        batch.setApprovedAmountCents(0L);
+
+        when(rewardBatchRepository.findRewardBatchById(batchId)).thenReturn(Mono.just(batch));
+
+        StepVerifier.create(service.rewardBatchDeliveryBatch(initiativeId, List.of(batchId)))
+                .verifyComplete();
+
+        verify(erogazioniRestClient, never()).postErogazione(any());
+        verify(merchantRestClient, never()).getMerchantDetail(any(), anyString());
+        verify(selfcareInstitutionsRestClient, never()).getInstitutions(any());
     }
 
     @Test
