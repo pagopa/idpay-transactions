@@ -880,6 +880,27 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
+    void rewardBatchConfirmation_previousInRefundedState() {
+        RewardBatch rb = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.EVALUATING).assigneeLevel(RewardBatchAssignee.L3)
+                .merchantId(MERCHANT_ID).posType(PHYSICAL).month("2025-12").build();
+
+        RewardBatch prevApproved = RewardBatch.builder().id("P1").status(RewardBatchStatus.PENDING_REFUND).build();
+
+        when(rewardBatchRepository.findRewardBatchById(BATCH_ID)).thenReturn(Mono.just(rb));
+        when(rewardBatchRepository.findRewardBatchByMonthBefore(MERCHANT_ID, PHYSICAL, "2025-12"))
+                .thenReturn(Flux.just(prevApproved));
+        when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        StepVerifier.create(service.rewardBatchConfirmation(INITIATIVE_ID, BATCH_ID))
+                .assertNext(updated -> {
+                    assertEquals(RewardBatchStatus.APPROVING, updated.getStatus());
+                    assertNotNull(updated.getApprovalDate());
+                    assertNotNull(updated.getUpdateDate());
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void rewardBatchConfirmation_success() {
         RewardBatch rb = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.EVALUATING).assigneeLevel(RewardBatchAssignee.L3)
                 .merchantId(MERCHANT_ID).posType(PHYSICAL).month("2025-12").build();
@@ -1184,6 +1205,23 @@ class RewardBatchServiceImplTest {
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .numberOfTransactions(100L)
                 .numberOfTransactionsElaborated(20L)
+                .build();
+
+        when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(b));
+        when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        StepVerifier.create(service.validateRewardBatch(OP1, INITIATIVE_ID, BATCH_ID))
+                .assertNext(updated -> assertEquals(RewardBatchAssignee.L2, updated.getAssigneeLevel()))
+                .verifyComplete();
+    }
+
+    @Test
+    void validateRewardBatch_L1_to_L2_successWithZeroTransaction() {
+        RewardBatch b = RewardBatch.builder()
+                .id(BATCH_ID)
+                .assigneeLevel(RewardBatchAssignee.L1)
+                .numberOfTransactions(0L)
+                .numberOfTransactionsElaborated(0L)
                 .build();
 
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(b));
