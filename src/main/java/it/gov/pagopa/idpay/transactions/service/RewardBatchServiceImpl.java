@@ -1046,7 +1046,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         long total = batch.getNumberOfTransactions();
                         long elaborated = batch.getNumberOfTransactionsElaborated();
 
-                        if (total != 0 && elaborated < Math.ceil(total * 0.15)) {
+                        if (total > 0 && elaborated < Math.ceil(total * 0.15)) {
                             return Mono.error(new BatchNotElaborated15PercentException(
                                     BATCH_NOT_ELABORATED_15_PERCENT,
                                     ERROR_MESSAGE_BATCH_NOT_ELABORATED_15_PERCENT

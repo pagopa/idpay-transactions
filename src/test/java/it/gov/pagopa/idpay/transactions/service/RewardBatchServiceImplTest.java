@@ -1233,6 +1233,23 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
+    void validateRewardBatch_L1_to_L2_successWithNegativeTransaction() {
+        RewardBatch b = RewardBatch.builder()
+                .id(BATCH_ID)
+                .assigneeLevel(RewardBatchAssignee.L1)
+                .numberOfTransactions(0L)
+                .numberOfTransactionsElaborated(-10L)
+                .build();
+
+        when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(b));
+        when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        StepVerifier.create(service.validateRewardBatch(OP1, INITIATIVE_ID, BATCH_ID))
+                .assertNext(updated -> assertEquals(RewardBatchAssignee.L2, updated.getAssigneeLevel()))
+                .verifyComplete();
+    }
+
+    @Test
     void validateRewardBatch_L1_wrongRole() {
         RewardBatch b = RewardBatch.builder()
                 .id(BATCH_ID)
