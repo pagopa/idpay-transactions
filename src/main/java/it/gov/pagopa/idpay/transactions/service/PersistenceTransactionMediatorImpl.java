@@ -80,6 +80,7 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
       Message<String> message,
       Map<String, Object> ctx) {
 
+    log.info("DESERIALIZED KAFKA PAYLOAD = {}", payload);
     Object opTypeHeader = message.getHeaders().get(OPERATION_TYPE_HEADER);
 
     if (OPERATION_TYPE_REFUNDED.equals(opTypeHeader)) {

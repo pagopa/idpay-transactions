@@ -197,6 +197,7 @@ public abstract class BaseKafkaConsumer<T, R> {
 
     /** It will read and deserialize {@link Message#getPayload()} using the given {@link #getObjectReader()} */
     protected T deserializeMessage(Message<String> message) {
+        log.info("RAW KAFKA PAYLOAD = {}", message);
         return CommonUtilities.deserializeMessage(message, getObjectReader(), onDeserializationError(message));
     }
 
