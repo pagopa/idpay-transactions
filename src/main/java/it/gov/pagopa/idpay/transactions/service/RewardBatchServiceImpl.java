@@ -865,27 +865,39 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
 
     private Mono<RewardBatch> handleSuspendedTransactions(RewardBatch originalBatch, String initiativeId) {
-        if (originalBatch.getNumberOfTransactionsSuspended() == null || originalBatch.getNumberOfTransactionsSuspended() <= 0) {
+        if (originalBatch.getNumberOfTransactionsSuspended() == null
+                || originalBatch.getNumberOfTransactionsSuspended() <= 0) {
             log.info("numberOfTransactionSuspended = 0 for batch {}", originalBatch.getId());
             return Mono.just(originalBatch);
         }
 
-        long countToMove = originalBatch.getNumberOfTransactionsSuspended();
+        return rewardTransactionRepository
+                .findByFilter(originalBatch.getId(), initiativeId, List.of(RewardBatchTrxStatus.SUSPENDED))
+                .count()
+                .flatMap(countToMove ->
+                        findOrCreateBatch(
+                                originalBatch.getMerchantId(),
+                                originalBatch.getPosType(),
+                                getTargetMonth(originalBatch.getMonth()),
+                                originalBatch.getBusinessName()
+                        ).flatMap(newBatch ->
+                                updateAndSaveRewardTransactionsSuspended(
+                                        originalBatch.getId(),
+                                        initiativeId,
+                                        newBatch.getId(),
+                                        originalBatch.getMonth()
+                                ).flatMap(totalAccrued -> {
+                                    BatchCountersDTO batchCounters = BatchCountersDTO.newBatch()
+                                            .incrementInitialAmountCents(totalAccrued)
+                                            .incrementTrxElaborated(countToMove)
+                                            .incrementNumberOfTransactions(countToMove)
+                                            .incrementSuspendedAmountCents(totalAccrued)
+                                            .incrementTrxSuspended(countToMove);
 
-        return findOrCreateBatch(originalBatch.getMerchantId(),
-                originalBatch.getPosType(),
-                getTargetMonth(originalBatch.getMonth()),
-                originalBatch.getBusinessName())
-                .flatMap(newBatch -> updateAndSaveRewardTransactionsSuspended(originalBatch.getId(), initiativeId, newBatch.getId(), originalBatch.getMonth())
-                        .flatMap(totalAccrued -> {
-                            BatchCountersDTO batchCounters = BatchCountersDTO.newBatch()
-                                    .incrementInitialAmountCents(totalAccrued)
-                                    .incrementTrxElaborated(countToMove)
-                                    .incrementNumberOfTransactions(countToMove)
-                                    .incrementSuspendedAmountCents(totalAccrued)
-                                    .incrementTrxSuspended(countToMove);
-                            return rewardBatchRepository.updateTotals(newBatch.getId(), batchCounters);
-                        }))
+                                    return rewardBatchRepository.updateTotals(newBatch.getId(), batchCounters);
+                                })
+                        )
+                )
                 .thenReturn(originalBatch);
     }
 
