@@ -56,7 +56,6 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
     @Override
     public Mono<RewardTransaction> save(RewardTransaction rewardTransaction) {
-        log.info("POST MAPPER TRANSACTION = {}", rewardTransaction);
         if (SyncTrxStatus.INVOICED.name().equalsIgnoreCase(rewardTransaction.getStatus())) {
             return enrichBatchData(rewardTransaction)
                 .flatMap(rewardTrxRepository::save);
