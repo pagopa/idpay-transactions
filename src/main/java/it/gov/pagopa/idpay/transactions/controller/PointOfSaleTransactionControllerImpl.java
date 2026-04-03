@@ -94,7 +94,7 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
         String sanitizePointOfSaleId = pointOfSaleId == null ? null : Utilities.sanitizeString(pointOfSaleId);
         String sanitizeTransactionId = transactionId == null ? null : Utilities.sanitizeString(transactionId);
         log.info("[DOWNLOAD_TRANSACTION] Requested to download invoice for transaction {}",
-                Utilities.sanitizeString(transactionId));
+                sanitizeTransactionId);
 
         if (tokenPointOfSaleId != null && (!sanitizeTokenPointOfSaleId
                 .equals(sanitizePointOfSaleId))){
@@ -116,7 +116,7 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
                                         FilePart file, String docNumber, String authorization) {
         String sanitizeTransactionId = transactionId == null ? null : Utilities.sanitizeString(transactionId);
         final String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
-        final String sanitizedTrxCode = Utilities.sanitizeString(transactionId);
+        final String sanitizedTrxCode = transactionId == null ? null : Utilities.sanitizeString(transactionId);
 
         log.info(
                 "[UPDATE_INVOICE_TRANSACTION] The merchant {} is requesting a invoice update for the transactionId {}",
