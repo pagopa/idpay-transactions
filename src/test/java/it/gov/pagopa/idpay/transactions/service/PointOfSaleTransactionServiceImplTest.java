@@ -414,7 +414,7 @@ class PointOfSaleTransactionServiceImplTest {
         RewardTransaction trx = new RewardTransaction();
         trx.setRewardBatchId("B404");
         trx.setMerchantId(MERCHANT_ID);
-        trx.setInitiativeId(INITIATIVE_ID);
+        trx.setInitiatives(List.of(INITIATIVE_ID));
         trx.setPointOfSaleId(POS_ID);
         trx.setInvoiceData(InvoiceData.builder().filename("old.pdf").build());
 
