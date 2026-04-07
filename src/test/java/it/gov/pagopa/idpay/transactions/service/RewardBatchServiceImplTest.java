@@ -85,6 +85,7 @@ class RewardBatchServiceImplTest {
     private RewardBatchServiceImpl serviceSpy;
 
     private static final String INITIATIVE_ID = "INITIATIVE_ID";
+    private static final List<String> INITIATIVES_ID = List.of(INITIATIVE_ID);
     private static final String MERCHANT_ID = "MERCHANT_ID";
     private static final String BUSINESS_NAME = "Business";
     private static final String BATCH_ID = "BATCH_ID";
@@ -509,7 +510,7 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction trxSuspPrev = RewardTransaction.builder()
                 .id("SUSP_PREV")
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
                 .rewardBatchLastMonthElaborated("2025-11")
@@ -518,7 +519,7 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction trxApproved = RewardTransaction.builder()
                 .id("APP")
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(200L).build()))
@@ -526,7 +527,7 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction trxToCheck = RewardTransaction.builder()
                 .id("TO_CHECK")
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(300L).build()))
@@ -534,7 +535,7 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction trxConsultable = RewardTransaction.builder()
                 .id("CONS")
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(400L).build()))
@@ -542,7 +543,7 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction trxRejected = RewardTransaction.builder()
                 .id("REJ")
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(500L).build()))
@@ -550,7 +551,7 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction trxNullAccrued = RewardTransaction.builder()
                 .id("NULL_ACC")
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
                 .rewards(Map.of("OTHER", Reward.builder().accruedRewardCents(999L).build()))
@@ -639,7 +640,7 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction alreadyRejected = RewardTransaction.builder()
                 .id("ALREADY_REJ")
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(10L).build()))
@@ -647,7 +648,7 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction approved = RewardTransaction.builder()
                 .id("APP")
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(20L).build()))
@@ -655,7 +656,7 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction toCheck = RewardTransaction.builder()
                 .id("TO_CHECK")
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(30L).build()))
@@ -663,7 +664,7 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction consultable = RewardTransaction.builder()
                 .id("CONS")
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(40L).build()))
@@ -671,7 +672,7 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction suspendedPrev = RewardTransaction.builder()
                 .id("SUSP_PREV")
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
                 .rewardBatchLastMonthElaborated("2025-11")
@@ -717,7 +718,7 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction alreadyApproved = RewardTransaction.builder()
                 .id("ALREADY_APP")
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(10L).build()))
@@ -725,7 +726,7 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction toCheck = RewardTransaction.builder()
                 .id("TO_CHECK")
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(20L).build()))
@@ -733,7 +734,7 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction consultable = RewardTransaction.builder()
                 .id("CONS")
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(30L).build()))
@@ -741,7 +742,7 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction suspendedPrev = RewardTransaction.builder()
                 .id("SUSP_PREV")
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
                 .rewardBatchLastMonthElaborated("2025-11")
@@ -750,7 +751,7 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction rejected = RewardTransaction.builder()
                 .id("REJ")
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .merchantId(MERCHANT_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(50L).build()))
@@ -1559,7 +1560,7 @@ class RewardBatchServiceImplTest {
         RewardTransaction trx = RewardTransaction.builder()
                 .id("T1")
                 .merchantId(MERCHANT_ID)
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .rewardBatchId(BATCH_ID)
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
                 .build();
