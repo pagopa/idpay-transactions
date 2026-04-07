@@ -273,7 +273,7 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void sendRewardBatch_previousNotSent() {
+    void sendRewardBatch_previousNotSentNotEmpty() {
         YearMonth batchMonth = YearMonth.now().minusMonths(1);
 
         RewardBatch current = RewardBatch.builder()
@@ -288,6 +288,7 @@ class RewardBatchServiceImplTest {
                 .id("PREV")
                 .merchantId(MERCHANT_ID)
                 .status(RewardBatchStatus.CREATED)
+                .numberOfTransactions(1L)
                 .month(batchMonth.minusMonths(1).toString())
                 .posType(PHYSICAL)
                 .build();
@@ -299,6 +300,41 @@ class RewardBatchServiceImplTest {
         StepVerifier.create(service.sendRewardBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID))
                 .expectError(RewardBatchException.class)
                 .verify();
+
+    }
+
+    @Test
+    void sendRewardBatch_previousNotSentEmpty() {
+        YearMonth batchMonth = YearMonth.now().minusMonths(1);
+
+        RewardBatch current = RewardBatch.builder()
+                .id(BATCH_ID)
+                .merchantId(MERCHANT_ID)
+                .status(RewardBatchStatus.CREATED)
+                .month(batchMonth.toString())
+                .posType(PHYSICAL)
+                .build();
+
+        RewardBatch previousCreatedEmpty = RewardBatch.builder()
+                .id("PREV")
+                .merchantId(MERCHANT_ID)
+                .status(RewardBatchStatus.CREATED)
+                .numberOfTransactions(0L)
+                .month(batchMonth.minusMonths(1).toString())
+                .posType(PHYSICAL)
+                .build();
+
+
+        when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(current));
+        when(rewardBatchRepository.findByMerchantIdAndInitiativeIdAndPosType(MERCHANT_ID, INITIATIVE_ID, PHYSICAL))
+                .thenReturn(Flux.just(previousCreatedEmpty));
+        when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        StepVerifier.create(service.sendRewardBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID))
+                .verifyComplete();
+
+        verify(rewardBatchRepository).save(argThat(b -> b.getStatus() == RewardBatchStatus.SENT && b.getMerchantSendDate() != null));
+
     }
 
     @Test
@@ -1090,67 +1126,6 @@ class RewardBatchServiceImplTest {
         StepVerifier.create(r1).expectNext(rbNull).verifyComplete();
         assertNotNull(r2);
         StepVerifier.create(r2).expectNext(rbZero).verifyComplete();
-    }
-
-    @Test
-    void createRewardBatchAndSave_existingBatchFound() {
-        RewardBatch savedBatch = RewardBatch.builder()
-                .id(BATCH_ID)
-                .merchantId(MERCHANT_ID)
-                .initiativeId(INITIATIVE_ID)
-                .businessName(BUSINESS_NAME)
-                .month("2025-12")
-                .name("dicembre 2025")
-                .posType(PHYSICAL)
-                .status(RewardBatchStatus.APPROVED)
-                .partial(false)
-                .build();
-
-        RewardBatch existing = RewardBatch.builder().id(BATCH_ID_2).merchantId(MERCHANT_ID).month("2026-01").name("gennaio 2026").posType(PHYSICAL).build();
-
-        when(rewardBatchRepository.findRewardBatchByFilter(null, MERCHANT_ID, PHYSICAL, "2026-01", INITIATIVE_ID))
-                .thenReturn(Mono.just(existing));
-
-        StepVerifier.create(service.createRewardBatchAndSave(savedBatch))
-                .expectNext(existing)
-                .verifyComplete();
-
-        verify(rewardBatchRepository, never()).save(argThat(b -> b.getId() == null));
-    }
-
-    @Test
-    void createRewardBatchAndSave_createsWhenMissing() {
-        RewardBatch savedBatch = RewardBatch.builder()
-                .id("ID")
-                .merchantId(MERCHANT_ID)
-                .initiativeId(INITIATIVE_ID)
-                .businessName(BUSINESS_NAME)
-                .month("2025-12")
-                .name("dicembre 2025")
-                .posType(PHYSICAL)
-                .partial(false)
-                .build();
-
-        when(rewardBatchRepository.findRewardBatchByFilter(null, MERCHANT_ID, PHYSICAL, "2026-01", INITIATIVE_ID))
-                .thenReturn(Mono.empty());
-
-        when(rewardBatchRepository.save(any()))
-                .thenAnswer(inv -> {
-                    RewardBatch b = inv.getArgument(0);
-                    b.setId(BATCH_ID);
-                    return Mono.just(b);
-                });
-
-        StepVerifier.create(service.createRewardBatchAndSave(savedBatch))
-                .assertNext(b -> {
-                    assertEquals(BATCH_ID, b.getId());
-                    assertEquals("2026-01", b.getMonth());
-                    assertEquals(RewardBatchStatus.CREATED, b.getStatus());
-                    assertEquals(RewardBatchAssignee.L1, b.getAssigneeLevel());
-                })
-                .verifyComplete();
-
-        verify(rewardBatchRepository).save(any());
     }
 
     @Test

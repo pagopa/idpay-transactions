@@ -185,16 +185,6 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
 
   }
 
-  @Override
-  public Mono<RewardBatch> findRewardBatchByFilter(String rewardBatchId, String merchantId, PosType posType, String month, String initiativeId) {
-    Criteria criteria = getCriteriaFindRewardBatchByFilter(rewardBatchId, merchantId, posType, month);
-
-    return mongoTemplate.findOne(
-            Query.query(criteria),
-            RewardBatch.class);
-
-  }
-
   public Flux<RewardBatch> findRewardBatchByMonthBefore(String merchantId, String initiativeId, PosType posType, String month) {
     Criteria criteria = getCriteriaFindRewardBatchByMonthBefore(merchantId, initiativeId, posType, month);
 

@@ -205,9 +205,9 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                 ExceptionConstants.ExceptionCode.REWARD_BATCH_MONTH_TOO_EARLY));
                     }
 
-                    return noPreviousBatchesInCreatedStatus(initiativeId, merchantId, batchMonth, batch.getPosType())
+                    return anyPreviousBatchesInCreatedStatusNotEmpty(initiativeId, merchantId, batchMonth, batch.getPosType())
                             .flatMap(allPreviousSent -> {
-                                if (Boolean.FALSE.equals(allPreviousSent)) {
+                                if (Boolean.TRUE.equals(allPreviousSent)) {
                                     log.warn("[SEND_REWARD_BATCHES] Previous batches of type {} not sent yet for merchant {}!",
                                             batch.getPosType(), Utilities.sanitizeString(merchantId));
                                     return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
@@ -224,15 +224,15 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 });
     }
 
-    private Mono<Boolean> noPreviousBatchesInCreatedStatus(String initiativeId, String merchantId, YearMonth currentMonth, PosType posType) {
+    private Mono<Boolean> anyPreviousBatchesInCreatedStatusNotEmpty(String initiativeId, String merchantId, YearMonth currentMonth, PosType posType) {
         return rewardBatchRepository.findByMerchantIdAndInitiativeIdAndPosType(merchantId, initiativeId, posType)
                 .filter(batch -> {
                     YearMonth batchMonth = YearMonth.parse(batch.getMonth());
                     return batchMonth.isBefore(currentMonth);
                 })
                 .filter(batch -> batch.getStatus() == RewardBatchStatus.CREATED)
-                .hasElements()
-                .map(hasCreated -> !hasCreated);
+                .filter(batch -> batch.getNumberOfTransactions() != 0)
+                .hasElements();
     }
 
     @Override
@@ -908,57 +908,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         )
                 )
                 .thenReturn(originalBatch);
-    }
-
-    Mono<RewardBatch> createRewardBatchAndSave(RewardBatch savedBatch) {
-
-        Mono<RewardBatch> existingBatchMono = rewardBatchRepository.findRewardBatchByFilter(
-                        null,
-                        savedBatch.getMerchantId(),
-                        savedBatch.getPosType(),
-                        addOneMonth(savedBatch.getMonth()),
-                        savedBatch.getInitiativeId())
-                .doOnNext(existingBatch ->
-                        log.info("Batch for {} and merchantId {} already exists, with rewardBatchId = {}",
-                                addOneMonthToItalian(savedBatch.getName()),
-                                Utilities.sanitizeString(existingBatch.getMerchantId()),
-                                Utilities.sanitizeString(existingBatch.getId())));
-
-        Mono<RewardBatch> newBatchCreationMono = Mono.just(savedBatch)
-                .map(batch -> RewardBatch.builder()
-                        .id(null)
-                        .merchantId(savedBatch.getMerchantId())
-                        .businessName(savedBatch.getBusinessName())
-                        .month(addOneMonth(savedBatch.getMonth()))
-                        .posType(savedBatch.getPosType())
-                        .status(RewardBatchStatus.CREATED)
-                        .partial(savedBatch.getPartial())
-                        .name(addOneMonthToItalian(savedBatch.getName()))
-                        .startDate(savedBatch.getStartDate())
-                        .endDate(savedBatch.getEndDate())
-                        .approvedAmountCents(0L)
-                        .initialAmountCents(0L)
-                        .numberOfTransactions(0L)
-                        .numberOfTransactionsElaborated(0L)
-                        .numberOfTransactionsSuspended(0L)
-                        .numberOfTransactionsRejected(0L)
-                        .reportPath(savedBatch.getReportPath())
-                        .assigneeLevel(RewardBatchAssignee.L1)
-                        .creationDate(LocalDateTime.now())
-                        .updateDate(LocalDateTime.now())
-                        .build()
-                )
-                .flatMap(rewardBatchRepository::save)
-                .doOnNext(newBatch ->
-                        log.info("Created new batch for {} with rewardBatchId = {}",
-                                addOneMonthToItalian(savedBatch.getName()),
-                                Utilities.sanitizeString(newBatch.getId()))
-                );
-
-        return existingBatchMono
-                .switchIfEmpty(newBatchCreationMono)
-                .map(foundOrNewBatch -> foundOrNewBatch);
-
     }
 
     public String addOneMonth(String yearMonthString) {
