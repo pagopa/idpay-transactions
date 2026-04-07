@@ -50,7 +50,6 @@ public class RewardTransaction {
     private String status;
     private List<String> rejectionReasons;
     private Map<String, List<String>> initiativeRejectionReasons;
-    private String initiativeId;
     private List<String> initiatives;
     private Map<String,Reward> rewards;
 
