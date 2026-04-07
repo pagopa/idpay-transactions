@@ -963,12 +963,12 @@ class RewardBatchServiceImplTest {
     @Test
     void rewardBatchConfirmation_previousInRefundedState() {
         RewardBatch rb = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.EVALUATING).assigneeLevel(RewardBatchAssignee.L3)
-                .merchantId(MERCHANT_ID).posType(PHYSICAL).month("2025-12").build();
+                .merchantId(MERCHANT_ID).posType(PHYSICAL).month("2025-12").initiativeId(INITIATIVE_ID).build();
 
         RewardBatch prevApproved = RewardBatch.builder().id("P1").status(RewardBatchStatus.PENDING_REFUND).build();
 
-        when(rewardBatchRepository.findRewardBatchById(BATCH_ID)).thenReturn(Mono.just(rb));
-        when(rewardBatchRepository.findRewardBatchByMonthBefore(MERCHANT_ID, PHYSICAL, "2025-12"))
+        when(rewardBatchRepository.findRewardBatchByIdAndInitiativeId(BATCH_ID, INITIATIVE_ID)).thenReturn(Mono.just(rb));
+        when(rewardBatchRepository.findRewardBatchByMonthBefore(MERCHANT_ID, INITIATIVE_ID, PHYSICAL, "2025-12"))
                 .thenReturn(Flux.just(prevApproved));
         when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
@@ -1149,7 +1149,7 @@ class RewardBatchServiceImplTest {
         batch.setStatus(RewardBatchStatus.APPROVED);
         batch.setApprovedAmountCents(0L);
 
-        when(rewardBatchRepository.findRewardBatchById(batchId)).thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.findRewardBatchByIdAndInitiativeId(batchId, initiativeId)).thenReturn(Mono.just(batch));
 
         StepVerifier.create(service.rewardBatchDeliveryBatch(initiativeId, List.of(batchId)))
                 .verifyComplete();
