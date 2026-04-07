@@ -239,6 +239,7 @@ class MerchantRewardBatchControllerImplTest {
 
         when(rewardBatchService.getRewardBatches(
                 eq(MERCHANT_ID),
+                eq(INITIATIVE_ID),
                 isNull(),
                 isNull(),
                 isNull(),
@@ -270,7 +271,7 @@ class MerchantRewardBatchControllerImplTest {
                 });
 
         verify(rewardBatchService, times(1))
-                .getRewardBatches(eq(MERCHANT_ID), isNull(), isNull(), isNull(), isNull(), any(Pageable.class));
+                .getRewardBatches(eq(MERCHANT_ID), eq(INITIATIVE_ID), isNull(), isNull(), isNull(), isNull(), any(Pageable.class));
         verify(rewardBatchMapper, times(1)).toDTO(batch);
     }
 
@@ -296,12 +297,13 @@ class MerchantRewardBatchControllerImplTest {
 
         when(rewardBatchService.getRewardBatches(
                 isNull(),
+                eq(INITIATIVE_ID),
                 eq(organizationRole),
                 isNull(),
                 isNull(),
                 isNull(),
-                any(Pageable.class)))
-                .thenReturn(Mono.just(page));
+                any(Pageable.class)
+        )).thenReturn(Mono.just(page));
 
         when(rewardBatchMapper.toDTO(batch))
                 .thenReturn(Mono.just(dto));
@@ -327,7 +329,7 @@ class MerchantRewardBatchControllerImplTest {
                 });
 
         verify(rewardBatchService, times(1))
-                .getRewardBatches(isNull(), eq(organizationRole), isNull(), isNull(), isNull(), any(Pageable.class));
+                .getRewardBatches(isNull(), eq(INITIATIVE_ID), eq(organizationRole), isNull(), isNull(), isNull(), any(Pageable.class));
         verify(rewardBatchMapper, times(1)).toDTO(batch);
     }
 
@@ -336,7 +338,7 @@ class MerchantRewardBatchControllerImplTest {
 
         String batchId = "BATCH1";
 
-        when(rewardBatchService.sendRewardBatch(MERCHANT_ID, batchId))
+        when(rewardBatchService.sendRewardBatch(INITIATIVE_ID, MERCHANT_ID, batchId))
                 .thenReturn(Mono.empty());
 
         webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
@@ -348,7 +350,7 @@ class MerchantRewardBatchControllerImplTest {
                 .expectStatus().isNoContent();
 
         verify(rewardBatchService, times(1))
-                .sendRewardBatch(MERCHANT_ID, batchId);
+                .sendRewardBatch(INITIATIVE_ID, MERCHANT_ID, batchId);
     }
 
     @Test
@@ -613,7 +615,7 @@ class MerchantRewardBatchControllerImplTest {
     void evaluatingRewardBatches() {
         RewardBatchesRequest batchRequest = RewardBatchesRequest.builder().rewardBatchIds(List.of("BATCH_ID")).build();
 
-        when(rewardBatchService.evaluatingRewardBatches(List.of("BATCH_ID"))).thenReturn(Mono.just(1L));
+        when(rewardBatchService.evaluatingRewardBatches(List.of("BATCH_ID"),"INIT1")).thenReturn(Mono.just(1L));
 
         webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/evaluate",
@@ -630,7 +632,7 @@ class MerchantRewardBatchControllerImplTest {
                         .rewardBatchIds(List.of("BATCH_ID"))
                         .build();
 
-        when(rewardBatchService.evaluatingRewardBatches(List.of("BATCH_ID")))
+        when(rewardBatchService.evaluatingRewardBatches(List.of("BATCH_ID"),"INIT1"))
                 .thenReturn(Mono.error(
                         new RewardBatchNotFound("DUMMY_EXCEPTION", "MESSAGE_DUMMY"))
                 );

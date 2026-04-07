@@ -296,7 +296,7 @@ class RewardTransactionSpecificRepositoryTest {
         when(mongoTemplate.findOne(any(Query.class), eq(RewardTransaction.class)))
                 .thenReturn(Mono.just(trx));
 
-        StepVerifier.create(repository.findInvoicedTrxByIdWithoutBatch("trx1"))
+        StepVerifier.create(repository.findInvoicedTrxByIdWithoutBatch("initiativeId","merchantId","trx1"))
                 .expectNext(trx)
                 .verifyComplete();
     }
@@ -309,7 +309,7 @@ class RewardTransactionSpecificRepositoryTest {
         when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
                 .thenReturn(Flux.just(new RewardTransaction()));
 
-        StepVerifier.create(repository.rewardTransactionsByBatchId("batch1"))
+        StepVerifier.create(repository.rewardTransactionsByBatchIdAndInitiativeId("batch1","initiativeId"))
                 .verifyComplete();
     }
 
@@ -332,7 +332,7 @@ class RewardTransactionSpecificRepositoryTest {
         when(mongoTemplate.findOne(any(Query.class), eq(RewardTransaction.class)))
                 .thenReturn(Mono.just(trx));
 
-        StepVerifier.create(repository.findTransactionInBatch("merchant1", "batch1", "trx1"))
+        StepVerifier.create(repository.findTransactionInBatch("initiativeId", "merchantId", "reward","trx1"))
                 .expectNext(trx)
                 .verifyComplete();
     }

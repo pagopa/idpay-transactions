@@ -43,7 +43,7 @@ class RewardBatchSpecificRepositoryImplTest {
                 .thenReturn(Flux.just(batch));
 
         StepVerifier.create(repository.findRewardBatchesCombined(
-                        "merchant", null, null, null, false,
+                        "merchant", null, null, null, null, false,
                         PageRequest.of(0, 10)))
                 .expectNext(batch)
                 .verifyComplete();
@@ -61,6 +61,7 @@ class RewardBatchSpecificRepositoryImplTest {
                         RewardBatchStatus.TO_APPROVE.name(),
                         null,
                         "2024-01",
+                        null,
                         false,
                         PageRequest.of(0, 10)))
                 .expectNext(batch)
@@ -77,6 +78,7 @@ class RewardBatchSpecificRepositoryImplTest {
                         RewardBatchStatus.TO_WORK.name(),
                         null,
                         "2024-01",
+                        null,
                         false,
                         PageRequest.of(0, 10)))
                 .expectNextCount(1)
@@ -90,9 +92,10 @@ class RewardBatchSpecificRepositoryImplTest {
 
         StepVerifier.create(repository.findRewardBatchesCombined(
                         "merchant",
-                        RewardBatchStatus.TO_APPROVE.name(),
                         RewardBatchAssignee.L1.name(),
+                        RewardBatchStatus.CREATED.name(),
                         "2024-01",
+                        null,
                         false,
                         PageRequest.of(0, 10)))
                 .verifyComplete();
@@ -105,6 +108,7 @@ class RewardBatchSpecificRepositoryImplTest {
 
         StepVerifier.create(repository.findRewardBatchesCombined(
                         "merchant",
+                        null,
                         null,
                         null,
                         null,
@@ -122,7 +126,8 @@ class RewardBatchSpecificRepositoryImplTest {
         StepVerifier.create(repository.findRewardBatchesCombined(
                         "merchant",
                         null,
-                        "levelException",
+                        "CREATED",
+                        null,
                         null,
                         true,
                         PageRequest.of(0, 10)))
@@ -136,7 +141,7 @@ class RewardBatchSpecificRepositoryImplTest {
                 .thenReturn(Mono.just(10L));
 
         StepVerifier.create(repository.getCountCombined(
-                        "merchant", null, null, null, false))
+                        "merchant", null, null, null, null,false))
                 .expectNext(10L)
                 .verifyComplete();
     }
@@ -156,7 +161,7 @@ class RewardBatchSpecificRepositoryImplTest {
         when(mongoTemplate.findAndModify(any(), any(), any(), eq(RewardBatch.class)))
                 .thenReturn(Mono.just(batch));
 
-        StepVerifier.create(repository.updateTotals("id", dto))
+        StepVerifier.create(repository.updateTotals("id", "reward", dto))
                 .expectNext(batch)
                 .verifyComplete();
     }
@@ -168,7 +173,7 @@ class RewardBatchSpecificRepositoryImplTest {
         when(mongoTemplate.findAndModify(any(), any(), any(), eq(RewardBatch.class)))
                 .thenReturn(Mono.just(new RewardBatch()));
 
-        StepVerifier.create(repository.updateTotals("id", dto))
+        StepVerifier.create(repository.updateTotals("id", "reward", dto))
                 .expectNextCount(1)
                 .verifyComplete();
     }
@@ -178,7 +183,7 @@ class RewardBatchSpecificRepositoryImplTest {
         when(mongoTemplate.findOne(any(Query.class), eq(RewardBatch.class)))
                 .thenReturn(Mono.just(new RewardBatch()));
 
-        StepVerifier.create(repository.findRewardBatchById(" id "))
+        StepVerifier.create(repository.findRewardBatchByIdAndInitiativeId("id","id"))
                 .expectNextCount(1)
                 .verifyComplete();
     }
@@ -189,7 +194,7 @@ class RewardBatchSpecificRepositoryImplTest {
                 .thenReturn(Mono.just(new RewardBatch()));
 
         StepVerifier.create(repository.findRewardBatchByFilter(
-                        "id", "merchant", PosType.PHYSICAL, "2024-01"))
+                        "id","id", PosType.PHYSICAL, "2024-01", "initiative"))
                 .expectNextCount(1)
                 .verifyComplete();
     }
@@ -200,7 +205,7 @@ class RewardBatchSpecificRepositoryImplTest {
                 .thenReturn(Mono.just(new RewardBatch()));
 
         StepVerifier.create(repository.findRewardBatchByFilter(
-                        null, "merchant", null, null))
+                        null, "merchant", null, null, "initiative"))
                 .expectNextCount(1)
                 .verifyComplete();
     }
@@ -211,7 +216,7 @@ class RewardBatchSpecificRepositoryImplTest {
         when(mongoTemplate.find(any(), eq(RewardBatch.class)))
                 .thenReturn(Flux.just(new RewardBatch()));
 
-        StepVerifier.create(repository.findRewardBatchByStatus(RewardBatchStatus.APPROVED))
+        StepVerifier.create(repository.findRewardBatchesCombined("merchant","initiative",RewardBatchStatus.APPROVED.name(),null,null,false, null))
                 .expectNextCount(1)
                 .verifyComplete();
     }
@@ -222,7 +227,7 @@ class RewardBatchSpecificRepositoryImplTest {
                 .thenReturn(Flux.just(new RewardBatch()));
 
         StepVerifier.create(repository.findRewardBatchByMonthBefore(
-                        "merchant", PosType.PHYSICAL, "2024-02"))
+                        "merchant","initiative", PosType.PHYSICAL, "2024-02"))
                 .expectNextCount(1)
                 .verifyComplete();
     }
@@ -236,7 +241,8 @@ class RewardBatchSpecificRepositoryImplTest {
         StepVerifier.create(repository.updateStatusAndApprovedAmountCents(
                         "id",
                         RewardBatchStatus.APPROVED,
-                        100L))
+                        100L,
+                        "initiative"))
                 .expectNextCount(1)
                 .verifyComplete();
     }
