@@ -26,106 +26,120 @@ import java.util.List;
 @Slf4j
 public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransactionController {
 
-  private final PointOfSaleTransactionService pointOfSaleTransactionService;
-  private final PointOfSaleTransactionMapper mapper;
+    private final PointOfSaleTransactionService pointOfSaleTransactionService;
+    private final PointOfSaleTransactionMapper mapper;
 
-  public PointOfSaleTransactionControllerImpl(PointOfSaleTransactionService pointOfSaleTransactionService,
-      PointOfSaleTransactionMapper mapper) {
-    this.pointOfSaleTransactionService = pointOfSaleTransactionService;
-    this.mapper = mapper;
-  }
-
-  @Override
-  public Mono<PointOfSaleTransactionsListDTO> getPointOfSaleTransactions(String merchantId,
-                                                                         String tokenPointOfSaleId,
-                                                                         String initiativeId,
-                                                                         String pointOfSaleId,
-                                                                         String productGtin,
-                                                                         String fiscalCode,
-                                                                         String status,
-                                                                         String trxCode,
-                                                                         Pageable pageable) {
-    log.info("[GET_POINT-OF-SALE_TRANSACTIONS] Point Of Sale {} requested to retrieve transactions", Utilities.sanitizeString(pointOfSaleId));
-
-    if (tokenPointOfSaleId != null && (!Utilities.sanitizeString(tokenPointOfSaleId)
-        .equals(Utilities.sanitizeString(pointOfSaleId)))){
-
-      return Mono.error(new ClientExceptionWithBody(
-          HttpStatus.FORBIDDEN,
-          ExceptionConstants.ExceptionCode.POINT_OF_SALE_NOT_ALLOWED,
-          String.format(
-              "Point of sale mismatch: expected [%s], but received [%s]", tokenPointOfSaleId, pointOfSaleId
-          )
-      ));
+    public PointOfSaleTransactionControllerImpl(PointOfSaleTransactionService pointOfSaleTransactionService,
+                                                PointOfSaleTransactionMapper mapper) {
+        this.pointOfSaleTransactionService = pointOfSaleTransactionService;
+        this.mapper = mapper;
     }
-
-    TrxFiltersDTO filters = new TrxFiltersDTO();
-    filters.setFiscalCode(fiscalCode);
-    filters.setStatus(status);
-    filters.setTrxCode(trxCode);
-
-    return pointOfSaleTransactionService.getPointOfSaleTransactions(merchantId, initiativeId, pointOfSaleId, productGtin, filters, pageable)
-        .flatMap(page ->
-            Flux.fromIterable(page.getContent())
-                .flatMapSequential(trx -> mapper.toDTO(trx, initiativeId, fiscalCode))
-                .collectList()
-                .map(dtoList -> new PointOfSaleTransactionsListDTO(
-                    dtoList,
-                    page.getNumber(),
-                    page.getSize(),
-                    (int) page.getTotalElements(),
-                    page.getTotalPages()))
-        );
-  }
-
-  @Override
-  public Mono<DownloadInvoiceResponseDTO> downloadInvoiceFile(
-          String merchantId, String tokenPointOfSaleId, String pointOfSaleId, String transactionId) {
-    log.info("[DOWNLOAD_TRANSACTION] Requested to download invoice for transaction {}",
-            Utilities.sanitizeString(transactionId));
-
-    if (tokenPointOfSaleId != null && (!Utilities.sanitizeString(tokenPointOfSaleId)
-        .equals(Utilities.sanitizeString(pointOfSaleId)))){
-
-      return Mono.error(new ClientExceptionWithBody(
-          HttpStatus.FORBIDDEN,
-          ExceptionConstants.ExceptionCode.POINT_OF_SALE_NOT_ALLOWED,
-          String.format(
-              "Point of sale mismatch: expected [%s], but received [%s]", tokenPointOfSaleId, pointOfSaleId
-          )
-      ));
-    }
-
-    return pointOfSaleTransactionService.downloadTransactionInvoice(merchantId, pointOfSaleId, transactionId);
-  }
-
-  @Override
-  public Mono<Void> updateInvoiceFile(String transactionId, String merchantId,
-                                      FilePart file, String docNumber, String authorization) {
-    final String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
-    final String sanitizedTrxCode = Utilities.sanitizeString(transactionId);
-
-    log.info(
-        "[UPDATE_INVOICE_TRANSACTION] The merchant {} is requesting a invoice update for the transactionId {}",
-        sanitizedMerchantId, sanitizedTrxCode
-    );
-
-      List<String> scopes = JwtUtils.extractScopesOrThrow(authorization);
-
-      InvoiceLifecyclePolicy policy = InvoiceLifecyclePolicyFactory.fromScopes(scopes);
-
-    return pointOfSaleTransactionService.updateInvoiceTransaction(transactionId, merchantId,
-        file, docNumber, policy);
-  }
 
     @Override
-    public Mono<List<FranchisePointOfSaleDTO>> getFranchisePointOfSale(String rewardBatchId) {
+    public Mono<PointOfSaleTransactionsListDTO> getPointOfSaleTransactions(String merchantId,
+                                                                           String tokenPointOfSaleId,
+                                                                           String initiativeId,
+                                                                           String pointOfSaleId,
+                                                                           String productGtin,
+                                                                           String fiscalCode,
+                                                                           String status,
+                                                                           String trxCode,
+                                                                           Pageable pageable) {
+        String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
+        String sanitizeMerchantId = merchantId == null ? null : Utilities.sanitizeString(merchantId);
+        String sanitizeTokenPointOfSaleId = tokenPointOfSaleId == null ? null : Utilities.sanitizeString(tokenPointOfSaleId);
+        String sanitizePointOfSaleId = pointOfSaleId == null ? null : Utilities.sanitizeString(pointOfSaleId);
+        String sanitizeProductGtin = productGtin == null ? null : Utilities.sanitizeString(productGtin);
+        String sanitizeFiscalCode = fiscalCode == null ? null : Utilities.sanitizeString(fiscalCode);
+        String sanitizeStatus = status == null ? null : Utilities.sanitizeString(status);
+        String sanitizeTrxCode = trxCode == null ? null : Utilities.sanitizeString(trxCode);
+        log.info("[GET_POINT-OF-SALE_TRANSACTIONS] Point Of Sale {} requested to retrieve transactions", sanitizePointOfSaleId);
 
-      final String sanitizedRewardBatchId = Utilities.sanitizeString(rewardBatchId);
+        if (tokenPointOfSaleId != null && (!sanitizeTokenPointOfSaleId
+                .equals(sanitizePointOfSaleId))){
 
-      log.info("[POINT_OF_SALE_TRANSACTION_CONTROLLER] - Get point of sales by reward batch id {}", sanitizedRewardBatchId);
+            return Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.FORBIDDEN,
+                    ExceptionConstants.ExceptionCode.POINT_OF_SALE_NOT_ALLOWED,
+                    String.format(
+                            "Point of sale mismatch: expected [%s], but received [%s]", sanitizeTokenPointOfSaleId, sanitizePointOfSaleId
+                    )
+            ));
+        }
 
-      return pointOfSaleTransactionService.getDistinctFranchiseAndPosByRewardBatchId(sanitizedRewardBatchId);
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setFiscalCode(sanitizeFiscalCode);
+        filters.setStatus(sanitizeStatus);
+        filters.setTrxCode(sanitizeTrxCode);
+
+        return pointOfSaleTransactionService.getPointOfSaleTransactions(sanitizeMerchantId, sanitizeInitiativeId, sanitizePointOfSaleId, sanitizeProductGtin, filters, pageable)
+                .flatMap(page ->
+                        Flux.fromIterable(page.getContent())
+                                .flatMapSequential(trx -> mapper.toDTO(trx, initiativeId, fiscalCode))
+                                .collectList()
+                                .map(dtoList -> new PointOfSaleTransactionsListDTO(
+                                        dtoList,
+                                        page.getNumber(),
+                                        page.getSize(),
+                                        (int) page.getTotalElements(),
+                                        page.getTotalPages()))
+                );
+    }
+
+    @Override
+    public Mono<DownloadInvoiceResponseDTO> downloadInvoiceFile(
+            String merchantId, String tokenPointOfSaleId, String pointOfSaleId, String transactionId) {
+        String sanitizeMerchantId = merchantId == null ? null : Utilities.sanitizeString(merchantId);
+        String sanitizeTokenPointOfSaleId = tokenPointOfSaleId == null ? null : Utilities.sanitizeString(tokenPointOfSaleId);
+        String sanitizePointOfSaleId = pointOfSaleId == null ? null : Utilities.sanitizeString(pointOfSaleId);
+        String sanitizeTransactionId = transactionId == null ? null : Utilities.sanitizeString(transactionId);
+        log.info("[DOWNLOAD_TRANSACTION] Requested to download invoice for transaction {}",
+                sanitizeTransactionId);
+
+        if (tokenPointOfSaleId != null && (!sanitizeTokenPointOfSaleId
+                .equals(sanitizePointOfSaleId))){
+
+            return Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.FORBIDDEN,
+                    ExceptionConstants.ExceptionCode.POINT_OF_SALE_NOT_ALLOWED,
+                    String.format(
+                            "Point of sale mismatch: expected [%s], but received [%s]", sanitizeTokenPointOfSaleId, sanitizePointOfSaleId
+                    )
+            ));
+        }
+
+        return pointOfSaleTransactionService.downloadTransactionInvoice(sanitizeMerchantId, sanitizePointOfSaleId, sanitizeTransactionId);
+    }
+
+    @Override
+    public Mono<Void> updateInvoiceFile(String transactionId, String merchantId,
+                                        FilePart file, String docNumber, String authorization) {
+        String sanitizeTransactionId = transactionId == null ? null : Utilities.sanitizeString(transactionId);
+        final String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
+        final String sanitizedTrxCode = transactionId == null ? null : Utilities.sanitizeString(transactionId);
+
+        log.info(
+                "[UPDATE_INVOICE_TRANSACTION] The merchant {} is requesting a invoice update for the transactionId {}",
+                sanitizedMerchantId, sanitizedTrxCode
+        );
+
+        List<String> scopes = JwtUtils.extractScopesOrThrow(authorization);
+
+        InvoiceLifecyclePolicy policy = InvoiceLifecyclePolicyFactory.fromScopes(scopes);
+
+        return pointOfSaleTransactionService.updateInvoiceTransaction(sanitizeTransactionId, sanitizedMerchantId,
+                file, docNumber, policy);
+    }
+
+    @Override
+    public Mono<List<FranchisePointOfSaleDTO>> getFranchisePointOfSale(String rewardBatchId, String merchantId) {
+
+        final String sanitizedRewardBatchId = Utilities.sanitizeString(rewardBatchId);
+        String sanitizeMerchantId = merchantId == null ? null : Utilities.sanitizeString(merchantId);
+
+        log.info("[POINT_OF_SALE_TRANSACTION_CONTROLLER] - Get point of sales by reward batch id {}", sanitizedRewardBatchId);
+
+        return pointOfSaleTransactionService.getDistinctFranchiseAndPosByRewardBatchId(sanitizedRewardBatchId, sanitizeMerchantId);
     }
 
     @Override
@@ -133,6 +147,7 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
 
         final String sanitizedMerchantId = Utilities.sanitizeString(merchantId);
         final String sanitizedTrxCode = Utilities.sanitizeString(transactionId);
+        String sanitizeTransactionId = transactionId == null ? null : Utilities.sanitizeString(transactionId);
 
         log.info(
                 "[REVERSAL_TRANSACTION] The merchant {} is requesting a reversal for the transactionId {}",
@@ -143,6 +158,6 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
 
         InvoiceLifecyclePolicy policy = InvoiceLifecyclePolicyFactory.fromScopes(scopes);
 
-        return pointOfSaleTransactionService.reversalTransaction(transactionId, merchantId, file, docNumber, policy);
+        return pointOfSaleTransactionService.reversalTransaction(sanitizeTransactionId, sanitizedMerchantId, file, docNumber, policy);
     }
 }
