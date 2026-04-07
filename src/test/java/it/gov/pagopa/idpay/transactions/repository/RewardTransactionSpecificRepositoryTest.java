@@ -36,6 +36,7 @@ class RewardTransactionSpecificRepositoryTest {
     private RewardTransactionSpecificRepositoryImpl rewardTransactionSpecificRepository;
 
     private static final String INITIATIVE_ID = "INITIATIVEID1";
+    private static final List<String> INITIATIVES_ID = List.of(INITIATIVE_ID);
     private static final String MERCHANT_ID = "MERCHANTID1";
     private static final String USER_ID = "USERID1";
     private static final String POS_ID = "POINTOFSALEID1";
@@ -59,7 +60,7 @@ class RewardTransactionSpecificRepositoryTest {
         RewardTransaction trx = RewardTransactionFaker.mockInstance(1);
         trx.setId(trxId);
         trx.setMerchantId(MERCHANT_ID);
-        trx.setInitiativeId(INITIATIVE_ID);
+        trx.setInitiatives(INITIATIVES_ID);
         trx.setRewardBatchId(BATCH_ID);
         trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
         rewardTransactionRepository.save(trx).block();
@@ -67,7 +68,7 @@ class RewardTransactionSpecificRepositoryTest {
         ReasonDTO reasons = new ReasonDTO(LocalDateTime.now(), "REJECTION_REASON");
 
         StepVerifier.create(rewardTransactionSpecificRepository.updateStatusAndReturnOld(
-                        trx.getInitiativeId(), trx.getRewardBatchId(), trxId, RewardBatchTrxStatus.REJECTED, reasons, batchMonth, null))
+                        trx.getInitiatives().getFirst(), trx.getRewardBatchId(), trxId, RewardBatchTrxStatus.REJECTED, reasons, batchMonth, null))
                 .assertNext(oldTrx -> {
                     assertEquals(RewardBatchTrxStatus.CONSULTABLE, oldTrx.getRewardBatchTrxStatus());
                     assertEquals(trxId, oldTrx.getId());
@@ -483,11 +484,11 @@ class RewardTransactionSpecificRepositoryTest {
     @Test
     void findInvoicedTransactionsWithoutBatch_shouldRespectPageSize() {
         RewardTransaction t1 = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("t1").merchantId(MERCHANT_ID).initiativeId(INITIATIVE_ID).status(SyncTrxStatus.INVOICED.name()).rewardBatchId(null).build();
+                .id("t1").merchantId(MERCHANT_ID).initiatives(INITIATIVES_ID).status(SyncTrxStatus.INVOICED.name()).rewardBatchId(null).build();
         RewardTransaction t2 = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("t2").merchantId(MERCHANT_ID).initiativeId(INITIATIVE_ID).status(SyncTrxStatus.INVOICED.name()).rewardBatchId(null).build();
+                .id("t2").merchantId(MERCHANT_ID).initiatives(INITIATIVES_ID).status(SyncTrxStatus.INVOICED.name()).rewardBatchId(null).build();
         RewardTransaction t3 = RewardTransactionFaker.mockInstanceBuilder(3)
-                .id("t3").merchantId(MERCHANT_ID).initiativeId(INITIATIVE_ID).status(SyncTrxStatus.INVOICED.name()).rewardBatchId(null).build();
+                .id("t3").merchantId(MERCHANT_ID).initiatives(INITIATIVES_ID).status(SyncTrxStatus.INVOICED.name()).rewardBatchId(null).build();
 
         rewardTransactionRepository.saveAll(List.of(t1, t2, t3)).collectList().block();
 
@@ -506,7 +507,7 @@ class RewardTransactionSpecificRepositoryTest {
         RewardTransaction trx = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("t1")
                 .merchantId(MERCHANT_ID)
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .rewardBatchId(BATCH_ID)
                 .build();
         rewardTransactionRepository.save(trx).block();
@@ -710,7 +711,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .id("ok")
                 .merchantId(MERCHANT_ID)
                 .merchantId(MERCHANT_ID)
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .status(SyncTrxStatus.INVOICED.name())
                 .build();
 
@@ -718,7 +719,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .id("ko")
                 .merchantId(MERCHANT_ID)
                 .merchantId(MERCHANT_ID)
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .status("AUTHORIZED")
                 .build();
 
@@ -835,7 +836,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .id("s1")
                 .rewardBatchId(BATCH_ID)
                 .merchantId(MERCHANT_ID)
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
                 .rewards(Map.of(
                         "A", Reward.builder().accruedRewardCents(100L).build(),
@@ -847,7 +848,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .id("s2")
                 .rewardBatchId(BATCH_ID)
                 .merchantId(MERCHANT_ID)
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
                 .rewards(Map.of(
                         "C", Reward.builder().accruedRewardCents(30L).build()
@@ -858,7 +859,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .id("s3")
                 .rewardBatchId(BATCH_ID)
                 .merchantId(MERCHANT_ID)
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED)
                 .rewards(Map.of(
                         "D", Reward.builder().accruedRewardCents(999L).build()
@@ -878,7 +879,7 @@ class RewardTransactionSpecificRepositoryTest {
         RewardTransaction trx = RewardTransactionFaker.mockInstance(1);
         trx.setId(trxId);
         trx.setMerchantId(MERCHANT_ID);
-        trx.setInitiativeId(INITIATIVE_ID);
+        trx.setInitiatives(INITIATIVES_ID);
         trx.setRewardBatchId(BATCH_ID);
         trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
         rewardTransactionRepository.save(trx).block();
@@ -914,7 +915,7 @@ class RewardTransactionSpecificRepositoryTest {
         trx.setId(trxId);
         trx.setRewardBatchId(BATCH_ID);
         trx.setMerchantId(MERCHANT_ID);
-        trx.setInitiativeId(INITIATIVE_ID);
+        trx.setInitiatives(INITIATIVES_ID);
         trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED);
         trx.setRewardBatchRejectionReason(List.of(new ReasonDTO(LocalDateTime.now(), "OLD")));
         rewardTransactionRepository.save(trx).block();
@@ -938,7 +939,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .id("ib1")
                 .status(SyncTrxStatus.INVOICED.name())
                 .merchantId(MERCHANT_ID)
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .rewardBatchId(null)
                 .build();
 
@@ -946,7 +947,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .id("ib2")
                 .status(SyncTrxStatus.INVOICED.name())
                 .merchantId(MERCHANT_ID)
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .rewardBatchId(BATCH_ID)
                 .build();
 
@@ -966,7 +967,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .id("d1")
                 .rewardBatchId(BATCH_ID)
                 .merchantId(MERCHANT_ID)
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .franchiseName("F1")
                 .pointOfSaleId("P1")
                 .build();
@@ -975,7 +976,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .id("d2")
                 .rewardBatchId(BATCH_ID)
                 .merchantId(MERCHANT_ID)
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .franchiseName("F1")
                 .pointOfSaleId("P1")
                 .build();
@@ -984,7 +985,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .id("d3")
                 .rewardBatchId(BATCH_ID)
                 .merchantId(MERCHANT_ID)
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .franchiseName("F2")
                 .pointOfSaleId("P2")
                 .build();

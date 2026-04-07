@@ -339,7 +339,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     Criteria batchCriteria = Criteria.where(Fields.rewardBatchId).is(batchId);
     Criteria samplingBatchCriteria = Criteria.where(Fields.rewardBatchId).is(batchId)
         .and(Fields.rewardBatchTrxStatus).ne(RewardBatchTrxStatus.SUSPENDED)
-        .and(Fields.initiativeId).is(initiativeId);
+        .and(Fields.initiatives).in(initiativeId);
 
     Mono<Long> totalMono = mongoTemplate.updateMulti(
             Query.query(batchCriteria),
@@ -383,9 +383,9 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
   public Mono<Long> sumSuspendedAccruedRewardCents(String initiativeId, String rewardBatchId) {
 
     MatchOperation match = Aggregation.match(
-        Criteria.where("rewardBatchId").is(rewardBatchId)
-            .and("rewardBatchTrxStatus").is(RewardBatchTrxStatus.SUSPENDED)
-            .and("initiativeId").is(initiativeId)
+        Criteria.where(Fields.rewardBatchId).is(rewardBatchId)
+            .and(Fields.rewardBatchTrxStatus).is(RewardBatchTrxStatus.SUSPENDED)
+            .and(Fields.initiatives).in(initiativeId)
     );
 
     Aggregation agg = Aggregation.newAggregation(
@@ -415,7 +415,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
       Criteria base = Criteria.where(Fields.id).is(trxId)
               .and(Fields.rewardBatchId).is(batchId)
-              .and(Fields.initiativeId).is(initiativeId);
+              .and(Fields.initiatives).in(initiativeId);
 
       Query findQuery = Query.query(base);
       findQuery.fields().include(Fields.rewardBatchTrxStatus);
@@ -491,7 +491,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     Criteria criteria = Criteria.where(Fields.id).is(trxId)
         .and(Fields.status).is(SyncTrxStatus.INVOICED)
         .and(Fields.rewardBatchId).isNull()
-        .and(Fields.initiativeId).is(initiativeId)
+        .and(Fields.initiatives).in(initiativeId)
         .and(Fields.merchantId).is(merchantId);
 
     Query query = Query.query(criteria);
@@ -534,7 +534,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     rewardBatchId, String transactionId){
       Criteria criteria = Criteria
           .where(RewardTransaction.Fields.id).is(transactionId)
-          .and(Fields.initiativeId).is(initiativeId)
+          .and(Fields.initiatives).in(initiativeId)
           .and(RewardTransaction.Fields.merchantId).is(merchantId)
           .and(RewardTransaction.Fields.rewardBatchId).is(rewardBatchId);
 

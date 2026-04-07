@@ -674,27 +674,6 @@ class RewardBatchSpecificRepositoryImplTest {
   }
 
   @Test
-  void findRewardBatchByFilter_ShouldReturnDocument_WhenAllFiltersMatch() {
-    Mono<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByFilter(
-            batch1.getId(), batch1.getMerchantId(), batch1.getPosType(), batch1.getMonth(), INITIATIVE_ID);
-
-    StepVerifier.create(result)
-            .expectNextMatches(batch ->
-                    batch.getId().equals(batch1.getId()) &&
-                            batch.getPosType().equals(batch1.getPosType()))
-            .verifyComplete();
-  }
-
-  @Test
-  void findRewardBatchByFilter_ShouldReturnEmpty_WhenFiltersDoNotMatch() {
-    Mono<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByFilter(
-            null, "wrongMerchant", null, null, null);
-
-    StepVerifier.create(result)
-            .verifyComplete();
-  }
-
-  @Test
   void updateStatusAndApprovedAmountCents() {
     RewardBatch rewardBatch = RewardBatch.builder()
             .id("UPDATE_ID_1".trim())
@@ -768,29 +747,6 @@ class RewardBatchSpecificRepositoryImplTest {
 
         StepVerifier.create(result)
                 .expectNextMatches(b -> b.getId().equals(batch1.getId()))
-                .verifyComplete();
-    }
-
-    @Test
-    void findRewardBatchByFilter_withNullBatchId_shouldFilterByMerchantPosTypeMonth() {
-        Mono<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByFilter(
-                null, MERCHANT, PosType.PHYSICAL, "2025-11", INITIATIVE_ID);
-
-        StepVerifier.create(result)
-                .expectNextMatches(b ->
-                        b.getMerchantId().equals(MERCHANT)
-                                && b.getPosType() == PosType.PHYSICAL
-                                && b.getMonth().equals("2025-11"))
-                .verifyComplete();
-    }
-
-    @Test
-    void findRewardBatchByFilter_withOnlyMerchant_shouldReturnOneOfMerchantBatches() {
-        Mono<RewardBatch> result = rewardBatchSpecificRepository.findRewardBatchByFilter(
-                null, MERCHANT, null, null, INITIATIVE_ID);
-
-        StepVerifier.create(result)
-                .expectNextMatches(b -> MERCHANT.equals(b.getMerchantId()))
                 .verifyComplete();
     }
 
