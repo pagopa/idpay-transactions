@@ -383,9 +383,9 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
   public Mono<Long> sumSuspendedAccruedRewardCents(String initiativeId, String rewardBatchId) {
 
     MatchOperation match = Aggregation.match(
-        Criteria.where("rewardBatchId").is(rewardBatchId)
-            .and("rewardBatchTrxStatus").is(RewardBatchTrxStatus.SUSPENDED)
-            .and("initiativeId").is(initiativeId)
+        Criteria.where(Fields.rewardBatchId).is(rewardBatchId)
+            .and(Fields.rewardBatchTrxStatus).is(RewardBatchTrxStatus.SUSPENDED)
+            .and(Fields.initiatives).in(initiativeId)
     );
 
     Aggregation agg = Aggregation.newAggregation(
