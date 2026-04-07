@@ -29,7 +29,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
@@ -48,8 +47,10 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.YearMonth;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
@@ -71,8 +72,6 @@ class PointOfSaleTransactionServiceImplTest {
     @Mock private RewardBatchService rewardBatchService;
     @Mock private InvoiceLifecyclePolicy invoiceLifeCyclePolicy;
 
-    @InjectMocks private PointOfSaleTransactionServiceImpl service;
-
     private final Pageable pageable = PageRequest.of(0, 10);
 
     private static final String MERCHANT_ID = "MERCHANTID1";
@@ -86,11 +85,32 @@ class PointOfSaleTransactionServiceImplTest {
 
     private Path srcFile;
 
+
+    private PointOfSaleTransactionServiceImpl service;
+
+    private final Clock fixedClock =
+            Clock.fixed(Instant.parse("2026-04-03T10:00:00Z"), ZoneOffset.UTC);
+
     @BeforeEach
     void setup() throws Exception {
         srcFile = Files.createTempFile("src-", ".pdf");
         Files.write(srcFile, "content".getBytes());
+
+        service = new PointOfSaleTransactionServiceImpl(
+                userRestClient,
+                rewardTransactionRepository,
+                invoiceStorageClient,
+                rewardBatchService,
+                rewardBatchRepository,
+                transactionErrorNotifierService,
+                transactionNotifierService,
+                fixedClock
+        );
+
+        srcFile = Files.createTempFile("src-", ".pdf");
+        Files.write(srcFile, "content".getBytes());
     }
+
 
     @AfterEach
     void cleanup() throws Exception {

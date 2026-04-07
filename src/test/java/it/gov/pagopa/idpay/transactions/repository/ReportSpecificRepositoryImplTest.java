@@ -15,8 +15,8 @@ import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import reactor.test.StepVerifier;
 
-import java.time.LocalDate;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 
@@ -50,7 +50,7 @@ class ReportSpecificRepositoryImplTest {
 
     @Test
     void findReportsCombined_shouldReturnReports_whenCriteriaMatch() {
-        ZoneId zone = ZoneId.systemDefault();
+        ZoneId zone = ZoneId.of("Europe/Rome");
         Report report = Report.builder()
                 .id("R1")
                 .initiativeId(INITIATIVE_ID)

@@ -33,7 +33,7 @@ class TransactionsControllerImplTest {
     @Test
     void findAllOk() {
 
-        ZoneId zone = ZoneId.systemDefault();
+        ZoneId zone = ZoneId.of("Europe/Rome");
 
         Instant now = LocalDate.of(2026, 2, 20)
                 .atTime(13, 15, 45)
@@ -90,7 +90,7 @@ class TransactionsControllerImplTest {
     void findAllBadRequest(){
         Instant now = Instant.now();
 
-        ZonedDateTime zdt = now.atZone(ZoneId.systemDefault());
+        ZonedDateTime zdt = now.atZone(ZoneId.of("Europe/Rome"));
 
         Instant startDate = zdt.minusMonths(5).toInstant();
         Instant endDate   = zdt.plusMonths(8).toInstant();
@@ -165,7 +165,7 @@ class TransactionsControllerImplTest {
 
     @Test
     void pageable(){
-        ZoneId zone = ZoneId.systemDefault();
+        ZoneId zone = ZoneId.of("Europe/Rome");
         Instant now =    LocalDate.of(2026, 2, 20)
                 .atTime(13, 15,45)
                 .atZone(zone)
@@ -229,7 +229,7 @@ class TransactionsControllerImplTest {
 
   @Test
   void findByInitiativeIdAndUserId_Ok() {
-      ZoneId zone = ZoneId.systemDefault();
+      ZoneId zone = ZoneId.of("Europe/Rome");
       Instant now =    LocalDate.of(2026, 2, 20)
               .atTime(13, 15,45)
               .atZone(zone)

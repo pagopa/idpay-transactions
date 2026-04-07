@@ -17,16 +17,19 @@ import org.springframework.data.mongodb.core.query.Update;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDate;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.*;
 
 public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRepository {
 
   private final ReactiveMongoTemplate mongoTemplate;
+  private final Clock clock;
 
-  public RewardBatchSpecificRepositoryImpl(ReactiveMongoTemplate mongoTemplate) {
+  public RewardBatchSpecificRepositoryImpl(ReactiveMongoTemplate mongoTemplate, Clock clock) {
     this.mongoTemplate = mongoTemplate;
+    this.clock = clock;
   }
 
   public static final String INITIAL_AMOUNT_CENTS = "initialAmountCents";
@@ -223,7 +226,7 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
             new Update()
                     .set(RewardBatch.Fields.status, rewardBatchStatus)
                     .set(RewardBatch.Fields.approvedAmountCents, approvedAmountCents)
-                    .set(RewardBatch.Fields.updateDate, Instant.now()),
+                    .set(RewardBatch.Fields.updateDate, Instant.now(clock)),
             FindAndModifyOptions.options().returnNew(true),
             RewardBatch.class);
   }

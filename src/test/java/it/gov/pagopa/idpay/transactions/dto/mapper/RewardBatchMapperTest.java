@@ -21,7 +21,7 @@ class RewardBatchMapperTest {
     @BeforeEach
     void setUp() {
         mapper = new RewardBatchMapper();
-        zone = ZoneId.systemDefault();
+        zone = ZoneId.of("Europe/Rome");
     }
 
     @Test

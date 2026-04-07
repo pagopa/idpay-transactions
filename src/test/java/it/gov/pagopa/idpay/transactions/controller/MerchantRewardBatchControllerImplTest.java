@@ -20,6 +20,8 @@ import it.gov.pagopa.idpay.transactions.usecase.rewardbatch.GetRewardBatchByIdUs
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
+
+import java.time.Instant;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -37,6 +39,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -886,7 +889,7 @@ class MerchantRewardBatchControllerImplTest {
   @Test
   void postponeTransaction_success() {
     String transactionId = "TX123";
-    LocalDate initiativeEndDate = LocalDate.of(2026, 1, 6);
+    Instant initiativeEndDate = LocalDate.of(2026, 1, 6).atStartOfDay(ZoneId.of("Europe/Rome")).toInstant();
 
     when(rewardBatchService.postponeTransaction(
         MERCHANT_ID,
@@ -912,10 +915,10 @@ class MerchantRewardBatchControllerImplTest {
   @Test
   void postponeTransaction_transactionNotFound() {
     String transactionId = "TX_NOT_EXIST";
-    LocalDate initiativeEndDate = LocalDate.now();
+      Instant initiativeEndDate = Instant.now();
 
     when(rewardBatchService.postponeTransaction(
-        anyString(), anyString(), anyString(), eq(transactionId), any(LocalDate.class)
+        anyString(), anyString(), anyString(), eq(transactionId), any(Instant.class)
     )).thenReturn(Mono.error(new ClientExceptionNoBody(HttpStatus.NOT_FOUND, ExceptionMessage.TRANSACTION_NOT_FOUND)));
 
     webClient.post()
@@ -931,10 +934,10 @@ class MerchantRewardBatchControllerImplTest {
   @Test
   void postponeTransaction_batchNotFound() {
     String transactionId = "TX123";
-    LocalDate initiativeEndDate = LocalDate.now();
+      Instant initiativeEndDate = Instant.now();
 
     when(rewardBatchService.postponeTransaction(
-        anyString(), anyString(), anyString(), eq(transactionId), any(LocalDate.class)
+        anyString(), anyString(), anyString(), eq(transactionId), any(Instant.class)
     )).thenReturn(Mono.error(new ClientExceptionWithBody(
         HttpStatus.NOT_FOUND, ExceptionCode.REWARD_BATCH_NOT_FOUND, String.format(ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH, REWARD_BATCH_ID_1))));
 
@@ -954,10 +957,10 @@ class MerchantRewardBatchControllerImplTest {
   @Test
   void postponeTransaction_batchInvalidStatus() {
     String transactionId = "TX123";
-    LocalDate initiativeEndDate = LocalDate.now();
+      Instant initiativeEndDate = Instant.now();
 
     when(rewardBatchService.postponeTransaction(
-        anyString(), anyString(), anyString(), eq(transactionId), any(LocalDate.class)
+        anyString(), anyString(), anyString(), eq(transactionId), any(Instant.class)
     )).thenReturn(Mono.error(new ClientExceptionWithBody(
         HttpStatus.BAD_REQUEST, ExceptionCode.REWARD_BATCH_INVALID_REQUEST, ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH)));
 
@@ -977,10 +980,10 @@ class MerchantRewardBatchControllerImplTest {
   @Test
   void postponeTransaction_exceedsLimit() {
     String transactionId = "TX123";
-    LocalDate initiativeEndDate = LocalDate.now();
+      Instant initiativeEndDate = Instant.now();
 
     when(rewardBatchService.postponeTransaction(
-        anyString(), anyString(), anyString(), eq(transactionId), any(LocalDate.class)
+        anyString(), anyString(), anyString(), eq(transactionId), any(Instant.class)
     )).thenReturn(Mono.error(new ClientExceptionWithBody(
         HttpStatus.BAD_REQUEST, ExceptionCode.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED, ExceptionMessage.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED)));
 

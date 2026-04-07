@@ -26,7 +26,7 @@ class ReportMapperTest {
     @BeforeEach
     void setUp() {
         mapper = new ReportMapper();
-        zone = ZoneId.systemDefault();
+        zone = ZoneId.of("Europe/Rome");
     }
 
     @Test

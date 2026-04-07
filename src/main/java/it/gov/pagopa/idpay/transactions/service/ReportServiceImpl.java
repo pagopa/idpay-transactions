@@ -27,10 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.http.HttpStatus;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDate;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -56,6 +53,8 @@ public class ReportServiceImpl implements ReportService {
 
     private final long periodLengthTransactionsReport;
 
+    private final Clock clock;
+
     public ReportServiceImpl(
             @Value("${app.period-length-transactions-report}") long periodLengthTransactionsReport,
             ReportRepository reportRepository,
@@ -63,7 +62,7 @@ public class ReportServiceImpl implements ReportService {
             ReportMapper reportMapper,
             ReportTransactionsBlobServiceImpl reportTransactionsBlobService,
             ReportUserDetailsBlobServiceImpl reportUserDetailsBlobService,
-            DataFactoryService dataFactoryService) {
+            DataFactoryService dataFactoryService, Clock clock) {
         this.periodLengthTransactionsReport = periodLengthTransactionsReport;
         this.reportRepository = reportRepository;
         this.merchantRestClient = merchantRestClient;
@@ -71,6 +70,7 @@ public class ReportServiceImpl implements ReportService {
         this.reportTransactionsBlobService = reportTransactionsBlobService;
         this.reportUserDetailsBlobService = reportUserDetailsBlobService;
         this.dataFactoryService = dataFactoryService;
+        this.clock = clock;
     }
 
     static final List<String> ALLOWED_ROLES = List.of(
@@ -273,7 +273,7 @@ public class ReportServiceImpl implements ReportService {
                                                               String initiativeId,
                                                               ReportRequest request) {
 
-        if(!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant())
+        if(!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay(ZoneId.of("Europe/Rome")).toInstant())
             && request.getStartPeriod().isBefore(request.getEndPeriod()))){
             return Mono.error(new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
@@ -297,7 +297,7 @@ public class ReportServiceImpl implements ReportService {
                 .flatMap(merchant -> {
 
 
-                    ZonedDateTime now = Instant.now().atZone(ZoneId.systemDefault());
+                    ZonedDateTime now = Instant.now(clock).atZone(ZoneId.of("Europe/Rome"));
                     String formattedDate = now.format(FILE_NAME_FORMAT);
                     String fileName = "Report_" + formattedDate + ".csv";
 
@@ -308,7 +308,7 @@ public class ReportServiceImpl implements ReportService {
                             .endPeriod(request.getEndPeriod())
                             .merchantId(merchantId)
                             .businessName(merchant.getBusinessName())
-                            .requestDate(Instant.now())
+                            .requestDate(Instant.now(clock))
                             .operatorLevel(operatorLevel)
                             .fileName(fileName)
                             .reportType(request.getReportType())
@@ -334,7 +334,7 @@ public class ReportServiceImpl implements ReportService {
                                                      String initiativeId,
                                                      ReportRequest request) {
 
-        if (!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant())
+        if (!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay(ZoneId.of("Europe/Rome")).toInstant())
                 && request.getStartPeriod().isBefore(request.getEndPeriod()))) {
             return Mono.error(new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
@@ -344,7 +344,7 @@ public class ReportServiceImpl implements ReportService {
 
         RewardBatchAssignee operatorLevel = resolveOperatorLevel(organizationRole);
 
-        ZonedDateTime now = Instant.now().atZone(ZoneId.systemDefault());
+        ZonedDateTime now = Instant.now(clock).atZone(ZoneId.of("Europe/Rome"));
         String formattedDate = now.format(FILE_NAME_FORMAT);
         String fileName = "Report_" + formattedDate + ".csv";
 
@@ -353,7 +353,7 @@ public class ReportServiceImpl implements ReportService {
                 .reportStatus(ReportStatus.INSERTED)
                 .startPeriod(request.getStartPeriod())
                 .endPeriod(request.getEndPeriod())
-                .requestDate(Instant.now())
+                .requestDate(Instant.now(clock))
                 .operatorLevel(operatorLevel)
                 .fileName(fileName)
                 .reportType(request.getReportType())
@@ -399,7 +399,7 @@ public class ReportServiceImpl implements ReportService {
                         report.setReportStatus(request.getReportStatus());
                     }
                     if(ReportStatus.GENERATED.equals(request.getReportStatus())){
-                        report.setElaborationDate(Instant.now());
+                        report.setElaborationDate(Instant.now(clock));
                     }
 
                     return reportRepository.save(report);

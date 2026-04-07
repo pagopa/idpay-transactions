@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.connector.rest.erogazioni;
 
 import com.github.javafaker.Faker;
 import it.gov.pagopa.common.config.JsonConfig;
+import it.gov.pagopa.common.config.TimeConfig;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.InvitaliaTokenProviderService;
 import it.gov.pagopa.idpay.transactions.dto.AnagraficaDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
@@ -33,7 +34,8 @@ import static org.junit.jupiter.api.Assertions.*;
         classes = {
                 ErogazioniRestClientImpl.class,
                 WebClientConfig.class,
-                JsonConfig.class
+                JsonConfig.class,
+                TimeConfig.class
         })
 @TestPropertySource(
         properties = {

@@ -15,10 +15,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 
-import java.time.LocalDate;
-import java.time.Instant;
-import java.time.YearMonth;
-import java.time.ZoneId;
+import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +51,7 @@ class RewardTransactionServiceImplTest {
     private MerchantRestClient merchantRestClient;
 
     private RewardTransactionService rewardTransactionService;
+    private final Clock clock = Clock.fixed(Instant.parse("2026-04-03T10:00:00Z"), ZoneOffset.UTC);
 
     @BeforeEach
     void setUp(){
@@ -63,8 +61,8 @@ class RewardTransactionServiceImplTest {
                 rewardBatchService,
                 merchantRestClient,
                 seed,
-                rewardBatchRepository
-        );
+                rewardBatchRepository,
+                clock);
     }
 
     @Test
@@ -248,8 +246,8 @@ class RewardTransactionServiceImplTest {
                 rewardBatchService,
                 merchantRestClient,
                 0x22222222,
-                rewardBatchRepository
-        );
+                rewardBatchRepository,
+                clock);
 
         int h1 = ((RewardTransactionServiceImpl) rewardTransactionService).computeSamplingKey(id);
         int h2 = hasher2.computeSamplingKey(id);

@@ -17,7 +17,8 @@ import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 
-import java.time.LocalDate;
+
+import java.time.Clock;
 import java.time.YearMonth;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,7 +29,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.Optional;
 
 @Service
@@ -41,17 +41,18 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
     private final int seed;
     private final RewardBatchRepository rewardBatchRepository;
 
-
+    private final Clock clock;
     public RewardTransactionServiceImpl(RewardTransactionRepository rewardTrxRepository,
                                         RewardBatchService rewardBatchService,
                                         MerchantRestClient merchantRestClient,
                                         @Value(value="${app.sampling}") int seed,
-                                        RewardBatchRepository rewardBatchRepository) {
+                                        RewardBatchRepository rewardBatchRepository, Clock clock) {
         this.rewardTrxRepository = rewardTrxRepository;
         this.rewardBatchService = rewardBatchService;
         this.merchantRestClient = merchantRestClient;
         this.seed = seed;
         this.rewardBatchRepository = rewardBatchRepository;
+        this.clock = clock;
     }
 
     @Override
@@ -206,12 +207,16 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
     private Mono<RewardTransaction> enrichBatchData(RewardTransaction trx) {
 
-        LocalDate trxDate =
+        Instant trxDate =
                 trx.getInvoiceUploadDate() != null
-                        ? LocalDate.ofInstant(trx.getInvoiceUploadDate(), ZoneId.systemDefault())
-                        : LocalDate.ofInstant(trx.getTrxChargeDate(), ZoneId.systemDefault());
+                        ? trx.getInvoiceUploadDate()
+                        : trx.getTrxChargeDate();
 
-        YearMonth trxMonth = YearMonth.from(trxDate);
+
+        YearMonth trxMonth = YearMonth.from(
+                trxDate.atZone(clock.getZone()).toLocalDate()
+        );
+
         String batchMonth = trxMonth.toString();
 
         String initiativeId = trx.getInitiatives().getFirst();
@@ -241,10 +246,10 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
                   .map(batch -> {
                     trx.setRewardBatchId(batch.getId());
                     trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-                    trx.setRewardBatchInclusionDate(Instant.now());
+                    trx.setRewardBatchInclusionDate(Instant.now(clock));
                     trx.setRewardBatchRejectionReason(null);
                     trx.setSamplingKey(computeSamplingKey(trx.getId()));
-                    trx.setUpdateDate(Instant.now());
+                    trx.setUpdateDate(Instant.now(clock));
                     return trx;
                   });
             });

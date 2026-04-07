@@ -51,7 +51,7 @@ class ReportControllerImplTest {
 
     @Test
     void getReports_ReturnsReports_Success() {
-        ZoneId zone = ZoneId.systemDefault();
+        ZoneId zone = ZoneId.of("Europe/Rome");
         Report report = Report.builder()
                 .id("report1")
                 .initiativeId(INITIATIVE_ID)
@@ -200,7 +200,7 @@ class ReportControllerImplTest {
 
     @Test
     void generateReport_ReturnsReport_Success() {
-        ZoneId zone = ZoneId.systemDefault();
+        ZoneId zone = ZoneId.of("Europe/Rome");
 
         Instant start = LocalDate.of(2026, 2, 1)
                 .atStartOfDay(zone)
@@ -267,7 +267,7 @@ class ReportControllerImplTest {
 
     @Test
     void generateReport_ServiceFails_InternalServerError() {
-        ZoneId zone = ZoneId.systemDefault();
+        ZoneId zone = ZoneId.of("Europe/Rome");
         ReportRequest request = ReportRequest.builder()
                 .startPeriod(
                         LocalDate.of(2026, 2, 1)

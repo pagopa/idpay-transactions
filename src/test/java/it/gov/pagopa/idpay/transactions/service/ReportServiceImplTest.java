@@ -37,9 +37,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.time.LocalDate;
-import java.time.Instant;
-import java.time.ZoneId;
+import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
@@ -81,10 +79,11 @@ class ReportServiceImplTest {
     private static final String INITIATIVE_ID = "INIT1";
     private static final String ORGANIZATION_ROLE = "operator1";
     private static final long PERIOD_LENGTH = 90;
+    private final Clock clock = Clock.fixed(Instant.parse("2026-04-03T10:00:00Z"), ZoneOffset.UTC);
 
     @BeforeEach
     void setup() {
-        service = new ReportServiceImpl(PERIOD_LENGTH, reportRepository, merchantRestClient, reportMapper, reportTransactionsBlobService, reportUserDetailsBlobService, dataFactoryServiceMock);
+        service = new ReportServiceImpl(PERIOD_LENGTH, reportRepository, merchantRestClient, reportMapper, reportTransactionsBlobService, reportUserDetailsBlobService, dataFactoryServiceMock, clock);
     }
 
     @Test
@@ -630,7 +629,7 @@ class ReportServiceImplTest {
     @Test
     void generateMerchantTransactionsReport_fileNameGeneratedCorrectly() {
         ReportRequest request = new ReportRequest();
-        ZoneId zone = ZoneId.systemDefault();
+        ZoneId zone = ZoneId.of("Europe/Rome");
 
         request.setStartPeriod(
                 LocalDate.of(2026, 1, 1)
@@ -645,46 +644,45 @@ class ReportServiceImplTest {
                         .toInstant()
         );
 
-        Instant fixedNow =
-                LocalDate.of(2026, 2, 1)
-                        .atTime(12, 30,45)
-                        .atZone(zone)
-                        .toInstant();
-
         request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
 
         MerchantDetailDTO merchant = new MerchantDetailDTO();
         merchant.setBusinessName("Business");
 
-        try (MockedStatic<Instant> mocked = mockStatic(Instant.class, CALLS_REAL_METHODS)) {
-            mocked.when(Instant::now).thenReturn(fixedNow);
+        when(merchantRestClient.getMerchantDetail(MERCHANT_ID, INITIATIVE_ID))
+                .thenReturn(Mono.just(merchant));
 
-            when(merchantRestClient.getMerchantDetail(MERCHANT_ID, INITIATIVE_ID))
-                    .thenReturn(Mono.just(merchant));
+        ArgumentCaptor<Report> captor = ArgumentCaptor.forClass(Report.class);
 
-            ArgumentCaptor<Report> captor = ArgumentCaptor.forClass(Report.class);
+        Report saved = Report.builder()
+                .id("R200")
+                .fileName("Report_03042026120000")
+                .build();
 
-            Report saved = Report.builder()
-                    .id("R200")
-                    .fileName("Report_01022026123045")
-                    .build();
+        when(reportRepository.save(any())).thenReturn(Mono.just(saved));
+        when(dataFactoryServiceMock.triggerTransactionReportPipeline(saved)).thenReturn(Mono.just("RUN_ID"));
+        when(reportMapper.toDTO(saved)).thenReturn(
+                ReportDTO.builder()
+                        .id("R200")
+                        .fileName(saved.getFileName())
+                        .build()
+        );
 
-            when(reportRepository.save(any())).thenReturn(Mono.just(saved));
-            when(dataFactoryServiceMock.triggerTransactionReportPipeline(saved)).thenReturn(Mono.just("RUN_ID"));
-            when(reportMapper.toDTO(saved)).thenReturn(ReportDTO.builder().id("R200").fileName(saved.getFileName()).build());
+        StepVerifier.create(service.generateMerchantTransactionsReport(
+                        MERCHANT_ID,
+                        ORGANIZATION_ROLE,
+                        INITIATIVE_ID,
+                        request))
+                .assertNext(dto -> assertEquals("Report_03042026120000", dto.getFileName()))
+                .verifyComplete();
 
-            StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                    .assertNext(dto -> assertEquals("Report_01022026123045", dto.getFileName()))
-                    .verifyComplete();
-
-            verify(reportRepository).save(captor.capture());
-            assertEquals("Report_01022026123045.csv", captor.getValue().getFileName());
-        }
+        verify(reportRepository).save(captor.capture());
+        assertEquals("Report_03042026120000.csv", captor.getValue().getFileName());
     }
     @Test
     void generateMerchantTransactionsReport_TriggerPipelineError() {
         ReportRequest request = new ReportRequest();
-        ZoneId zone = ZoneId.systemDefault();
+        ZoneId zone = ZoneId.of("Europe/Rome");
 
         request.setStartPeriod(
                 LocalDate.of(2026, 1, 1)
@@ -880,7 +878,7 @@ class ReportServiceImplTest {
     @Test
     void generateUserDetailsReport_fileNameGeneratedCorrectly() {
         ReportRequest request = new ReportRequest();
-        ZoneId zone = ZoneId.systemDefault();
+        ZoneId zone = ZoneId.of("Europe/Rome");
 
         request.setStartPeriod(
                 LocalDate.of(2026, 1, 1)
@@ -895,38 +893,35 @@ class ReportServiceImplTest {
                         .toInstant()
         );
 
-        Instant fixedNow =
-                LocalDate.of(2026, 2, 1)
-                        .atTime(12, 30, 45)
-                        .atZone(zone)
-                        .toInstant();
         request.setReportType(ReportType.USER_DETAILS);
-        try (MockedStatic<Instant> mocked = mockStatic(Instant.class, CALLS_REAL_METHODS)) {
-            mocked.when(Instant::now).thenReturn(fixedNow);
 
-            ArgumentCaptor<Report> captor = ArgumentCaptor.forClass(Report.class);
+        ArgumentCaptor<Report> captor = ArgumentCaptor.forClass(Report.class);
 
-            Report saved = Report.builder()
-                    .id("R200")
-                    .fileName("Report_01022026123045")
-                    .build();
+        Report saved = Report.builder()
+                .id("R200")
+                .fileName("Report_03042026120000")
+                .build();
 
-            when(reportRepository.save(any())).thenReturn(Mono.just(saved));
-            when(dataFactoryServiceMock.triggerUserDetailsReportPipeline(saved)).thenReturn(Mono.just("RUN_ID"));
-            when(reportMapper.toDTO(saved)).thenReturn(ReportDTO.builder().id("R200").fileName(saved.getFileName()).build());
+        when(reportRepository.save(any())).thenReturn(Mono.just(saved));
+        when(dataFactoryServiceMock.triggerUserDetailsReportPipeline(saved)).thenReturn(Mono.just("RUN_ID"));
+        when(reportMapper.toDTO(saved))
+                .thenReturn(ReportDTO.builder().id("R200").fileName(saved.getFileName()).build());
 
-            StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                    .assertNext(dto -> assertEquals("Report_01022026123045", dto.getFileName()))
-                    .verifyComplete();
+        StepVerifier.create(
+                        service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request)
+                )
+                .assertNext(dto ->
+                        assertEquals("Report_03042026120000", dto.getFileName())
+                )
+                .verifyComplete();
 
-            verify(reportRepository).save(captor.capture());
-            assertEquals("Report_01022026123045.csv", captor.getValue().getFileName());
-        }
+        verify(reportRepository).save(captor.capture());
+        assertEquals("Report_03042026120000.csv", captor.getValue().getFileName());
     }
     @Test
     void generateUserDetailsReport_TriggerPipelineError() {
         ReportRequest request = new ReportRequest();
-        ZoneId zone = ZoneId.systemDefault();
+        ZoneId zone = ZoneId.of("Europe/Rome");
 
         request.setStartPeriod(
                 LocalDate.of(2026, 1, 1)

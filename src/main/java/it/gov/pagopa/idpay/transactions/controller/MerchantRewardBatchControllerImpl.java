@@ -14,7 +14,7 @@ import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
-import java.time.LocalDate;
+import java.time.Instant;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -107,7 +107,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   public  Mono<Void> rewardBatchConfirmationBatch(String initiativeId, RewardBatchesRequest request) {
     List<String> rewardBatchIds = request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
     log.info("[REWARD_BATCH_CONFIRMATION_BATCH] Batch confirmation for initiative {} and batchs {}",
-            Utilities.sanitizeString(initiativeId), rewardBatchIds.toString() );
+            Utilities.sanitizeString(initiativeId), rewardBatchIds);
     return rewardBatchService.rewardBatchConfirmationBatch(initiativeId, rewardBatchIds);
   }
 
@@ -115,7 +115,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     public  Mono<Void> rewardBatchDeliveryBatch(String initiativeId, RewardBatchesRequest request) {
         List<String> rewardBatchIds = request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
         log.info("[REWARD_BATCH_DELIVERY_BATCH] Batch delivery for initiative {} and batchs {}",
-                Utilities.sanitizeString(initiativeId), rewardBatchIds.toString() );
+                Utilities.sanitizeString(initiativeId), rewardBatchIds);
         return rewardBatchService.rewardBatchDeliveryBatch(initiativeId, rewardBatchIds);
     }
 
@@ -244,7 +244,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
-  public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, LocalDate initiativeEndDate) {
+  public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, Instant initiativeEndDate) {
     log.info(
         "[POSTPONE_TRANSACTION] Merchant {} requested to postpone transaction {} for rewardBatch {} of initiative {}",
         Utilities.sanitizeString(merchantId),

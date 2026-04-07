@@ -51,9 +51,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.lang.reflect.Method;
-import java.time.LocalDate;
-import java.time.YearMonth;
-import java.time.ZoneId;
+import java.time.*;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -83,6 +81,7 @@ class RewardBatchServiceImplTest {
 
     private RewardBatchServiceImpl service;
     private RewardBatchServiceImpl serviceSpy;
+    private final Clock clock = Clock.fixed(Instant.parse("2026-04-03T10:00:00Z"), ZoneOffset.UTC);
 
     private static final String INITIATIVE_ID = "INITIATIVE_ID";
     private static final String MERCHANT_ID = "MERCHANT_ID";
@@ -105,8 +104,8 @@ class RewardBatchServiceImplTest {
                 auditUtilities,
                 merchantRestClient,
                 selfcareInstitutionsRestClient,
-                erogazioniRestClient
-        );
+                erogazioniRestClient,
+                clock);
         serviceSpy = spy(service);
     }
 
@@ -1255,7 +1254,7 @@ class RewardBatchServiceImplTest {
 
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(batch));
         when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-        ZoneId zone = ZoneId.systemDefault();
+        ZoneId zone = ZoneId.of("Europe/Rome");
         RewardTransaction trxWithCF = RewardTransaction.builder()
                 .id("T1")
                 .trxChargeDate(LocalDate.of(2025, 12, 10)
@@ -1430,7 +1429,7 @@ class RewardBatchServiceImplTest {
         when(rewardTransactionRepository.findTransactionInBatch(MERCHANT_ID, BATCH_ID, "T1"))
                 .thenReturn(Mono.empty());
 
-        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", LocalDate.now()))
+        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", Instant.now()))
                 .expectError(ClientExceptionNoBody.class)
                 .verify();
     }
@@ -1449,7 +1448,7 @@ class RewardBatchServiceImplTest {
 
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.empty());
 
-        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", LocalDate.now()))
+        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", Instant.now()))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
     }
@@ -1476,7 +1475,7 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(current));
 
-        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", LocalDate.now()))
+        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", Instant.now()))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
     }
@@ -1499,7 +1498,7 @@ class RewardBatchServiceImplTest {
                 .status(RewardBatchStatus.CREATED)
                 .build();
 
-        LocalDate initiativeEnd = LocalDate.of(2026, 1, 6);
+        Instant initiativeEnd = LocalDate.of(2026, 1, 6).atStartOfDay(ZoneId.of("Europe/Rome")).toInstant();
 
         when(rewardTransactionRepository.findTransactionInBatch(MERCHANT_ID, BATCH_ID, "T1"))
                 .thenReturn(Mono.just(trx));
@@ -1552,7 +1551,7 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Mono.empty());
 
 
-        StepVerifier.create(serviceSpy.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", LocalDate.of(2026, 1, 6)))
+        StepVerifier.create(serviceSpy.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", LocalDate.of(2026, 1, 6).atStartOfDay(ZoneId.of("Europe/Rome")).toInstant()))
                 .verifyComplete();
 
         verify(rewardBatchRepository, times(2))
@@ -1621,7 +1620,7 @@ class RewardBatchServiceImplTest {
         String rewardBatchId = BATCH_ID;
         String transactionId = "TRX_ID";
 
-        LocalDate initiativeEndDate = LocalDate.of(2026, 12, 31);
+        Instant initiativeEndDate = LocalDate.of(2026, 12, 31).atStartOfDay(ZoneId.of("Europe/Rome")).toInstant();
 
         long accruedRewardCents = 100L;
 

@@ -50,7 +50,7 @@ class RewardBatchSpecificRepositoryImplTest {
   @BeforeEach
   void setUp() {
     rewardBatchRepository.deleteAll().block();
-    ZoneId zone = ZoneId.systemDefault();
+    ZoneId zone = ZoneId.of("Europe/Rome");
     batch1 = RewardBatch.builder()
         .id("batch1")
         .merchantId(MERCHANT)

@@ -1,5 +1,6 @@
 package it.gov.pagopa.common.reactive.mongo.retry;
 
+import it.gov.pagopa.common.config.TimeConfig;
 import it.gov.pagopa.common.mongo.config.MongoConfig;
 import it.gov.pagopa.common.mongo.singleinstance.AutoConfigureSingleInstanceMongodb;
 import it.gov.pagopa.common.reactive.mongo.DummySpringRepository;
@@ -55,7 +56,7 @@ import java.time.Instant;
         MongoExceptionHandler.class,
         MongoConfig.class,
         ReactiveMongoConfig.class,
-
+        TimeConfig.class,
         MongoRequestRateTooLargeRetryIntegrationTest.TestController.class,
         MongoRequestRateTooLargeRetryIntegrationTest.TestRepository.class
 })

@@ -82,7 +82,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private final MerchantRestClient merchantRestClient;
     private final SelfcareInstitutionsRestClient selfcareInstitutionsRestClient;
     private final ErogazioniRestClient erogazioniRestClient;
-
+    private final Clock clock;
 
     private static final String OPERATOR_1 = "operator1";
     private static final String OPERATOR_2 = "operator2";
@@ -109,7 +109,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "%s_%s_%s.csv";
     private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern(DATE_FORMAT, Locale.ITALIAN);
 
-    public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService, ReactiveMongoTemplate reactiveMongoTemplate, ChecksErrorMapper checksErrorMapper, AuditUtilities auditUtilities, MerchantRestClient merchantRestClient, SelfcareInstitutionsRestClient selfcareInstitutionsRestClient, ErogazioniRestClient erogazioniRestClient) {
+    public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService, ReactiveMongoTemplate reactiveMongoTemplate, ChecksErrorMapper checksErrorMapper, AuditUtilities auditUtilities, MerchantRestClient merchantRestClient, SelfcareInstitutionsRestClient selfcareInstitutionsRestClient, ErogazioniRestClient erogazioniRestClient, Clock clock) {
         this.rewardBatchRepository = rewardBatchRepository;
         this.rewardTransactionRepository = rewardTransactionRepository;
         this.userRestClient = userRestClient;
@@ -120,6 +120,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         this.merchantRestClient = merchantRestClient;
         this.selfcareInstitutionsRestClient = selfcareInstitutionsRestClient;
         this.erogazioniRestClient = erogazioniRestClient;
+        this.clock = clock;
     }
 
     @Override
@@ -188,8 +189,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .numberOfTransactionsSuspended(0L)
                 .numberOfTransactionsRejected(0L)
-                .creationDate(Instant.now())
-                .updateDate(Instant.now())
+                .creationDate(Instant.now(clock))
+                .updateDate(Instant.now(clock))
                 .build();
 
         return rewardBatchRepository.save(batch);
@@ -226,7 +227,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                             ExceptionConstants.ExceptionCode.REWARD_BATCH_PREVIOUS_NOT_SENT));
                                 }
 
-                                Instant dateTimeNow = Instant.now();
+                                Instant dateTimeNow = Instant.now(clock);
                                 batch.setStatus(RewardBatchStatus.SENT);
                                 batch.setMerchantSendDate(dateTimeNow);
                                 batch.setUpdateDate(dateTimeNow);
@@ -253,7 +254,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         validChecksError(request.getChecksError());
 
         ChecksError checksErrorModel = checksErrorMapper.toModel(request.getChecksError());
-        ReasonDTO reason = generateReasonDto(request);
+        ReasonDTO reason = generateReasonDto(request,clock);
 
         return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.EVALUATING)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(NOT_FOUND,
@@ -329,8 +330,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 });
     }
 
-    private static ReasonDTO generateReasonDto(TransactionsRequest request) {
-        Instant now = Instant.now();
+    private static ReasonDTO generateReasonDto(TransactionsRequest request, Clock clock) {
+        Instant now = Instant.now(clock);
         return new ReasonDTO(now, request.getReason());
     }
 
@@ -368,7 +369,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         validChecksError(request.getChecksError());
 
         ChecksError checksErrorModel = checksErrorMapper.toModel(request.getChecksError());
-        ReasonDTO reason = generateReasonDto(request);
+        ReasonDTO reason = generateReasonDto(request,clock);
 
 
         return rewardBatchRepository.findByIdAndStatus(rewardBatchId, RewardBatchStatus.EVALUATING)
@@ -646,7 +647,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             );
                 })
                 .map(rewardBatch -> {
-                    Instant nowDateTime = Instant.now();
+                    Instant nowDateTime = Instant.now(clock);
                     rewardBatch.setStatus(RewardBatchStatus.APPROVING);
                     rewardBatch.setApprovalDate(nowDateTime);
                     rewardBatch.setUpdateDate(nowDateTime);
@@ -665,13 +666,20 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     @Override
     public Mono<RewardBatch> updateBatch(RewardBatch batch, InvitaliaOutcomeResponseDTO response) {
 
-        batch.setRefundOutcomeTimestamp(Instant.now());
+        batch.setRefundOutcomeTimestamp(Instant.now(clock));
 
         String status = response.getErogazione().getStatus();
 
         if (InvitaliaOutcomeStatus.COMPLETATO.name().equalsIgnoreCase(status)) {
             batch.setStatus(RewardBatchStatus.REFUNDED);
-            batch.setRefundValutaDate(response.getErogazione().getDateValue());
+
+            Instant refundDate = response.getErogazione()
+                    .getDateValue()
+                    .atStartOfDay(ZoneOffset.UTC)
+                    .toInstant();
+
+            batch.setRefundValutaDate(refundDate);
+
 
         } else if (InvitaliaOutcomeStatus.RIFIUTATO.name().equalsIgnoreCase(status)) {
 
@@ -789,7 +797,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .flatMap(batch -> handleSuspendedTransactions(batch, initiativeId))
                 .flatMap(originalBatch -> {
                     originalBatch.setStatus(RewardBatchStatus.APPROVED);
-                    originalBatch.setUpdateDate(Instant.now());
+                    originalBatch.setUpdateDate(Instant.now(clock));
                     return rewardBatchRepository.save(originalBatch);
                 })
                 .flatMap(savedBatch ->
@@ -863,7 +871,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                                 rewardBatch.setDeliveryOutcome(outcome);
                                                 if (outcome.isSucceded()) {
                                                     rewardBatch.setStatus(RewardBatchStatus.PENDING_REFUND);
-                                                    rewardBatch.setDeliveryDateRequest(Instant.now());
+                                                    rewardBatch.setDeliveryDateRequest(Instant.now(clock));
                                                     log.info("[PROCESS_BATCH] Batch {} delivery succeeded. Status moved to PENDING_REFUND", rewardBatchId);
                                                 } else {
                                                     log.warn("[PROCESS_BATCH] Batch {} delivery rejected by server: {}", rewardBatchId, outcome.getMessage());
@@ -934,8 +942,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         .numberOfTransactionsRejected(0L)
                         .reportPath(savedBatch.getReportPath())
                         .assigneeLevel(RewardBatchAssignee.L1)
-                        .creationDate(Instant.now())
-                        .updateDate(Instant.now())
+                        .creationDate(Instant.now(clock))
+                        .updateDate(Instant.now(clock))
                         .build()
                 )
                 .flatMap(rewardBatchRepository::save)
@@ -1147,7 +1155,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
         Function<Instant, String> safeDateToString =
                 date -> date != null
-                        ? LocalDateTime.ofInstant(date, ZoneId.systemDefault())
+                        ? LocalDateTime.ofInstant(date, ZoneId.of("Europe/Rome"))
                         .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
                         : "";
 
@@ -1243,7 +1251,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     }
 
     @Override
-    public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, LocalDate initiativeEndDate) {
+    public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, Instant initiativeEndDate) {
 
         return rewardTransactionRepository.findTransactionInBatch(merchantId, rewardBatchId, transactionId)
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
@@ -1273,7 +1281,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                 YearMonth currentBatchMonth = YearMonth.parse(currentBatch.getMonth());
                                 YearMonth nextBatchMonth = currentBatchMonth.plusMonths(1);
 
-                                YearMonth maxAllowedMonth = YearMonth.from(initiativeEndDate).plusMonths(1);
+
+                                YearMonth maxAllowedMonth = YearMonth.from(
+                                        initiativeEndDate.atZone(clock.getZone()).toLocalDate()
+                                ).plusMonths(1);
 
                                 if (nextBatchMonth.isAfter(maxAllowedMonth)) {
                                     return Mono.error(new ClientExceptionWithBody(
@@ -1324,8 +1335,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                                     .then(Mono.defer(() -> {
 
                                                         trx.setRewardBatchId(nextBatch.getId());
-                                                        trx.setRewardBatchInclusionDate(Instant.now());
-                                                        trx.setUpdateDate(Instant.now());
+                                                        trx.setRewardBatchInclusionDate(Instant.now(clock));
+                                                        trx.setUpdateDate(Instant.now(clock));
 
                                                         return rewardTransactionRepository.save(trx);
                                                     }));
