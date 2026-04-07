@@ -129,7 +129,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         return rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(initiativeId, merchantId, posType,
                         month)
                 .switchIfEmpty(Mono.defer(() ->
-                        createBatch(merchantId, posType, month, businessName)
+                        createBatch(merchantId, posType, month, businessName, initiativeId)
                                 .doOnSuccess(batch -> log.info("[REWARD_BATCH_REPOSITORY]- findOrCreateBatch - created new batch with id: {}, month: {}",
                                         batch.getId(), batch.getMonth()))
                                 .onErrorResume(DuplicateKeyException.class, ex ->
@@ -151,7 +151,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         return role != null && OPERATORS.contains(role.toLowerCase());
     }
 
-    private Mono<RewardBatch> createBatch(String merchantId, PosType posType, String month, String businessName) {
+    private Mono<RewardBatch> createBatch(String merchantId, PosType posType, String month, String businessName, String initiativeId) {
 
         YearMonth batchYearMonth = YearMonth.parse(month);
         LocalDateTime startDate = batchYearMonth.atDay(1).atTime(0,0,0);
@@ -178,6 +178,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .numberOfTransactionsRejected(0L)
                 .creationDate(LocalDateTime.now())
                 .updateDate(LocalDateTime.now())
+                .initiativeId(initiativeId)
                 .build();
 
         return rewardBatchRepository.save(batch);
