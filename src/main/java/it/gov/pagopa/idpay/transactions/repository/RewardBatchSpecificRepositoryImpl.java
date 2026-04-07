@@ -232,24 +232,6 @@ public class RewardBatchSpecificRepositoryImpl implements RewardBatchSpecificRep
             .and(RewardBatch.Fields.initiativeId).is(initiativeId);
   }
 
-  private static Criteria getCriteriaFindRewardBatchByFilter(String rewardBatchId, String merchantId, PosType posType, String month) {
-    Criteria criteria;
-    if(rewardBatchId != null){
-      criteria = Criteria.where("_id").is(rewardBatchId.trim());
-    }else{
-      criteria = new Criteria();
-    }
-    if(merchantId != null){
-      criteria.and(RewardBatch.Fields.merchantId).is(merchantId);
-    }
-    if(posType != null){
-      criteria.and(RewardBatch.Fields.posType).is(posType);
-    }
-    if(month != null){
-      criteria.and(RewardBatch.Fields.month).is(month);
-    }
-    return criteria;
-  }
 
   private static Criteria getCriteriaFindRewardBatchByMonthBefore(String merchantId, String initiativeId, PosType posType, String month) {
     return Criteria.where(RewardBatch.Fields.merchantId).is(merchantId)
