@@ -93,7 +93,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
                             HttpStatus.NOT_FOUND,
                             String.format(TRANSACTION_NOT_FOUND, trxId))))
                     .flatMap(rt -> rewardTrxRepository.findInvoicedTrxByIdWithoutBatch(
-                            rt.getInitiativeId(),
+                            rt.getInitiatives().getFirst(),
                             rt.getMerchantId(),
                             trxId))
                     .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
