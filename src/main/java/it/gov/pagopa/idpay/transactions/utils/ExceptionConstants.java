@@ -78,6 +78,7 @@ public final class ExceptionConstants {
         public static final String ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH = "Reward batch  %s not  found  or  not in  a  valid  state";
         public static final String ERROR_MESSAGE_NOT_FOUND_BATCH = "Reward batch  %s not  found";
         public static final String ERROR_MESSAGE_INVALID_STATE_BATCH = "Reward batch  %s  not in  a  valid  state";
+        public static final String ERROR_MESSAGE_INVALID_STATE_OR_AMOUNT_BATCH = "Reward batch %s is either not in a valid state or has an invalid approved amount";
         public static final String ERROR_MESSAGE_ROLE_NOT_ALLOWED = "Role not allowed";
         public static final String ERROR_MESSAGE_REWARD_BATCH_NOT_APPROVED = "Reward batch  %s not APPROVED";
         public static final String ERROR_MESSAGE_REWARD_BATCH_MISSING_FILENAME = "Reward batch  %s missing file name";

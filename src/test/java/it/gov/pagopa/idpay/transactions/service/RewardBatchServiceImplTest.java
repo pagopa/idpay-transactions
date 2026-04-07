@@ -961,6 +961,27 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
+    void rewardBatchConfirmation_previousInRefundedState() {
+        RewardBatch rb = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.EVALUATING).assigneeLevel(RewardBatchAssignee.L3)
+                .merchantId(MERCHANT_ID).posType(PHYSICAL).month("2025-12").initiativeId(INITIATIVE_ID).build();
+
+        RewardBatch prevApproved = RewardBatch.builder().id("P1").status(RewardBatchStatus.PENDING_REFUND).build();
+
+        when(rewardBatchRepository.findRewardBatchByIdAndInitiativeId(BATCH_ID, INITIATIVE_ID)).thenReturn(Mono.just(rb));
+        when(rewardBatchRepository.findRewardBatchByMonthBefore(MERCHANT_ID, INITIATIVE_ID, PHYSICAL, "2025-12"))
+                .thenReturn(Flux.just(prevApproved));
+        when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        StepVerifier.create(service.rewardBatchConfirmation(INITIATIVE_ID, BATCH_ID))
+                .assertNext(updated -> {
+                    assertEquals(RewardBatchStatus.APPROVING, updated.getStatus());
+                    assertNotNull(updated.getApprovalDate());
+                    assertNotNull(updated.getUpdateDate());
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void rewardBatchConfirmation_success() {
         RewardBatch rb = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.EVALUATING).assigneeLevel(RewardBatchAssignee.L3)
                 .merchantId(MERCHANT_ID).initiativeId(INITIATIVE_ID).posType(PHYSICAL).month("2025-12").build();
@@ -1095,6 +1116,7 @@ class RewardBatchServiceImplTest {
         batch.setId(batchId);
         batch.setMerchantId(MERCHANT_ID);
         batch.setStatus(RewardBatchStatus.APPROVED);
+        batch.setApprovedAmountCents(10000L);
 
         MerchantDetailDTO merchantDetail = new MerchantDetailDTO();
         merchantDetail.setFiscalCode(fiscalCode);
@@ -1113,6 +1135,28 @@ class RewardBatchServiceImplTest {
                 .verifyComplete();
 
         verify(erogazioniRestClient, never()).postErogazione(any());
+    }
+
+    @Test
+    void rewardBatchDeliveryBatch_Fail_ApprovedAmountZero() {
+        // Given
+        String initiativeId = "INIT_1";
+        String batchId = "BATCH_1";
+
+        RewardBatch batch = new RewardBatch();
+        batch.setId(batchId);
+        batch.setMerchantId("M1");
+        batch.setStatus(RewardBatchStatus.APPROVED);
+        batch.setApprovedAmountCents(0L);
+
+        when(rewardBatchRepository.findRewardBatchByIdAndInitiativeId(batchId, initiativeId)).thenReturn(Mono.just(batch));
+
+        StepVerifier.create(service.rewardBatchDeliveryBatch(initiativeId, List.of(batchId)))
+                .verifyComplete();
+
+        verify(erogazioniRestClient, never()).postErogazione(any());
+        verify(merchantRestClient, never()).getMerchantDetail(any(), anyString());
+        verify(selfcareInstitutionsRestClient, never()).getInstitutions(any());
     }
 
     @Test
@@ -1209,6 +1253,40 @@ class RewardBatchServiceImplTest {
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .numberOfTransactions(100L)
                 .numberOfTransactionsElaborated(20L)
+                .build();
+
+        when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(b));
+        when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        StepVerifier.create(service.validateRewardBatch(OP1, INITIATIVE_ID, BATCH_ID))
+                .assertNext(updated -> assertEquals(RewardBatchAssignee.L2, updated.getAssigneeLevel()))
+                .verifyComplete();
+    }
+
+    @Test
+    void validateRewardBatch_L1_to_L2_successWithZeroTransaction() {
+        RewardBatch b = RewardBatch.builder()
+                .id(BATCH_ID)
+                .assigneeLevel(RewardBatchAssignee.L1)
+                .numberOfTransactions(0L)
+                .numberOfTransactionsElaborated(0L)
+                .build();
+
+        when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(b));
+        when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        StepVerifier.create(service.validateRewardBatch(OP1, INITIATIVE_ID, BATCH_ID))
+                .assertNext(updated -> assertEquals(RewardBatchAssignee.L2, updated.getAssigneeLevel()))
+                .verifyComplete();
+    }
+
+    @Test
+    void validateRewardBatch_L1_to_L2_successWithNegativeTransaction() {
+        RewardBatch b = RewardBatch.builder()
+                .id(BATCH_ID)
+                .assigneeLevel(RewardBatchAssignee.L1)
+                .numberOfTransactions(0L)
+                .numberOfTransactionsElaborated(-10L)
                 .build();
 
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(b));

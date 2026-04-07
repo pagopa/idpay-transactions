@@ -630,7 +630,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             rewardBatch.getPosType(),
                             rewardBatch.getMonth());
                     Mono<Boolean> hasUnapprovedBatch = previousBatchesFlux
-                            .filter(batch -> !batch.getStatus().equals(RewardBatchStatus.APPROVED))
+                            .filter(batch -> !batch.getStatus().equals(RewardBatchStatus.APPROVED) && !isRefundState(batch.getStatus()))
                             .hasElements();
                     return hasUnapprovedBatch
                             .flatMap(isUnapprovedPresent ->
@@ -807,11 +807,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         NOT_FOUND,
                         REWARD_BATCH_NOT_FOUND,
                         ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
-                .filter(rewardBatch -> RewardBatchStatus.APPROVED.equals(rewardBatch.getStatus()))
+                .filter(rewardBatch -> RewardBatchStatus.APPROVED.equals(rewardBatch.getStatus()) && rewardBatch.getApprovedAmountCents()>0)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
                         BAD_REQUEST,
                         REWARD_BATCH_INVALID_REQUEST,
-                        ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId))))
+                        ERROR_MESSAGE_INVALID_STATE_OR_AMOUNT_BATCH.formatted(rewardBatchId))))
                 .flatMap(rewardBatch -> merchantRestClient.getMerchantDetail(rewardBatch.getMerchantId(), initiativeId)
                         .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
                                 HttpStatus.NOT_FOUND,
@@ -1006,7 +1006,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         long total = batch.getNumberOfTransactions();
                         long elaborated = batch.getNumberOfTransactionsElaborated();
 
-                        if (total == 0 || elaborated < Math.ceil(total * 0.15)) {
+                        if (total > 0 && elaborated < Math.ceil(total * 0.15)) {
                             return Mono.error(new BatchNotElaborated15PercentException(
                                     BATCH_NOT_ELABORATED_15_PERCENT,
                                     ERROR_MESSAGE_BATCH_NOT_ELABORATED_15_PERCENT
