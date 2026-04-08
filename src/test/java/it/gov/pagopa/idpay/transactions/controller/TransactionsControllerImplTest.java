@@ -27,6 +27,9 @@ class TransactionsControllerImplTest {
     @Autowired
     protected WebTestClient webClient;
 
+    private static final String INITIATIVE_ID = "INIT01";
+    private  static final String MERCHANT_ID = "MERCH01";
+
     @Test
     void findAllOk() {
         LocalDateTime now = LocalDateTime.of(2022, 9, 20, 13, 15,45);
@@ -229,15 +232,19 @@ class TransactionsControllerImplTest {
 
     @Test
     void cleanupInvoicedTransactions_defaultChunkSize() {
-        Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(Mockito.anyInt(),
-            Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
+        Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(
+            Mockito.anyInt(), Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
             .thenReturn(Mono.empty());
 
         webClient.post()
-            .uri("/idpay/transactions/cleanup")
-            .exchange()
+            .uri(uriBuilder -> uriBuilder.path("/idpay/transactions/cleanup")
+                    .queryParam("initiativeId", INITIATIVE_ID)
+                    .build())
+             .header("x-merchant-id", MERCHANT_ID)
+             .exchange()
             .expectStatus().isAccepted()
-            .expectBody(String.class);
+            .expectBody(String.class)
+        ;
 
         Mockito.verify(rewardTransactionService, Mockito.times(1))
             .assignInvoicedTransactionsToBatches(
@@ -249,8 +256,8 @@ class TransactionsControllerImplTest {
 
     @Test
     void cleanupInvoicedTransactions_customChunkSize() {
-        Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(Mockito.anyInt(),
-                Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
+        Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(
+                Mockito.anyInt(), Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
             .thenReturn(Mono.empty());
 
         int customChunkSize = 500;
@@ -258,9 +265,11 @@ class TransactionsControllerImplTest {
 
         webClient.post()
             .uri(uriBuilder -> uriBuilder.path("/idpay/transactions/cleanup")
+                .queryParam("initiativeId", INITIATIVE_ID)
                 .queryParam("chunkSize", customChunkSize)
                 .queryParam("repetitionsNumber", customIteration)
                 .build())
+            .header("x-merchant-id", MERCHANT_ID)
             .exchange()
             .expectStatus().isAccepted()
             .expectBody(String.class);

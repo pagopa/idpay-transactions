@@ -79,20 +79,35 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
     }
 
     @Override
-    public Mono<Void> assignInvoicedTransactionsToBatches(Integer chunkSize, Integer repetitionsNumber, boolean processAll, String trxId) {
+    public Mono<Void> assignInvoicedTransactionsToBatches(
+            Integer chunkSize,
+            Integer repetitionsNumber,
+            boolean processAll,
+            String trxId) {
 
-      if (trxId != null && !trxId.isEmpty()) {
-        log.info("[BATCH_ASSIGNMENT] Processing transaction with ID={}", Utilities.sanitizeString(trxId));
-        return rewardTrxRepository.findInvoicedTrxByIdWithoutBatch(trxId)
-            .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.NOT_FOUND, String.format(TRANSACTION_NOT_FOUND, trxId))))
-            .flatMap(this::processTransaction)
-            .then();
-      }
-      if (processAll) {
-        return processAllOperation(chunkSize);
-      } else {
-        return processSingleOperation(chunkSize, repetitionsNumber);
-      }
+        if (trxId != null && !trxId.isEmpty()) {
+            log.info("[BATCH_ASSIGNMENT] Processing transaction with ID={}", Utilities.sanitizeString(trxId));
+
+            return rewardTrxRepository.findById(trxId)
+                    .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
+                            HttpStatus.NOT_FOUND,
+                            String.format(TRANSACTION_NOT_FOUND, trxId))))
+                    .flatMap(rt -> rewardTrxRepository.findInvoicedTrxByIdWithoutBatch(
+                            rt.getInitiatives().getFirst(),
+                            rt.getMerchantId(),
+                            trxId))
+                    .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
+                            HttpStatus.NOT_FOUND,
+                            String.format(TRANSACTION_NOT_FOUND, trxId))))
+                    .flatMap(this::processTransaction)
+                    .then();
+        }
+
+        if (processAll) {
+            return processAllOperation(chunkSize);
+        } else {
+            return processSingleOperation(chunkSize, repetitionsNumber);
+        }
     }
 
     private Mono<Void> processAllOperation(int chunkSize) {
@@ -219,6 +234,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
                 .orElse(0L);
 
         return rewardBatchService.findOrCreateBatch(
+                    initiativeId,
                     trx.getMerchantId(),
                     trx.getPointOfSaleType(),
                     batchMonth,
@@ -234,7 +250,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
                         .incrementInitialAmountCents(accruedRewardCents)
                         .incrementNumberOfTransactions(1L);
 
-              return rewardBatchRepository.updateTotals(rewardBatch.getId(), counters)
+              return rewardBatchRepository.updateTotals(rewardBatch.getInitiativeId(), rewardBatch.getId(), counters)
                   .map(batch -> {
                     trx.setRewardBatchId(batch.getId());
                     trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
