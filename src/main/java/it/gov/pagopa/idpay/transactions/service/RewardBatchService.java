@@ -15,8 +15,8 @@ import java.util.List;
 
 public interface RewardBatchService {
 
-  Mono<RewardBatch> findOrCreateBatch(String merchantId, PosType posType, String month, String businessName);
-  Mono<Page<RewardBatch>> getRewardBatches(String merchantId, String organizationRole, String status, String assigneeLevel, String month, Pageable pageable);
+  Mono<RewardBatch> findOrCreateBatch(String initiativeId, String merchantId, PosType posType, String month, String businessName);
+  Mono<Page<RewardBatch>> getRewardBatches(String merchantId, String initiativeId, String organizationRole, String status, String assigneeLevel, String month, Pageable pageable);
   Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId);
 
   Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds);
@@ -26,14 +26,14 @@ public interface RewardBatchService {
   Mono<Void> checkRewardBatchesOutcomes(String initiativeId, List<String> rewardBatchIds);
   Mono<String> generateAndSaveCsv(String rewardBatchId, String initiativeId, String merchantId);
 
-  Mono<Void> sendRewardBatch(String merchantId, String batchId);
+  Mono<Void> sendRewardBatch(String initiativeId, String merchantId, String batchId);
   Mono<RewardBatch> suspendTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request);
 
   Mono<RewardBatch> rejectTransactions(String rewardBatchId, String initiativeId, TransactionsRequest request);
   Mono<RewardBatch> approvedTransactions(String rewardBatchId, TransactionsRequest request, String initiativeId);
   Mono<RewardBatch> validateRewardBatch(String organizationRole, String initiativeId, String rewardBatchId);
 
-  Mono<Long> evaluatingRewardBatches(List<String> rewardBatchesRequest);
+  Mono<Long> evaluatingRewardBatches(List<String> rewardBatchesRequest, String initiativeId);
 
   Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatchFile(String merchantId, String organizationRole, String initiativeId, String rewardBatchId);
 

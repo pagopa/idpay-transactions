@@ -168,7 +168,7 @@ class ErogazioniRestClientImplTest extends BaseWireMockTest {
 
         StepVerifier.create(erogazioniRestClient.getOutcome(batchId))
                 .assertNext(outcome -> {
-                    assertEquals("COMPLETATO", outcome.getErogazione().getStatus());
+                    assertEquals("COMPLETATA", outcome.getErogazione().getStatus());
 
                     BigDecimal expectedAmount = new BigDecimal("1000.0");
                     BigDecimal actualAmount = outcome.getErogazione().getAmountPaid() != null

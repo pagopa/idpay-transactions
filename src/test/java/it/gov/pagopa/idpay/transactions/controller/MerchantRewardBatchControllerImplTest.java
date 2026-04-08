@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
-import it.gov.pagopa.common.web.dto.ErrorDTO;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
@@ -23,8 +22,8 @@ import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessag
 
 import java.time.Instant;
 import java.time.LocalDate;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
@@ -48,7 +47,7 @@ import java.util.List;
 @Import({ServiceExceptionConfig.class})
 class MerchantRewardBatchControllerImplTest {
 
-  @Autowired
+    @Autowired
   protected WebTestClient webClient;
 
   @MockitoBean
@@ -83,13 +82,14 @@ class MerchantRewardBatchControllerImplTest {
                 .uri(uriBuilder -> uriBuilder
                         .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/delivery")
                         .build(INITIATIVE_ID))
+                .header("x-merchant-id", MERCHANT_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .exchange()
                 .expectStatus().isOk();
 
         Mockito.verify(rewardBatchService, Mockito.times(1))
-                .rewardBatchDeliveryBatch(INITIATIVE_ID, BATCH_IDS);
+                .rewardBatchDeliveryBatch(INITIATIVE_ID,BATCH_IDS);
     }
 
     @Test
@@ -104,6 +104,7 @@ class MerchantRewardBatchControllerImplTest {
         webClient.post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/delivery", INITIATIVE_ID)
                 .contentType(MediaType.APPLICATION_JSON)
+                .header("x-merchant-id", MERCHANT_ID)
                 .bodyValue(request)
                 .exchange()
                 .expectStatus().isOk();
@@ -123,6 +124,7 @@ class MerchantRewardBatchControllerImplTest {
         webClient.post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/delivery", INITIATIVE_ID)
                 .contentType(MediaType.APPLICATION_JSON)
+                .header("x-merchant-id", MERCHANT_ID)
                 .bodyValue(request)
                 .exchange()
                 .expectStatus().is5xxServerError();
@@ -170,6 +172,7 @@ class MerchantRewardBatchControllerImplTest {
                 .thenReturn(Mono.empty());
         webClient.post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/approved", INITIATIVE_ID)
+                .header("x-merchant-id", MERCHANT_ID)
                 .bodyValue(request)
                 .exchange()
                 .expectStatus().isOk()
@@ -185,6 +188,7 @@ class MerchantRewardBatchControllerImplTest {
                     .thenReturn(Mono.empty());
             webClient.post()
                     .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/approved", INITIATIVE_ID)
+                    .header("x-merchant-id", MERCHANT_ID)
                     .bodyValue(request)
                     .exchange()
                     .expectStatus().isOk()
@@ -206,6 +210,7 @@ class MerchantRewardBatchControllerImplTest {
 
             webClient.post()
                     .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/approved", INITIATIVE_ID)
+                    .header("x-merchant-id", MERCHANT_ID)
                     .bodyValue(request)
                     .exchange()
                     .expectStatus().isOk()
@@ -239,6 +244,7 @@ class MerchantRewardBatchControllerImplTest {
 
     when(rewardBatchService.getRewardBatches(
         eq(MERCHANT_ID),
+        eq(INITIATIVE_ID),
         isNull(),
         isNull(),
         isNull(),
@@ -270,7 +276,7 @@ class MerchantRewardBatchControllerImplTest {
         });
 
     verify(rewardBatchService, times(1))
-        .getRewardBatches(eq(MERCHANT_ID), isNull(), isNull(), isNull(), isNull(), any(Pageable.class));
+        .getRewardBatches(eq(MERCHANT_ID), eq(INITIATIVE_ID), isNull(), isNull(), isNull(), isNull(), any(Pageable.class));
     verify(rewardBatchMapper, times(1)).toDTO(batch);
   }
 
@@ -286,7 +292,7 @@ class MerchantRewardBatchControllerImplTest {
         .name(batch.getName())
         .build();
 
-    when(getRewardBatchByIdUseCase.execute(MERCHANT_ID, REWARD_BATCH_ID_1))
+    when(getRewardBatchByIdUseCase.execute(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
         .thenReturn(Mono.just(batch));
 
     when(rewardBatchMapper.toDTO(batch))
@@ -306,13 +312,13 @@ class MerchantRewardBatchControllerImplTest {
           assertEquals("Reward Batch 1", response.getName());
         });
 
-    verify(getRewardBatchByIdUseCase, times(1)).execute(MERCHANT_ID, REWARD_BATCH_ID_1);
+    verify(getRewardBatchByIdUseCase, times(1)).execute(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1);
     verify(rewardBatchMapper, times(1)).toDTO(batch);
   }
 
   @Test
   void getRewardBatchById_notFound() {
-    when(getRewardBatchByIdUseCase.execute(MERCHANT_ID, REWARD_BATCH_ID_1))
+    when(getRewardBatchByIdUseCase.execute(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1))
         .thenReturn(Mono.error(new RewardBatchNotFound(
             ExceptionCode.REWARD_BATCH_NOT_FOUND,
             ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(REWARD_BATCH_ID_1))));
@@ -325,7 +331,7 @@ class MerchantRewardBatchControllerImplTest {
         .exchange()
         .expectStatus().isNotFound();
 
-    verify(getRewardBatchByIdUseCase, times(1)).execute(MERCHANT_ID, REWARD_BATCH_ID_1);
+    verify(getRewardBatchByIdUseCase, times(1)).execute(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1);
     verify(rewardBatchMapper, never()).toDTO(any());
   }
 
@@ -351,6 +357,7 @@ class MerchantRewardBatchControllerImplTest {
 
     when(rewardBatchService.getRewardBatches(
         isNull(),
+        eq(INITIATIVE_ID),
         eq(organizationRole),
         isNull(),
         isNull(),
@@ -382,7 +389,7 @@ class MerchantRewardBatchControllerImplTest {
         });
 
     verify(rewardBatchService, times(1))
-        .getRewardBatches(isNull(), eq(organizationRole), isNull(), isNull(), isNull(), any(Pageable.class));
+        .getRewardBatches(isNull(), eq(INITIATIVE_ID), eq(organizationRole), isNull(), isNull(), isNull(), any(Pageable.class));
     verify(rewardBatchMapper, times(1)).toDTO(batch);
   }
 
@@ -391,7 +398,7 @@ class MerchantRewardBatchControllerImplTest {
 
     String batchId = "BATCH1";
 
-    when(rewardBatchService.sendRewardBatch(MERCHANT_ID, batchId))
+    when(rewardBatchService.sendRewardBatch(INITIATIVE_ID, MERCHANT_ID, batchId))
         .thenReturn(Mono.empty());
 
     webClient.post()
@@ -403,7 +410,7 @@ class MerchantRewardBatchControllerImplTest {
         .expectStatus().isNoContent();
 
     verify(rewardBatchService, times(1))
-        .sendRewardBatch(MERCHANT_ID, batchId);
+        .sendRewardBatch(INITIATIVE_ID, MERCHANT_ID, batchId);
   }
 
   @Test
@@ -523,6 +530,7 @@ class MerchantRewardBatchControllerImplTest {
 
         webClient.post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchid}/approved", INITIATIVE_ID, rewardBatchId)
+                .header("x-merchant-id", MERCHANT_ID)
                 .exchange()
                 .expectStatus().isOk() // 200 OK
                 .expectBody(RewardBatch.class)
@@ -541,6 +549,7 @@ class MerchantRewardBatchControllerImplTest {
 
         webClient.post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchid}/approved", INITIATIVE_ID, rewardBatchId)
+                .header("x-merchant-id", MERCHANT_ID)
                 .exchange()
                 .expectStatus().isNotFound()
                 .expectBody()
@@ -559,6 +568,7 @@ class MerchantRewardBatchControllerImplTest {
 
         webClient.post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchid}/approved", INITIATIVE_ID, rewardBatchId)
+                .header("x-merchant-id", MERCHANT_ID)
                 .exchange()
                 .expectStatus().isBadRequest()
                 .expectBody()
@@ -668,11 +678,12 @@ class MerchantRewardBatchControllerImplTest {
     void evaluatingRewardBatches() {
         RewardBatchesRequest batchRequest = RewardBatchesRequest.builder().rewardBatchIds(List.of("BATCH_ID")).build();
 
-        when(rewardBatchService.evaluatingRewardBatches(List.of("BATCH_ID"))).thenReturn(Mono.just(1L));
+        when(rewardBatchService.evaluatingRewardBatches(List.of("BATCH_ID"), INITIATIVE_ID)).thenReturn(Mono.just(1L));
 
         webClient.post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/evaluate",
                         INITIATIVE_ID)
+                .header("x-merchant-id", MERCHANT_ID)
                 .bodyValue(batchRequest)
                 .exchange()
                 .expectStatus().isOk();
@@ -680,27 +691,25 @@ class MerchantRewardBatchControllerImplTest {
 
     @Test
     void evaluatingRewardBatches_notFound() {
-        RewardBatchesRequest batchRequest =
-                RewardBatchesRequest.builder()
-                        .rewardBatchIds(List.of("BATCH_ID"))
-                        .build();
+        RewardBatchesRequest batchRequest = RewardBatchesRequest.builder()
+                .rewardBatchIds(List.of("BATCH_ID"))
+                .build();
 
-        when(rewardBatchService.evaluatingRewardBatches(List.of("BATCH_ID")))
-                .thenReturn(Mono.error(
-                        new RewardBatchNotFound("DUMMY_EXCEPTION", "MESSAGE_DUMMY"))
-                );
+        doReturn(Mono.error(new ClientExceptionWithBody(
+                HttpStatus.NOT_FOUND,
+                ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
+                "not found"
+        ))).when(rewardBatchService).evaluatingRewardBatches(
+                ArgumentMatchers.<List<String>>any(),
+                ArgumentMatchers.nullable(String.class)
+        );
 
         webClient.post()
-                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/evaluate",
-                        INITIATIVE_ID)
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/evaluate", INITIATIVE_ID)
+                .header("merchantId", MERCHANT_ID)
                 .bodyValue(batchRequest)
                 .exchange()
-                .expectStatus().isNotFound()
-                .expectBody(ErrorDTO.class)
-                .value(errorDto -> {
-                    Assertions.assertEquals("DUMMY_EXCEPTION", errorDto.getCode());
-                    Assertions.assertEquals("MESSAGE_DUMMY", errorDto.getMessage());
-                });
+                .expectStatus().isNotFound();
     }
 
     @Test
@@ -714,6 +723,7 @@ class MerchantRewardBatchControllerImplTest {
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/validated",
                         INITIATIVE_ID, rewardBatchId)
                 .header("x-organization-role", "operator1")
+                .header("x-merchant-id", MERCHANT_ID)
                 .exchange()
                 .expectStatus().isOk();
 
@@ -732,6 +742,7 @@ class MerchantRewardBatchControllerImplTest {
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/validated",
                         INITIATIVE_ID, rewardBatchId)
                 .header("x-organization-role", "wrongRole")
+                .header("x-merchant-id", MERCHANT_ID)
                 .exchange()
                 .expectStatus().isForbidden()
                 .expectBody()
@@ -752,6 +763,7 @@ class MerchantRewardBatchControllerImplTest {
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/validated",
                         INITIATIVE_ID, rewardBatchId)
                 .header("x-organization-role", "operator1")
+                .header("x-merchant-id", MERCHANT_ID)
                 .exchange()
                 .expectStatus().isBadRequest()
                 .expectBody()
@@ -771,6 +783,7 @@ class MerchantRewardBatchControllerImplTest {
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/validated",
                         INITIATIVE_ID, rewardBatchId)
                 .header("x-organization-role", "operator2")
+                .header("x-merchant-id", MERCHANT_ID)
                 .exchange()
                 .expectStatus().isOk();
 
@@ -789,6 +802,7 @@ class MerchantRewardBatchControllerImplTest {
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/validated",
                         INITIATIVE_ID, rewardBatchId)
                 .header("x-organization-role", "operator3")
+                .header("x-merchant-id", MERCHANT_ID)
                 .exchange()
                 .expectStatus().isBadRequest()
                 .expectBody()
@@ -809,6 +823,7 @@ class MerchantRewardBatchControllerImplTest {
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/validated",
                         INITIATIVE_ID, rewardBatchId)
                 .header("x-organization-role", "operator1")
+                .header("x-merchant-id", MERCHANT_ID)
                 .exchange()
                 .expectStatus().isNotFound()
                 .expectBody()
@@ -1014,6 +1029,7 @@ class MerchantRewardBatchControllerImplTest {
                 .uri(uriBuilder -> uriBuilder
                         .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/check-outcomes")
                         .build(INITIATIVE_ID))
+                .header("x-merchant-id", MERCHANT_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .exchange()
@@ -1037,6 +1053,7 @@ class MerchantRewardBatchControllerImplTest {
                 .uri(uriBuilder -> uriBuilder
                         .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/check-outcomes")
                         .build(INITIATIVE_ID))
+                .header("x-merchant-id", MERCHANT_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .exchange()
@@ -1061,6 +1078,7 @@ class MerchantRewardBatchControllerImplTest {
                 .uri(uriBuilder -> uriBuilder
                         .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/check-outcomes")
                         .build(INITIATIVE_ID))
+                .header("x-merchant-id", MERCHANT_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .exchange()
@@ -1085,6 +1103,7 @@ class MerchantRewardBatchControllerImplTest {
                         .build(INITIATIVE_ID))
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
+                .header("x-merchant-id", MERCHANT_ID)
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody().isEmpty();

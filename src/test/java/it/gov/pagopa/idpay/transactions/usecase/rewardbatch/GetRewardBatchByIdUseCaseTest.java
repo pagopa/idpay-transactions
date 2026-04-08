@@ -23,6 +23,7 @@ class GetRewardBatchByIdUseCaseTest {
     private GetRewardBatchByIdUseCase useCase;
 
     private static final String MERCHANT_ID = "MERCHANT_ID";
+    private static final String INITIATIVE_ID = "INITIATIVE_01";
     private static final String BATCH_ID = "BATCH_ID";
 
     @BeforeEach
@@ -38,27 +39,27 @@ class GetRewardBatchByIdUseCaseTest {
                 .status(RewardBatchStatus.CREATED)
                 .build();
 
-        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, BATCH_ID))
+        when(rewardBatchRepository.findByMerchantIdAndInitiativeIdAndId(MERCHANT_ID, INITIATIVE_ID, BATCH_ID))
                 .thenReturn(Mono.just(batch));
 
-        StepVerifier.create(useCase.execute(MERCHANT_ID, BATCH_ID))
+        StepVerifier.create(useCase.execute(MERCHANT_ID, INITIATIVE_ID, BATCH_ID))
                 .expectNext(batch)
                 .verifyComplete();
 
-        verify(rewardBatchRepository, times(1)).findByMerchantIdAndId(MERCHANT_ID, BATCH_ID);
+        verify(rewardBatchRepository, times(1)).findByMerchantIdAndInitiativeIdAndId(MERCHANT_ID, INITIATIVE_ID, BATCH_ID);
     }
 
     @Test
     void execute_notFound() {
-        when(rewardBatchRepository.findByMerchantIdAndId(MERCHANT_ID, BATCH_ID))
+        when(rewardBatchRepository.findByMerchantIdAndInitiativeIdAndId(MERCHANT_ID, INITIATIVE_ID, BATCH_ID))
                 .thenReturn(Mono.empty());
 
-        StepVerifier.create(useCase.execute(MERCHANT_ID, BATCH_ID))
+        StepVerifier.create(useCase.execute(MERCHANT_ID, INITIATIVE_ID, BATCH_ID))
                 .expectErrorMatches(ex -> ex instanceof RewardBatchNotFound
                         && ex.getMessage().contains(BATCH_ID))
                 .verify();
 
-        verify(rewardBatchRepository, times(1)).findByMerchantIdAndId(MERCHANT_ID, BATCH_ID);
+        verify(rewardBatchRepository, times(1)).findByMerchantIdAndInitiativeIdAndId(MERCHANT_ID, INITIATIVE_ID, BATCH_ID);
     }
 }
 

@@ -30,6 +30,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -210,8 +211,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
 
   @Override
-  public Mono<RewardTransaction> findTransaction(
-      String merchantId, String transactionId) {
+  public Mono<RewardTransaction> findTransaction(String merchantId, String transactionId) {
     Criteria criteria = Criteria
         .where(Fields.merchantId).is(merchantId)
         .and(Fields.id).is(transactionId)
@@ -335,10 +335,11 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
 
   @Override
-  public Mono<Void> rewardTransactionsByBatchId(String batchId) {
+  public Mono<Void> rewardTransactionsByBatchIdAndInitiativeId(String batchId, String initiativeId) {
     Criteria batchCriteria = Criteria.where(Fields.rewardBatchId).is(batchId);
     Criteria samplingBatchCriteria = Criteria.where(Fields.rewardBatchId).is(batchId)
-        .and(Fields.rewardBatchTrxStatus).ne(RewardBatchTrxStatus.SUSPENDED);
+        .and(Fields.rewardBatchTrxStatus).ne(RewardBatchTrxStatus.SUSPENDED)
+        .and(Fields.initiatives).in(initiativeId);
 
     Mono<Long> totalMono = mongoTemplate.updateMulti(
             Query.query(batchCriteria),
@@ -379,11 +380,12 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
   }
 
   @Override
-  public Mono<Long> sumSuspendedAccruedRewardCents(String rewardBatchId) {
+  public Mono<Long> sumSuspendedAccruedRewardCents(String initiativeId, String rewardBatchId) {
 
     MatchOperation match = Aggregation.match(
-        Criteria.where("rewardBatchId").is(rewardBatchId)
-            .and("rewardBatchTrxStatus").is(RewardBatchTrxStatus.SUSPENDED)
+        Criteria.where(Fields.rewardBatchId).is(rewardBatchId)
+            .and(Fields.rewardBatchTrxStatus).is(RewardBatchTrxStatus.SUSPENDED)
+            .and(Fields.initiatives).in(initiativeId)
     );
 
     Aggregation agg = Aggregation.newAggregation(
@@ -401,64 +403,74 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
   }
 
   @Override
-  public Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus newStatus,
-                                                          ReasonDTO reasons, String batchMonth, ChecksError checksError) {
+  public Mono<RewardTransaction> updateStatusAndReturnOld(
+          String initiativeId,
+          String batchId,
+          String trxId,
+          RewardBatchTrxStatus newStatus,
+          ReasonDTO reasons,
+          String batchMonth,
+          ChecksError checksError
+  ) {
 
-    Criteria base = Criteria.where(Fields.id).is(trxId)
-            .and(Fields.rewardBatchId).is(batchId);
+      Criteria base = Criteria.where(Fields.id).is(trxId)
+              .and(Fields.rewardBatchId).is(batchId)
+              .and(Fields.initiatives).in(initiativeId);
 
-    Query findQuery = Query.query(base);
-    findQuery.fields().include(Fields.rewardBatchTrxStatus);
-    return Mono.defer(() ->
+      Query findQuery = Query.query(base);
+      findQuery.fields().include(Fields.rewardBatchTrxStatus);
 
-                    mongoTemplate.findOne(
-                                    findQuery,
-                                    RewardTransaction.class
-                            )
-                            .flatMap(current -> {
-                              if (current == null) {
-                                log.info("Transaction not found for id {} and reward batch {}", trxId, batchId);
-                                return Mono.empty();
-                              }
+      return Mono.defer(() ->
+              mongoTemplate.findOne(findQuery, RewardTransaction.class)
+                      .flatMap(current -> {
+                          if (current == null) {
+                              log.info("Transaction not found for id {} and reward batch {}", trxId, batchId);
+                              return Mono.empty();
+                          }
 
-                              RewardBatchTrxStatus currentStatus = current.getRewardBatchTrxStatus();
+                          RewardBatchTrxStatus currentStatus = current.getRewardBatchTrxStatus();
+                          Update update = createUpdate(currentStatus, newStatus, reasons, batchMonth, checksError);
 
-                              Update update = new Update()
-                                      .set(Fields.rewardBatchTrxStatus, newStatus)
-                                      .set(Fields.rewardBatchLastMonthElaborated, batchMonth);
+                          Criteria cond = Criteria.where(Fields.id).is(trxId)
+                                  .and(Fields.rewardBatchId).is(batchId)
+                                  .and(Fields.rewardBatchTrxStatus).is(currentStatus);
 
-                              if (checksError != null) {
-                                update.set(RewardTransaction.Fields.checksError, checksError);
-                              } else {
-                                update.unset(RewardTransaction.Fields.checksError);
-                              }
+                          return mongoTemplate.findAndModify(
+                                  Query.query(cond),
+                                  update,
+                                  FindAndModifyOptions.options().returnNew(false).upsert(false),
+                                  RewardTransaction.class
+                          );
+                      })
+      );
+  }
 
+  private Update createUpdate(
+          RewardBatchTrxStatus currentStatus,
+          RewardBatchTrxStatus newStatus,
+          ReasonDTO reasons,
+          String batchMonth,
+          ChecksError checksError
+  ) {
+      Update update = new Update()
+              .set(Fields.rewardBatchTrxStatus, newStatus)
+              .set(Fields.rewardBatchLastMonthElaborated, batchMonth);
 
-                              if (reasons == null) {
-                                update.unset(RewardTransaction.Fields.rewardBatchRejectionReason);
-                              } else {
-                                if (currentStatus != null && currentStatus.equals(newStatus)) {
-                                  update.push(RewardTransaction.Fields.rewardBatchRejectionReason).value(reasons);
-                                } else {
-                                  update.set(RewardTransaction.Fields.rewardBatchRejectionReason, List.of(reasons));
-                                }
-                              }
+      if (checksError != null) {
+          update.set(RewardTransaction.Fields.checksError, checksError);
+      } else {
+          update.unset(RewardTransaction.Fields.checksError);
+      }
 
+      if (reasons == null) {
+          update.unset(RewardTransaction.Fields.rewardBatchRejectionReason);
+      } else if (Objects.equals(currentStatus, newStatus)) {
+          update.push(RewardTransaction.Fields.rewardBatchRejectionReason).value(reasons);
+      } else {
+          update.set(RewardTransaction.Fields.rewardBatchRejectionReason, List.of(reasons));
+      }
 
-                              Criteria cond = Criteria.where(Fields.id).is(trxId)
-                                      .and(Fields.rewardBatchId).is(batchId)
-                                      .and(Fields.rewardBatchTrxStatus).is(currentStatus);
-
-                              return mongoTemplate.findAndModify(
-                                      Query.query(cond),
-                                      update,
-                                      FindAndModifyOptions.options()
-                                              .returnNew(false)
-                                              .upsert(false),
-                                      RewardTransaction.class
-                              );
-                            })
-            );
+      return update;
   }
 
   @Override
@@ -475,10 +487,12 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
   }
 
   @Override
-  public Mono<RewardTransaction> findInvoicedTrxByIdWithoutBatch(String trxId) {
+  public Mono<RewardTransaction> findInvoicedTrxByIdWithoutBatch(String initiativeId, String merchantId, String trxId) {
     Criteria criteria = Criteria.where(Fields.id).is(trxId)
         .and(Fields.status).is(SyncTrxStatus.INVOICED)
-        .and(Fields.rewardBatchId).isNull();
+        .and(Fields.rewardBatchId).isNull()
+        .and(Fields.initiatives).in(initiativeId)
+        .and(Fields.merchantId).is(merchantId);
 
     Query query = Query.query(criteria);
 
@@ -487,10 +501,11 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
 
   @Override
   public Flux<FranchisePointOfSaleDTO> findDistinctFranchiseAndPosByRewardBatchId(
-      String rewardBatchId) {
+          String rewardBatchId, String merchantId) {
 
     MatchOperation match = Aggregation.match(
         Criteria.where(RewardTransaction.Fields.rewardBatchId).is(rewardBatchId)
+                .and(Fields.merchantId).is(merchantId)
     );
 
     GroupOperation group = Aggregation.group(
@@ -515,10 +530,11 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     );
   }
 
-    public Mono<RewardTransaction> findTransactionInBatch (String merchantId, String
+    public Mono<RewardTransaction> findTransactionInBatch (String initiativeId, String merchantId, String
     rewardBatchId, String transactionId){
       Criteria criteria = Criteria
           .where(RewardTransaction.Fields.id).is(transactionId)
+          .and(Fields.initiatives).in(initiativeId)
           .and(RewardTransaction.Fields.merchantId).is(merchantId)
           .and(RewardTransaction.Fields.rewardBatchId).is(rewardBatchId);
 
