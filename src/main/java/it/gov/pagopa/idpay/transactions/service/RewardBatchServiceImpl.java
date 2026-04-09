@@ -213,7 +213,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                 ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST));
                     }
                     YearMonth batchMonth = YearMonth.parse(batch.getMonth());
-                    if (!YearMonth.now().isAfter(batchMonth)) {
+                    if (!YearMonth.now(clock).isAfter(batchMonth)) {
                         log.warn("[SEND_REWARD_BATCHES] Batch month too early to be sent !");
                         return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
                                 ExceptionConstants.ExceptionCode.REWARD_BATCH_MONTH_TOO_EARLY));
@@ -880,7 +880,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                                 batch.setDeliveryOutcome(outcome);
                                                 if (outcome.isSucceded()) {
                                                     batch.setStatus(RewardBatchStatus.PENDING_REFUND);
-                                                    batch.setDeliveryDateRequest(LocalDateTime.now());
+                                                    batch.setDeliveryDateRequest(Instant.now());
                                                     log.info("[PROCESS_BATCH] Batch {} delivery succeeded. Status moved to PENDING_REFUND", rewardBatchId);
                                                 } else {
                                                     log.warn("[PROCESS_BATCH] Batch {} delivery rejected by server: {}", rewardBatchId, outcome.getMessage());
@@ -900,61 +900,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             return Mono.just(originalBatch);
         }
 
-        long countToMove = originalBatch.getNumberOfTransactionsSuspended();
-
-        return findOrCreateBatch(originalBatch.getMerchantId(),
-                originalBatch.getPosType(),
-                getTargetMonth(originalBatch.getMonth()),
-                originalBatch.getBusinessName())
-                .flatMap(newBatch -> updateAndSaveRewardTransactionsSuspended(originalBatch.getId(), initiativeId, newBatch.getId(), originalBatch.getMonth())
-                        .flatMap(totalAccrued -> {
-                            BatchCountersDTO batchCounters = BatchCountersDTO.newBatch()
-                                    .incrementInitialAmountCents(totalAccrued)
-                                    .incrementTrxElaborated(countToMove)
-                                    .incrementNumberOfTransactions(countToMove)
-                                    .incrementSuspendedAmountCents(totalAccrued)
-                                    .incrementTrxSuspended(countToMove);
-                            return rewardBatchRepository.updateTotals(newBatch.getId(), batchCounters);
-                        }))
-                .thenReturn(originalBatch);
-    }
-
-    Mono<RewardBatch> createRewardBatchAndSave(RewardBatch savedBatch) {
-
-        Mono<RewardBatch> existingBatchMono = rewardBatchRepository.findRewardBatchByFilter(
-                        null,
-                        savedBatch.getMerchantId(),
-                        savedBatch.getPosType(),
-                        addOneMonth(savedBatch.getMonth()))
-                .doOnNext(existingBatch ->
-                        log.info("Batch for {} and merchantId {} already exists, with rewardBatchId = {}",
-                                addOneMonthToItalian(savedBatch.getName()),
-                                Utilities.sanitizeString(existingBatch.getMerchantId()),
-                                Utilities.sanitizeString(existingBatch.getId())));
-
-        Mono<RewardBatch> newBatchCreationMono = Mono.just(savedBatch)
-                .map(batch -> RewardBatch.builder()
-                        .id(null)
-                        .merchantId(savedBatch.getMerchantId())
-                        .businessName(savedBatch.getBusinessName())
-                        .month(addOneMonth(savedBatch.getMonth()))
-                        .posType(savedBatch.getPosType())
-                        .status(RewardBatchStatus.CREATED)
-                        .partial(savedBatch.getPartial())
-                        .name(addOneMonthToItalian(savedBatch.getName()))
-                        .startDate(savedBatch.getStartDate())
-                        .endDate(savedBatch.getEndDate())
-                        .approvedAmountCents(0L)
-                        .initialAmountCents(0L)
-                        .numberOfTransactions(0L)
-                        .numberOfTransactionsElaborated(0L)
-                        .numberOfTransactionsSuspended(0L)
-                        .numberOfTransactionsRejected(0L)
-                        .reportPath(savedBatch.getReportPath())
-                        .assigneeLevel(RewardBatchAssignee.L1)
-                        .creationDate(Instant.now(clock))
-                        .updateDate(Instant.now(clock))
-                        .build()
         return rewardTransactionRepository
                 .findByFilter(originalBatch.getId(), initiativeId, List.of(RewardBatchTrxStatus.SUSPENDED))
                 .count()
@@ -981,6 +926,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
                                     return rewardBatchRepository.updateTotals(newBatch.getInitiativeId(), newBatch.getId(), batchCounters);
                                 })
+                        )
                 )
                 .thenReturn(originalBatch);
     }
@@ -995,7 +941,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     public String getTargetMonth(String yearMonthBatchOriginal) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern(DATE_FORMAT);
         YearMonth originalBatchMonth = YearMonth.parse(yearMonthBatchOriginal, formatter);
-        YearMonth currentMonth = YearMonth.now();
+        YearMonth currentMonth = YearMonth.now(clock);
         YearMonth targetMonth = originalBatchMonth.isAfter(currentMonth) ? originalBatchMonth : currentMonth;
         return targetMonth.format(formatter);
     }
@@ -1381,7 +1327,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     @Override
     public Mono<Void> deleteEmptyRewardBatches() {
 
-        String currentMonth = LocalDate.now()
+        String currentMonth = LocalDate.now(clock)
                 .withDayOfMonth(1)
                 .toString()
                 .substring(0, 7);
