@@ -239,6 +239,8 @@ app:
     tenant-id: ${DATA_FACTORY_TENANT_ID:}
     subscription-id: ${DATA_FACTORY_SUBSCRIPTION_ID:}
   period-length-transactions-report: ${PERIOD_LENGTH_TRANSACTIONS_REPORT:}
+  initiative:
+    base-url: https://api-io.dev.cstar.pagopa.it
   invitalia:
     credentials:
       client-id: ${INVITALIA_CLIENT_ID:}

@@ -6,8 +6,10 @@ import com.mongodb.client.result.DeleteResult;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.dto.InitiativeData;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.MerchantDetailDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.initiative.InitiativeDataService;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.ErogazioneOutcomeDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.ErrorInvitaliaDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO;
@@ -80,6 +82,7 @@ class RewardBatchServiceImplTest {
     @Mock private MerchantRestClient  merchantRestClient;
     @Mock private SelfcareInstitutionsRestClient  selfcareInstitutionsRestClient;
     @Mock private ErogazioniRestClient  erogazioniRestClient;
+    @Mock private InitiativeDataService initiativeDataService;
 
     private RewardBatchServiceImpl service;
     private RewardBatchServiceImpl serviceSpy;
@@ -106,7 +109,8 @@ class RewardBatchServiceImplTest {
                 auditUtilities,
                 merchantRestClient,
                 selfcareInstitutionsRestClient,
-                erogazioniRestClient
+                erogazioniRestClient,
+                initiativeDataService
         );
         serviceSpy = spy(service);
     }
@@ -1553,7 +1557,7 @@ class RewardBatchServiceImplTest {
         when(rewardTransactionRepository.findTransactionInBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "T1"))
                 .thenReturn(Mono.empty());
 
-        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", LocalDate.now()))
+        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", "Bearer token"))
                 .expectError(ClientExceptionNoBody.class)
                 .verify();
     }
@@ -1572,7 +1576,7 @@ class RewardBatchServiceImplTest {
 
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.empty());
 
-        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", LocalDate.now()))
+        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", "Bearer token"))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
     }
@@ -1599,7 +1603,7 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(current));
 
-        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", LocalDate.now()))
+        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", "Bearer token"))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
     }
@@ -1623,12 +1627,15 @@ class RewardBatchServiceImplTest {
                 .build();
 
         LocalDate initiativeEnd = LocalDate.of(2026, 1, 6);
+        InitiativeData initiativeData = new InitiativeData(INITIATIVE_ID, LocalDate.of(2025, 1, 1), initiativeEnd);
 
         when(rewardTransactionRepository.findTransactionInBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "T1"))
                 .thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(current));
+        when(initiativeDataService.getInitiativeData(anyString(), eq(INITIATIVE_ID)))
+                .thenReturn(Mono.just(initiativeData));
 
-        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", initiativeEnd))
+        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", "Bearer token"))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
     }
@@ -1663,9 +1670,13 @@ class RewardBatchServiceImplTest {
                 .status(RewardBatchStatus.CREATED)
                 .build();
 
+        InitiativeData initiativeData = new InitiativeData(INITIATIVE_ID, LocalDate.of(2025, 1, 1), LocalDate.of(2026, 6, 30));
+
         when(rewardTransactionRepository.findTransactionInBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "T1"))
                 .thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(current));
+        when(initiativeDataService.getInitiativeData(anyString(), eq(INITIATIVE_ID)))
+                .thenReturn(Mono.just(initiativeData));
 
         doReturn(Mono.just(next)).when(serviceSpy).findOrCreateBatch(INITIATIVE_ID, MERCHANT_ID, PHYSICAL, "2026-02", BUSINESS_NAME);
 
@@ -1678,7 +1689,7 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Mono.empty());
 
 
-        StepVerifier.create(serviceSpy.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", LocalDate.of(2026, 1, 6)))
+        StepVerifier.create(serviceSpy.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", "Bearer token"))
                 .verifyComplete();
 
         verify(rewardBatchRepository, times(2))
@@ -1795,13 +1806,17 @@ class RewardBatchServiceImplTest {
         when(rewardTransactionRepository.save(any()))
                 .thenReturn(Mono.just(trx));
 
+        InitiativeData initiativeData = new InitiativeData(INITIATIVE_ID, LocalDate.of(2025, 1, 1), initiativeEndDate);
+        when(initiativeDataService.getInitiativeData(anyString(), eq(INITIATIVE_ID)))
+                .thenReturn(Mono.just(initiativeData));
+
         StepVerifier.create(
                         serviceSpy.postponeTransaction(
                                 merchantId,
                                 INITIATIVE_ID,
                                 rewardBatchId,
                                 transactionId,
-                                initiativeEndDate
+                                "Bearer token"
                         )
                 )
                 .verifyComplete();

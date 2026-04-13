@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import io.swagger.v3.oas.annotations.Parameter;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchListDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchesRequest;
@@ -120,9 +121,14 @@ public interface MerchantRewardBatchController {
       @PathVariable String initiativeId,
       @PathVariable String rewardBatchId,
       @PathVariable String transactionId,
-      @RequestParam("initiativeEndDate")
+      @Parameter(
+              description = "Legacy parameter, ignored by backend. initiativeEndDate is internally resolved.",
+              deprecated = true
+      )
+      @RequestParam(value = "initiativeEndDate", required = false)
       @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-      LocalDate initiativeEndDate
+      LocalDate initiativeEndDate,
+      @RequestHeader("Authorization") String authorization
   );
 
   @DeleteMapping("/empty-reward-batches")

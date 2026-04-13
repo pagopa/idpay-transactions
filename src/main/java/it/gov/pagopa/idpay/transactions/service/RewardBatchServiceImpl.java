@@ -9,6 +9,7 @@ import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.initiative.InitiativeDataService;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.SelfcareInstitutionsRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionDTO;
@@ -84,6 +85,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private final MerchantRestClient merchantRestClient;
     private final SelfcareInstitutionsRestClient selfcareInstitutionsRestClient;
     private final ErogazioniRestClient erogazioniRestClient;
+    private final InitiativeDataService initiativeDataService;
 
 
     private static final String OPERATOR_1 = "operator1";
@@ -111,7 +113,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "%s_%s_%s.csv";
     private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern(DATE_FORMAT, Locale.ITALIAN);
 
-    public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService, ReactiveMongoTemplate reactiveMongoTemplate, ChecksErrorMapper checksErrorMapper, AuditUtilities auditUtilities, MerchantRestClient merchantRestClient, SelfcareInstitutionsRestClient selfcareInstitutionsRestClient, ErogazioniRestClient erogazioniRestClient) {
+    public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService, ReactiveMongoTemplate reactiveMongoTemplate, ChecksErrorMapper checksErrorMapper, AuditUtilities auditUtilities, MerchantRestClient merchantRestClient, SelfcareInstitutionsRestClient selfcareInstitutionsRestClient, ErogazioniRestClient erogazioniRestClient, InitiativeDataService initiativeDataService) {
         this.rewardBatchRepository = rewardBatchRepository;
         this.rewardTransactionRepository = rewardTransactionRepository;
         this.userRestClient = userRestClient;
@@ -122,6 +124,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         this.merchantRestClient = merchantRestClient;
         this.selfcareInstitutionsRestClient = selfcareInstitutionsRestClient;
         this.erogazioniRestClient = erogazioniRestClient;
+        this.initiativeDataService = initiativeDataService;
     }
 
     @Override
@@ -1202,7 +1205,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     }
 
     @Override
-    public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, LocalDate initiativeEndDate) {
+    public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, String authorization) {
 
         return rewardTransactionRepository.findTransactionInBatch(initiativeId, merchantId, rewardBatchId, transactionId)
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
@@ -1232,7 +1235,9 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                 YearMonth currentBatchMonth = YearMonth.parse(currentBatch.getMonth());
                                 YearMonth nextBatchMonth = currentBatchMonth.plusMonths(1);
 
-                                YearMonth maxAllowedMonth = YearMonth.from(initiativeEndDate).plusMonths(1);
+                                return initiativeDataService.getInitiativeData(authorization, initiativeId)
+                                        .flatMap(initiativeData -> {
+                                            YearMonth maxAllowedMonth = YearMonth.from(initiativeData.initiativeEndDate()).plusMonths(1);
 
                                 if (nextBatchMonth.isAfter(maxAllowedMonth)) {
                                     return Mono.error(new ClientExceptionWithBody(
@@ -1289,6 +1294,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
                                                         return rewardTransactionRepository.save(trx);
                                                     }));
+                                        });
                                         });
                             });
                 })
