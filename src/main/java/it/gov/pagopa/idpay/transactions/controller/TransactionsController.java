@@ -41,10 +41,10 @@ public interface TransactionsController {
 
     @PostMapping("/cleanup")
     ResponseEntity<String> cleanupInvoicedTransactions(
-        @RequestParam(defaultValue = "200") Integer chunkSize,
-        @RequestParam(defaultValue = "1") Integer repetitionsNumber,
-        @RequestParam(defaultValue = "false") boolean processAll,
-        @RequestParam(required = false) String trxId
+            @RequestParam(defaultValue = "200") Integer chunkSize,
+            @RequestParam(defaultValue = "1") Integer repetitionsNumber,
+            @RequestParam(defaultValue = "false") boolean processAll,
+            @RequestParam(required = false) String trxId
     );
 
 

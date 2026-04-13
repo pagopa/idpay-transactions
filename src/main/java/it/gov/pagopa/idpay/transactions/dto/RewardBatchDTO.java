@@ -19,6 +19,7 @@ public class RewardBatchDTO {
 
   String id;
   String merchantId;
+  String initiativeId;
   String businessName;
   String month;
   PosType posType;

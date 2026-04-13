@@ -18,8 +18,8 @@ public class GetRewardBatchByIdUseCase {
 
     private final RewardBatchRepository rewardBatchRepository;
 
-    public Mono<RewardBatch> execute(String merchantId, String rewardBatchId) {
-        return rewardBatchRepository.findByMerchantIdAndId(merchantId, rewardBatchId)
+    public Mono<RewardBatch> execute(String merchantId, String initiativeId, String rewardBatchId) {
+        return rewardBatchRepository.findByMerchantIdAndInitiativeIdAndId(merchantId, initiativeId, rewardBatchId)
                 .switchIfEmpty(Mono.error(new RewardBatchNotFound(
                         REWARD_BATCH_NOT_FOUND,
                         ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId)

@@ -52,21 +52,28 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     }
 
     String validMerchantId = merchantId != null ? merchantId : merchantIdFilter;
+    String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
+    String sanitizeOrganizationRole = organizationRole == null ? null : Utilities.sanitizeString(organizationRole);
+    String sanitizeStatus = status == null ? null : Utilities.sanitizeString(status);
+    String sanitizeAssigneeLevel = assigneeLevel == null ? null : Utilities.sanitizeString(assigneeLevel);
 
     if (organizationRole != null) {
-        log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}, Role: {}",
+        log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}, Role: {}, Initiative: {}",
                 validMerchantId != null ? Utilities.sanitizeString(validMerchantId) : "null",
-                Utilities.sanitizeString(organizationRole));
+                sanitizeOrganizationRole,
+                sanitizeInitiativeId);
     } else {
-        log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}",
-                Utilities.sanitizeString(validMerchantId));
+        log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}, Initiative: {}",
+                Utilities.sanitizeString(validMerchantId),
+                sanitizeInitiativeId);
     }
 
-      log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}, Role: {}",
+      log.info("[GET_REWARD_BATCHES] Request received. Merchant: {}, Role: {}, Initiative: {}",
               validMerchantId != null ? Utilities.sanitizeString(validMerchantId) : "null",
-              organizationRole != null ? Utilities.sanitizeString(organizationRole) : "null");
+              organizationRole != null ? sanitizeOrganizationRole : "null",
+              initiativeId != null ? sanitizeInitiativeId : "null");
 
-    return rewardBatchService.getRewardBatches(validMerchantId, organizationRole, status, assigneeLevel, month, pageable)
+    return rewardBatchService.getRewardBatches(validMerchantId, sanitizeInitiativeId, sanitizeOrganizationRole, sanitizeStatus, sanitizeAssigneeLevel, month, pageable)
         .flatMap(page ->
             Flux.fromIterable(page.getContent())
                 .flatMapSequential(rewardBatchMapper::toDTO)
@@ -83,52 +90,68 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
 
   @Override
   public Mono<RewardBatchDTO> getRewardBatchById(String merchantId, String initiativeId, String rewardBatchId) {
+      String sanitizeMerchantId = merchantId == null ? null : Utilities.sanitizeString(merchantId);
+      String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
+      String sanitizeRewardBatchId = rewardBatchId == null ? null : Utilities.sanitizeString(rewardBatchId);
     log.info("[GET_REWARD_BATCH_BY_ID] Request received. Merchant: {}, InitiativeId: {}, RewardBatchId: {}",
-            Utilities.sanitizeString(merchantId), Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(rewardBatchId));
-    return getRewardBatchByIdUseCase.execute(merchantId, rewardBatchId)
+            sanitizeMerchantId, sanitizeInitiativeId, sanitizeRewardBatchId);
+    return getRewardBatchByIdUseCase.execute(sanitizeMerchantId, sanitizeInitiativeId, sanitizeRewardBatchId)
             .flatMap(rewardBatchMapper::toDTO);
   }
 
   @Override
     public Mono<Void> sendRewardBatches(String merchantId, String initiativeId, String batchId) {
-        log.info("[SEND_REWARD_BATCHES] Merchant {} requested to send batch batchId {}",
-                Utilities.sanitizeString(merchantId), Utilities.sanitizeString(batchId));
-        return this.rewardBatchService.sendRewardBatch(merchantId, batchId);
+      String sanitizeMerchantId = merchantId == null ? null : Utilities.sanitizeString(merchantId);
+      String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
+      String sanitizeBatchId = batchId == null ? null : Utilities.sanitizeString(batchId);
+        log.info("[SEND_REWARD_BATCHES] Merchant {}, Initiative {} requested to send batch batchId {}",
+                sanitizeMerchantId, sanitizeInitiativeId, sanitizeBatchId);
+        return this.rewardBatchService.sendRewardBatch(sanitizeInitiativeId, sanitizeMerchantId, sanitizeBatchId);
     }
 
   @Override
   public  Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId) {
-    log.info("[REWARD_BATCH_CONFIRMATION] Batch confirmation for batch batchId {}",
-            Utilities.sanitizeString(rewardBatchId));
-    return rewardBatchService.rewardBatchConfirmation(initiativeId, rewardBatchId);
+      String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
+      String sanitizeRewardBatchId = rewardBatchId == null ? null : Utilities.sanitizeString(rewardBatchId);
+    log.info("[REWARD_BATCH_CONFIRMATION] Batch confirmation for initiative: {} and batch batchId {}",
+            sanitizeInitiativeId, sanitizeRewardBatchId);
+    return rewardBatchService.rewardBatchConfirmation(sanitizeInitiativeId, sanitizeRewardBatchId);
   }
 
   @Override
   public  Mono<Void> rewardBatchConfirmationBatch(String initiativeId, RewardBatchesRequest request) {
     List<String> rewardBatchIds = request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
+      List<String> sanitizedBatchIds = rewardBatchIds.stream()
+              .map(Utilities::sanitizeString)
+              .toList();
+      String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
     log.info("[REWARD_BATCH_CONFIRMATION_BATCH] Batch confirmation for initiative {} and batchs {}",
-            Utilities.sanitizeString(initiativeId), rewardBatchIds.toString() );
-    return rewardBatchService.rewardBatchConfirmationBatch(initiativeId, rewardBatchIds);
+            sanitizeInitiativeId, sanitizedBatchIds);
+    return rewardBatchService.rewardBatchConfirmationBatch(sanitizeInitiativeId, sanitizedBatchIds);
   }
 
     @Override
     public  Mono<Void> rewardBatchDeliveryBatch(String initiativeId, RewardBatchesRequest request) {
         List<String> rewardBatchIds = request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
+        List<String> sanitizedBatchIds = rewardBatchIds.stream()
+                .map(Utilities::sanitizeString)
+                .toList();
+        String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
         log.info("[REWARD_BATCH_DELIVERY_BATCH] Batch delivery for initiative {} and batchs {}",
-                Utilities.sanitizeString(initiativeId), rewardBatchIds.toString() );
-        return rewardBatchService.rewardBatchDeliveryBatch(initiativeId, rewardBatchIds);
+                sanitizeInitiativeId, sanitizedBatchIds);
+        return rewardBatchService.rewardBatchDeliveryBatch(sanitizeInitiativeId, rewardBatchIds);
     }
 
   @Override
   public Mono<Void> checkRewardBatchesOutcomes(String initiativeId, RewardBatchesRequest request) {
     List<String> rewardBatchIds = request != null && request.getRewardBatchIds() != null ? request.getRewardBatchIds() : List.of();
-
+    String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
     List<String> sanitizedBatchIds = rewardBatchIds.stream()
             .map(Utilities::sanitizeString)
             .toList();
 
-    log.info("[CHECK_REWARD_BATCHES_OUTCOMES] initiative {} rewardBatchIds {}", sanitizeString(initiativeId), sanitizedBatchIds);
-    return rewardBatchService.checkRewardBatchesOutcomes(initiativeId, rewardBatchIds);
+    log.info("[CHECK_REWARD_BATCHES_OUTCOMES] initiative {} rewardBatchIds {}", sanitizeInitiativeId, sanitizedBatchIds);
+    return rewardBatchService.checkRewardBatchesOutcomes(sanitizeInitiativeId, sanitizedBatchIds);
   }
 
   @Override
@@ -141,7 +164,8 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
 
   @Override
   public Mono<RewardBatchDTO> suspendTransactions(String initiativeId, String rewardBatchId, TransactionsRequest request) {
-
+    String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
+    String sanitizeRewardBatchId = rewardBatchId == null ? null : Utilities.sanitizeString(rewardBatchId);
     List<String> transactionIds = request.getTransactionIds() != null ? request.getTransactionIds() : List.of();
     String reason = request.getReason();
     if(request.getReason() == null || request.getReason().isEmpty()){
@@ -151,21 +175,22 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     }
 
     log.info(
-            "[SUSPEND_TRANSACTIONS] Requested to suspend {} transactions for rewardBatch {} of initiative {} with reason '{}'",
+            "[SUSPEND_TRANSACTIONS] Requested to suspend {} transactions for rewardBatch {}  with reason '{}' and initiative: {}",
             transactionIds.size(),
-            Utilities.sanitizeString(rewardBatchId),
-            Utilities.sanitizeString(initiativeId),
-            Utilities.sanitizeString(reason)
+            sanitizeRewardBatchId,
+            Utilities.sanitizeString(reason),
+            sanitizeInitiativeId
     );
 
-    return rewardBatchService.suspendTransactions(rewardBatchId, initiativeId, request)
+    return rewardBatchService.suspendTransactions(sanitizeRewardBatchId, sanitizeInitiativeId, request)
             .flatMap(rewardBatchMapper::toDTO);
   }
 
 
   @Override
   public Mono<RewardBatchDTO> rejectTransactions(String initiativeId, String rewardBatchId, TransactionsRequest request) {
-
+    String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
+    String sanitizeRewardBatchId = rewardBatchId == null ? null : Utilities.sanitizeString(rewardBatchId);
     List<String> transactionIds = request.getTransactionIds() != null ? request.getTransactionIds() : List.of();
     String reason = request.getReason();
 
@@ -178,82 +203,94 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     log.info(
             "[REJECT_TRANSACTIONS] Requested to rejected {} transactions for rewardBatch {} of initiative {} with reason '{}'",
             transactionIds.size(),
-            Utilities.sanitizeString(rewardBatchId),
-            Utilities.sanitizeString(initiativeId),
+            sanitizeRewardBatchId,
+            sanitizeInitiativeId,
             Utilities.sanitizeString(reason)
     );
 
-    return rewardBatchService.rejectTransactions(rewardBatchId, initiativeId, request)
+    return rewardBatchService.rejectTransactions(sanitizeRewardBatchId, sanitizeInitiativeId, request)
             .flatMap(rewardBatchMapper::toDTO);
   }
 
   @Override
   public Mono<RewardBatchDTO> approvedTransactions(String initiativeId, String rewardBatchId, TransactionsRequest request) {
-
+    String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
+    String sanitizeRewardBatchId = rewardBatchId == null ? null : Utilities.sanitizeString(rewardBatchId);
     List<String> transactionIds = request.getTransactionIds() != null ? request.getTransactionIds() : List.of();
 
     log.info(
-            "[APPROVED_TRANSACTIONS] Requested to approve {} transactions for rewardBatch {} of initiative {}",
+            "[APPROVED_TRANSACTIONS] Requested to approve {} transactions for rewardBatch {} for initiative {}",
             transactionIds.size(),
-            Utilities.sanitizeString(rewardBatchId),
-            Utilities.sanitizeString(initiativeId)
+            sanitizeRewardBatchId,
+            sanitizeInitiativeId
     );
 
-    return rewardBatchService.approvedTransactions(rewardBatchId, request, initiativeId)
+    return rewardBatchService.approvedTransactions(sanitizeRewardBatchId, request, sanitizeInitiativeId)
             .flatMap(rewardBatchMapper::toDTO);
   }
 
   @Override
-  public Mono<Void> evaluatingRewardBatches(RewardBatchesRequest rewardBatchesRequest) {
+  public Mono<Void> evaluatingRewardBatches(RewardBatchesRequest rewardBatchesRequest, String initiativeId) {
+    String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
     log.info(
             "[EVALUATING_REWARD_BATCH] Requested to evaluate {}", rewardBatchesRequest.getRewardBatchIds() != null
                     ? rewardBatchesRequest.getRewardBatchIds().stream()
                     .map(Utilities::sanitizeString).toList()
                     : "all reward batches with status SENT"
     );
-    return rewardBatchService.evaluatingRewardBatches(rewardBatchesRequest.getRewardBatchIds())
+    return rewardBatchService.evaluatingRewardBatches(rewardBatchesRequest.getRewardBatchIds(), sanitizeInitiativeId)
             .then();
   }
 
   @Override
   public Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatch(String merchantId, String organizationRole, String initiativeId, String rewardBatchId) {
-
-    log.info("[DOWNLOAD_APPROVED_REWARD_BATCH] Requested to download approved reward batch {} for initiative {}",
-            Utilities.sanitizeString(rewardBatchId),
-            Utilities.sanitizeString(initiativeId));
+    String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
+    String sanitizeOrganizationRole = organizationRole == null ? null : Utilities.sanitizeString(organizationRole);
+    String sanitizeMerchantId = merchantId == null ? null : Utilities.sanitizeString(merchantId);
+    String sanitizeRewardBatchId = rewardBatchId == null ? null : Utilities.sanitizeString(rewardBatchId);
+    log.info("[DOWNLOAD_APPROVED_REWARD_BATCH] Requested to download approved reward batch {} for initiative {} for merchant {}",
+            sanitizeRewardBatchId,
+            sanitizeInitiativeId,
+            sanitizeMerchantId);
 
     return rewardBatchService.downloadApprovedRewardBatchFile(
-            merchantId,
-            organizationRole,
-            initiativeId,
-            rewardBatchId
+            sanitizeMerchantId,
+            sanitizeOrganizationRole,
+            sanitizeInitiativeId,
+            sanitizeRewardBatchId
     );
   }
 
   @Override
   public Mono<RewardBatch> validateRewardBatch(String organizationRole, String initiativeId, String rewardBatchId) {
-
+      String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
+      String sanitizeOrganizationRole = organizationRole == null ? null : Utilities.sanitizeString(organizationRole);
+      String sanitizeRewardBatchId = rewardBatchId == null ? null : Utilities.sanitizeString(rewardBatchId);
     log.info(
             "[VALIDATE_REWARD_BATCH] Request to validate rewardBatch {} for initiative {} by role {}",
-            Utilities.sanitizeString(rewardBatchId),
-            Utilities.sanitizeString(initiativeId),
-            Utilities.sanitizeString(organizationRole)
+            sanitizeRewardBatchId,
+            sanitizeInitiativeId,
+            sanitizeOrganizationRole
     );
 
-    return rewardBatchService.validateRewardBatch(organizationRole, initiativeId, rewardBatchId);
+    return rewardBatchService.validateRewardBatch(sanitizeOrganizationRole, sanitizeInitiativeId, sanitizeRewardBatchId);
   }
 
   @Override
   public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, LocalDate initiativeEndDate) {
-    log.info(
+      String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
+      String sanitizeMerchantId = merchantId == null ? null : Utilities.sanitizeString(merchantId);
+      String sanitizeRewardBatchId = rewardBatchId == null ? null : Utilities.sanitizeString(rewardBatchId);
+      String sanitizeTransactionId = transactionId == null ? null : Utilities.sanitizeString(transactionId);
+      log.info(
         "[POSTPONE_TRANSACTION] Merchant {} requested to postpone transaction {} for rewardBatch {} of initiative {}",
-        Utilities.sanitizeString(merchantId),
-        Utilities.sanitizeString(transactionId),
-        Utilities.sanitizeString(rewardBatchId),
-        Utilities.sanitizeString(initiativeId)
+        sanitizeMerchantId,
+        sanitizeTransactionId,
+        sanitizeRewardBatchId,
+        sanitizeInitiativeId
     );
 
-    return rewardBatchService.postponeTransaction(merchantId, initiativeId, rewardBatchId, transactionId, initiativeEndDate);
+    return rewardBatchService.postponeTransaction(sanitizeMerchantId, sanitizeInitiativeId, sanitizeRewardBatchId, sanitizeTransactionId, initiativeEndDate);
   }
 
   @Override

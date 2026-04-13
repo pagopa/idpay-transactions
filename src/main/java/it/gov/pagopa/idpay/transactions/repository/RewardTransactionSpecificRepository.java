@@ -26,27 +26,19 @@ public interface RewardTransactionSpecificRepository {
     Flux<RewardTransaction> findByFilter(String rewardBatchId, String initiativeId, List<RewardBatchTrxStatus> statusList);
     /**
      * Retrieves a transaction in status REWARDED, REFUNDED or INVOICED using the provided paramaters
+     *
      * @param merchantId
      * @param transactionId
      * @return Mono containing a transaction, or empty if no document matches the criteria
      */
     Mono<RewardTransaction> findTransaction(String merchantId, String transactionId);
-
     Flux<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId);
-
-    Mono<Long> sumSuspendedAccruedRewardCents(String rewardBatchId);
-
-    Mono<Void> rewardTransactionsByBatchId(String batchId);
-
-    Mono<RewardTransaction> updateStatusAndReturnOld(String batchId, String trxId, RewardBatchTrxStatus status, ReasonDTO reasons, String batchMonth, ChecksError checksError);
-
+    Mono<Long> sumSuspendedAccruedRewardCents(String initiativeId, String rewardBatchId);
+    Mono<Void> rewardTransactionsByBatchIdAndInitiativeId(String batchId, String initiativeId);
+    Mono<RewardTransaction> updateStatusAndReturnOld(String initiativeId, String batchId, String trxId, RewardBatchTrxStatus status, ReasonDTO reasons, String batchMonth, ChecksError checksError);
     Flux<RewardTransaction> findInvoicedTransactionsWithoutBatch(int pageSize);
-
-    Mono<RewardTransaction> findInvoicedTrxByIdWithoutBatch(String trxId);
-
-
-    Flux<FranchisePointOfSaleDTO> findDistinctFranchiseAndPosByRewardBatchId(String rewardBatchId);
-  
-    Mono<RewardTransaction> findTransactionInBatch(String merchantId, String rewardBatchId, String transactionId);
+    Mono<RewardTransaction> findInvoicedTrxByIdWithoutBatch(String initiativeId, String merchantId, String trxId);
+    Flux<FranchisePointOfSaleDTO> findDistinctFranchiseAndPosByRewardBatchId(String rewardBatchId, String merchantId);
+    Mono<RewardTransaction> findTransactionInBatch(String initiativeId, String merchantId, String rewardBatchId, String transactionId);
 
 }
