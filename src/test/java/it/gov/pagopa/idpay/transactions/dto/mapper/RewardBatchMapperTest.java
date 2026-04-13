@@ -92,15 +92,17 @@ class RewardBatchMapperTest {
                     assertEquals(0L, dto.getNumberOfTransactions());
                     assertEquals(0L, dto.getNumberOfTransactionsElaborated());
                     assertNull(dto.getReportPath());
+                });
     }
 
     @Test
     void toDTO_shouldMapAllFieldsAndDefaultSuspendedAmountToZeroWhenNull() {
-        LocalDateTime startDate = LocalDateTime.of(2025, 11, 1, 0, 0);
-        LocalDateTime endDate = LocalDateTime.of(2025, 11, 30, 23, 59);
-        LocalDateTime refundOutcomeTimestamp = LocalDateTime.of(2025, 12, 10, 9, 30);
-        LocalDate refundValutaDate = LocalDate.of(2025, 12, 15);
-        LocalDateTime merchantSendDate = LocalDateTime.of(2025, 11, 15, 12, 35);
+        ZoneId zone = ZoneId.of("Europe/Rome");
+        Instant startDate = LocalDateTime.of(2025, 11, 1, 0, 0).atZone(zone).toInstant();
+        Instant endDate = LocalDateTime.of(2025, 11, 30, 23, 59).atZone(zone).toInstant();
+        Instant refundOutcomeTimestamp = LocalDateTime.of(2025, 12, 10, 9, 30).atZone(zone).toInstant();
+        Instant refundValutaDate = LocalDate.of(2025, 12, 15).atStartOfDay().atZone(zone).toInstant();
+        Instant merchantSendDate = LocalDateTime.of(2025, 11, 15, 12, 35).atZone(zone).toInstant();
 
         RewardBatch batch = RewardBatch.builder()
                 .id("batch123")

@@ -277,7 +277,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
-  public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, LocalDate initiativeEndDate) {
+  public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, Instant initiativeEndDate) {
       String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
       String sanitizeMerchantId = merchantId == null ? null : Utilities.sanitizeString(merchantId);
       String sanitizeRewardBatchId = rewardBatchId == null ? null : Utilities.sanitizeString(rewardBatchId);
