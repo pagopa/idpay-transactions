@@ -49,7 +49,6 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
         this.rewardTransactionMapper = rewardTransactionMapper;
         this.paymentRestClient = paymentRestClient;
         this.commitDelay = Duration.ofMillis(commitMillis);
-
         this.objectReader = objectMapper.readerFor(RewardTransactionDTO.class);
     }
 
