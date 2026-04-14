@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.dto.mapper;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.common.utils.TestUtils;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
@@ -13,7 +14,6 @@ import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionDTOFaker;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
@@ -84,7 +84,7 @@ class RewardTransactionMapperTest {
 
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
-                .withZone(ZoneId.of("Europe/Rome"));
+                .withZone(CommonConstants.ZONEID);
 
         String expectedId = rewardTrx.getIdTrxAcquirer()
                 .concat(rewardTrx.getAcquirerCode())

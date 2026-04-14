@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ReportMapper;
@@ -25,7 +26,6 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.List;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REPORT_NOT_FOUND;
@@ -51,7 +51,6 @@ class ReportControllerImplTest {
 
     @Test
     void getReports_ReturnsReports_Success() {
-        ZoneId zone = ZoneId.of("Europe/Rome");
         Report report = Report.builder()
                 .id("report1")
                 .initiativeId(INITIATIVE_ID)
@@ -61,25 +60,25 @@ class ReportControllerImplTest {
                 .reportStatus(ReportStatus.INSERTED)
                 .startPeriod(
                         LocalDate.of(2026, 2, 1)
-                                .atStartOfDay(zone)
+                                .atStartOfDay(CommonConstants.ZONEID)
                                 .toInstant()
                 )
                 .endPeriod(
                         LocalDate.of(2026, 2, 28)
                                 .atTime(23, 59)
-                                .atZone(zone)
+                                .atZone(CommonConstants.ZONEID)
                                 .toInstant()
                 )
                 .requestDate(
                         LocalDate.of(2026, 2, 10)
                                 .atTime(10, 0)
-                                .atZone(zone)
+                                .atZone(CommonConstants.ZONEID)
                                 .toInstant()
                 )
                 .elaborationDate(
                         LocalDate.of(2026, 2, 10)
                                 .atTime(12, 0)
-                                .atZone(zone)
+                                .atZone(CommonConstants.ZONEID)
                                 .toInstant()
                 )
                 .operatorLevel(RewardBatchAssignee.L1)
@@ -139,7 +138,7 @@ class ReportControllerImplTest {
                     assertEquals(ReportStatus.INSERTED, dto.getReportStatus());
                     assertEquals(
                             LocalDate.of(2026, 2, 1)
-                                    .atStartOfDay(zone)
+                                    .atStartOfDay(CommonConstants.ZONEID)
                                     .toInstant(),
                             dto.getStartPeriod()
                     );
@@ -147,7 +146,7 @@ class ReportControllerImplTest {
                     assertEquals(
                             LocalDate.of(2026, 2, 28)
                                     .atTime(23, 59)
-                                    .atZone(zone)
+                                    .atZone(CommonConstants.ZONEID)
                                     .toInstant(),
                             dto.getEndPeriod()
                     );
@@ -200,15 +199,14 @@ class ReportControllerImplTest {
 
     @Test
     void generateReport_ReturnsReport_Success() {
-        ZoneId zone = ZoneId.of("Europe/Rome");
 
         Instant start = LocalDate.of(2026, 2, 1)
-                .atStartOfDay(zone)
+                .atStartOfDay(CommonConstants.ZONEID)
                 .toInstant();
 
         Instant end = LocalDate.of(2026, 2, 28)
                 .atTime(23, 59)
-                .atZone(zone)
+                .atZone(CommonConstants.ZONEID)
                 .toInstant();
 
         ReportRequest request = ReportRequest.builder()
@@ -267,17 +265,16 @@ class ReportControllerImplTest {
 
     @Test
     void generateReport_ServiceFails_InternalServerError() {
-        ZoneId zone = ZoneId.of("Europe/Rome");
         ReportRequest request = ReportRequest.builder()
                 .startPeriod(
                         LocalDate.of(2026, 2, 1)
-                                .atStartOfDay(zone)
+                                .atStartOfDay(CommonConstants.ZONEID)
                                 .toInstant()
                 )
                 .endPeriod(
                         LocalDate.of(2026, 2, 28)
                                 .atTime(23, 59)
-                                .atZone(zone)
+                                .atZone(CommonConstants.ZONEID)
                                 .toInstant()
                 )
                 .reportType(ReportType.MERCHANT_TRANSACTIONS)

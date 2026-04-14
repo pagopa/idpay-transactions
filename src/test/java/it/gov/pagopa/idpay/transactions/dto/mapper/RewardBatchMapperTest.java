@@ -2,6 +2,8 @@ package it.gov.pagopa.idpay.transactions.dto.mapper;
 
 
 import static org.junit.jupiter.api.Assertions.*;
+
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
@@ -21,7 +23,7 @@ class RewardBatchMapperTest {
     @BeforeEach
     void setUp() {
         mapper = new RewardBatchMapper();
-        zone = ZoneId.of("Europe/Rome");
+        zone = CommonConstants.ZONEID;
     }
 
     @Test
@@ -97,7 +99,6 @@ class RewardBatchMapperTest {
 
     @Test
     void toDTO_shouldMapAllFieldsAndDefaultSuspendedAmountToZeroWhenNull() {
-        ZoneId zone = ZoneId.of("Europe/Rome");
         Instant startDate = LocalDateTime.of(2025, 11, 1, 0, 0).atZone(zone).toInstant();
         Instant endDate = LocalDateTime.of(2025, 11, 30, 23, 59).atZone(zone).toInstant();
         Instant refundOutcomeTimestamp = LocalDateTime.of(2025, 12, 10, 9, 30).atZone(zone).toInstant();

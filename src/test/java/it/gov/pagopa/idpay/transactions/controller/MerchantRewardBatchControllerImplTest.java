@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
@@ -38,7 +39,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
-import java.time.ZoneId;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -904,7 +905,7 @@ class MerchantRewardBatchControllerImplTest {
   @Test
   void postponeTransaction_success() {
     String transactionId = "TX123";
-    Instant initiativeEndDate = LocalDate.of(2026, 1, 6).atStartOfDay(ZoneId.of("Europe/Rome")).toInstant();
+    Instant initiativeEndDate = LocalDate.of(2026, 1, 6).atStartOfDay(CommonConstants.ZONEID).toInstant();
 
     when(rewardBatchService.postponeTransaction(
         MERCHANT_ID,

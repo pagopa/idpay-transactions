@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
@@ -17,7 +18,6 @@ import reactor.test.StepVerifier;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -50,7 +50,6 @@ class ReportSpecificRepositoryImplTest {
 
     @Test
     void findReportsCombined_shouldReturnReports_whenCriteriaMatch() {
-        ZoneId zone = ZoneId.of("Europe/Rome");
         Report report = Report.builder()
                 .id("R1")
                 .initiativeId(INITIATIVE_ID)
@@ -62,13 +61,13 @@ class ReportSpecificRepositoryImplTest {
                 .fileName("file1.csv")
                 .startPeriod(
                         LocalDate.of(2026, 2, 1)
-                                .atStartOfDay(zone)
+                                .atStartOfDay(CommonConstants.ZONEID)
                                 .toInstant()
                 )
                 .endPeriod(
                         LocalDate.of(2026, 2, 28)
                                 .atTime(23, 59)
-                                .atZone(zone)
+                                .atZone(CommonConstants.ZONEID)
                                 .toInstant()
                 )
                 .requestDate(Instant.now())

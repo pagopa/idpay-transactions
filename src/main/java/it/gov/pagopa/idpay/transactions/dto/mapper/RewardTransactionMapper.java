@@ -1,12 +1,12 @@
 package it.gov.pagopa.idpay.transactions.dto.mapper;
 
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 
@@ -83,5 +83,5 @@ public class RewardTransactionMapper {
 
     private static final DateTimeFormatter TRX_DATE_FORMATTER =
             DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
-                    .withZone(ZoneId.of("Europe/Rome"));
+                    .withZone(CommonConstants.ZONEID);
 }

@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.dto.mapper;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportListDTO;
 import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
@@ -26,7 +27,7 @@ class ReportMapperTest {
     @BeforeEach
     void setUp() {
         mapper = new ReportMapper();
-        zone = ZoneId.of("Europe/Rome");
+        zone = CommonConstants.ZONEID;
     }
 
     @Test

@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
@@ -20,7 +21,6 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 
@@ -51,7 +51,6 @@ class RewardBatchSpecificRepositoryImplTest {
   @BeforeEach
   void setUp() {
     rewardBatchRepository.deleteAll().block();
-    ZoneId zone = ZoneId.of("Europe/Rome");
     batch1 = RewardBatch.builder()
         .id("batch1")
         .merchantId(MERCHANT)
@@ -65,13 +64,13 @@ class RewardBatchSpecificRepositoryImplTest {
         .name("novembre 2025")
             .startDate(
                     LocalDate.of(2025, 11, 1)
-                            .atStartOfDay(zone)
+                            .atStartOfDay(CommonConstants.ZONEID)
                             .toInstant()
             )
             .endDate(
                     LocalDate.of(2025, 11, 30)
                             .atTime(23, 59)
-                            .atZone(zone)
+                            .atZone(CommonConstants.ZONEID)
                             .toInstant()
             )
         .initialAmountCents(ZERO_LONG)
@@ -95,13 +94,13 @@ class RewardBatchSpecificRepositoryImplTest {
         .name("novembre 2025")
         .startDate(
                 LocalDate.of(2025, 11, 1)
-                        .atStartOfDay(zone)
+                        .atStartOfDay(CommonConstants.ZONEID)
                         .toInstant()
         )
         .endDate(
                 LocalDate.of(2025, 11, 30)
                         .atTime(23, 59)
-                        .atZone(zone)
+                        .atZone(CommonConstants.ZONEID)
                         .toInstant()
         )
         .initialAmountCents(ZERO_LONG)

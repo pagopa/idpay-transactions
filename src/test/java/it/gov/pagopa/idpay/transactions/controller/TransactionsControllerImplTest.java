@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.common.web.dto.ErrorDTO;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
@@ -18,7 +19,6 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
 
@@ -36,14 +36,12 @@ class TransactionsControllerImplTest {
     @Test
     void findAllOk() {
 
-        ZoneId zone = ZoneId.of("Europe/Rome");
-
         Instant now = LocalDate.of(2026, 2, 20)
                 .atTime(13, 15, 45)
-                .atZone(zone)
+                .atZone(CommonConstants.ZONEID)
                 .toInstant();
 
-        ZonedDateTime zdt = now.atZone(zone);
+        ZonedDateTime zdt = now.atZone(CommonConstants.ZONEID);
 
         Instant startDate = zdt.minusMonths(5).toInstant();
         Instant endDate   = zdt.plusMonths(8).toInstant();
@@ -93,7 +91,7 @@ class TransactionsControllerImplTest {
     void findAllBadRequest(){
         Instant now = Instant.now();
 
-        ZonedDateTime zdt = now.atZone(ZoneId.of("Europe/Rome"));
+        ZonedDateTime zdt = now.atZone(CommonConstants.ZONEID);
 
         Instant startDate = zdt.minusMonths(5).toInstant();
         Instant endDate   = zdt.plusMonths(8).toInstant();
@@ -168,13 +166,12 @@ class TransactionsControllerImplTest {
 
     @Test
     void pageable(){
-        ZoneId zone = ZoneId.of("Europe/Rome");
         Instant now =    LocalDate.of(2026, 2, 20)
                 .atTime(13, 15,45)
-                .atZone(zone)
+                .atZone(CommonConstants.ZONEID)
                 .toInstant();
 
-        ZonedDateTime zdt = now.atZone(zone);
+        ZonedDateTime zdt = now.atZone(CommonConstants.ZONEID);
 
         Instant startDate = zdt.minusMonths(5).toInstant();
         Instant endDate   = zdt.plusMonths(8).toInstant();
@@ -232,10 +229,9 @@ class TransactionsControllerImplTest {
 
   @Test
   void findByInitiativeIdAndUserId_Ok() {
-      ZoneId zone = ZoneId.of("Europe/Rome");
       Instant now =    LocalDate.of(2026, 2, 20)
               .atTime(13, 15,45)
-              .atZone(zone)
+              .atZone(CommonConstants.ZONEID)
               .toInstant();
 
     RewardTransaction rt = RewardTransaction.builder()
