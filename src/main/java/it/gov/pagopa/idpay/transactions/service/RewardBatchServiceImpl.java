@@ -5,6 +5,7 @@ import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.models.BlockBlobItem;
 import com.mongodb.client.result.DeleteResult;
 import com.nimbusds.jose.util.Pair;
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
@@ -1127,7 +1128,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
         Function<Instant, String> safeDateToString =
                 date -> date != null
-                        ? LocalDateTime.ofInstant(date, ZoneId.of("Europe/Rome"))
+                        ? LocalDateTime.ofInstant(date, CommonConstants.ZONEID)
                         .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
                         : "";
 

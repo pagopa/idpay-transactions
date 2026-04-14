@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.data.factory.DataFactoryService;
@@ -629,18 +630,18 @@ class ReportServiceImplTest {
     @Test
     void generateMerchantTransactionsReport_fileNameGeneratedCorrectly() {
         ReportRequest request = new ReportRequest();
-        ZoneId zone = ZoneId.of("Europe/Rome");
+       
 
         request.setStartPeriod(
                 LocalDate.of(2026, 1, 1)
-                        .atStartOfDay(zone)
+                        .atStartOfDay(CommonConstants.ZONEID)
                         .toInstant()
         );
 
         request.setEndPeriod(
                 LocalDate.of(2026, 1, 31)
                         .atTime(23, 59)
-                        .atZone(zone)
+                        .atZone(CommonConstants.ZONEID)
                         .toInstant()
         );
 
@@ -682,25 +683,25 @@ class ReportServiceImplTest {
     @Test
     void generateMerchantTransactionsReport_TriggerPipelineError() {
         ReportRequest request = new ReportRequest();
-        ZoneId zone = ZoneId.of("Europe/Rome");
+       
 
         request.setStartPeriod(
                 LocalDate.of(2026, 1, 1)
-                        .atStartOfDay(zone)
+                        .atStartOfDay(CommonConstants.ZONEID)
                         .toInstant()
         );
 
         request.setEndPeriod(
                 LocalDate.of(2026, 1, 31)
                         .atTime(23, 59)
-                        .atZone(zone)
+                        .atZone(CommonConstants.ZONEID)
                         .toInstant()
         );
 
         Instant fixedNow =
                 LocalDate.of(2026, 2, 1)
                         .atTime(12, 30, 45)
-                        .atZone(zone)
+                        .atZone(CommonConstants.ZONEID)
                         .toInstant();
         request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
 
@@ -878,18 +879,18 @@ class ReportServiceImplTest {
     @Test
     void generateUserDetailsReport_fileNameGeneratedCorrectly() {
         ReportRequest request = new ReportRequest();
-        ZoneId zone = ZoneId.of("Europe/Rome");
+       
 
         request.setStartPeriod(
                 LocalDate.of(2026, 1, 1)
-                        .atStartOfDay(zone)
+                        .atStartOfDay(CommonConstants.ZONEID)
                         .toInstant()
         );
 
         request.setEndPeriod(
                 LocalDate.of(2026, 1, 31)
                         .atTime(23, 59)
-                        .atZone(zone)
+                        .atZone(CommonConstants.ZONEID)
                         .toInstant()
         );
 
@@ -921,25 +922,25 @@ class ReportServiceImplTest {
     @Test
     void generateUserDetailsReport_TriggerPipelineError() {
         ReportRequest request = new ReportRequest();
-        ZoneId zone = ZoneId.of("Europe/Rome");
+       
 
         request.setStartPeriod(
                 LocalDate.of(2026, 1, 1)
-                        .atStartOfDay(zone)
+                        .atStartOfDay(CommonConstants.ZONEID)
                         .toInstant()
         );
 
         request.setEndPeriod(
                 LocalDate.of(2026, 1, 31)
                         .atTime(23, 59)
-                        .atZone(zone)
+                        .atZone(CommonConstants.ZONEID)
                         .toInstant()
         );
 
         Instant fixedNow =
                 LocalDate.of(2026, 2, 1)
                         .atTime(12, 30, 45)
-                        .atZone(zone)
+                        .atZone(CommonConstants.ZONEID)
                         .toInstant();
         request.setReportType(ReportType.USER_DETAILS);
         try (MockedStatic<Instant> mocked = mockStatic(Instant.class, CALLS_REAL_METHODS)) {

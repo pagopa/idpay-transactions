@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.service;
 import com.azure.core.http.rest.Response;
 import com.azure.storage.blob.models.BlockBlobItem;
 import com.mongodb.client.result.DeleteResult;
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
@@ -1380,12 +1381,11 @@ class RewardBatchServiceImplTest {
 
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(batch));
         when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-        ZoneId zone = ZoneId.of("Europe/Rome");
         RewardTransaction trxWithCF = RewardTransaction.builder()
                 .id("T1")
                 .trxChargeDate(LocalDate.of(2025, 12, 10)
                                 .atTime(10, 30)
-                                .atZone(zone)
+                                .atZone(CommonConstants.ZONEID)
                                 .toInstant())
                 .fiscalCode("CF1")
                 .trxCode("CODE")
@@ -1624,7 +1624,7 @@ class RewardBatchServiceImplTest {
                 .status(RewardBatchStatus.CREATED)
                 .build();
 
-        Instant initiativeEnd = LocalDate.of(2026, 1, 6).atStartOfDay(ZoneId.of("Europe/Rome")).toInstant();
+        Instant initiativeEnd = LocalDate.of(2026, 1, 6).atStartOfDay(CommonConstants.ZONEID).toInstant();
 
         when(rewardTransactionRepository.findTransactionInBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "T1"))
                 .thenReturn(Mono.just(trx));
@@ -1680,7 +1680,7 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Mono.empty());
 
 
-        StepVerifier.create(serviceSpy.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", LocalDate.of(2026, 1, 6).atStartOfDay(ZoneId.of("Europe/Rome")).toInstant()))
+        StepVerifier.create(serviceSpy.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", LocalDate.of(2026, 1, 6).atStartOfDay(CommonConstants.ZONEID).toInstant()))
                 .verifyComplete();
 
         verify(rewardBatchRepository, times(2))
@@ -1749,7 +1749,7 @@ class RewardBatchServiceImplTest {
         String rewardBatchId = BATCH_ID;
         String transactionId = "TRX_ID";
 
-        Instant initiativeEndDate = LocalDate.of(2026, 12, 31).atStartOfDay(ZoneId.of("Europe/Rome")).toInstant();
+        Instant initiativeEndDate = LocalDate.of(2026, 12, 31).atStartOfDay(CommonConstants.ZONEID).toInstant();
 
         long accruedRewardCents = 100L;
 
