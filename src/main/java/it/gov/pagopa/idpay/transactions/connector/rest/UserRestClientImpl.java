@@ -1,6 +1,5 @@
 package it.gov.pagopa.idpay.transactions.connector.rest;
 
-import it.gov.pagopa.common.reactive.utils.PerformanceLogger;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.CFDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;

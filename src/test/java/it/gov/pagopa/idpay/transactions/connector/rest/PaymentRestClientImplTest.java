@@ -33,26 +33,14 @@ class PaymentRestClientImplTest extends BaseWireMockTest {
     private PaymentRestClient paymentRestClient;
 
     @Test
-    void cancelTransaction_Ok() {
-        String transactionId = "TRX_OK_1";
+    void cancelTransaction_Ok_NotFount_BadRequest() {
+        // responses not throwing exception
 
-        StepVerifier.create(paymentRestClient.cancelTransaction(transactionId, MERCHANT_ID, ACQUIRER_ID, POINT_OF_SALE_ID))
+        StepVerifier.create(paymentRestClient.cancelTransaction("TRX_OK_1", MERCHANT_ID, ACQUIRER_ID, POINT_OF_SALE_ID))
                 .verifyComplete();
-    }
-
-    @Test
-    void cancelTransaction_NotFound() {
-        String transactionId = "TRX_NOTFOUND_1";
-
-        StepVerifier.create(paymentRestClient.cancelTransaction(transactionId, MERCHANT_ID, ACQUIRER_ID, POINT_OF_SALE_ID))
+        StepVerifier.create(paymentRestClient.cancelTransaction("TRX_NOTFOUND_1", MERCHANT_ID, ACQUIRER_ID, POINT_OF_SALE_ID))
                 .verifyComplete();
-    }
-
-    @Test
-    void cancelTransaction_BadRequest() {
-        String transactionId = "TRX_BADREQUEST_1";
-
-        StepVerifier.create(paymentRestClient.cancelTransaction(transactionId, MERCHANT_ID, ACQUIRER_ID, POINT_OF_SALE_ID))
+        StepVerifier.create(paymentRestClient.cancelTransaction("TRX_BADREQUEST_1", MERCHANT_ID, ACQUIRER_ID, POINT_OF_SALE_ID))
                 .verifyComplete();
     }
 

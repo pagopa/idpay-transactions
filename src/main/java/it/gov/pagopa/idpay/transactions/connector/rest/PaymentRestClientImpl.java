@@ -68,11 +68,11 @@ public class PaymentRestClientImpl implements PaymentRestClient {
                         })
                 )
                 .onErrorResume(WebClientResponseException.NotFound.class, ex -> {
-                    log.warn("Transaction {} not found on payment service", transactionId);
+                    log.warn("[PAYMENT_INTEGRATION] Transaction {} not found on payment service", transactionId);
                     return Mono.empty();
                 })
                 .onErrorResume(WebClientResponseException.BadRequest.class, ex -> {
-                    log.warn("Invalid cancel transaction request for transactionId {}", transactionId);
+                    log.warn("[PAYMENT_INTEGRATION] Invalid cancel transaction request for transactionId {}", transactionId);
                     return Mono.empty();
                 });
     }
