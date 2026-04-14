@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import it.gov.pagopa.common.kafka.utils.KafkaConstants;
 import it.gov.pagopa.common.utils.TestUtils;
+import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
@@ -36,6 +37,9 @@ class PersistenceTransactionMediatorImplTest {
     private TransactionErrorNotifierService transactionErrorNotifierService;
 
     @Mock
+    private PaymentRestClient paymentRestClient;
+
+    @Mock
     private RewardTransactionMapper rewardTransactionMapper;
 
     private PersistenceTransactionMediatorImpl persistenceTransactionMediator;
@@ -47,6 +51,7 @@ class PersistenceTransactionMediatorImplTest {
                 rewardTransactionService,
                 transactionErrorNotifierService,
                 rewardTransactionMapper,
+                paymentRestClient,
                 1000,
                 TestUtils.objectMapper
         );
