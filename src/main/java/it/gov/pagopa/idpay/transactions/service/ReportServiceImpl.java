@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.dto.DownloadReportResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.PatchReportRequest;
@@ -273,7 +274,7 @@ public class ReportServiceImpl implements ReportService {
                                                               String initiativeId,
                                                               ReportRequest request) {
 
-        if(!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay(ZoneId.of("Europe/Rome")).toInstant())
+        if(!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay(CommonConstants.ZONEID).toInstant())
             && request.getStartPeriod().isBefore(request.getEndPeriod()))){
             return Mono.error(new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
@@ -297,7 +298,7 @@ public class ReportServiceImpl implements ReportService {
                 .flatMap(merchant -> {
 
 
-                    ZonedDateTime now = Instant.now(clock).atZone(ZoneId.of("Europe/Rome"));
+                    ZonedDateTime now = Instant.now(clock).atZone(CommonConstants.ZONEID);
                     String formattedDate = now.format(FILE_NAME_FORMAT);
                     String fileName = "Report_" + formattedDate + ".csv";
 
@@ -334,7 +335,7 @@ public class ReportServiceImpl implements ReportService {
                                                      String initiativeId,
                                                      ReportRequest request) {
 
-        if (!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay(ZoneId.of("Europe/Rome")).toInstant())
+        if (!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay(CommonConstants.ZONEID).toInstant())
                 && request.getStartPeriod().isBefore(request.getEndPeriod()))) {
             return Mono.error(new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
@@ -344,7 +345,7 @@ public class ReportServiceImpl implements ReportService {
 
         RewardBatchAssignee operatorLevel = resolveOperatorLevel(organizationRole);
 
-        ZonedDateTime now = Instant.now(clock).atZone(ZoneId.of("Europe/Rome"));
+        ZonedDateTime now = Instant.now(clock).atZone(CommonConstants.ZONEID);
         String formattedDate = now.format(FILE_NAME_FORMAT);
         String fileName = "Report_" + formattedDate + ".csv";
 
