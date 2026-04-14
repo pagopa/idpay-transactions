@@ -1,7 +1,6 @@
 package it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import it.gov.pagopa.common.web.dto.ErrorDTO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,6 +23,6 @@ public class InvitaliaOutcomeResponseDTO {
 
     private ErogazioneOutcomeDTO erogazione;
 
-    private List<ErrorDTO> errors;
+    private List<ErrorInvitaliaDTO> errors;
 
 }

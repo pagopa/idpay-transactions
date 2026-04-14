@@ -13,18 +13,18 @@ import reactor.core.publisher.Mono;
 
 public interface PointOfSaleTransactionService {
 
-  Mono<Page<RewardTransaction>> getPointOfSaleTransactions(String merchantId,
-                                                           String initiativeId,
-                                                           String pointOfSaleId,
-                                                           String productGtin,
-                                                           TrxFiltersDTO filters,
-                                                           Pageable pageable);
+    Mono<Page<RewardTransaction>> getPointOfSaleTransactions(String merchantId,
+                                                             String initiativeId,
+                                                             String pointOfSaleId,
+                                                             String productGtin,
+                                                             TrxFiltersDTO filters,
+                                                             Pageable pageable);
 
-  Mono<DownloadInvoiceResponseDTO> downloadTransactionInvoice(String merchantId, String pointOfSaleId, String transactionId);
+    Mono<DownloadInvoiceResponseDTO> downloadTransactionInvoice(String merchantId, String pointOfSaleId, String transactionId);
 
-  Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId, FilePart file, String docNumber, InvoiceLifecyclePolicy policy);
+    Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId, FilePart file, String docNumber, InvoiceLifecyclePolicy policy);
 
-  Mono<List<FranchisePointOfSaleDTO>> getDistinctFranchiseAndPosByRewardBatchId(String rewardBatchId);
+    Mono<List<FranchisePointOfSaleDTO>> getDistinctFranchiseAndPosByRewardBatchId(String rewardBatchId, String merchantId);
 
-  Mono<Void> reversalTransaction(String transactionId, String merchantId, FilePart file, String docNumber, InvoiceLifecyclePolicy policy);
+    Mono<Void> reversalTransaction(String transactionId, String merchantId, FilePart file, String docNumber, InvoiceLifecyclePolicy policy);
 }
