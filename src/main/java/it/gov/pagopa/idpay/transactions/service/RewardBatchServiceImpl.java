@@ -155,19 +155,17 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
         YearMonth batchYearMonth = YearMonth.parse(month);
 
-        ZoneOffset offset = ZoneOffset.of("+02:00");
-
-
+        ZoneId zone = ZoneId.of("Europe/Rome");
+        
         Instant startDate = batchYearMonth
                 .atDay(1)
-                .atStartOfDay()
-                .atOffset(offset)
+                .atStartOfDay(zone)
                 .toInstant();
-
+        
         Instant endDate = batchYearMonth
-                .atEndOfMonth()
-                .atTime(23, 59, 59)
-                .atOffset(offset)
+                .plusMonths(1)
+                .atDay(1)
+                .atStartOfDay(zone)
                 .toInstant();
 
 
