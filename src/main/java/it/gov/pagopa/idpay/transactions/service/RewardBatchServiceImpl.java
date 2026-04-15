@@ -1235,17 +1235,26 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                 YearMonth currentBatchMonth = YearMonth.parse(currentBatch.getMonth());
                                 YearMonth nextBatchMonth = currentBatchMonth.plusMonths(1);
 
+                                log.info("[POSTPONE_TRANSACTION] Current batch month: {}, next batch month: {}", currentBatchMonth, nextBatchMonth);
+
                                 return initiativeDataService.getInitiativeData(authorization, initiativeId)
                                         .flatMap(initiativeData -> {
                                             YearMonth maxAllowedMonth = YearMonth.from(initiativeData.initiativeEndDate()).plusMonths(1);
 
+                                log.info("[POSTPONE_TRANSACTION] InitiativeEndDate: {}, maxAllowedMonth: {}, nextBatchMonth: {}",
+                                        initiativeData.initiativeEndDate(), maxAllowedMonth, nextBatchMonth);
+
                                 if (nextBatchMonth.isAfter(maxAllowedMonth)) {
+                                    log.warn("[POSTPONE_TRANSACTION] Postpone limit exceeded! nextBatchMonth={} > maxAllowedMonth={}",
+                                            nextBatchMonth, maxAllowedMonth);
                                     return Mono.error(new ClientExceptionWithBody(
                                             HttpStatus.BAD_REQUEST,
                                             ExceptionCode.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED,
                                             ExceptionMessage.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED
                                     ));
                                 }
+
+                                log.info("[POSTPONE_TRANSACTION] Postpone validation passed, creating next batch");
 
                                 return this.findOrCreateBatch(
                                                 initiativeId,

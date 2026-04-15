@@ -283,11 +283,12 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
       String sanitizeRewardBatchId = rewardBatchId == null ? null : Utilities.sanitizeString(rewardBatchId);
       String sanitizeTransactionId = transactionId == null ? null : Utilities.sanitizeString(transactionId);
       log.info(
-        "[POSTPONE_TRANSACTION] Merchant {} requested to postpone transaction {} for rewardBatch {} of initiative {}",
+        "[POSTPONE_TRANSACTION] Merchant {} requested to postpone transaction {} for rewardBatch {} of initiative {}, authorization={}",
         sanitizeMerchantId,
         sanitizeTransactionId,
         sanitizeRewardBatchId,
-        sanitizeInitiativeId
+        sanitizeInitiativeId,
+        authorization != null ? "present" : "NULL"
     );
 
     return rewardBatchService.postponeTransaction(sanitizeMerchantId, sanitizeInitiativeId, sanitizeRewardBatchId, sanitizeTransactionId, authorization);
