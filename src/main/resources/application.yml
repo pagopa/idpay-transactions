@@ -240,7 +240,7 @@ app:
     subscription-id: ${DATA_FACTORY_SUBSCRIPTION_ID:}
   period-length-transactions-report: ${PERIOD_LENGTH_TRANSACTIONS_REPORT:}
   initiative:
-    base-url: ${INITIATIVE_BASE_URL:https://api-io.dev.cstar.pagopa.it/idpayportalwelfarebackendinitiative}
+    base-url: ${INITIATIVE_BASE_URL:https://api-io.dev.cstar.pagopa.it/idpay-itn/assistance}
   invitalia:
     credentials:
       client-id: ${INVITALIA_CLIENT_ID:}
