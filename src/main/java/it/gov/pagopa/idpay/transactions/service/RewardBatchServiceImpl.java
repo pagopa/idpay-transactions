@@ -1238,6 +1238,25 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                 log.info("[POSTPONE_TRANSACTION] Current batch month: {}, next batch month: {}", currentBatchMonth, nextBatchMonth);
 
                                 return initiativeDataService.getInitiativeData(authorization, initiativeId)
+                                        .onErrorResume(error -> {
+                                            log.error("[POSTPONE_TRANSACTION] Failed to retrieve initiative data for initiativeId={}", initiativeId, error);
+
+                                            // Se è un 404, ritorna errore specifico
+                                            if (error instanceof it.gov.pagopa.idpay.transactions.config.InitiativeNotFoundException) {
+                                                return Mono.error(new ClientExceptionWithBody(
+                                                        HttpStatus.NOT_FOUND,
+                                                        ExceptionCode.GENERIC_ERROR,
+                                                        "Initiative not found: " + initiativeId
+                                                ));
+                                            }
+
+                                            // Per altri errori (500, timeout, ecc.)
+                                            return Mono.error(new ClientExceptionWithBody(
+                                                    HttpStatus.INTERNAL_SERVER_ERROR,
+                                                    ExceptionCode.GENERIC_ERROR,
+                                                    "Failed to retrieve initiative data: " + error.getMessage()
+                                            ));
+                                        })
                                         .flatMap(initiativeData -> {
                                             YearMonth maxAllowedMonth = YearMonth.from(initiativeData.initiativeEndDate()).plusMonths(1);
 
