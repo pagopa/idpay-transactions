@@ -6,6 +6,7 @@ import it.gov.pagopa.common.utils.TestUtils;
 import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
+import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionDTOFaker;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
@@ -72,6 +73,7 @@ class PersistenceTransactionMediatorImplTest {
                 );
 
         RewardTransaction rt1 = RewardTransactionFaker.mockInstance(1);
+        rt1.setStatus(SyncTrxStatus.AUTHORIZED.name());
 
         Mockito.when(rewardTransactionMapper.mapFromDTO(Mockito.any(RewardTransactionDTO.class)))
                 .thenReturn(rt1)
@@ -92,6 +94,36 @@ class PersistenceTransactionMediatorImplTest {
                         Mockito.anyBoolean(),
                         Mockito.any(RuntimeException.class)
                 );
+        Mockito.verify(paymentRestClient, Mockito.never())
+                .cancelTransaction(Mockito.anyString(), Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+    }
+
+    @Test
+    void executeShouldCancelWhenInvoiced() {
+        RewardTransactionDTO rtDTO = RewardTransactionDTOFaker.mockInstance(1);
+
+        Flux<Message<String>> messageFlux = Flux.just(rtDTO)
+                .map(TestUtils::jsonSerializer)
+                .map(payload -> MessageBuilder
+                        .withPayload(payload)
+                        .setHeader(KafkaHeaders.RECEIVED_PARTITION, 0)
+                        .setHeader(KafkaHeaders.OFFSET, 0L)
+                        .build()
+                );
+
+        RewardTransaction rt = RewardTransactionFaker.mockInstance(1);
+        rt.setStatus(SyncTrxStatus.INVOICED.name());
+
+        Mockito.when(rewardTransactionMapper.mapFromDTO(Mockito.any(RewardTransactionDTO.class)))
+                .thenReturn(rt);
+        Mockito.when(rewardTransactionService.save(rt)).thenReturn(Mono.just(rt));
+        Mockito.when(paymentRestClient.cancelTransaction(rt.getId(), rt.getMerchantId(), rt.getAcquirerId(), rt.getPointOfSaleId()))
+                .thenReturn(Mono.empty());
+
+        persistenceTransactionMediator.execute(messageFlux);
+
+        Mockito.verify(paymentRestClient, Mockito.timeout(10000).times(1))
+                .cancelTransaction(rt.getId(), rt.getMerchantId(), rt.getAcquirerId(), rt.getPointOfSaleId());
     }
     @Test
     void executeErrorDeserializer() {
