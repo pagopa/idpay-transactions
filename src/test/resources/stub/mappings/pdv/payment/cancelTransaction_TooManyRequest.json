@@ -1,0 +1,16 @@
+{
+  "request": {
+    "method": "DELETE",
+    "urlPathPattern": "/idpay/payment/transactions/(TRX_TOOMANYREQUEST_[0-9]+)"
+  },
+  "response": {
+    "status": 429,
+    "jsonBody": {
+      "error": "Too Many Requests"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}
+
