@@ -96,12 +96,11 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
         .flatMap(this.rewardTransactionService::save)
         .flatMap(rt -> {
           if (SyncTrxStatus.INVOICED.name().equals(rt.getStatus())) {
-            log.info("[REWARD-TRANSACTION-CONSUMER] Transaction {} is INVOICED, cancelling", rt.getId());
+            log.info("[REWARD-TRANSACTION-CONSUMER] Transaction {} is INVOICED, cancelling from transaction_in_progress", rt.getId());
             return this.paymentRestClient
                 .cancelTransaction(rt.getId(), rt.getMerchantId(), rt.getAcquirerId(), rt.getPointOfSaleId())
                 .thenReturn(rt);
           }
-          log.info("[REWARD-TRANSACTION-CONSUMER] Transaction {} has status {}, skipping cancel", rt.getId(), rt.getStatus());
           return Mono.just(rt);
         });
   }
