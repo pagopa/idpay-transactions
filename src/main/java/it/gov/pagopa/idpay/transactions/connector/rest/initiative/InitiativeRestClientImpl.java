@@ -32,7 +32,7 @@ public class InitiativeRestClientImpl implements InitiativeRestClient {
         return PerformanceLogger.logTimingOnNext(
                 "INITIATIVE_GET_DETAIL",
                 initiativeClient.method(HttpMethod.GET)
-                        .uri("/idpay/organization/%s/initiative/%s".formatted(organizationId, initiativeId))
+                        .uri("/organization/%s/initiative/%s".formatted(organizationId, initiativeId))
                         .header(HttpHeaders.AUTHORIZATION, authorization)
                         .retrieve()
                         .onStatus(
