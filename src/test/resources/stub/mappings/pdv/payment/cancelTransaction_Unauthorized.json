@@ -1,0 +1,15 @@
+{
+  "request": {
+    "method": "DELETE",
+    "urlPathPattern": "/idpay/payment/transactions/(TRX_UNAUTHORIZED_[0-9]+)"
+  },
+  "response": {
+    "status": 401,
+    "jsonBody": {
+      "error": "Unauthorized"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}
