@@ -1,0 +1,28 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/idpay/initiative/(INITIATIVE_OK_[0-9]+)/detail"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "initiativeName": "Test Initiative",
+      "status": "PUBLISHED",
+      "description": "Test description",
+      "ruleDescription": "Test rule description",
+      "onboardingStartDate": "2024-01-01",
+      "onboardingEndDate": "2024-12-31",
+      "fruitionStartDate": "2024-02-01",
+      "fruitionEndDate": "2024-11-30",
+      "privacyLink": "https://example.org/privacy",
+      "tcLink": "https://example.org/tc",
+      "logoURL": "https://example.org/logo.png",
+      "updateDate": "2024-06-01T10:15:30",
+      "serviceId": "SERVICE_1"
+    }
+  }
+}
+

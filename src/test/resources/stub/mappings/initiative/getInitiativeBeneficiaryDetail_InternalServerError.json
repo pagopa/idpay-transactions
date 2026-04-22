@@ -1,0 +1,11 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/idpay/initiative/(INITIATIVE_INTERNALSERVERERROR_[0-9]+)/detail"
+  },
+  "response": {
+    "status": 500,
+    "body": "Internal Server Error"
+  }
+}
+

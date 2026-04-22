@@ -1,0 +1,11 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/idpay/initiative/(INITIATIVE_UNAUTHORIZED_[0-9]+)/detail"
+  },
+  "response": {
+    "status": 401,
+    "body": "Unauthorized"
+  }
+}
+

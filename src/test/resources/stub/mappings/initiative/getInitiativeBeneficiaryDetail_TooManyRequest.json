@@ -1,0 +1,16 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/idpay/initiative/(INITIATIVE_TOOMANYREQUEST_[0-9]+)/detail"
+  },
+  "response": {
+    "status": 429,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "error": "Too Many Requests"
+    }
+  }
+}
+
