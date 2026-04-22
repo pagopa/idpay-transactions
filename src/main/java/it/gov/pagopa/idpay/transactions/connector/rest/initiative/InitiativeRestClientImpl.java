@@ -31,7 +31,7 @@ public class InitiativeRestClientImpl implements InitiativeRestClient {
                 "GET_INITIATIVE_BENFICIARY_DETAIL",
                 initiativeClient.method(HttpMethod.GET)
                         .uri(uriBuilder -> uriBuilder
-                                .path("/initiative/{initiativeId}/detail")
+                                .path("/idpay/initiative/{initiativeId}/detail")
                                 .queryParam("viewMinimalInfo", false)
                                 .build(initiativeId))
                         .retrieve()
