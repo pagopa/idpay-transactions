@@ -52,6 +52,7 @@ class RewardTransactionServiceImplTest {
 
     private RewardTransactionService rewardTransactionService;
     private static final String INITIATIVE_ID = "INIT01";
+    private static final List<String> INITIATIVES_ID = List.of(INITIATIVE_ID);
     private static final String MERCHANT_ID = "MERCH01";
 
     @BeforeEach
@@ -493,7 +494,7 @@ class RewardTransactionServiceImplTest {
                 .invoiceUploadDate(null)
                 .franchiseName(null)
                 .pointOfSaleType(null)
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .merchantId(MERCHANT_ID)
                 .businessName(null)
                 .initiatives(List.of("initiative1"))
@@ -687,7 +688,7 @@ class RewardTransactionServiceImplTest {
                 .trxChargeDate(LocalDateTime.of(2025, 11, 19, 10, 0))
                 .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 10, 0))
                 .initiatives(List.of("initiative1"))
-                .initiativeId(INITIATIVE_ID)   // se esiste nel model
+                .initiatives(INITIATIVES_ID)   // se esiste nel model
                 .merchantId(MERCHANT_ID)
                 .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(100L).build()))
                 .pointOfSaleType(PosType.ONLINE)
@@ -743,7 +744,7 @@ class RewardTransactionServiceImplTest {
         RewardTransaction trx = RewardTransaction.builder()
                 .id(trxId)
                 .merchantId(MERCHANT_ID)
-                .initiativeId(INITIATIVE_ID)
+                .initiatives(INITIATIVES_ID)
                 .build();
 
         Mockito.when(rewardTransactionRepository.findById(trxId))

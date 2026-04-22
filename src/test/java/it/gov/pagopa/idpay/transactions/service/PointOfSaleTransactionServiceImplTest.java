@@ -76,6 +76,7 @@ class PointOfSaleTransactionServiceImplTest {
 
     private static final String MERCHANT_ID = "MERCHANTID1";
     private static final String INITIATIVE_ID = "INITIATIVEID1";
+    private static final List<String> INITIATIVES_ID = List.of(INITIATIVE_ID);
     private static final String POS_ID = "POINTOFSALEID1";
     private static final String FISCAL_CODE = "FISCALCODE1";
     private static final String USER_ID = "USERID1";
@@ -1052,7 +1053,7 @@ class PointOfSaleTransactionServiceImplTest {
         trx.setUserId(USER_ID);
         trx.setMerchantId(MERCHANT_ID);
         trx.setPointOfSaleId(POS_ID);
-        trx.setInitiativeId(INITIATIVE_ID);
+        trx.setInitiatives(INITIATIVES_ID);
         return trx;
     }
 
