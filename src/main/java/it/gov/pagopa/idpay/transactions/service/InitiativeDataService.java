@@ -1,9 +1,10 @@
-package it.gov.pagopa.idpay.transactions.connector.rest.initiative;
+package it.gov.pagopa.idpay.transactions.service;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.InitiativeDetailDTO;
+import it.gov.pagopa.idpay.transactions.connector.rest.InitiativeRestClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

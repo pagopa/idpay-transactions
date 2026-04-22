@@ -11,91 +11,76 @@ import org.springframework.web.server.ResponseStatusException;
 
 public final class JwtUtils {
 
-  // Thread-safe, instantiate once to save memory/CPU
-  private static final ObjectMapper MAPPER = new ObjectMapper();
+    // Thread-safe, instantiate once to save memory/CPU
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  private JwtUtils() {}
+    private JwtUtils() {}
 
-  /**
-   * Decodes the JWT payload to extract scopes without verifying the signature. Throws
-   * ResponseStatusException with 403 if header is missing or scopes are absent.
-   */
-  public static List<String> extractScopesOrThrow(String authorization) {
-      JsonNode root = extractPayloadOrThrow(authorization);
+    /**
+     * Decodes the JWT payload to extract scopes without verifying the signature. Throws
+     * ResponseStatusException with 403 if header is missing or scopes are absent.
+     */
+    public static List<String> extractScopesOrThrow(String authorization) {
+        if (authorization == null || authorization.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Authorization header missing");
+        }
 
-      List<String> scopes = extractClaimAsList(root, "scope");
+        final String token =
+                authorization.toLowerCase().startsWith("bearer ")
+                        ? authorization.substring(7).trim()
+                        : authorization.trim();
 
-      if (scopes.isEmpty()) {
-          throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Scope claim missing");
-      }
+        if (token.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bearer token missing");
+        }
 
-      return scopes;
-  }
+        try {
+            // JWT format is header.payload.signature
+            String[] chunks = token.split("\\.");
+            if (chunks.length < 2) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid JWT structure");
+            }
 
-  private static JsonNode extractPayloadOrThrow(String authorization) {
-      if (authorization == null || authorization.isBlank()) {
-          throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Authorization header missing");
-      }
+            // Decode only the payload (the second chunk)
+            byte[] decodedPayload = Base64.getUrlDecoder().decode(chunks[1]);
+            JsonNode root = MAPPER.readTree(new String(decodedPayload, StandardCharsets.UTF_8));
 
-      final String token =
-              authorization.toLowerCase().startsWith("bearer ")
-                      ? authorization.substring(7).trim()
-                      : authorization.trim();
+            // Extract claim 'scope' (RFC standard)
+            List<String> scopes = extractClaimAsList(root, "scope");
 
-      if (token.isEmpty()) {
-          throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bearer token missing");
-      }
+            if (scopes.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Scope claim missing");
+            }
 
-      try {
-          String[] chunks = token.split("\\.");
-          if (chunks.length < 2) {
-              throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid JWT structure");
-          }
+            return scopes;
 
-          byte[] decodedPayload = Base64.getUrlDecoder().decode(chunks[1]);
-          return MAPPER.readTree(new String(decodedPayload, StandardCharsets.UTF_8));
-
-      } catch (ResponseStatusException ex) {
-          throw ex;
-      } catch (Exception e) {
-          throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid token format");
-      }
-  }
-
-  private static String extractClaimAsText(JsonNode root, String claimName) {
-      JsonNode node = root.path(claimName);
-
-      if (node.isMissingNode() || node.isNull()) {
-          return null;
-      }
-
-      if (node.isTextual()) {
-          String text = node.asText().trim();
-          return text.isEmpty() ? null : text;
-      }
-
-      return node.asText(null);
-  }
-
-  /** Helper method to parse a claim that might be a String or a JSON Array. */
-  private static List<String> extractClaimAsList(JsonNode root, String claimName) {
-    JsonNode node = root.path(claimName);
-
-    if (node.isMissingNode() || node.isNull()) {
-      return List.of();
+        } catch (ResponseStatusException ex) {
+            throw ex; // Rethrow HTTP exceptions so they don't get swallowed
+        } catch (Exception e) {
+            // Catch Base64 or Jackson parsing errors
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid token format");
+        }
     }
 
-    if (node.isArray()) {
-      List<String> result = new ArrayList<>();
-      node.forEach(n -> result.add(n.asText()));
-      return result;
-    }
+    /** Helper method to parse a claim that might be a String or a JSON Array. */
+    private static List<String> extractClaimAsList(JsonNode root, String claimName) {
+        JsonNode node = root.path(claimName);
 
-    if (node.isTextual()) {
-      String text = node.asText().trim();
-      return text.isEmpty() ? List.of() : List.of(text.split("\\s+"));
-    }
+        if (node.isMissingNode() || node.isNull()) {
+            return List.of();
+        }
 
-    return List.of();
-  }
+        if (node.isArray()) {
+            List<String> result = new ArrayList<>();
+            node.forEach(n -> result.add(n.asText()));
+            return result;
+        }
+
+        if (node.isTextual()) {
+            String text = node.asText().trim();
+            return text.isEmpty() ? List.of() : List.of(text.split("\\s+"));
+        }
+
+        return List.of();
+    }
 }

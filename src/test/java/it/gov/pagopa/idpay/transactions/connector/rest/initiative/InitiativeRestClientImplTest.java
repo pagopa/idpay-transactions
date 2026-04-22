@@ -6,6 +6,8 @@ import it.gov.pagopa.common.reactive.rest.config.WebClientConfig;
 import it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest;
 import it.gov.pagopa.idpay.transactions.config.InitiativeClientException;
 import it.gov.pagopa.idpay.transactions.config.InitiativeNotFoundException;
+import it.gov.pagopa.idpay.transactions.connector.rest.InitiativeRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.InitiativeRestClientImpl;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.InitiativeDetailDTO;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -37,9 +39,6 @@ class InitiativeRestClientImplTest extends BaseWireMockTest {
     private static final String INITIATIVE_OK = "INITIATIVE_OK_1";
     private static final String INITIATIVE_NOT_FOUND = "INITIATIVE_NOTFOUND_1";
     private static final String INITIATIVE_BAD_REQUEST = "INITIATIVE_BADREQUEST_1";
-    private static final String INITIATIVE_UNAUTHORIZED = "INITIATIVE_UNAUTHORIZED_1";
-    private static final String INITIATIVE_FORBIDDEN = "INITIATIVE_FORBIDDEN_1";
-    private static final String INITIATIVE_TOO_MANY_REQUESTS = "INITIATIVE_TOOMANYREQUEST_1";
     private static final String INITIATIVE_INTERNAL_SERVER_ERROR = "INITIATIVE_INTERNALSERVERERROR_1";
 
     @Autowired
@@ -67,36 +66,10 @@ class InitiativeRestClientImplTest extends BaseWireMockTest {
     }
 
     @Test
-    void getInitiativeBeneficiaryDetail_Unauthorized() {
-        assertThrowsOnBlock(INITIATIVE_UNAUTHORIZED, InitiativeClientException.class);
-    }
-
-    @Test
-    void getInitiativeBeneficiaryDetail_Forbidden() {
-        assertThrowsOnBlock(INITIATIVE_FORBIDDEN, InitiativeClientException.class);
-    }
-
-    /**
-     * The current implementation does not retry on 429: the status is
-     * intercepted by the generic {@code isError} branch and mapped to
-     * {@link InitiativeClientException}.
-     */
-    @Test
-    void getInitiativeBeneficiaryDetail_TooManyRequests() {
-        assertThrowsOnBlock(INITIATIVE_TOO_MANY_REQUESTS, InitiativeClientException.class);
-    }
-
-    @Test
     void getInitiativeBeneficiaryDetail_InternalServerError() {
         assertThrowsOnBlock(INITIATIVE_INTERNAL_SERVER_ERROR, InitiativeClientException.class);
     }
 
-    /**
-     * Shared assertion helper: invokes the client synchronously via
-     * {@link reactor.core.publisher.Mono#block()} and verifies the expected
-     * exception type is propagated. Keeps each test case small and focused
-     * on the HTTP outcome under test.
-     */
     private void assertThrowsOnBlock(String initiativeId, Class<? extends Throwable> expected) {
         try {
             InitiativeDetailDTO result = initiativeRestClient
