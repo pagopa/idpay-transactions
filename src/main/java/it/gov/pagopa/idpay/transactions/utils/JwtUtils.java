@@ -32,18 +32,6 @@ public final class JwtUtils {
       return scopes;
   }
 
-  public static String extractOrganizationIdOrThrow(String authorization) {
-      JsonNode root = extractPayloadOrThrow(authorization);
-
-      String orgId = extractClaimAsText(root, "org_id");
-
-      if (orgId == null || orgId.isBlank()) {
-          throw new ResponseStatusException(HttpStatus.FORBIDDEN, "org_id claim missing");
-      }
-
-      return orgId;
-  }
-
   private static JsonNode extractPayloadOrThrow(String authorization) {
       if (authorization == null || authorization.isBlank()) {
           throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Authorization header missing");

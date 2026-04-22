@@ -1205,7 +1205,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     }
 
     @Override
-    public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, String authorization) {
+    public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId) {
 
         return rewardTransactionRepository.findTransactionInBatch(initiativeId, merchantId, rewardBatchId, transactionId)
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
@@ -1237,7 +1237,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
                                 log.info("[POSTPONE_TRANSACTION] Current batch month: {}, next batch month: {}", currentBatchMonth, nextBatchMonth);
 
-                                return initiativeDataService.getInitiativeData(authorization, initiativeId)
+                                return initiativeDataService.getInitiativeData(initiativeId)
                                         .onErrorResume(error -> {
                                             log.error("[POSTPONE_TRANSACTION] Failed to retrieve initiative data for initiativeId={}", initiativeId, error);
 
@@ -1258,10 +1258,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                             ));
                                         })
                                         .flatMap(initiativeData -> {
-                                            YearMonth maxAllowedMonth = YearMonth.from(initiativeData.initiativeEndDate()).plusMonths(1);
+                                            YearMonth maxAllowedMonth = YearMonth.from(initiativeData.getFruitionEndDate()).plusMonths(1);
 
                                 log.info("[POSTPONE_TRANSACTION] InitiativeEndDate: {}, maxAllowedMonth: {}, nextBatchMonth: {}",
-                                        initiativeData.initiativeEndDate(), maxAllowedMonth, nextBatchMonth);
+                                        initiativeData.getFruitionEndDate(), maxAllowedMonth, nextBatchMonth);
 
                                 if (nextBatchMonth.isAfter(maxAllowedMonth)) {
                                     log.warn("[POSTPONE_TRANSACTION] Postpone limit exceeded! nextBatchMonth={} > maxAllowedMonth={}",

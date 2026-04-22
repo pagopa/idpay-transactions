@@ -19,7 +19,6 @@ import it.gov.pagopa.idpay.transactions.usecase.rewardbatch.GetRewardBatchByIdUs
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
-import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
@@ -906,8 +905,7 @@ class MerchantRewardBatchControllerImplTest {
         eq(MERCHANT_ID),
         eq(INITIATIVE_ID),
         eq(REWARD_BATCH_ID_1),
-        eq(transactionId),
-        anyString()
+        eq(transactionId)
     )).thenReturn(Mono.empty());
 
     webClient.post()
@@ -920,7 +918,7 @@ class MerchantRewardBatchControllerImplTest {
         .expectStatus().isNoContent();
 
     verify(rewardBatchService, times(1))
-        .postponeTransaction(eq(MERCHANT_ID), eq(INITIATIVE_ID), eq(REWARD_BATCH_ID_1), eq(transactionId), anyString());
+        .postponeTransaction(eq(MERCHANT_ID), eq(INITIATIVE_ID), eq(REWARD_BATCH_ID_1), eq(transactionId));
   }
 
   @Test
@@ -928,7 +926,7 @@ class MerchantRewardBatchControllerImplTest {
     String transactionId = "TX_NOT_EXIST";
 
     when(rewardBatchService.postponeTransaction(
-        anyString(), anyString(), anyString(), eq(transactionId), anyString()
+        anyString(), anyString(), anyString(), eq(transactionId)
     )).thenReturn(Mono.error(new ClientExceptionNoBody(HttpStatus.NOT_FOUND, ExceptionMessage.TRANSACTION_NOT_FOUND)));
 
     webClient.post()
@@ -946,7 +944,7 @@ class MerchantRewardBatchControllerImplTest {
     String transactionId = "TX123";
 
     when(rewardBatchService.postponeTransaction(
-        anyString(), anyString(), anyString(), eq(transactionId), anyString()
+        anyString(), anyString(), anyString(), eq(transactionId)
     )).thenReturn(Mono.error(new ClientExceptionWithBody(
         HttpStatus.NOT_FOUND, ExceptionCode.REWARD_BATCH_NOT_FOUND, String.format(ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH, REWARD_BATCH_ID_1))));
 
@@ -968,7 +966,7 @@ class MerchantRewardBatchControllerImplTest {
     String transactionId = "TX123";
 
     when(rewardBatchService.postponeTransaction(
-        anyString(), anyString(), anyString(), eq(transactionId), anyString()
+        anyString(), anyString(), anyString(), eq(transactionId)
     )).thenReturn(Mono.error(new ClientExceptionWithBody(
         HttpStatus.BAD_REQUEST, ExceptionCode.REWARD_BATCH_INVALID_REQUEST, ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH)));
 
@@ -990,7 +988,7 @@ class MerchantRewardBatchControllerImplTest {
     String transactionId = "TX123";
 
     when(rewardBatchService.postponeTransaction(
-        anyString(), anyString(), anyString(), eq(transactionId), anyString()
+        anyString(), anyString(), anyString(), eq(transactionId)
     )).thenReturn(Mono.error(new ClientExceptionWithBody(
         HttpStatus.BAD_REQUEST, ExceptionCode.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED, ExceptionMessage.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED)));
 

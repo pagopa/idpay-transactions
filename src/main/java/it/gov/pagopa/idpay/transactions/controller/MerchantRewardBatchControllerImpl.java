@@ -14,7 +14,6 @@ import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
-import java.time.LocalDate;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -23,8 +22,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
-
-import static it.gov.pagopa.idpay.transactions.utils.Utilities.sanitizeString;
 
 @RestController
 @Slf4j
@@ -277,21 +274,20 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
-  public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, LocalDate initiativeEndDate, String authorization) {
+  public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId) {
       String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
       String sanitizeMerchantId = merchantId == null ? null : Utilities.sanitizeString(merchantId);
       String sanitizeRewardBatchId = rewardBatchId == null ? null : Utilities.sanitizeString(rewardBatchId);
       String sanitizeTransactionId = transactionId == null ? null : Utilities.sanitizeString(transactionId);
       log.info(
-        "[POSTPONE_TRANSACTION] Merchant {} requested to postpone transaction {} for rewardBatch {} of initiative {}, authorization={}",
+        "[POSTPONE_TRANSACTION] Merchant {} requested to postpone transaction {} for rewardBatch {} of initiative {}",
         sanitizeMerchantId,
         sanitizeTransactionId,
         sanitizeRewardBatchId,
-        sanitizeInitiativeId,
-        authorization != null ? "present" : "NULL"
+        sanitizeInitiativeId
     );
 
-    return rewardBatchService.postponeTransaction(sanitizeMerchantId, sanitizeInitiativeId, sanitizeRewardBatchId, sanitizeTransactionId, authorization);
+    return rewardBatchService.postponeTransaction(sanitizeMerchantId, sanitizeInitiativeId, sanitizeRewardBatchId, sanitizeTransactionId);
   }
 
   @Override
