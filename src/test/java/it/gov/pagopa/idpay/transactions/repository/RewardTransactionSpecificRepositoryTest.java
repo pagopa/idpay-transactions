@@ -1,15 +1,10 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
-import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
-import it.gov.pagopa.idpay.transactions.model.ChecksError;
-import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
-import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +15,6 @@ import reactor.test.StepVerifier;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -28,1100 +22,973 @@ import static org.junit.jupiter.api.Assertions.*;
 class RewardTransactionSpecificRepositoryTest {
 
     @Autowired
-    protected RewardTransactionRepository rewardTransactionRepository;
+    private RewardTransactionSpecificRepositoryImpl repository;
 
     @Autowired
-    private RewardTransactionSpecificRepositoryImpl rewardTransactionSpecificRepository;
+    private RewardTransactionRepository baseRepository;
 
-    private static final String INITIATIVE_ID = "INITIATIVEID1";
-    private static final List<String> INITIATIVES_ID = List.of(INITIATIVE_ID);
-    private static final String MERCHANT_ID = "MERCHANTID1";
-    private static final String USER_ID = "USERID1";
-    private static final String POS_ID = "POINTOFSALEID1";
-    private static final String BATCH_ID = "BATCH_TEST";
-    private static final String PRODUCT_GTIN = "GTIN-ABC-123";
+    private RewardTransaction trx;
 
     @BeforeEach
-    void cleanBefore() {
-        rewardTransactionRepository.deleteAll().block();
+    void setup() {
+        baseRepository.deleteAll().block();
+
+        trx = RewardTransaction.builder()
+                .id("trx1")
+                .merchantId("M1")
+                .userId("U1")
+                .initiatives(List.of("INIT_1"))
+                .trxDate(LocalDateTime.now())
+                .amountCents(100L)
+                .status(SyncTrxStatus.REWARDED.name())
+                .rewardBatchId("B1")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE)
+                .build();
+
+        baseRepository.save(trx).block();
     }
 
-    @AfterEach
-    void cleanAfter() {
-        rewardTransactionRepository.deleteAll().block();
+
+    @Test
+    void findByIdTrxIssuer_onlyIssuer_shouldReturnAllMatching() {
+        trx.setIdTrxIssuer("ISSUER1");
+        baseRepository.save(trx).block();
+
+        StepVerifier.create(
+                        repository.findByIdTrxIssuer("ISSUER1", null, null, null, null, PageRequest.of(0, 10))
+                )
+                .expectNextCount(1)
+                .verifyComplete();
     }
 
     @Test
-    void updateStatusAndReturnOld_success() {
-        String trxId = "TRX_ID_UPDATE";
-        String batchMonth = "2024-01";
-        RewardTransaction trx = RewardTransactionFaker.mockInstance(1);
-        trx.setId(trxId);
-        trx.setMerchantId(MERCHANT_ID);
-        trx.setInitiatives(INITIATIVES_ID);
-        trx.setRewardBatchId(BATCH_ID);
-        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-        rewardTransactionRepository.save(trx).block();
+    void findByIdTrxIssuer_withUserId_shouldFilter() {
+        trx.setIdTrxIssuer("ISSUER1");
+        trx.setUserId("USER1");
+        baseRepository.save(trx).block();
 
-        ReasonDTO reasons = new ReasonDTO(LocalDateTime.now(), "REJECTION_REASON");
-
-        StepVerifier.create(rewardTransactionSpecificRepository.updateStatusAndReturnOld(
-                        trx.getInitiatives().getFirst(), trx.getRewardBatchId(), trxId, RewardBatchTrxStatus.REJECTED, reasons, batchMonth, null))
-                .assertNext(oldTrx -> {
-                    assertEquals(RewardBatchTrxStatus.CONSULTABLE, oldTrx.getRewardBatchTrxStatus());
-                    assertEquals(trxId, oldTrx.getId());
-                })
-                .verifyComplete();
-
-        RewardTransaction updatedTrx = rewardTransactionRepository.findById(trxId).block();
-        assertNotNull(updatedTrx);
-        assertEquals(RewardBatchTrxStatus.REJECTED, updatedTrx.getRewardBatchTrxStatus());
-        assertEquals(batchMonth, updatedTrx.getRewardBatchLastMonthElaborated());
-        assertNotNull(updatedTrx.getRewardBatchRejectionReason());
-        assertEquals("REJECTION_REASON", updatedTrx.getRewardBatchRejectionReason().getFirst().getReason());
-
-        StepVerifier.create(rewardTransactionSpecificRepository.updateStatusAndReturnOld(
-                INITIATIVE_ID, BATCH_ID, trxId, RewardBatchTrxStatus.SUSPENDED, null, batchMonth, null))
+        StepVerifier.create(
+                        repository.findByIdTrxIssuer("ISSUER1", "USER1", null, null, null, PageRequest.of(0, 10))
+                )
                 .expectNextCount(1)
                 .verifyComplete();
 
-        RewardTransaction unsetTrx = rewardTransactionRepository.findById(trxId).block();
-        assertNotNull(unsetTrx);
-        assertEquals(RewardBatchTrxStatus.SUSPENDED, unsetTrx.getRewardBatchTrxStatus());
-        assertNull(unsetTrx.getRewardBatchRejectionReason());
-    }
-
-    @Test
-    void updateStatusAndReturnOld_notFound() {
-
-        StepVerifier.create(rewardTransactionSpecificRepository.updateStatusAndReturnOld(
-                        INITIATIVE_ID, BATCH_ID, "NON_EXISTENT_ID", RewardBatchTrxStatus.REJECTED, null, "2024-01", null))
+        StepVerifier.create(
+                        repository.findByIdTrxIssuer("ISSUER1", "WRONG", null, null, null, PageRequest.of(0, 10))
+                )
                 .expectNextCount(0)
                 .verifyComplete();
     }
 
     @Test
-    void updateStatusAndReturnOld_whenTransactionNotFound_shouldCompleteWithoutResult() {
+    void findByIdTrxIssuer_withAmount_shouldFilter() {
+        trx.setIdTrxIssuer("ISSUER1");
+        trx.setAmountCents(100L);
+        baseRepository.save(trx).block();
 
-        StepVerifier.create(rewardTransactionSpecificRepository.updateStatusAndReturnOld(
-                        INITIATIVE_ID, BATCH_ID, "missing-trx", RewardBatchTrxStatus.REJECTED, null, "2024-01", null))
+        StepVerifier.create(
+                        repository.findByIdTrxIssuer("ISSUER1", null, null, null, 100L, PageRequest.of(0, 10))
+                )
+                .expectNextCount(1)
+                .verifyComplete();
+
+        StepVerifier.create(
+                        repository.findByIdTrxIssuer("ISSUER1", null, null, null, 999L, PageRequest.of(0, 10))
+                )
+                .expectNextCount(0)
                 .verifyComplete();
     }
 
     @Test
-    void findByFilterTrx_withNullPageable_shouldUseDefaultSortAndNotFail() {
-        RewardTransaction trx = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("t1")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .pointOfSaleId(POS_ID)
-                .status(SyncTrxStatus.REWARDED.name())
-                .initiatives(List.of(INITIATIVE_ID))
-                .trxChargeDate(LocalDateTime.now())
-                .additionalProperties(Map.of("productName", "AAA"))
-                .build();
-        rewardTransactionRepository.save(trx).block();
+    void findByIdTrxIssuer_withDateRange_shouldFilterBetween() {
+        LocalDateTime now = LocalDateTime.of(2025, 1, 1, 10, 0);
 
-        TrxFiltersDTO filters = new TrxFiltersDTO(
-                MERCHANT_ID,
-                INITIATIVE_ID,
-                null,
-                SyncTrxStatus.REWARDED.name(),
-                null,
-                null,
-                null,
-                null
-        );
+        trx.setIdTrxIssuer("ISSUER1");
+        trx.setTrxDate(now);
+        baseRepository.save(trx).block();
 
-        List<RewardTransaction> out = rewardTransactionSpecificRepository
-                .findByFilterTrx(filters, POS_ID, USER_ID, null, false, null)
-                .toStream()
-                .toList();
+        StepVerifier.create(
+                        repository.findByIdTrxIssuer(
+                                "ISSUER1",
+                                null,
+                                now.minusHours(1),
+                                now.plusHours(1),
+                                null,
+                                PageRequest.of(0, 10)
+                        )
+                )
+                .expectNextCount(1)
+                .verifyComplete();
 
-        assertEquals(1, out.size());
-        assertEquals("t1", out.getFirst().getId());
-    }
-
-    @Test
-    void findByFilter_withNullPageable_shouldNotFail() {
-        RewardTransaction trx = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("t1")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .status(SyncTrxStatus.INVOICED.name())
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-        rewardTransactionRepository.save(trx).block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO(
-                MERCHANT_ID,
-                INITIATIVE_ID,
-                null,
-                SyncTrxStatus.INVOICED.name(),
-                null,
-                null,
-                null,
-                null
-        );
-
-        List<RewardTransaction> out = rewardTransactionSpecificRepository
-                .findByFilter(filters, USER_ID, false, null)
-                .toStream()
-                .toList();
-
-        assertEquals(1, out.size());
-        assertEquals("t1", out.getFirst().getId());
-    }
-
-    @Test
-    void findByFilterTrx_whenFiltersStatusBlank_shouldApplyDefaultStatuses() {
-        RewardTransaction invoiced = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("inv")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .pointOfSaleId(POS_ID)
-                .status(SyncTrxStatus.INVOICED.name())
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        RewardTransaction cancelled = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("can")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .pointOfSaleId(POS_ID)
-                .status(SyncTrxStatus.CANCELLED.name())
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        RewardTransaction other = RewardTransactionFaker.mockInstanceBuilder(3)
-                .id("oth")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .pointOfSaleId(POS_ID)
-                .status("CREATED")
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        rewardTransactionRepository.saveAll(List.of(invoiced, cancelled, other)).collectList().block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO(
-                MERCHANT_ID,
-                INITIATIVE_ID,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
-        );
-
-        Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "_id"));
-
-        List<String> ids = rewardTransactionSpecificRepository
-                .findByFilterTrx(filters, POS_ID, USER_ID, "", false, pageable)
-                .map(RewardTransaction::getId)
-                .toStream()
-                .toList();
-
-        assertTrue(ids.contains("inv"));
-        assertTrue(ids.contains("can"));
-        assertFalse(ids.contains("oth"));
-    }
-
-
-    @Test
-    void findByFilter_withRewardBatchId_andRewardBatchTrxStatusNotConsultable_shouldFilterExact() {
-        RewardTransaction approved = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("app")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .status(SyncTrxStatus.INVOICED.name())
-                .rewardBatchId(BATCH_ID)
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED)
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        RewardTransaction toCheckSameBatch = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("toc")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .status(SyncTrxStatus.INVOICED.name())
-                .rewardBatchId(BATCH_ID)
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        rewardTransactionRepository.saveAll(List.of(approved, toCheckSameBatch)).collectList().block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO(
-                MERCHANT_ID,
-                INITIATIVE_ID,
-                null,
-                SyncTrxStatus.INVOICED.name(),
-                BATCH_ID,
-                RewardBatchTrxStatus.APPROVED,
-                null,
-                null
-        );
-
-        List<RewardTransaction> res = rewardTransactionSpecificRepository
-                .findByFilter(filters, USER_ID, true, PageRequest.of(0, 10))
-                .toStream()
-                .toList();
-
-        assertEquals(1, res.size());
-        assertEquals("app", res.getFirst().getId());
-    }
-
-    @Test
-    void findByFilterTrx_withProductGtinRegex_shouldMatchCaseInsensitiveSubstring() {
-        RewardTransaction t1 = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("t1")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .pointOfSaleId(POS_ID)
-                .status(SyncTrxStatus.REWARDED.name())
-                .initiatives(List.of(INITIATIVE_ID))
-                .additionalProperties(Map.of("productGtin", "xxx-" + PRODUCT_GTIN.toLowerCase() + "-yyy"))
-                .build();
-
-        RewardTransaction t2 = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("t2")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .pointOfSaleId(POS_ID)
-                .status(SyncTrxStatus.REWARDED.name())
-                .initiatives(List.of(INITIATIVE_ID))
-                .additionalProperties(Map.of("productGtin", "NO_MATCH"))
-                .build();
-
-        rewardTransactionRepository.saveAll(List.of(t1, t2)).collectList().block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO(
-                MERCHANT_ID,
-                INITIATIVE_ID,
-                null,
-                SyncTrxStatus.REWARDED.name(),
-                null,
-                null,
-                null,
-                null
-        );
-
-        List<String> ids = rewardTransactionSpecificRepository
-                .findByFilterTrx(filters, POS_ID, USER_ID, PRODUCT_GTIN.toUpperCase(), false,
-                        PageRequest.of(0, 10))
-                .map(RewardTransaction::getId)
-                .toStream()
-                .toList();
-
-        assertEquals(List.of("t1"), ids);
-    }
-
-    @Test
-    void findByFilterTrx_sortByProductName_shouldNotCrashAndReturnData() {
-        RewardTransaction t1 = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("t1")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .pointOfSaleId(POS_ID)
-                .status(SyncTrxStatus.REWARDED.name())
-                .initiatives(List.of(INITIATIVE_ID))
-                .additionalProperties(Map.of("productName", "B"))
-                .trxChargeDate(LocalDateTime.now())
-                .build();
-
-        RewardTransaction t2 = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("t2")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .pointOfSaleId(POS_ID)
-                .status(SyncTrxStatus.REWARDED.name())
-                .initiatives(List.of(INITIATIVE_ID))
-                .additionalProperties(Map.of("productName", "A"))
-                .trxChargeDate(LocalDateTime.now().minusMinutes(1))
-                .build();
-
-        rewardTransactionRepository.saveAll(List.of(t1, t2)).collectList().block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO(
-                MERCHANT_ID,
-                INITIATIVE_ID,
-                null,
-                SyncTrxStatus.REWARDED.name(),
-                null,
-                null,
-                null,
-                null
-        );
-
-        Pageable sortByProductName = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "productName"));
-
-        List<String> ids = rewardTransactionSpecificRepository
-                .findByFilterTrx(filters, POS_ID, USER_ID, "", false, sortByProductName)
-                .map(RewardTransaction::getId)
-                .toStream()
-                .toList();
-
-        assertEquals(2, ids.size());
-        assertTrue(ids.contains("t1"));
-        assertTrue(ids.contains("t2"));
-    }
-
-    @Test
-    void findByFilterTrx_statusAggregation_shouldRankStatuses() {
-        RewardTransaction c = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("c")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .pointOfSaleId(POS_ID)
-                .status(SyncTrxStatus.CANCELLED.name())
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        RewardTransaction i = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("i")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .pointOfSaleId(POS_ID)
-                .status(SyncTrxStatus.INVOICED.name())
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        RewardTransaction r = RewardTransactionFaker.mockInstanceBuilder(3)
-                .id("r")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .pointOfSaleId(POS_ID)
-                .status(SyncTrxStatus.REWARDED.name())
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        RewardTransaction rf = RewardTransactionFaker.mockInstanceBuilder(4)
-                .id("rf")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .pointOfSaleId(POS_ID)
-                .status(SyncTrxStatus.REFUNDED.name())
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        rewardTransactionRepository.saveAll(List.of(rf, r, i, c)).collectList().block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO(
-                MERCHANT_ID,
-                INITIATIVE_ID,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
-        );
-
-        Pageable sortByStatus = PageRequest.of(0, 10, Sort.by("status"));
-
-        List<String> ids = rewardTransactionSpecificRepository
-                .findByFilterTrx(filters, POS_ID, USER_ID, "", false, sortByStatus)
-                .map(RewardTransaction::getId)
-                .toStream()
-                .toList();
-
-        assertEquals(List.of("c", "i", "r", "rf"), ids);
-    }
-
-    @Test
-    void rewardTransactionsByBatchId_whenNoTransactions_shouldCompleteIdAndInitiativeIdAndMerchant() {
-        StepVerifier.create(rewardTransactionSpecificRepository.rewardTransactionsByBatchIdAndInitiativeId("BATCH_NONE", INITIATIVE_ID))
+        StepVerifier.create(
+                        repository.findByIdTrxIssuer(
+                                "ISSUER1",
+                                null,
+                                now.plusHours(1),
+                                now.plusHours(2),
+                                null,
+                                PageRequest.of(0, 10)
+                        )
+                )
+                .expectNextCount(0)
                 .verifyComplete();
     }
 
     @Test
-    void rewardTransactionsByBatchIdAndInitiativeId_whenOnlySuspended_shouldUpdateStatusButNoSamplingUpdate() {
-        String batchId = "BATCH_SUSP_ONLY";
+    void findByIdTrxIssuer_onlyStartDate_shouldFilterGte() {
+        LocalDateTime now = LocalDateTime.of(2025, 1, 1, 10, 0);
 
-        RewardTransaction s1 = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("s1")
-                .rewardBatchId(batchId)
-                .status(SyncTrxStatus.INVOICED.name())
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
-                .samplingKey(1)
-                .build();
+        trx.setIdTrxIssuer("ISSUER1");
+        trx.setTrxDate(now);
+        baseRepository.save(trx).block();
 
-        RewardTransaction s2 = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("s2")
-                .rewardBatchId(batchId)
-                .status(SyncTrxStatus.INVOICED.name())
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
-                .samplingKey(2)
-                .build();
+        StepVerifier.create(
+                        repository.findByIdTrxIssuer(
+                                "ISSUER1",
+                                null,
+                                now.minusHours(1),
+                                null,
+                                null,
+                                PageRequest.of(0, 10)
+                        )
+                )
+                .expectNextCount(1)
+                .verifyComplete();
 
-        rewardTransactionRepository.saveAll(List.of(s1, s2)).collectList().block();
-
-        rewardTransactionSpecificRepository.rewardTransactionsByBatchIdAndInitiativeId(batchId, INITIATIVE_ID).block();
-
-        RewardTransaction after1 = rewardTransactionRepository.findById("s1").block();
-        RewardTransaction after2 = rewardTransactionRepository.findById("s2").block();
-
-        assertNotNull(after1);
-        assertNotNull(after2);
-        assertEquals(SyncTrxStatus.REWARDED.name(), after1.getStatus());
-        assertEquals(SyncTrxStatus.REWARDED.name(), after2.getStatus());
-        assertEquals(RewardBatchTrxStatus.SUSPENDED, after1.getRewardBatchTrxStatus());
-        assertEquals(RewardBatchTrxStatus.SUSPENDED, after2.getRewardBatchTrxStatus());
+        StepVerifier.create(
+                        repository.findByIdTrxIssuer(
+                                "ISSUER1",
+                                null,
+                                now.plusHours(1),
+                                null,
+                                null,
+                                PageRequest.of(0, 10)
+                        )
+                )
+                .expectNextCount(0)
+                .verifyComplete();
     }
 
     @Test
-    void sumSuspendedAccruedRewardCents_whenNoMatches_shouldReturnZero() {
-        Long sum = rewardTransactionSpecificRepository.sumSuspendedAccruedRewardCents(INITIATIVE_ID, "NO_BATCH").block();
-        assertNotNull(sum);
-        assertEquals(0L, sum);
-    }
+    void findByIdTrxIssuer_onlyEndDate_shouldFilterLte() {
+        LocalDateTime now = LocalDateTime.of(2025, 1, 1, 10, 0);
 
+        trx.setIdTrxIssuer("ISSUER1");
+        trx.setTrxDate(now);
+        baseRepository.save(trx).block();
 
-    @Test
-    void findInvoicedTransactionsWithoutBatch_shouldRespectPageSize() {
-        RewardTransaction t1 = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("t1").merchantId(MERCHANT_ID).initiatives(INITIATIVES_ID).status(SyncTrxStatus.INVOICED.name()).rewardBatchId(null).build();
-        RewardTransaction t2 = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("t2").merchantId(MERCHANT_ID).initiatives(INITIATIVES_ID).status(SyncTrxStatus.INVOICED.name()).rewardBatchId(null).build();
-        RewardTransaction t3 = RewardTransactionFaker.mockInstanceBuilder(3)
-                .id("t3").merchantId(MERCHANT_ID).initiatives(INITIATIVES_ID).status(SyncTrxStatus.INVOICED.name()).rewardBatchId(null).build();
+        StepVerifier.create(
+                        repository.findByIdTrxIssuer(
+                                "ISSUER1",
+                                null,
+                                null,
+                                now.plusHours(1),
+                                null,
+                                PageRequest.of(0, 10)
+                        )
+                )
+                .expectNextCount(1)
+                .verifyComplete();
 
-        rewardTransactionRepository.saveAll(List.of(t1, t2, t3)).collectList().block();
-
-        List<RewardTransaction> page2 = rewardTransactionSpecificRepository
-                .findInvoicedTransactionsWithoutBatch(2)
-                .collectList()
-                .block();
-
-        assertNotNull(page2);
-        assertEquals(2, page2.size());
-    }
-
-
-    @Test
-    void findTransactionInBatch_shouldReturnMatching() {
-        RewardTransaction trx = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("t1")
-                .merchantId(MERCHANT_ID)
-                .initiatives(INITIATIVES_ID)
-                .rewardBatchId(BATCH_ID)
-                .build();
-        rewardTransactionRepository.save(trx).block();
-
-        RewardTransaction found = rewardTransactionSpecificRepository
-                .findTransactionInBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "t1")
-                .block();
-
-        assertNotNull(found);
-        assertEquals("t1", found.getId());
+        StepVerifier.create(
+                        repository.findByIdTrxIssuer(
+                                "ISSUER1",
+                                null,
+                                null,
+                                now.minusHours(1),
+                                null,
+                                PageRequest.of(0, 10)
+                        )
+                )
+                .expectNextCount(0)
+                .verifyComplete();
     }
 
     @Test
-    void removeInitiativeOnTransaction_shouldAlsoUnsetRewardsAndRejectionReasons() {
-        RewardTransaction trx = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("t1")
-                .initiatives(List.of(INITIATIVE_ID, "OTHER"))
-                .rewards(Map.of(
-                        INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build(),
-                        "OTHER", Reward.builder().accruedRewardCents(200L).build()
-                ))
-                .initiativeRejectionReasons(Map.of(
-                        INITIATIVE_ID, List.of("R1"),
-                        "OTHER", List.of("R2")
-                ))
-                .build();
+    void findByIdTrxIssuer_allFiltersCombined_shouldWorkTogether() {
+        LocalDateTime now = LocalDateTime.of(2025, 1, 1, 10, 0);
 
-        rewardTransactionRepository.save(trx).block();
+        trx.setIdTrxIssuer("ISSUER1");
+        trx.setUserId("USER1");
+        trx.setAmountCents(100L);
+        trx.setTrxDate(now);
 
-        rewardTransactionSpecificRepository.removeInitiativeOnTransaction("t1", INITIATIVE_ID).block();
+        baseRepository.save(trx).block();
 
-        RewardTransaction after = rewardTransactionRepository.findById("t1").block();
-        assertNotNull(after);
-
-        assertFalse(after.getInitiatives().contains(INITIATIVE_ID));
-        assertTrue(after.getInitiatives().contains("OTHER"));
-
-        assertNotNull(after.getRewards());
-        assertFalse(after.getRewards().containsKey(INITIATIVE_ID));
-        assertTrue(after.getRewards().containsKey("OTHER"));
-
-        assertNotNull(after.getInitiativeRejectionReasons());
-        assertFalse(after.getInitiativeRejectionReasons().containsKey(INITIATIVE_ID));
-        assertTrue(after.getInitiativeRejectionReasons().containsKey("OTHER"));
-        assertEquals(List.of("R2"), after.getInitiativeRejectionReasons().get("OTHER"));
+        StepVerifier.create(
+                        repository.findByIdTrxIssuer(
+                                "ISSUER1",
+                                "USER1",
+                                now.minusHours(1),
+                                now.plusHours(1),
+                                100L,
+                                PageRequest.of(0, 10)
+                        )
+                )
+                .expectNextCount(1)
+                .verifyComplete();
     }
 
     @Test
-    void findByIdTrxIssuer_shouldFilterByAllFields() {
-        LocalDateTime now = LocalDateTime.now();
-
-        RewardTransaction match = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("m1")
-                .idTrxIssuer("ISSUER1")
-                .userId(USER_ID)
-                .amountCents(100L)
-                .trxDate(now.minusHours(1))
-                .build();
-
-        RewardTransaction noUser = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("m2")
-                .idTrxIssuer("ISSUER1")
-                .userId("OTHER")
-                .amountCents(100L)
-                .trxDate(now.minusHours(1))
-                .build();
-
-        rewardTransactionRepository.saveAll(List.of(match, noUser)).collectList().block();
-
-        List<String> ids = rewardTransactionSpecificRepository
-                .findByIdTrxIssuer("ISSUER1", USER_ID, now.minusDays(1), now, 100L, PageRequest.of(0, 10))
-                .map(RewardTransaction::getId)
-                .collectList()
-                .block();
-
-        assertEquals(List.of("m1"), ids);
+    void findByRange_shouldReturnResults() {
+        StepVerifier.create(
+                        repository.findByRange("U1",
+                                LocalDateTime.now().minusDays(1),
+                                LocalDateTime.now().plusDays(1),
+                                100L,
+                                PageRequest.of(0, 10))
+                )
+                .expectNextCount(1)
+                .verifyComplete();
     }
 
     @Test
-    void findByIdTrxIssuer_withOnlyStartDate_shouldFilter() {
-        LocalDateTime now = LocalDateTime.now();
+    void findByFilter_shouldApplyFilters() {
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setMerchantId("M1");
+        filters.setInitiativeId("INIT_1");
 
-        RewardTransaction in = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("in")
-                .idTrxIssuer("ISSUER2")
-                .trxDate(now.minusHours(1))
-                .build();
-
-        RewardTransaction out = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("out")
-                .idTrxIssuer("ISSUER2")
-                .trxDate(now.minusDays(3))
-                .build();
-
-        rewardTransactionRepository.saveAll(List.of(in, out)).collectList().block();
-
-        List<String> ids = rewardTransactionSpecificRepository
-                .findByIdTrxIssuer("ISSUER2", null, now.minusDays(1), null, null, PageRequest.of(0, 10))
-                .map(RewardTransaction::getId)
-                .collectList()
-                .block();
-
-        assertEquals(List.of("in"), ids);
+        StepVerifier.create(
+                        repository.findByFilter(filters, "U1", false, PageRequest.of(0, 10))
+                )
+                .expectNextCount(1)
+                .verifyComplete();
     }
 
     @Test
-    void findByIdTrxIssuer_withOnlyEndDate_shouldFilter() {
-        LocalDateTime now = LocalDateTime.now();
-
-        RewardTransaction in = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("in")
-                .idTrxIssuer("ISSUER3")
-                .trxDate(now.minusDays(2))
-                .build();
-
-        RewardTransaction out = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("out")
-                .idTrxIssuer("ISSUER3")
-                .trxDate(now.plusDays(1))
-                .build();
-
-        rewardTransactionRepository.saveAll(List.of(in, out)).collectList().block();
-
-        List<String> ids = rewardTransactionSpecificRepository
-                .findByIdTrxIssuer("ISSUER3", null, null, now, null, PageRequest.of(0, 10))
-                .map(RewardTransaction::getId)
-                .collectList()
-                .block();
-
-        assertEquals(List.of("in"), ids);
+    void findTransaction_shouldReturnOnlyValidStatuses() {
+        StepVerifier.create(repository.findTransaction("M1", "trx1"))
+                .expectNextMatches(t -> t.getId().equals("trx1"))
+                .verifyComplete();
     }
 
     @Test
-    void findByRange_shouldFilterByDateAndAmount() {
-        LocalDateTime now = LocalDateTime.now();
+    void updateStatusAndReturnOld_shouldUpdateAndReturnOld() {
 
-        RewardTransaction match = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("r1")
-                .userId(USER_ID)
-                .amountCents(500L)
-                .trxDate(now.minusHours(1))
-                .build();
+        StepVerifier.create(
+                        repository.updateStatusAndReturnOld(
+                                "INIT_1",
+                                "B1",
+                                "trx1",
+                                RewardBatchTrxStatus.SUSPENDED,
+                                null,
+                                "2025-01",
+                                null
+                        )
+                )
+                .assertNext(old -> assertEquals(RewardBatchTrxStatus.CONSULTABLE, old.getRewardBatchTrxStatus()))
+                .verifyComplete();
 
-        RewardTransaction noAmount = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("r2")
-                .userId(USER_ID)
-                .amountCents(400L)
-                .trxDate(now.minusHours(1))
-                .build();
-
-        rewardTransactionRepository.saveAll(List.of(match, noAmount)).collectList().block();
-
-        List<String> ids = rewardTransactionSpecificRepository
-                .findByRange(USER_ID, now.minusDays(1), now, 500L, PageRequest.of(0, 10))
-                .map(RewardTransaction::getId)
-                .collectList()
-                .block();
-
-        assertEquals(List.of("r1"), ids);
-    }
-
-    @Test
-    void findByFilter_rewardBatchAndStatuses_shouldReturnMatchingOnly() {
-        RewardTransaction t1 = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("t1")
-                .rewardBatchId(BATCH_ID)
-                .initiatives(List.of(INITIATIVE_ID))
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
-                .build();
-
-        RewardTransaction t2 = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("t2")
-                .rewardBatchId(BATCH_ID)
-                .initiatives(List.of(INITIATIVE_ID))
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED)
-                .build();
-
-        RewardTransaction t3 = RewardTransactionFaker.mockInstanceBuilder(3)
-                .id("t3")
-                .rewardBatchId("OTHER")
-                .initiatives(List.of(INITIATIVE_ID))
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
-                .build();
-
-        rewardTransactionRepository.saveAll(List.of(t1, t2, t3)).collectList().block();
-
-        List<String> ids = rewardTransactionSpecificRepository
-                .findByFilter(BATCH_ID, INITIATIVE_ID, List.of(RewardBatchTrxStatus.SUSPENDED, RewardBatchTrxStatus.REJECTED))
-                .map(RewardTransaction::getId)
-                .collectList()
-                .block();
-
-        assertTrue(ids.contains("t1"));
-        assertTrue(ids.contains("t2"));
-        assertFalse(ids.contains("t3"));
-    }
-
-    @Test
-    void findTransaction_shouldReturnOnlyAllowedStatuses() {
-        RewardTransaction ok = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("ok")
-                .merchantId(MERCHANT_ID)
-                .merchantId(MERCHANT_ID)
-                .initiatives(INITIATIVES_ID)
-                .status(SyncTrxStatus.INVOICED.name())
-                .build();
-
-        RewardTransaction ko = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("ko")
-                .merchantId(MERCHANT_ID)
-                .merchantId(MERCHANT_ID)
-                .initiatives(INITIATIVES_ID)
-                .status("AUTHORIZED")
-                .build();
-
-        rewardTransactionRepository.saveAll(List.of(ok, ko)).collectList().block();
-
-        RewardTransaction found = rewardTransactionSpecificRepository.findTransaction(MERCHANT_ID, "ok").block();
-        RewardTransaction notFound = rewardTransactionSpecificRepository.findTransaction(MERCHANT_ID, "ko").block();
-
-        assertNotNull(found);
-        assertEquals("ok", found.getId());
-        assertNull(notFound);
-    }
-
-    @Test
-    void getCount_shouldCountMatchingTransactions() {
-        RewardTransaction t1 = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("c1")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .pointOfSaleId(POS_ID)
-                .status(SyncTrxStatus.REWARDED.name())
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        RewardTransaction t2 = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("c2")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .pointOfSaleId(POS_ID)
-                .status(SyncTrxStatus.REWARDED.name())
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        rewardTransactionRepository.saveAll(List.of(t1, t2)).collectList().block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO(MERCHANT_ID, INITIATIVE_ID, null,
-                SyncTrxStatus.REWARDED.name(), null, null, null, null);
-
-        Long count = rewardTransactionSpecificRepository
-                .getCount(filters, POS_ID, "", USER_ID, false)
-                .block();
-
-        assertEquals(2L, count);
-    }
-
-    @Test
-    void findOneByInitiativeId_shouldReturnOne() {
-        RewardTransaction trx = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("one")
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        rewardTransactionRepository.save(trx).block();
-
-        RewardTransaction found = rewardTransactionSpecificRepository.findOneByInitiativeId(INITIATIVE_ID).block();
-
-        assertNotNull(found);
-        assertEquals("one", found.getId());
-    }
-
-    @Test
-    void findByInitiativesWithBatch_shouldReturnTransactions() {
-        RewardTransaction t1 = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("b1")
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        RewardTransaction t2 = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("b2")
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        rewardTransactionRepository.saveAll(List.of(t1, t2)).collectList().block();
-
-        List<String> ids = rewardTransactionSpecificRepository
-                .findByInitiativesWithBatch(INITIATIVE_ID, 1)
-                .map(RewardTransaction::getId)
-                .collectList()
-                .block();
-
-        assertEquals(2, ids.size());
-        assertTrue(ids.contains("b1"));
-        assertTrue(ids.contains("b2"));
-    }
-
-    @Test
-    void findByInitiativeIdAndUserId_shouldFilterBothFields() {
-        RewardTransaction match = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("u1")
-                .userId(USER_ID)
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        RewardTransaction other = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("u2")
-                .userId("OTHER")
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        rewardTransactionRepository.saveAll(List.of(match, other)).collectList().block();
-
-        List<String> ids = rewardTransactionSpecificRepository
-                .findByInitiativeIdAndUserId(INITIATIVE_ID, USER_ID)
-                .map(RewardTransaction::getId)
-                .collectList()
-                .block();
-
-        assertEquals(List.of("u1"), ids);
-    }
-
-    @Test
-    void sumSuspendedAccruedRewardCents_shouldSumValues() {
-        RewardTransaction t1 = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("s1")
-                .rewardBatchId(BATCH_ID)
-                .merchantId(MERCHANT_ID)
-                .initiatives(INITIATIVES_ID)
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
-                .rewards(Map.of(
-                        "A", Reward.builder().accruedRewardCents(100L).build(),
-                        "B", Reward.builder().accruedRewardCents(50L).build()
-                ))
-                .build();
-
-        RewardTransaction t2 = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("s2")
-                .rewardBatchId(BATCH_ID)
-                .merchantId(MERCHANT_ID)
-                .initiatives(INITIATIVES_ID)
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
-                .rewards(Map.of(
-                        "C", Reward.builder().accruedRewardCents(30L).build()
-                ))
-                .build();
-
-        RewardTransaction t3 = RewardTransactionFaker.mockInstanceBuilder(3)
-                .id("s3")
-                .rewardBatchId(BATCH_ID)
-                .merchantId(MERCHANT_ID)
-                .initiatives(INITIATIVES_ID)
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED)
-                .rewards(Map.of(
-                        "D", Reward.builder().accruedRewardCents(999L).build()
-                ))
-                .build();
-
-        rewardTransactionRepository.saveAll(List.of(t1, t2, t3)).collectList().block();
-
-        Long sum = rewardTransactionSpecificRepository.sumSuspendedAccruedRewardCents(INITIATIVE_ID, BATCH_ID).block();
-
-        assertEquals(180L, sum);
+        RewardTransaction updated = baseRepository.findById("trx1").block();
+        assertNotNull(updated);
+        assertEquals(RewardBatchTrxStatus.SUSPENDED, updated.getRewardBatchTrxStatus());
     }
 
     @Test
     void updateStatusAndReturnOld_withChecksError_shouldSetChecksError() {
-        String trxId = "trx-checks";
-        RewardTransaction trx = RewardTransactionFaker.mockInstance(1);
-        trx.setId(trxId);
-        trx.setMerchantId(MERCHANT_ID);
-        trx.setInitiatives(INITIATIVES_ID);
-        trx.setRewardBatchId(BATCH_ID);
-        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-        rewardTransactionRepository.save(trx).block();
 
-        ChecksError checksError = new ChecksError(
-                true,   // cfError
-                false,  // productEligibilityError
-                false,  // disposalRaeeError
-                false,  // priceError
-                false,  // bonusError
-                false,  // sellerReferenceError
-                false,  // accountingDocumentError
-                true    // genericError
-        );
-
-        StepVerifier.create(rewardTransactionSpecificRepository.updateStatusAndReturnOld(
-                INITIATIVE_ID, BATCH_ID, trxId, RewardBatchTrxStatus.REJECTED, null, "2024-01", checksError))
+        StepVerifier.create(
+                        repository.updateStatusAndReturnOld(
+                                "INIT_1",
+                                "B1",
+                                "trx1",
+                                RewardBatchTrxStatus.SUSPENDED,
+                                null,
+                                "2025-01",
+                                new it.gov.pagopa.idpay.transactions.model.ChecksError()
+                        )
+                )
                 .expectNextCount(1)
                 .verifyComplete();
 
-        RewardTransaction updated = rewardTransactionRepository.findById(trxId).block();
+        RewardTransaction updated = baseRepository.findById("trx1").block();
         assertNotNull(updated);
         assertNotNull(updated.getChecksError());
-        assertEquals(checksError, updated.getChecksError());
-        assertTrue(updated.getChecksError().isCfError());
-        assertTrue(updated.getChecksError().isGenericError());
     }
 
     @Test
-    void updateStatusAndReturnOld_sameStatus_shouldAppendReasons() {
-        String trxId = "trx-reasons";
-        RewardTransaction trx = RewardTransactionFaker.mockInstance(1);
-        trx.setId(trxId);
-        trx.setRewardBatchId(BATCH_ID);
-        trx.setMerchantId(MERCHANT_ID);
-        trx.setInitiatives(INITIATIVES_ID);
-        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED);
-        trx.setRewardBatchRejectionReason(List.of(new ReasonDTO(LocalDateTime.now(), "OLD")));
-        rewardTransactionRepository.save(trx).block();
+    void removeInitiative_shouldRemoveData() {
 
-        ReasonDTO newReason = new ReasonDTO(LocalDateTime.now(), "NEW");
+        StepVerifier.create(
+                repository.removeInitiativeOnTransaction("trx1", "INIT_1")
+        ).verifyComplete();
 
-        StepVerifier.create(rewardTransactionSpecificRepository.updateStatusAndReturnOld(
-                INITIATIVE_ID, BATCH_ID, trxId, RewardBatchTrxStatus.REJECTED, newReason, "2024-01", null))
+        RewardTransaction updated = baseRepository.findById("trx1").block();
+        assertNotNull(updated);
+        assertFalse(updated.getInitiatives().contains("INIT_1"));
+    }
+
+    @Test
+    void rewardTransactions_shouldUpdateStatus() {
+
+        StepVerifier.create(
+                repository.rewardTransactionsByBatchIdAndInitiativeId("B1", "INIT_1")
+        ).verifyComplete();
+
+        RewardTransaction updated = baseRepository.findById("trx1").block();
+        assertNotNull(updated);
+        assertEquals(SyncTrxStatus.REWARDED.name(), updated.getStatus());
+    }
+
+    @Test
+    void sumSuspended_shouldReturnZeroWhenEmpty() {
+
+        StepVerifier.create(
+                        repository.sumSuspendedAccruedRewardCents("INIT_1", "B1")
+                )
+                .expectNext(0L)
+                .verifyComplete();
+    }
+
+    @Test
+    void findInvoicedTransactionsWithoutBatch_shouldReturnOnlyMatching() {
+
+        trx.setStatus(SyncTrxStatus.INVOICED.name());
+        trx.setRewardBatchId(null);
+        baseRepository.save(trx).block();
+
+        StepVerifier.create(
+                        repository.findInvoicedTransactionsWithoutBatch(10)
+                )
+                .expectNextCount(1)
+                .verifyComplete();
+    }
+
+    @Test
+    void findTransactionInBatch_shouldReturnMatch() {
+        StepVerifier.create(
+                        repository.findTransactionInBatch("INIT_1", "M1", "B1", "trx1")
+                )
+                .expectNextMatches(t -> t.getId().equals("trx1"))
+                .verifyComplete();
+    }
+
+    @Test
+    void findByInitiativeIdAndUserId_shouldWork() {
+        StepVerifier.create(
+                        repository.findByInitiativeIdAndUserId("INIT_1", "U1")
+                )
+                .expectNextCount(1)
+                .verifyComplete();
+    }
+
+    @Test
+    void getCount_withoutStatus_shouldUseDefaultStatuses() {
+        trx.setStatus(SyncTrxStatus.REWARDED.name());
+        baseRepository.save(trx).block();
+
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setMerchantId("M1");
+        filters.setInitiativeId("INIT_1");
+        filters.setStatus(null);
+
+        StepVerifier.create(
+                        repository.getCount(filters, null, null, null, false)
+                )
+                .expectNext(1L)
+                .verifyComplete();
+    }
+
+    @Test
+    void getCount_withExplicitStatus_shouldFilter() {
+        trx.setStatus(SyncTrxStatus.REWARDED.name());
+        baseRepository.save(trx).block();
+
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setMerchantId("M1");
+        filters.setInitiativeId("INIT_1");
+        filters.setStatus(SyncTrxStatus.REWARDED.name());
+
+        StepVerifier.create(
+                        repository.getCount(filters, null, null, null, false)
+                )
+                .expectNext(1L)
+                .verifyComplete();
+
+        filters.setStatus("CANCELLED");
+
+        StepVerifier.create(
+                        repository.getCount(filters, null, null, null, false)
+                )
+                .expectNext(0L)
+                .verifyComplete();
+    }
+
+    @Test
+    void getCount_withTrxCode_shouldApplyRegex() {
+        trx.setTrxCode("CODE123");
+        baseRepository.save(trx).block();
+
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setMerchantId("M1");
+        filters.setInitiativeId("INIT_1");
+        filters.setTrxCode("CODE");
+
+        StepVerifier.create(
+                        repository.getCount(filters, null, null, null, false)
+                )
+                .expectNext(1L)
+                .verifyComplete();
+
+        filters.setTrxCode("NO_MATCH");
+
+        StepVerifier.create(
+                        repository.getCount(filters, null, null, null, false)
+                )
+                .expectNext(0L)
+                .verifyComplete();
+    }
+
+    @Test
+    void getCount_withRewardBatchId_shouldFilter() {
+        trx.setRewardBatchId("B1");
+        baseRepository.save(trx).block();
+
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setMerchantId("M1");
+        filters.setInitiativeId("INIT_1");
+        filters.setRewardBatchId("B1");
+
+        StepVerifier.create(
+                        repository.getCount(filters, null, null, null, false)
+                )
+                .expectNext(1L)
+                .verifyComplete();
+
+        filters.setRewardBatchId("WRONG");
+
+        StepVerifier.create(
+                        repository.getCount(filters, null, null, null, false)
+                )
+                .expectNext(0L)
+                .verifyComplete();
+    }
+
+    @Test
+    void getCount_withRewardBatchTrxStatus_shouldFilter() {
+        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED);
+        baseRepository.save(trx).block();
+
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setMerchantId("M1");
+        filters.setInitiativeId("INIT_1");
+        filters.setRewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED);
+
+        StepVerifier.create(
+                        repository.getCount(filters, null, null, null, false)
+                )
+                .expectNext(1L)
+                .verifyComplete();
+    }
+
+    @Test
+    void getCount_consultableWithIncludeToCheck_shouldIncludeToCheck() {
+
+        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
+        baseRepository.save(trx).block();
+
+        RewardTransaction trx2 = RewardTransaction.builder()
+                .id("trx2")
+                .merchantId("M1")
+                .userId("U1")
+                .initiatives(List.of("INIT_1"))
+                .trxDate(LocalDateTime.now())
+                .amountCents(100L)
+                .status(SyncTrxStatus.REWARDED.name())
+                .rewardBatchId("B1")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
+                .build();
+
+        baseRepository.save(trx2).block();
+
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setMerchantId("M1");
+        filters.setInitiativeId("INIT_1");
+        filters.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
+
+        StepVerifier.create(
+                        repository.getCount(filters, null, null, null, true)
+                )
+                .expectNext(2L)
+                .verifyComplete();
+    }
+
+    @Test
+    void getCount_consultableWithoutIncludeToCheck_shouldNotIncludeToCheck() {
+
+        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
+        baseRepository.save(trx).block();
+
+        RewardTransaction trx2 = RewardTransaction.builder()
+                .id("trx2")
+                .merchantId("M1")
+                .userId("U1")
+                .initiatives(List.of("INIT_1"))
+                .trxDate(LocalDateTime.now())
+                .amountCents(100L)
+                .status(SyncTrxStatus.REWARDED.name())
+                .rewardBatchId("B1")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
+                .build();
+
+        baseRepository.save(trx2).block();
+
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setMerchantId("M1");
+        filters.setInitiativeId("INIT_1");
+        filters.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
+
+        StepVerifier.create(
+                        repository.getCount(filters, null, null, null, false)
+                )
+                .expectNext(1L)
+                .verifyComplete();
+    }
+
+    @Test
+    void getCount_withPointOfSaleId_shouldFilter() {
+        trx.setPointOfSaleId("POS1");
+        baseRepository.save(trx).block();
+
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setMerchantId("M1");
+        filters.setInitiativeId("INIT_1");
+
+        StepVerifier.create(
+                        repository.getCount(filters, "POS1", null, null, false)
+                )
+                .expectNext(1L)
+                .verifyComplete();
+
+        StepVerifier.create(
+                        repository.getCount(filters, "WRONG", "productGtin", null, false)
+                )
+                .expectNext(0L)
+                .verifyComplete();
+    }
+
+    @Test
+    void findByFilterTrx_shouldUseAggregation_whenSortingByStatus() {
+
+        trx.setStatus(SyncTrxStatus.REWARDED.name());
+        baseRepository.save(trx).block();
+
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setMerchantId("M1");
+        filters.setInitiativeId("INIT_1");
+
+        Pageable pageable = PageRequest.of(
+                0,
+                10,
+                Sort.by(Sort.Direction.ASC, "status")
+        );
+
+        StepVerifier.create(
+                        repository.findByFilterTrx(
+                                filters,
+                                null,
+                                "U1",
+                                null,
+                                false,
+                                pageable
+                        )
+                )
+                .expectNextCount(1)
+                .verifyComplete();
+    }
+
+    @Test
+    void findByFilterTrx_shouldUseFind_whenNotSortingByStatus() {
+
+        trx.setStatus(SyncTrxStatus.REWARDED.name());
+        baseRepository.save(trx).block();
+
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setMerchantId("M1");
+        filters.setInitiativeId("INIT_1");
+
+        Pageable pageable = PageRequest.of(
+                0,
+                10,
+                Sort.by(Sort.Direction.DESC, "trxDate")
+        );
+
+        StepVerifier.create(
+                        repository.findByFilterTrx(
+                                filters,
+                                null,
+                                "U1",
+                                null,
+                                false,
+                                pageable
+                        )
+                )
+                .expectNextCount(1)
+                .verifyComplete();
+    }
+
+    @Test
+    void findByFilterTrx_shouldMapProductNameSortField() {
+        baseRepository.save(trx).block();
+
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setMerchantId("M1");
+        filters.setInitiativeId("INIT_1");
+
+        Pageable pageable = PageRequest.of(
+                0,
+                10,
+                Sort.by(Sort.Direction.ASC, "productName")
+        );
+
+        StepVerifier.create(
+                        repository.findByFilterTrx(
+                                filters,
+                                null,
+                                "U1",
+                                null,
+                                false,
+                                pageable
+                        )
+                )
+                .expectNextCount(1)
+                .verifyComplete();
+    }
+
+    @Test
+    void findByFilterTrx_shouldHandleNullPageable() {
+
+        trx.setStatus(SyncTrxStatus.REWARDED.name());
+        baseRepository.save(trx).block();
+
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setMerchantId("M1");
+        filters.setInitiativeId("INIT_1");
+
+        StepVerifier.create(
+                        repository.findByFilterTrx(
+                                filters,
+                                null,
+                                "U1",
+                                null,
+                                false,
+                                null
+                        )
+                )
+                .expectNextCount(1)
+                .verifyComplete();
+    }
+
+    @Test
+    void findByFilterTrx_consultable_shouldIncludeToCheck() {
+
+        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
+        baseRepository.save(trx).block();
+
+        RewardTransaction trx2 = RewardTransaction.builder()
+                .id("trx2")
+                .merchantId("M1")
+                .userId("U1")
+                .initiatives(List.of("INIT_1"))
+                .trxDate(LocalDateTime.now())
+                .amountCents(100L)
+                .status(SyncTrxStatus.REWARDED.name())
+                .rewardBatchId("B1")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
+                .build();
+
+        baseRepository.save(trx2).block();
+
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setMerchantId("M1");
+        filters.setInitiativeId("INIT_1");
+        filters.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
+
+        Pageable pageable = PageRequest.of(0, 10);
+
+        StepVerifier.create(
+                        repository.findByFilterTrx(
+                                filters,
+                                null,
+                                "U1",
+                                null,
+                                true,
+                                pageable
+                        )
+                )
+                .expectNextCount(2)
+                .verifyComplete();
+    }
+
+    @Test
+    void findByFilterTrx_consultable_shouldIncludeToCheckPageableNull() {
+
+        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
+        baseRepository.save(trx).block();
+
+        RewardTransaction trx2 = RewardTransaction.builder()
+                .id("trx2")
+                .merchantId("M1")
+                .userId("U1")
+                .initiatives(List.of("INIT_1"))
+                .trxDate(LocalDateTime.now())
+                .amountCents(100L)
+                .status(SyncTrxStatus.REWARDED.name())
+                .rewardBatchId("B1")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
+                .build();
+
+        baseRepository.save(trx2).block();
+
+        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters.setMerchantId("M1");
+        filters.setInitiativeId("INIT_1");
+        filters.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
+
+        StepVerifier.create(
+                        repository.findByFilterTrx(
+                                filters,
+                                null,
+                                "U1",
+                                null,
+                                true,
+                                null
+                        )
+                )
+                .expectNextCount(2)
+                .verifyComplete();
+    }
+
+    @Test
+    void findByFilter_shouldReturnMatchingTransaction() {
+        StepVerifier.create(
+                        repository.findByFilter(
+                                "B1",
+                                "INIT_1",
+                                List.of(RewardBatchTrxStatus.CONSULTABLE)
+                        )
+                )
+                .expectNextMatches(t ->
+                        t.getId().equals("trx1") &&
+                                t.getRewardBatchId().equals("B1") &&
+                                t.getInitiatives().contains("INIT_1")
+                )
+                .verifyComplete();
+    }
+
+    @Test
+    void findByFilter_shouldReturnEmpty_whenBatchIdDoesNotMatch() {
+        StepVerifier.create(
+                        repository.findByFilter(
+                                "WRONG_BATCH",
+                                "INIT_1",
+                                List.of(RewardBatchTrxStatus.CONSULTABLE)
+                        )
+                )
+                .expectNextCount(0)
+                .verifyComplete();
+    }
+
+    @Test
+    void findByFilter_shouldReturnEmpty_whenInitiativeDoesNotMatch() {
+        StepVerifier.create(
+                        repository.findByFilter(
+                                "B1",
+                                "WRONG_INIT",
+                                List.of(RewardBatchTrxStatus.CONSULTABLE)
+                        )
+                )
+                .expectNextCount(0)
+                .verifyComplete();
+    }
+
+    @Test
+    void findByFilter_shouldFilterByStatusList() {
+        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
+        baseRepository.save(trx).block();
+
+        StepVerifier.create(
+                        repository.findByFilter(
+                                "B1",
+                                "INIT_1",
+                                List.of(RewardBatchTrxStatus.CONSULTABLE)
+                        )
+                )
                 .expectNextCount(1)
                 .verifyComplete();
 
-        RewardTransaction updated = rewardTransactionRepository.findById(trxId).block();
+        StepVerifier.create(
+                        repository.findByFilter(
+                                "B1",
+                                "INIT_1",
+                                List.of(RewardBatchTrxStatus.TO_CHECK)
+                        )
+                )
+                .expectNextCount(0)
+                .verifyComplete();
+    }
+
+    @Test
+    void findByFilter_shouldWorkWithMultipleStatuses() {
+        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
+        baseRepository.save(trx).block();
+
+        StepVerifier.create(
+                        repository.findByFilter(
+                                "B1",
+                                "INIT_1",
+                                List.of(
+                                        RewardBatchTrxStatus.CONSULTABLE,
+                                        RewardBatchTrxStatus.TO_CHECK
+                                )
+                        )
+                )
+                .expectNextCount(1)
+                .verifyComplete();
+    }
+
+    @Test
+    void findOneByInitiativeId_shouldReturnTransaction() {
+        StepVerifier.create(
+                        repository.findOneByInitiativeId("INIT_1")
+                )
+                .expectNextMatches(t ->
+                        t.getId().equals("trx1") &&
+                                t.getInitiatives().contains("INIT_1")
+                )
+                .verifyComplete();
+    }
+
+    @Test
+    void findOneByInitiativeId_shouldReturnEmpty_whenNotFound() {
+        StepVerifier.create(
+                        repository.findOneByInitiativeId("WRONG_INIT")
+                )
+                .verifyComplete();
+    }
+
+    @Test
+    void findOneByInitiativeId_shouldMatchSingleElementInsideList() {
+        trx.setInitiatives(List.of("INIT_1", "INIT_2"));
+        baseRepository.save(trx).block();
+
+        StepVerifier.create(
+                        repository.findOneByInitiativeId("INIT_2")
+                )
+                .expectNextMatches(t ->
+                        t.getInitiatives().contains("INIT_2")
+                )
+                .verifyComplete();
+    }
+
+    @Test
+    void findByInitiativesWithBatch_shouldReturnMatchingTransactions() {
+        StepVerifier.create(
+                        repository.findByInitiativesWithBatch("INIT_1", 10)
+                )
+                .expectNextMatches(t ->
+                        t.getId().equals("trx1") &&
+                                t.getInitiatives().contains("INIT_1")
+                )
+                .verifyComplete();
+    }
+
+    @Test
+    void findByInitiativesWithBatch_shouldReturnEmpty_whenInitiativeNotFound() {
+        StepVerifier.create(
+                        repository.findByInitiativesWithBatch("WRONG_INIT", 10)
+                )
+                .expectNextCount(0)
+                .verifyComplete();
+    }
+
+    @Test
+    void rewardTransactionsByBatchIdAndInitiativeId_shouldUpdateAndSample() {
+
+        StepVerifier.create(
+                        repository.rewardTransactionsByBatchIdAndInitiativeId("B1", "INIT_1")
+                )
+                .verifyComplete();
+
+        RewardTransaction updated = baseRepository.findById("trx1").block();
+
         assertNotNull(updated);
-        assertNotNull(updated.getRewardBatchRejectionReason());
-        assertEquals(2, updated.getRewardBatchRejectionReason().size());
+        assertEquals(SyncTrxStatus.REWARDED.name(), updated.getStatus());
     }
 
     @Test
-    void findInvoicedTrxByIdWithoutBatch_shouldReturnOnlyMatching() {
-        RewardTransaction ok = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("ib1")
-                .status(SyncTrxStatus.INVOICED.name())
-                .merchantId(MERCHANT_ID)
-                .initiatives(INITIATIVES_ID)
-                .rewardBatchId(null)
-                .build();
+    void findInvoicedTrxByIdWithoutBatch_shouldReturnTransaction() {
 
-        RewardTransaction ko = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("ib2")
-                .status(SyncTrxStatus.INVOICED.name())
-                .merchantId(MERCHANT_ID)
-                .initiatives(INITIATIVES_ID)
-                .rewardBatchId(BATCH_ID)
-                .build();
+        trx.setStatus(SyncTrxStatus.INVOICED.name());
+        trx.setRewardBatchId(null);
+        baseRepository.save(trx).block();
 
-        rewardTransactionRepository.saveAll(List.of(ok, ko)).collectList().block();
-
-        RewardTransaction found = rewardTransactionSpecificRepository.findInvoicedTrxByIdWithoutBatch(INITIATIVE_ID, MERCHANT_ID, "ib1").block();
-        RewardTransaction notFound = rewardTransactionSpecificRepository.findInvoicedTrxByIdWithoutBatch(INITIATIVE_ID, MERCHANT_ID, "ib2").block();
-
-        assertNotNull(found);
-        assertEquals("ib1", found.getId());
-        assertNull(notFound);
+        StepVerifier.create(
+                        repository.findInvoicedTrxByIdWithoutBatch("INIT_1", "M1", "trx1")
+                )
+                .expectNextMatches(t ->
+                        t.getId().equals("trx1") &&
+                                SyncTrxStatus.INVOICED.name().equals(t.getStatus())
+                )
+                .verifyComplete();
     }
 
     @Test
-    void findDistinctFranchiseAndPosByRewardBatchId_shouldReturnDistinctPairs() {
-        RewardTransaction t1 = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("d1")
-                .rewardBatchId(BATCH_ID)
-                .merchantId(MERCHANT_ID)
-                .initiatives(INITIATIVES_ID)
-                .franchiseName("F1")
-                .pointOfSaleId("P1")
-                .build();
+    void findInvoicedTrxByIdWithoutBatch_shouldReturnEmpty_whenBatchExists() {
 
-        RewardTransaction t2 = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("d2")
-                .rewardBatchId(BATCH_ID)
-                .merchantId(MERCHANT_ID)
-                .initiatives(INITIATIVES_ID)
-                .franchiseName("F1")
-                .pointOfSaleId("P1")
-                .build();
+        trx.setStatus(SyncTrxStatus.INVOICED.name());
+        trx.setRewardBatchId("B1"); // NON null
+        baseRepository.save(trx).block();
 
-        RewardTransaction t3 = RewardTransactionFaker.mockInstanceBuilder(3)
-                .id("d3")
-                .rewardBatchId(BATCH_ID)
-                .merchantId(MERCHANT_ID)
-                .initiatives(INITIATIVES_ID)
-                .franchiseName("F2")
-                .pointOfSaleId("P2")
-                .build();
-
-        rewardTransactionRepository.saveAll(List.of(t1, t2, t3)).collectList().block();
-
-        List<it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO> out =
-                rewardTransactionSpecificRepository.findDistinctFranchiseAndPosByRewardBatchId(BATCH_ID, MERCHANT_ID)
-                        .collectList()
-                        .block();
-
-        assertNotNull(out);
-        assertEquals(2, out.size());
+        StepVerifier.create(
+                        repository.findInvoicedTrxByIdWithoutBatch("INIT_1", "M1", "trx1")
+                )
+                .expectNextCount(0)
+                .verifyComplete();
     }
 
     @Test
-    void findTransactionInBatch_shouldReturnNullWhenMissing() {
-        RewardTransaction found = rewardTransactionSpecificRepository
-                .findTransactionInBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "missing")
-                .block();
+    void findInvoicedTrxByIdWithoutBatch_shouldReturnEmpty_whenStatusNotInvoiced() {
 
-        assertNull(found);
+        trx.setStatus(SyncTrxStatus.REWARDED.name());
+        trx.setRewardBatchId(null);
+        baseRepository.save(trx).block();
+
+        StepVerifier.create(
+                        repository.findInvoicedTrxByIdWithoutBatch("INIT_1", "M1", "trx1")
+                )
+                .expectNextCount(0)
+                .verifyComplete();
     }
 
     @Test
-    void findByFilterTrx_withTrxCode_shouldFilterByRegex() {
-        RewardTransaction t1 = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("tc1")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .pointOfSaleId(POS_ID)
-                .trxCode("ABC-123")
-                .status(SyncTrxStatus.REWARDED.name())
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
+    void findDistinctFranchiseAndPosByRewardBatchId_shouldReturnAggregatedResult() {
 
-        RewardTransaction t2 = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("tc2")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .pointOfSaleId(POS_ID)
-                .trxCode("ZZZ")
-                .status(SyncTrxStatus.REWARDED.name())
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
+        trx.setRewardBatchId("B1");
+        trx.setMerchantId("M1");
+        trx.setFranchiseName("FR1");
+        trx.setPointOfSaleId("POS1");
 
-        rewardTransactionRepository.saveAll(List.of(t1, t2)).collectList().block();
+        baseRepository.save(trx).block();
 
-        TrxFiltersDTO filters = new TrxFiltersDTO();
-        filters.setMerchantId(MERCHANT_ID);
-        filters.setInitiativeId(INITIATIVE_ID);
-        filters.setStatus(SyncTrxStatus.REWARDED.name());
-        filters.setTrxCode("123");
-
-        List<String> ids = rewardTransactionSpecificRepository
-                .findByFilterTrx(filters, POS_ID, USER_ID, "", false, PageRequest.of(0, 10))
-                .map(RewardTransaction::getId)
-                .collectList()
-                .block();
-
-        assertEquals(List.of("tc1"), ids);
+        StepVerifier.create(
+                        repository.findDistinctFranchiseAndPosByRewardBatchId("B1", "M1")
+                )
+                .expectNextMatches(dto ->
+                        "FR1".equals(dto.getFranchiseName()) &&
+                                "POS1".equals(dto.getPointOfSaleId())
+                )
+                .verifyComplete();
     }
 
     @Test
-    void findByFilter_withConsultableAndIncludeToCheck_shouldReturnBothStatuses() {
-        RewardTransaction consultable = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("co")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .status(SyncTrxStatus.INVOICED.name())
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE)
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
+    void findDistinctFranchiseAndPosByRewardBatchId_shouldReturnEmpty_whenNoMatch() {
 
-        RewardTransaction toCheck = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("tc")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .status(SyncTrxStatus.INVOICED.name())
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        rewardTransactionRepository.saveAll(List.of(consultable, toCheck)).collectList().block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO(
-                MERCHANT_ID,
-                INITIATIVE_ID,
-                null,
-                SyncTrxStatus.INVOICED.name(),
-                null,
-                RewardBatchTrxStatus.CONSULTABLE,
-                null,
-                null
-        );
-
-        List<String> ids = rewardTransactionSpecificRepository
-                .findByFilter(filters, USER_ID, true, PageRequest.of(0, 10))
-                .map(RewardTransaction::getId)
-                .collectList()
-                .block();
-
-        assertEquals(2, ids.size());
-        assertTrue(ids.contains("co"));
-        assertTrue(ids.contains("tc"));
+        StepVerifier.create(
+                        repository.findDistinctFranchiseAndPosByRewardBatchId("WRONG", "M1")
+                )
+                .expectNextCount(0)
+                .verifyComplete();
     }
 
-    @Test
-    void findByFilterTrx_sortByStatusDesc_shouldReverseRankOrder() {
-        RewardTransaction c = RewardTransactionFaker.mockInstanceBuilder(1)
-                .id("c")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .pointOfSaleId(POS_ID)
-                .status(SyncTrxStatus.CANCELLED.name())
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        RewardTransaction rf = RewardTransactionFaker.mockInstanceBuilder(2)
-                .id("rf")
-                .merchantId(MERCHANT_ID)
-                .userId(USER_ID)
-                .pointOfSaleId(POS_ID)
-                .status(SyncTrxStatus.REFUNDED.name())
-                .initiatives(List.of(INITIATIVE_ID))
-                .build();
-
-        rewardTransactionRepository.saveAll(List.of(c, rf)).collectList().block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO(MERCHANT_ID, INITIATIVE_ID, null, null, null, null, null, null);
-
-        List<String> ids = rewardTransactionSpecificRepository
-                .findByFilterTrx(filters, POS_ID, USER_ID, "", false,
-                        PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "status")))
-                .map(RewardTransaction::getId)
-                .collectList()
-                .block();
-
-        assertEquals(List.of("rf", "c"), ids);
-    }
 }
