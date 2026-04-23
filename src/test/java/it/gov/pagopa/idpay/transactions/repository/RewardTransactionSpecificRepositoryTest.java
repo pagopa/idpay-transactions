@@ -800,17 +800,17 @@ class RewardTransactionSpecificRepositoryTest {
 
     @Test
     void findByInitiativesWithBatch_shouldReturnResultsAndApplyBatchSize() {
-        RewardTransaction trx = new RewardTransaction();
-        trx.setId("trx1");
+        RewardTransaction transaction = new RewardTransaction();
+        transaction.setId("trx1");
 
         when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
-                .thenReturn(Flux.just(trx));
+                .thenReturn(Flux.just(transaction));
 
         Flux<RewardTransaction> result =
                 repository.findByInitiativesWithBatch("INIT1", 50);
 
         StepVerifier.create(result)
-                .expectNext(trx)
+                .expectNext(transaction)
                 .verifyComplete();
 
         
@@ -827,17 +827,17 @@ class RewardTransactionSpecificRepositoryTest {
 
     @Test
     void findByInitiativeIdAndUserId_shouldFilterCorrectly() {
-        RewardTransaction trx = new RewardTransaction();
-        trx.setId("trx1");
+        RewardTransaction transaction = new RewardTransaction();
+        transaction.setId("trx1");
 
         when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
-                .thenReturn(Flux.just(trx));
+                .thenReturn(Flux.just(transaction));
 
         Flux<RewardTransaction> result =
                 repository.findByInitiativeIdAndUserId("INIT1", "USER1");
 
         StepVerifier.create(result)
-                .expectNext(trx)
+                .expectNext(transaction)
                 .verifyComplete();
 
         
