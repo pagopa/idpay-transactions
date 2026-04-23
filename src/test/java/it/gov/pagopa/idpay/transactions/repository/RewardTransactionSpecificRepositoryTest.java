@@ -16,7 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.test.annotation.DirtiesContext;
 import reactor.test.StepVerifier;
 
 import java.time.LocalDateTime;
@@ -25,7 +24,6 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@DirtiesContext
 @MongoTest
 class RewardTransactionSpecificRepositoryTest {
 
