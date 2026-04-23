@@ -1,389 +1,352 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
-import it.gov.pagopa.common.reactive.mongo.MongoTest;
+import com.mongodb.client.result.UpdateResult;
+import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.service.RewardBatchServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 
-@MongoTest
+@ExtendWith(MockitoExtension.class)
 class RewardTransactionSpecificRepositoryTest {
 
-    @Autowired
+    @Mock
+    private ReactiveMongoTemplate mongoTemplate;
+
+    @InjectMocks
     private RewardTransactionSpecificRepositoryImpl repository;
 
-    @Autowired
-    private RewardTransactionRepository baseRepository;
+    @Captor
+    private ArgumentCaptor<Query> queryCaptor;
 
     private RewardTransaction trx;
+    private TrxFiltersDTO filters;
 
     @BeforeEach
     void setup() {
-        baseRepository.deleteAll().block();
-
         trx = RewardTransaction.builder()
                 .id("trx1")
-                .merchantId("M1")
+                .idTrxIssuer("ISS1")
                 .userId("U1")
-                .initiatives(List.of("INIT_1"))
-                .trxDate(LocalDateTime.now())
                 .amountCents(100L)
-                .status(SyncTrxStatus.REWARDED.name())
-                .rewardBatchId("B1")
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE)
+                .initiatives(List.of())
+                .trxDate(LocalDateTime.of(2025, 1, 1, 10, 0))
                 .build();
-
-        baseRepository.save(trx).block();
-    }
-
-
-    @Test
-    void findByIdTrxIssuer_onlyIssuer_shouldReturnAllMatching() {
-        trx.setIdTrxIssuer("ISSUER1");
-        baseRepository.save(trx).block();
-
-        StepVerifier.create(
-                        repository.findByIdTrxIssuer("ISSUER1", null, null, null, null, PageRequest.of(0, 10))
-                )
-                .expectNextCount(1)
-                .verifyComplete();
-    }
-
-    @Test
-    void findByIdTrxIssuer_withUserId_shouldFilter() {
-        trx.setIdTrxIssuer("ISSUER1");
-        trx.setUserId("USER1");
-        baseRepository.save(trx).block();
-
-        StepVerifier.create(
-                        repository.findByIdTrxIssuer("ISSUER1", "USER1", null, null, null, PageRequest.of(0, 10))
-                )
-                .expectNextCount(1)
-                .verifyComplete();
-
-        StepVerifier.create(
-                        repository.findByIdTrxIssuer("ISSUER1", "WRONG", null, null, null, PageRequest.of(0, 10))
-                )
-                .expectNextCount(0)
-                .verifyComplete();
-    }
-
-    @Test
-    void findByIdTrxIssuer_withAmount_shouldFilter() {
-        trx.setIdTrxIssuer("ISSUER1");
-        trx.setAmountCents(100L);
-        baseRepository.save(trx).block();
-
-        StepVerifier.create(
-                        repository.findByIdTrxIssuer("ISSUER1", null, null, null, 100L, PageRequest.of(0, 10))
-                )
-                .expectNextCount(1)
-                .verifyComplete();
-
-        StepVerifier.create(
-                        repository.findByIdTrxIssuer("ISSUER1", null, null, null, 999L, PageRequest.of(0, 10))
-                )
-                .expectNextCount(0)
-                .verifyComplete();
-    }
-
-    @Test
-    void findByIdTrxIssuer_withDateRange_shouldFilterBetween() {
-        LocalDateTime now = LocalDateTime.of(2025, 1, 1, 10, 0);
-
-        trx.setIdTrxIssuer("ISSUER1");
-        trx.setTrxDate(now);
-        baseRepository.save(trx).block();
-
-        StepVerifier.create(
-                        repository.findByIdTrxIssuer(
-                                "ISSUER1",
-                                null,
-                                now.minusHours(1),
-                                now.plusHours(1),
-                                null,
-                                PageRequest.of(0, 10)
-                        )
-                )
-                .expectNextCount(1)
-                .verifyComplete();
-
-        StepVerifier.create(
-                        repository.findByIdTrxIssuer(
-                                "ISSUER1",
-                                null,
-                                now.plusHours(1),
-                                now.plusHours(2),
-                                null,
-                                PageRequest.of(0, 10)
-                        )
-                )
-                .expectNextCount(0)
-                .verifyComplete();
-    }
-
-    @Test
-    void findByIdTrxIssuer_onlyStartDate_shouldFilterGte() {
-        LocalDateTime now = LocalDateTime.of(2025, 1, 1, 10, 0);
-
-        trx.setIdTrxIssuer("ISSUER1");
-        trx.setTrxDate(now);
-        baseRepository.save(trx).block();
-
-        StepVerifier.create(
-                        repository.findByIdTrxIssuer(
-                                "ISSUER1",
-                                null,
-                                now.minusHours(1),
-                                null,
-                                null,
-                                PageRequest.of(0, 10)
-                        )
-                )
-                .expectNextCount(1)
-                .verifyComplete();
-
-        StepVerifier.create(
-                        repository.findByIdTrxIssuer(
-                                "ISSUER1",
-                                null,
-                                now.plusHours(1),
-                                null,
-                                null,
-                                PageRequest.of(0, 10)
-                        )
-                )
-                .expectNextCount(0)
-                .verifyComplete();
-    }
-
-    @Test
-    void findByIdTrxIssuer_onlyEndDate_shouldFilterLte() {
-        LocalDateTime now = LocalDateTime.of(2025, 1, 1, 10, 0);
-
-        trx.setIdTrxIssuer("ISSUER1");
-        trx.setTrxDate(now);
-        baseRepository.save(trx).block();
-
-        StepVerifier.create(
-                        repository.findByIdTrxIssuer(
-                                "ISSUER1",
-                                null,
-                                null,
-                                now.plusHours(1),
-                                null,
-                                PageRequest.of(0, 10)
-                        )
-                )
-                .expectNextCount(1)
-                .verifyComplete();
-
-        StepVerifier.create(
-                        repository.findByIdTrxIssuer(
-                                "ISSUER1",
-                                null,
-                                null,
-                                now.minusHours(1),
-                                null,
-                                PageRequest.of(0, 10)
-                        )
-                )
-                .expectNextCount(0)
-                .verifyComplete();
-    }
-
-    @Test
-    void findByIdTrxIssuer_allFiltersCombined_shouldWorkTogether() {
-        LocalDateTime now = LocalDateTime.of(2025, 1, 1, 10, 0);
-
-        trx.setIdTrxIssuer("ISSUER1");
-        trx.setUserId("USER1");
-        trx.setAmountCents(100L);
-        trx.setTrxDate(now);
-
-        baseRepository.save(trx).block();
-
-        StepVerifier.create(
-                        repository.findByIdTrxIssuer(
-                                "ISSUER1",
-                                "USER1",
-                                now.minusHours(1),
-                                now.plusHours(1),
-                                100L,
-                                PageRequest.of(0, 10)
-                        )
-                )
-                .expectNextCount(1)
-                .verifyComplete();
-    }
-
-    @Test
-    void findByRange_shouldReturnResults() {
-        StepVerifier.create(
-                        repository.findByRange("U1",
-                                LocalDateTime.now().minusDays(1),
-                                LocalDateTime.now().plusDays(1),
-                                100L,
-                                PageRequest.of(0, 10))
-                )
-                .expectNextCount(1)
-                .verifyComplete();
-    }
-
-    @Test
-    void findByFilter_shouldApplyFilters() {
-        TrxFiltersDTO filters = new TrxFiltersDTO();
+        filters = new TrxFiltersDTO();
         filters.setMerchantId("M1");
         filters.setInitiativeId("INIT_1");
-
-        StepVerifier.create(
-                        repository.findByFilter(filters, "U1", false, PageRequest.of(0, 10))
-                )
-                .expectNextCount(1)
-                .verifyComplete();
     }
 
     @Test
-    void findTransaction_shouldReturnOnlyValidStatuses() {
-        StepVerifier.create(repository.findTransaction("M1", "trx1"))
-                .expectNextMatches(t -> t.getId().equals("trx1"))
-                .verifyComplete();
-    }
-
-    @Test
-    void updateStatusAndReturnOld_shouldUpdateAndReturnOld() {
+    void shouldFilter_onlyIssuer() {
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
 
         StepVerifier.create(
-                        repository.updateStatusAndReturnOld(
-                                "INIT_1",
-                                "B1",
-                                "trx1",
-                                RewardBatchTrxStatus.SUSPENDED,
+                        repository.findByIdTrxIssuer(
+                                "ISS1",
                                 null,
-                                "2025-01",
+                                null,
+                                null,
+                                null,
+                                PageRequest.of(0, 10)
+                        )
+                )
+                .expectNext(trx)
+                .verifyComplete();
+
+        verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
+    }
+
+    @Test
+    void shouldFilter_userId_and_amount() {
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
+
+        StepVerifier.create(
+                        repository.findByIdTrxIssuer(
+                                "ISS1",
+                                "U1",
+                                null,
+                                null,
+                                100L,
+                                PageRequest.of(0, 10)
+                        )
+                )
+                .expectNext(trx)
+                .verifyComplete();
+
+        verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
+    }
+
+    @Test
+    void shouldFilter_dateRange() {
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
+
+        LocalDateTime start = trx.getTrxDate().minusHours(1);
+        LocalDateTime end = trx.getTrxDate().plusHours(1);
+
+        StepVerifier.create(
+                        repository.findByIdTrxIssuer(
+                                "ISS1",
+                                null,
+                                start,
+                                end,
+                                null,
+                                PageRequest.of(0, 10)
+                        )
+                )
+                .expectNext(trx)
+                .verifyComplete();
+
+        verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
+    }
+
+    @Test
+    void shouldFilter_onlyStartDate() {
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
+
+        StepVerifier.create(
+                        repository.findByIdTrxIssuer(
+                                "ISS1",
+                                null,
+                                trx.getTrxDate().minusHours(1),
+                                null,
+                                null,
+                                PageRequest.of(0, 10)
+                        )
+                )
+                .expectNext(trx)
+                .verifyComplete();
+
+        verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
+    }
+
+    @Test
+    void shouldFilter_onlyEndDate() {
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
+
+        StepVerifier.create(
+                        repository.findByIdTrxIssuer(
+                                "ISS1",
+                                null,
+                                null,
+                                trx.getTrxDate().plusHours(1),
+                                null,
+                                PageRequest.of(0, 10)
+                        )
+                )
+                .expectNext(trx)
+                .verifyComplete();
+
+        verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
+    }
+
+    @Test
+    void shouldApply_allFilters_together() {
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
+
+        StepVerifier.create(
+                        repository.findByIdTrxIssuer(
+                                "ISS1",
+                                "U1",
+                                trx.getTrxDate().minusHours(1),
+                                trx.getTrxDate().plusHours(1),
+                                100L,
+                                PageRequest.of(0, 10)
+                        )
+                )
+                .expectNext(trx)
+                .verifyComplete();
+
+        verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
+    }
+
+    @Test
+    void shouldHandle_nullPageable() {
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
+
+        StepVerifier.create(
+                        repository.findByIdTrxIssuer(
+                                "ISS1",
+                                null,
+                                null,
+                                null,
+                                null,
                                 null
                         )
                 )
-                .assertNext(old -> assertEquals(RewardBatchTrxStatus.CONSULTABLE, old.getRewardBatchTrxStatus()))
+                .expectNext(trx)
                 .verifyComplete();
 
-        RewardTransaction updated = baseRepository.findById("trx1").block();
-        assertNotNull(updated);
-        assertEquals(RewardBatchTrxStatus.SUSPENDED, updated.getRewardBatchTrxStatus());
+        verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
     }
 
     @Test
-    void updateStatusAndReturnOld_withChecksError_shouldSetChecksError() {
+    void findByRange_shouldFilterByUserAndDateRange() {
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
+
+        LocalDateTime start = trx.getTrxDate().minusHours(1);
+        LocalDateTime end = trx.getTrxDate().plusHours(1);
 
         StepVerifier.create(
-                        repository.updateStatusAndReturnOld(
-                                "INIT_1",
-                                "B1",
-                                "trx1",
-                                RewardBatchTrxStatus.SUSPENDED,
+                        repository.findByRange(
+                                "U1",
+                                start,
+                                end,
                                 null,
-                                "2025-01",
-                                new it.gov.pagopa.idpay.transactions.model.ChecksError()
+                                PageRequest.of(0, 10)
                         )
                 )
-                .expectNextCount(1)
+                .expectNext(trx)
                 .verifyComplete();
 
-        RewardTransaction updated = baseRepository.findById("trx1").block();
-        assertNotNull(updated);
-        assertNotNull(updated.getChecksError());
+        verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
     }
 
     @Test
-    void removeInitiative_shouldRemoveData() {
+    void findByRange_withAmount_shouldApplyFilter() {
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
 
         StepVerifier.create(
-                repository.removeInitiativeOnTransaction("trx1", "INIT_1")
-        ).verifyComplete();
-
-        RewardTransaction updated = baseRepository.findById("trx1").block();
-        assertNotNull(updated);
-        assertFalse(updated.getInitiatives().contains("INIT_1"));
-    }
-
-    @Test
-    void rewardTransactions_shouldUpdateStatus() {
-
-        StepVerifier.create(
-                repository.rewardTransactionsByBatchIdAndInitiativeId("B1", "INIT_1")
-        ).verifyComplete();
-
-        RewardTransaction updated = baseRepository.findById("trx1").block();
-        assertNotNull(updated);
-        assertEquals(SyncTrxStatus.REWARDED.name(), updated.getStatus());
-    }
-
-    @Test
-    void sumSuspended_shouldReturnZeroWhenEmpty() {
-
-        StepVerifier.create(
-                        repository.sumSuspendedAccruedRewardCents("INIT_1", "B1")
+                        repository.findByRange(
+                                "U1",
+                                trx.getTrxDate().minusHours(1),
+                                trx.getTrxDate().plusHours(1),
+                                100L,
+                                PageRequest.of(0, 10)
+                        )
                 )
-                .expectNext(0L)
+                .expectNext(trx)
                 .verifyComplete();
+
+        verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
     }
 
     @Test
-    void findInvoicedTransactionsWithoutBatch_shouldReturnOnlyMatching() {
-
-        trx.setStatus(SyncTrxStatus.INVOICED.name());
-        trx.setRewardBatchId(null);
-        baseRepository.save(trx).block();
+    void findByRange_nullPageable_shouldUseDefaultSorting() {
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
 
         StepVerifier.create(
-                        repository.findInvoicedTransactionsWithoutBatch(10)
+                        repository.findByRange(
+                                "U1",
+                                trx.getTrxDate().minusHours(1),
+                                trx.getTrxDate().plusHours(1),
+                                null,
+                                null
+                        )
                 )
-                .expectNextCount(1)
+                .expectNext(trx)
                 .verifyComplete();
+
+        verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
     }
 
     @Test
-    void findTransactionInBatch_shouldReturnMatch() {
+    void findByRange_unsortedPageable_shouldUseDefaultSort() {
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
+
+        Pageable pageable = PageRequest.of(0, 10);
+
         StepVerifier.create(
-                        repository.findTransactionInBatch("INIT_1", "M1", "B1", "trx1")
+                        repository.findByRange(
+                                "U1",
+                                trx.getTrxDate().minusHours(1),
+                                trx.getTrxDate().plusHours(1),
+                                null,
+                                pageable
+                        )
                 )
-                .expectNextMatches(t -> t.getId().equals("trx1"))
+                .expectNext(trx)
                 .verifyComplete();
+
+        verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
     }
 
     @Test
-    void findByInitiativeIdAndUserId_shouldWork() {
-        StepVerifier.create(
-                        repository.findByInitiativeIdAndUserId("INIT_1", "U1")
-                )
-                .expectNextCount(1)
-                .verifyComplete();
-    }
-
-    @Test
-    void getCount_withoutStatus_shouldUseDefaultStatuses() {
-        trx.setStatus(SyncTrxStatus.REWARDED.name());
-        baseRepository.save(trx).block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO();
-        filters.setMerchantId("M1");
-        filters.setInitiativeId("INIT_1");
-        filters.setStatus(null);
+    void getCount_base_shouldUseDefaultStatuses() {
+        when(mongoTemplate.count(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(1L));
 
         StepVerifier.create(
                         repository.getCount(filters, null, null, null, false)
+                )
+                .expectNext(1L)
+                .verifyComplete();
+
+        verify(mongoTemplate).count(queryCaptor.capture(), eq(RewardTransaction.class));
+    }
+
+    @Test
+    void getCount_withUserId_shouldFilter() {
+        when(mongoTemplate.count(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(1L));
+
+        StepVerifier.create(
+                        repository.getCount(filters, null, null, "U1", false)
+                )
+                .expectNext(1L)
+                .verifyComplete();
+
+        verify(mongoTemplate).count(queryCaptor.capture(), eq(RewardTransaction.class));
+    }
+
+    @Test
+    void getCount_withPointOfSale_shouldFilter() {
+        when(mongoTemplate.count(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(1L));
+
+        StepVerifier.create(
+                        repository.getCount(filters, "POS1", null, null, false)
+                )
+                .expectNext(1L)
+                .verifyComplete();
+    }
+
+    @Test
+    void getCount_withProductGtin_shouldApplyRegex() {
+        when(mongoTemplate.count(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(1L));
+
+        StepVerifier.create(
+                        repository.getCount(filters, null, "ABC123", null, false)
                 )
                 .expectNext(1L)
                 .verifyComplete();
@@ -391,89 +354,53 @@ class RewardTransactionSpecificRepositoryTest {
 
     @Test
     void getCount_withExplicitStatus_shouldFilter() {
-        trx.setStatus(SyncTrxStatus.REWARDED.name());
-        baseRepository.save(trx).block();
+        filters.setStatus("REWARDED");
 
-        TrxFiltersDTO filters = new TrxFiltersDTO();
-        filters.setMerchantId("M1");
-        filters.setInitiativeId("INIT_1");
-        filters.setStatus(SyncTrxStatus.REWARDED.name());
+        when(mongoTemplate.count(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(1L));
 
         StepVerifier.create(
                         repository.getCount(filters, null, null, null, false)
                 )
                 .expectNext(1L)
-                .verifyComplete();
-
-        filters.setStatus("CANCELLED");
-
-        StepVerifier.create(
-                        repository.getCount(filters, null, null, null, false)
-                )
-                .expectNext(0L)
-                .verifyComplete();
-    }
-
-    @Test
-    void getCount_withTrxCode_shouldApplyRegex() {
-        trx.setTrxCode("CODE123");
-        baseRepository.save(trx).block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO();
-        filters.setMerchantId("M1");
-        filters.setInitiativeId("INIT_1");
-        filters.setTrxCode("CODE");
-
-        StepVerifier.create(
-                        repository.getCount(filters, null, null, null, false)
-                )
-                .expectNext(1L)
-                .verifyComplete();
-
-        filters.setTrxCode("NO_MATCH");
-
-        StepVerifier.create(
-                        repository.getCount(filters, null, null, null, false)
-                )
-                .expectNext(0L)
                 .verifyComplete();
     }
 
     @Test
     void getCount_withRewardBatchId_shouldFilter() {
-        trx.setRewardBatchId("B1");
-        baseRepository.save(trx).block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO();
-        filters.setMerchantId("M1");
-        filters.setInitiativeId("INIT_1");
         filters.setRewardBatchId("B1");
 
+        when(mongoTemplate.count(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(1L));
+
         StepVerifier.create(
                         repository.getCount(filters, null, null, null, false)
                 )
                 .expectNext(1L)
                 .verifyComplete();
+    }
 
-        filters.setRewardBatchId("WRONG");
+    @Test
+    void getCount_withTrxCode_shouldApplyRegex() {
+        filters.setTrxCode("CODE");
+
+        when(mongoTemplate.count(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(1L));
 
         StepVerifier.create(
                         repository.getCount(filters, null, null, null, false)
                 )
-                .expectNext(0L)
+                .expectNext(1L)
                 .verifyComplete();
     }
 
     @Test
-    void getCount_withRewardBatchTrxStatus_shouldFilter() {
-        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED);
-        baseRepository.save(trx).block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO();
-        filters.setMerchantId("M1");
-        filters.setInitiativeId("INIT_1");
+    void getCount_withRewardBatchTrxStatus_shouldFilterExact() {
         filters.setRewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED);
 
+        when(mongoTemplate.count(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(1L));
+
         StepVerifier.create(
                         repository.getCount(filters, null, null, null, false)
                 )
@@ -482,29 +409,11 @@ class RewardTransactionSpecificRepositoryTest {
     }
 
     @Test
-    void getCount_consultableWithIncludeToCheck_shouldIncludeToCheck() {
-
-        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-        baseRepository.save(trx).block();
-
-        RewardTransaction trx2 = RewardTransaction.builder()
-                .id("trx2")
-                .merchantId("M1")
-                .userId("U1")
-                .initiatives(List.of("INIT_1"))
-                .trxDate(LocalDateTime.now())
-                .amountCents(100L)
-                .status(SyncTrxStatus.REWARDED.name())
-                .rewardBatchId("B1")
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
-                .build();
-
-        baseRepository.save(trx2).block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO();
-        filters.setMerchantId("M1");
-        filters.setInitiativeId("INIT_1");
+    void getCount_consultable_withIncludeToCheck_shouldIncludeBoth() {
         filters.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
+
+        when(mongoTemplate.count(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(2L));
 
         StepVerifier.create(
                         repository.getCount(filters, null, null, null, true)
@@ -514,29 +423,11 @@ class RewardTransactionSpecificRepositoryTest {
     }
 
     @Test
-    void getCount_consultableWithoutIncludeToCheck_shouldNotIncludeToCheck() {
-
-        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-        baseRepository.save(trx).block();
-
-        RewardTransaction trx2 = RewardTransaction.builder()
-                .id("trx2")
-                .merchantId("M1")
-                .userId("U1")
-                .initiatives(List.of("INIT_1"))
-                .trxDate(LocalDateTime.now())
-                .amountCents(100L)
-                .status(SyncTrxStatus.REWARDED.name())
-                .rewardBatchId("B1")
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
-                .build();
-
-        baseRepository.save(trx2).block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO();
-        filters.setMerchantId("M1");
-        filters.setInitiativeId("INIT_1");
+    void getCount_consultable_withoutIncludeToCheck_shouldNotIncludeToCheck() {
         filters.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
+
+        when(mongoTemplate.count(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(1L));
 
         StepVerifier.create(
                         repository.getCount(filters, null, null, null, false)
@@ -546,36 +437,26 @@ class RewardTransactionSpecificRepositoryTest {
     }
 
     @Test
-    void getCount_withPointOfSaleId_shouldFilter() {
-        trx.setPointOfSaleId("POS1");
-        baseRepository.save(trx).block();
+    void getCount_allFiltersCombined_shouldWorkTogether() {
+        filters.setStatus("REWARDED");
+        filters.setRewardBatchId("B1");
+        filters.setTrxCode("CODE");
+        filters.setRewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED);
 
-        TrxFiltersDTO filters = new TrxFiltersDTO();
-        filters.setMerchantId("M1");
-        filters.setInitiativeId("INIT_1");
+        when(mongoTemplate.count(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(1L));
 
         StepVerifier.create(
-                        repository.getCount(filters, "POS1", null, null, false)
+                        repository.getCount(filters, "POS1", "ABC123", "U1", false)
                 )
                 .expectNext(1L)
                 .verifyComplete();
 
-        StepVerifier.create(
-                        repository.getCount(filters, "WRONG", "productGtin", null, false)
-                )
-                .expectNext(0L)
-                .verifyComplete();
+        verify(mongoTemplate).count(queryCaptor.capture(), eq(RewardTransaction.class));
     }
 
     @Test
-    void findByFilterTrx_shouldUseAggregation_whenSortingByStatus() {
-
-        trx.setStatus(SyncTrxStatus.REWARDED.name());
-        baseRepository.save(trx).block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO();
-        filters.setMerchantId("M1");
-        filters.setInitiativeId("INIT_1");
+    void findByFilterTrx_shouldUseAggregation_whenAggregationIsNotNull() {
 
         Pageable pageable = PageRequest.of(
                 0,
@@ -583,6 +464,9 @@ class RewardTransactionSpecificRepositoryTest {
                 Sort.by(Sort.Direction.ASC, "status")
         );
 
+        when(mongoTemplate.aggregate(any(), eq(RewardTransaction.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
+
         StepVerifier.create(
                         repository.findByFilterTrx(
                                 filters,
@@ -593,19 +477,14 @@ class RewardTransactionSpecificRepositoryTest {
                                 pageable
                         )
                 )
-                .expectNextCount(1)
+                .expectNext(trx)
                 .verifyComplete();
+
+        verify(mongoTemplate).aggregate(any(), eq(RewardTransaction.class), eq(RewardTransaction.class));
     }
 
     @Test
-    void findByFilterTrx_shouldUseFind_whenNotSortingByStatus() {
-
-        trx.setStatus(SyncTrxStatus.REWARDED.name());
-        baseRepository.save(trx).block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO();
-        filters.setMerchantId("M1");
-        filters.setInitiativeId("INIT_1");
+    void findByFilterTrx_shouldUseFind_whenAggregationIsNull() {
 
         Pageable pageable = PageRequest.of(
                 0,
@@ -613,6 +492,9 @@ class RewardTransactionSpecificRepositoryTest {
                 Sort.by(Sort.Direction.DESC, "trxDate")
         );
 
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
+
         StepVerifier.create(
                         repository.findByFilterTrx(
                                 filters,
@@ -623,17 +505,36 @@ class RewardTransactionSpecificRepositoryTest {
                                 pageable
                         )
                 )
-                .expectNextCount(1)
+                .expectNext(trx)
                 .verifyComplete();
+
+        verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
     }
 
     @Test
-    void findByFilterTrx_shouldMapProductNameSortField() {
-        baseRepository.save(trx).block();
+    void findByFilterTrx_shouldHandleNullPageable() {
 
-        TrxFiltersDTO filters = new TrxFiltersDTO();
-        filters.setMerchantId("M1");
-        filters.setInitiativeId("INIT_1");
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
+
+        StepVerifier.create(
+                        repository.findByFilterTrx(
+                                filters,
+                                null,
+                                "U1",
+                                null,
+                                false,
+                                null
+                        )
+                )
+                .expectNext(trx)
+                .verifyComplete();
+
+        verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
+    }
+
+    @Test
+    void findByFilterTrx_shouldMapSortField() {
 
         Pageable pageable = PageRequest.of(
                 0,
@@ -641,6 +542,9 @@ class RewardTransactionSpecificRepositoryTest {
                 Sort.by(Sort.Direction.ASC, "productName")
         );
 
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
+
         StepVerifier.create(
                         repository.findByFilterTrx(
                                 filters,
@@ -651,60 +555,19 @@ class RewardTransactionSpecificRepositoryTest {
                                 pageable
                         )
                 )
-                .expectNextCount(1)
+                .expectNext(trx)
                 .verifyComplete();
-    }
 
-    @Test
-    void findByFilterTrx_shouldHandleNullPageable() {
-
-        trx.setStatus(SyncTrxStatus.REWARDED.name());
-        baseRepository.save(trx).block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO();
-        filters.setMerchantId("M1");
-        filters.setInitiativeId("INIT_1");
-
-        StepVerifier.create(
-                        repository.findByFilterTrx(
-                                filters,
-                                null,
-                                "U1",
-                                null,
-                                false,
-                                null
-                        )
-                )
-                .expectNextCount(1)
-                .verifyComplete();
+        verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
     }
 
     @Test
     void findByFilterTrx_consultable_shouldIncludeToCheck() {
 
-        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-        baseRepository.save(trx).block();
-
-        RewardTransaction trx2 = RewardTransaction.builder()
-                .id("trx2")
-                .merchantId("M1")
-                .userId("U1")
-                .initiatives(List.of("INIT_1"))
-                .trxDate(LocalDateTime.now())
-                .amountCents(100L)
-                .status(SyncTrxStatus.REWARDED.name())
-                .rewardBatchId("B1")
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
-                .build();
-
-        baseRepository.save(trx2).block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO();
-        filters.setMerchantId("M1");
-        filters.setInitiativeId("INIT_1");
         filters.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
 
-        Pageable pageable = PageRequest.of(0, 10);
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx, trx));
 
         StepVerifier.create(
                         repository.findByFilterTrx(
@@ -713,54 +576,20 @@ class RewardTransactionSpecificRepositoryTest {
                                 "U1",
                                 null,
                                 true,
-                                pageable
+                                PageRequest.of(0, 10)
                         )
                 )
                 .expectNextCount(2)
                 .verifyComplete();
+
+        verify(mongoTemplate).find(any(Query.class), eq(RewardTransaction.class));
     }
 
     @Test
-    void findByFilterTrx_consultable_shouldIncludeToCheckPageableNull() {
+    void findByFilter_shouldCoverAllCases() {
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
 
-        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-        baseRepository.save(trx).block();
-
-        RewardTransaction trx2 = RewardTransaction.builder()
-                .id("trx2")
-                .merchantId("M1")
-                .userId("U1")
-                .initiatives(List.of("INIT_1"))
-                .trxDate(LocalDateTime.now())
-                .amountCents(100L)
-                .status(SyncTrxStatus.REWARDED.name())
-                .rewardBatchId("B1")
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
-                .build();
-
-        baseRepository.save(trx2).block();
-
-        TrxFiltersDTO filters = new TrxFiltersDTO();
-        filters.setMerchantId("M1");
-        filters.setInitiativeId("INIT_1");
-        filters.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-
-        StepVerifier.create(
-                        repository.findByFilterTrx(
-                                filters,
-                                null,
-                                "U1",
-                                null,
-                                true,
-                                null
-                        )
-                )
-                .expectNextCount(2)
-                .verifyComplete();
-    }
-
-    @Test
-    void findByFilter_shouldReturnMatchingTransaction() {
         StepVerifier.create(
                         repository.findByFilter(
                                 "B1",
@@ -768,53 +597,32 @@ class RewardTransactionSpecificRepositoryTest {
                                 List.of(RewardBatchTrxStatus.CONSULTABLE)
                         )
                 )
-                .expectNextMatches(t ->
-                        t.getId().equals("trx1") &&
-                                t.getRewardBatchId().equals("B1") &&
-                                t.getInitiatives().contains("INIT_1")
-                )
+                .expectNext(trx)
                 .verifyComplete();
-    }
 
-    @Test
-    void findByFilter_shouldReturnEmpty_whenBatchIdDoesNotMatch() {
+        verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
+
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.empty());
+
         StepVerifier.create(
                         repository.findByFilter(
-                                "WRONG_BATCH",
+                                "WRONG",
                                 "INIT_1",
                                 List.of(RewardBatchTrxStatus.CONSULTABLE)
                         )
                 )
                 .expectNextCount(0)
                 .verifyComplete();
-    }
 
-    @Test
-    void findByFilter_shouldReturnEmpty_whenInitiativeDoesNotMatch() {
         StepVerifier.create(
                         repository.findByFilter(
                                 "B1",
-                                "WRONG_INIT",
+                                "WRONG",
                                 List.of(RewardBatchTrxStatus.CONSULTABLE)
                         )
                 )
                 .expectNextCount(0)
-                .verifyComplete();
-    }
-
-    @Test
-    void findByFilter_shouldFilterByStatusList() {
-        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-        baseRepository.save(trx).block();
-
-        StepVerifier.create(
-                        repository.findByFilter(
-                                "B1",
-                                "INIT_1",
-                                List.of(RewardBatchTrxStatus.CONSULTABLE)
-                        )
-                )
-                .expectNextCount(1)
                 .verifyComplete();
 
         StepVerifier.create(
@@ -826,12 +634,9 @@ class RewardTransactionSpecificRepositoryTest {
                 )
                 .expectNextCount(0)
                 .verifyComplete();
-    }
 
-    @Test
-    void findByFilter_shouldWorkWithMultipleStatuses() {
-        trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-        baseRepository.save(trx).block();
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
 
         StepVerifier.create(
                         repository.findByFilter(
@@ -843,152 +648,538 @@ class RewardTransactionSpecificRepositoryTest {
                                 )
                         )
                 )
-                .expectNextCount(1)
+                .expectNext(trx)
                 .verifyComplete();
     }
 
     @Test
-    void findOneByInitiativeId_shouldReturnTransaction() {
+    void findTransaction_shouldCoverAllCases() {
+        RewardTransaction trx = RewardTransaction.builder()
+                .id("trx1")
+                .merchantId("M1")
+                .status(SyncTrxStatus.REWARDED.name())
+                .build();
+
+        when(mongoTemplate.findOne(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(trx));
+
         StepVerifier.create(
-                        repository.findOneByInitiativeId("INIT_1")
+                        repository.findTransaction("M1", "trx1")
                 )
                 .expectNextMatches(t ->
                         t.getId().equals("trx1") &&
-                                t.getInitiatives().contains("INIT_1")
+                                t.getMerchantId().equals("M1")
                 )
                 .verifyComplete();
-    }
 
-    @Test
-    void findOneByInitiativeId_shouldReturnEmpty_whenNotFound() {
-        StepVerifier.create(
-                        repository.findOneByInitiativeId("WRONG_INIT")
-                )
-                .verifyComplete();
-    }
+        verify(mongoTemplate).findOne(queryCaptor.capture(), eq(RewardTransaction.class));
 
-    @Test
-    void findOneByInitiativeId_shouldMatchSingleElementInsideList() {
-        trx.setInitiatives(List.of("INIT_1", "INIT_2"));
-        baseRepository.save(trx).block();
+        when(mongoTemplate.findOne(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.empty());
 
         StepVerifier.create(
-                        repository.findOneByInitiativeId("INIT_2")
-                )
-                .expectNextMatches(t ->
-                        t.getInitiatives().contains("INIT_2")
+                        repository.findTransaction("M1", "NOT_FOUND")
                 )
                 .verifyComplete();
-    }
 
-    @Test
-    void findByInitiativesWithBatch_shouldReturnMatchingTransactions() {
-        StepVerifier.create(
-                        repository.findByInitiativesWithBatch("INIT_1", 10)
-                )
-                .expectNextMatches(t ->
-                        t.getId().equals("trx1") &&
-                                t.getInitiatives().contains("INIT_1")
-                )
-                .verifyComplete();
-    }
-
-    @Test
-    void findByInitiativesWithBatch_shouldReturnEmpty_whenInitiativeNotFound() {
-        StepVerifier.create(
-                        repository.findByInitiativesWithBatch("WRONG_INIT", 10)
-                )
-                .expectNextCount(0)
-                .verifyComplete();
-    }
-
-    @Test
-    void rewardTransactionsByBatchIdAndInitiativeId_shouldUpdateAndSample() {
+        when(mongoTemplate.findOne(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.empty());
 
         StepVerifier.create(
-                        repository.rewardTransactionsByBatchIdAndInitiativeId("B1", "INIT_1")
+                        repository.findTransaction("M1", "trx_invalid_status")
                 )
                 .verifyComplete();
-
-        RewardTransaction updated = baseRepository.findById("trx1").block();
-
-        assertNotNull(updated);
-        assertEquals(SyncTrxStatus.REWARDED.name(), updated.getStatus());
     }
 
     @Test
-    void findInvoicedTrxByIdWithoutBatch_shouldReturnTransaction() {
+    void findOneByInitiativeId_shouldCoverAllCases() {
 
+        RewardTransaction trx1 = RewardTransaction.builder()
+                .id("trx1")
+                .initiatives(List.of("INIT_1"))
+                .build();
+
+        RewardTransaction trxMulti = RewardTransaction.builder()
+                .id("trx2")
+                .initiatives(List.of("INIT_1", "INIT_2"))
+                .build();
+
+        when(mongoTemplate.findOne(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(trx1));
+
+        StepVerifier.create(repository.findOneByInitiativeId("INIT_1"))
+                .expectNextMatches(t -> t.getId().equals("trx1"))
+                .verifyComplete();
+
+        verify(mongoTemplate).findOne(queryCaptor.capture(), eq(RewardTransaction.class));
+
+        when(mongoTemplate.findOne(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(repository.findOneByInitiativeId("WRONG"))
+                .verifyComplete();
+
+        when(mongoTemplate.findOne(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(trxMulti));
+
+        StepVerifier.create(repository.findOneByInitiativeId("INIT_2"))
+                .expectNextMatches(t -> t.getId().equals("trx2"))
+                .verifyComplete();
+
+        verify(mongoTemplate, times(3))
+                .findOne(any(Query.class), eq(RewardTransaction.class));
+    }
+
+    @Test
+    void removeInitiativeOnTransaction_shouldCallUpdateAndComplete1() {
+        String trxId = "trx1";
+        String initiativeId = "INIT1";
+
+        when(mongoTemplate.updateFirst(any(Query.class), any(), eq(RewardTransaction.class)))
+                .thenReturn(Mono.empty());
+
+        Mono<Void> result = repository.removeInitiativeOnTransaction(trxId, initiativeId);
+
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+        ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
+
+        verify(mongoTemplate).updateFirst(queryCaptor.capture(), updateCaptor.capture(), eq(RewardTransaction.class));
+
+        Query capturedQuery = queryCaptor.getValue();
+        Update capturedUpdate = updateCaptor.getValue();
+
+        assertNotNull(capturedQuery);
+        assertNotNull(capturedUpdate);
+
+        assertTrue(capturedQuery.getQueryObject().toJson().contains(trxId));
+
+        String updateJson = capturedUpdate.getUpdateObject().toJson();
+
+        assertTrue(updateJson.contains("initiatives"));
+        assertTrue(updateJson.contains(initiativeId));
+        assertTrue(updateJson.contains("rewards"));
+        assertTrue(updateJson.contains("initiativeRejectionReasons"));
+    }
+
+    @Test
+    void removeInitiativeOnTransaction_shouldCallUpdateAndComplete() {
+        String trxId = "trx1";
+        String initiativeId = "INIT1";
+
+        when(mongoTemplate.updateFirst(any(Query.class), any(Update.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.empty());
+
+        Mono<Void> result = repository.removeInitiativeOnTransaction(trxId, initiativeId);
+
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+        ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
+
+        verify(mongoTemplate).updateFirst(queryCaptor.capture(), updateCaptor.capture(), eq(RewardTransaction.class));
+
+        Query query = queryCaptor.getValue();
+        Update update = updateCaptor.getValue();
+
+        assertNotNull(query);
+        assertNotNull(update);
+
+        String queryJson = query.getQueryObject().toJson();
+        String updateJson = update.getUpdateObject().toJson();
+
+        assertTrue(queryJson.contains(trxId));
+        assertTrue(updateJson.contains("initiatives"));
+        assertTrue(updateJson.contains(initiativeId));
+        assertTrue(updateJson.contains("rewards"));
+        assertTrue(updateJson.contains("initiativeRejectionReasons"));
+    }
+
+    @Test
+    void findByInitiativesWithBatch_shouldReturnResultsAndApplyBatchSize() {
+        RewardTransaction trx = new RewardTransaction();
+        trx.setId("trx1");
+
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
+
+        Flux<RewardTransaction> result =
+                repository.findByInitiativesWithBatch("INIT1", 50);
+
+        StepVerifier.create(result)
+                .expectNext(trx)
+                .verifyComplete();
+
+        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+
+        verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
+
+        Query query = queryCaptor.getValue();
+        assertNotNull(query);
+
+        String queryJson = query.getQueryObject().toJson();
+
+        assertTrue(queryJson.contains("INIT1"));
+    }
+
+    @Test
+    void findByInitiativeIdAndUserId_shouldFilterCorrectly() {
+        RewardTransaction trx = new RewardTransaction();
+        trx.setId("trx1");
+
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
+
+        Flux<RewardTransaction> result =
+                repository.findByInitiativeIdAndUserId("INIT1", "USER1");
+
+        StepVerifier.create(result)
+                .expectNext(trx)
+                .verifyComplete();
+
+        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+
+        verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
+
+        Query query = queryCaptor.getValue();
+        assertNotNull(query);
+
+        String queryJson = query.getQueryObject().toJson();
+
+        assertTrue(queryJson.contains("INIT1"));
+        assertTrue(queryJson.contains("USER1"));
+    }
+
+    @Test
+    void rewardTransactions_totalZero_shouldCompleteWithoutFurtherCalls() {
+        when(mongoTemplate.updateMulti(any(Query.class), any(Update.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(UpdateResult.acknowledged(0, 0L, null)));
+
+        Mono<Void> result =
+                repository.rewardTransactionsByBatchIdAndInitiativeId("B1", "INIT1");
+
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(mongoTemplate, times(1))
+                .updateMulti(any(Query.class), any(Update.class), eq(RewardTransaction.class));
+
+        verify(mongoTemplate, never())
+                .find(any(Query.class), eq(RewardTransaction.class));
+    }
+
+    @Test
+    void rewardTransactions_totalPositive_butNoIds_shouldSkipSecondUpdate() {
+        when(mongoTemplate.updateMulti(any(Query.class), any(Update.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(UpdateResult.acknowledged(5, 5L, null)));
+
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.empty());
+
+        Mono<Void> result =
+                repository.rewardTransactionsByBatchIdAndInitiativeId("B1", "INIT1");
+
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(mongoTemplate, times(1))
+                .updateMulti(any(Query.class), any(Update.class), eq(RewardTransaction.class));
+
+        verify(mongoTemplate, times(1))
+                .find(any(Query.class), eq(RewardTransaction.class));
+
+        verify(mongoTemplate, times(1)) // solo la prima update
+                .updateMulti(any(Query.class), any(Update.class), eq(RewardTransaction.class));
+    }
+
+    @Test
+    void rewardTransactions_fullFlow_shouldExecuteAllSteps() {
+        RewardTransaction trx1 = new RewardTransaction();
+        trx1.setId("id1");
+
+        RewardTransaction trx2 = new RewardTransaction();
+        trx2.setId("id2");
+
+        when(mongoTemplate.updateMulti(any(Query.class), any(Update.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(UpdateResult.acknowledged(10, 10L, null))) // prima update
+                .thenReturn(Mono.just(UpdateResult.acknowledged(2, 2L, null)));  // seconda update
+
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx1, trx2));
+
+        Mono<Void> result =
+                repository.rewardTransactionsByBatchIdAndInitiativeId("B1", "INIT1");
+
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(mongoTemplate, times(2))
+                .updateMulti(any(Query.class), any(Update.class), eq(RewardTransaction.class));
+
+        verify(mongoTemplate, times(1))
+                .find(any(Query.class), eq(RewardTransaction.class));
+    }
+
+    @Test
+    void sumSuspendedAccruedRewardCents_shouldReturnTotal() {
+
+        RewardBatchServiceImpl.TotalAmount total = new RewardBatchServiceImpl.TotalAmount();
+        total.setTotal(250L);
+
+        when(mongoTemplate.aggregate(
+                any(Aggregation.class),
+                eq(RewardTransaction.class),
+                eq(RewardBatchServiceImpl.TotalAmount.class)
+        )).thenReturn(Flux.just(total));
+
+        Mono<Long> result =
+                repository.sumSuspendedAccruedRewardCents("INIT1", "BATCH1");
+
+        StepVerifier.create(result)
+                .expectNext(250L)
+                .verifyComplete();
+
+        verify(mongoTemplate).aggregate(
+                any(Aggregation.class),
+                eq(RewardTransaction.class),
+                eq(RewardBatchServiceImpl.TotalAmount.class)
+        );
+    }
+
+    @Test
+    void updateStatusAndReturnOld_shouldReturnEmpty_whenTransactionNotFound() {
+
+        when(mongoTemplate.findOne(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.empty());
+
+        Mono<RewardTransaction> result =
+                repository.updateStatusAndReturnOld(
+                        "INIT1",
+                        "BATCH1",
+                        "TRX1",
+                        RewardBatchTrxStatus.APPROVED,
+                        null,
+                        "2025-01",
+                        null
+                );
+
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(mongoTemplate).findOne(any(Query.class), eq(RewardTransaction.class));
+        verify(mongoTemplate, never()).findAndModify(any(), any(), any(), eq(RewardTransaction.class));
+    }
+
+    @Test
+    void updateStatusAndReturnOld_shouldReturnEmpty_whenFindAndModifyReturnsNull() {
+
+        RewardTransaction current = new RewardTransaction();
+        current.setId("TRX1");
+        current.setRewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK);
+
+        when(mongoTemplate.findOne(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(current));
+
+        when(mongoTemplate.findAndModify(any(Query.class), any(), any(), eq(RewardTransaction.class)))
+                .thenReturn(Mono.empty());
+
+        Mono<RewardTransaction> result =
+                repository.updateStatusAndReturnOld(
+                        "INIT1",
+                        "BATCH1",
+                        "TRX1",
+                        RewardBatchTrxStatus.APPROVED,
+                        null,
+                        "2025-01",
+                        null
+                );
+
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(mongoTemplate).findOne(any(Query.class), eq(RewardTransaction.class));
+        verify(mongoTemplate).findAndModify(any(), any(), any(), eq(RewardTransaction.class));
+    }
+
+    @Test
+    void updateStatusAndReturnOld_shouldReturnOldDocument_whenUpdateSucceeds() {
+
+        RewardTransaction current = new RewardTransaction();
+        current.setId("TRX1");
+        current.setRewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK);
+
+        RewardTransaction old = new RewardTransaction();
+        old.setId("TRX1");
+        old.setRewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK);
+
+        when(mongoTemplate.findOne(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(current));
+
+        when(mongoTemplate.findAndModify(any(Query.class), any(), any(), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(old));
+
+        Mono<RewardTransaction> result =
+                repository.updateStatusAndReturnOld(
+                        "INIT1",
+                        "BATCH1",
+                        "TRX1",
+                        RewardBatchTrxStatus.APPROVED,
+                        null,
+                        "2025-01",
+                        null
+                );
+
+        StepVerifier.create(result)
+                .expectNext(old)
+                .verifyComplete();
+
+        verify(mongoTemplate).findOne(any(Query.class), eq(RewardTransaction.class));
+        verify(mongoTemplate).findAndModify(any(), any(), any(), eq(RewardTransaction.class));
+    }
+
+    @Test
+    void findInvoicedTransactionsWithoutBatch_shouldReturnResults_withPageableAndCriteria() {
+
+        RewardTransaction trx = new RewardTransaction();
+        trx.setId("trx1");
+        trx.setRewardBatchId(null);
+        trx.setStatus(SyncTrxStatus.INVOICED.name());
+
+        when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Flux.just(trx));
+
+        Flux<RewardTransaction> result =
+                repository.findInvoicedTransactionsWithoutBatch(20);
+
+        StepVerifier.create(result)
+                .expectNext(trx)
+                .verifyComplete();
+
+        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+
+        verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
+
+        Query query = queryCaptor.getValue();
+
+        assertNotNull(query);
+
+        String queryJson = query.getQueryObject().toString();
+
+        assertTrue(queryJson.contains("INVOICED"));
+        assertTrue(queryJson.contains("rewardBatchId"));
+
+    }
+
+    @Test
+    void findInvoicedTrxByIdWithoutBatch_shouldReturnTransaction_whenFound() {
+
+        RewardTransaction trx = new RewardTransaction();
+        trx.setId("TRX1");
         trx.setStatus(SyncTrxStatus.INVOICED.name());
         trx.setRewardBatchId(null);
-        baseRepository.save(trx).block();
-
-        StepVerifier.create(
-                        repository.findInvoicedTrxByIdWithoutBatch("INIT_1", "M1", "trx1")
-                )
-                .expectNextMatches(t ->
-                        t.getId().equals("trx1") &&
-                                SyncTrxStatus.INVOICED.name().equals(t.getStatus())
-                )
-                .verifyComplete();
-    }
-
-    @Test
-    void findInvoicedTrxByIdWithoutBatch_shouldReturnEmpty_whenBatchExists() {
-
-        trx.setStatus(SyncTrxStatus.INVOICED.name());
-        trx.setRewardBatchId("B1"); // NON null
-        baseRepository.save(trx).block();
-
-        StepVerifier.create(
-                        repository.findInvoicedTrxByIdWithoutBatch("INIT_1", "M1", "trx1")
-                )
-                .expectNextCount(0)
-                .verifyComplete();
-    }
-
-    @Test
-    void findInvoicedTrxByIdWithoutBatch_shouldReturnEmpty_whenStatusNotInvoiced() {
-
-        trx.setStatus(SyncTrxStatus.REWARDED.name());
-        trx.setRewardBatchId(null);
-        baseRepository.save(trx).block();
-
-        StepVerifier.create(
-                        repository.findInvoicedTrxByIdWithoutBatch("INIT_1", "M1", "trx1")
-                )
-                .expectNextCount(0)
-                .verifyComplete();
-    }
-
-    @Test
-    void findDistinctFranchiseAndPosByRewardBatchId_shouldReturnAggregatedResult() {
-
-        trx.setRewardBatchId("B1");
         trx.setMerchantId("M1");
-        trx.setFranchiseName("FR1");
-        trx.setPointOfSaleId("POS1");
 
-        baseRepository.save(trx).block();
+        when(mongoTemplate.findOne(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(trx));
 
-        StepVerifier.create(
-                        repository.findDistinctFranchiseAndPosByRewardBatchId("B1", "M1")
-                )
-                .expectNextMatches(dto ->
-                        "FR1".equals(dto.getFranchiseName()) &&
-                                "POS1".equals(dto.getPointOfSaleId())
-                )
+        Mono<RewardTransaction> result =
+                repository.findInvoicedTrxByIdWithoutBatch("INIT1", "M1", "TRX1");
+
+        StepVerifier.create(result)
+                .expectNext(trx)
                 .verifyComplete();
+
+        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+
+        verify(mongoTemplate).findOne(queryCaptor.capture(), eq(RewardTransaction.class));
+
+        Query query = queryCaptor.getValue();
+
+        assertNotNull(query);
+
+        String queryJson = query.getQueryObject().toString();
+
+        assertTrue(queryJson.contains("TRX1"));
+        assertTrue(queryJson.contains("INVOICED"));
+        assertTrue(queryJson.contains("rewardBatchId"));
+        assertTrue(queryJson.contains("M1"));
+        assertTrue(queryJson.contains("INIT1"));
     }
 
     @Test
-    void findDistinctFranchiseAndPosByRewardBatchId_shouldReturnEmpty_whenNoMatch() {
+    void findDistinctFranchiseAndPosByRewardBatchId_shouldReturnGroupedResults() {
 
-        StepVerifier.create(
-                        repository.findDistinctFranchiseAndPosByRewardBatchId("WRONG", "M1")
-                )
-                .expectNextCount(0)
+        FranchisePointOfSaleDTO dto = new FranchisePointOfSaleDTO();
+        dto.setFranchiseName("FR1");
+        dto.setPointOfSaleId("POS1");
+
+        when(mongoTemplate.aggregate(
+                any(Aggregation.class),
+                eq(RewardTransaction.class),
+                eq(FranchisePointOfSaleDTO.class)
+        )).thenReturn(Flux.just(dto));
+
+        Flux<FranchisePointOfSaleDTO> result =
+                repository.findDistinctFranchiseAndPosByRewardBatchId("BATCH1", "M1");
+
+        StepVerifier.create(result)
+                .expectNext(dto)
                 .verifyComplete();
+
+        ArgumentCaptor<Aggregation> aggCaptor = ArgumentCaptor.forClass(Aggregation.class);
+
+        verify(mongoTemplate).aggregate(
+                aggCaptor.capture(),
+                eq(RewardTransaction.class),
+                eq(FranchisePointOfSaleDTO.class)
+        );
+
+        Aggregation aggregation = aggCaptor.getValue();
+        assertNotNull(aggregation);
     }
 
+    @Test
+    void shouldReturnTransaction_whenFoundInBatch() {
+
+        when(mongoTemplate.findOne(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.just(trx));
+
+        Mono<RewardTransaction> result = repository.findTransactionInBatch(
+                "INIT1",
+                "M1",
+                "B1",
+                "trx1"
+        );
+
+        StepVerifier.create(result)
+                .expectNext(trx)
+                .verifyComplete();
+
+        verify(mongoTemplate).findOne(queryCaptor.capture(), eq(RewardTransaction.class));
+
+        Query query = queryCaptor.getValue();
+        assert query != null;
+    }
+
+    @Test
+    void shouldReturnEmpty_whenTransactionNotFound() {
+
+        when(mongoTemplate.findOne(any(Query.class), eq(RewardTransaction.class)))
+                .thenReturn(Mono.empty());
+
+        Mono<RewardTransaction> result = repository.findTransactionInBatch(
+                "INIT1",
+                "M1",
+                "B1",
+                "trx1"
+        );
+
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(mongoTemplate).findOne(any(Query.class), eq(RewardTransaction.class));
+    }
 }

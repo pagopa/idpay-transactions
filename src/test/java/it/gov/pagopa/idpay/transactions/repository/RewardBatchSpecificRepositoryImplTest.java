@@ -28,8 +28,6 @@ class RewardBatchSpecificRepositoryImplTest {
 
   public static final String MERCHANT = "merchantA";
   public static final Long ZERO_LONG = 0L;
-  public static final Long ONEHUNDRED_LONG = 100L;
-  public static final Long ONE_LONG = 1L;
   public static final String INITIATIVE_ID = "INIT_01";
 
   @Mock
