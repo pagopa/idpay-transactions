@@ -9,6 +9,7 @@ import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.ErrorInvitaliaDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.SelfcareInstitutionsRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionDTO;
@@ -63,6 +64,7 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.LongFunction;
+import java.util.stream.Collectors;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.*;
@@ -670,20 +672,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         if (InvitaliaOutcomeStatus.COMPLETATA.name().equalsIgnoreCase(status)) {
             batch.setStatus(RewardBatchStatus.REFUNDED);
             batch.setRefundValutaDate(response.getErogazione().getDateValue());
+            batch.setRefundErrorMessage(buildErrorMessage(response.getErrors()));
 
         } else if (InvitaliaOutcomeStatus.RIFIUTATA.name().equalsIgnoreCase(status)) {
-
             batch.setStatus(RewardBatchStatus.NOT_REFUNDED);
-
-            if (response.getErrors() != null && !response.getErrors().isEmpty()) {
-                String errorMessage = response.getErrors().stream()
-                        .map(error -> error.getCode() + " - " + error.getMessage())
-                        .reduce((a, b) -> a + "; " + b)
-                        .orElse(null);
-
-                batch.setRefundErrorMessage(errorMessage);
-
-            }
+            batch.setRefundErrorMessage(buildErrorMessage(response.getErrors()));
 
         } else if (InvitaliaOutcomeStatus.IN_LAVORAZIONE.name().equalsIgnoreCase(status) || InvitaliaOutcomeStatus.ERRORE.name().equalsIgnoreCase(status)) {
             log.info("Batch {} has not been processed with status {}, the external status is {}", batch.getId(), batch.getStatus(), status);
@@ -697,6 +690,21 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     private void logOutcomeTransition(RewardBatch batch) {
         log.info("Batch {} outcome processed, setting status {}", batch.getId(), batch.getStatus());
+    }
+
+    private String buildErrorMessage(List<ErrorInvitaliaDTO> errors) {
+        if (errors == null || errors.isEmpty()) {
+            return null;
+        }
+
+        return errors.stream()
+                .map(error -> {
+                    String message = (error.getMessage() == null || error.getMessage().isBlank())
+                            ? "Errore Generico"
+                            : error.getMessage();
+                    return error.getCode() + " - " + message;
+                })
+                .collect(Collectors.joining("; "));
     }
 
     @Override

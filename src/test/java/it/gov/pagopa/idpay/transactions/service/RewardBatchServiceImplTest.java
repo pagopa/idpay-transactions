@@ -2088,6 +2088,122 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
+    void updateBatch_errorsNull_shouldNotSetErrorMessage() {
+        RewardBatch batch = new RewardBatch();
+        batch.setId("id1");
+
+        ErogazioneOutcomeDTO erogazione = ErogazioneOutcomeDTO.builder()
+                .status("RIFIUTATA")
+                .build();
+
+        InvitaliaOutcomeResponseDTO response = new InvitaliaOutcomeResponseDTO();
+        response.setErrors(null);
+        response.setErogazione(erogazione);
+
+        when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        RewardBatch result = service.updateBatch(batch, response).block();
+
+        assertNull(result.getRefundErrorMessage());
+    }
+
+    @Test
+    void updateBatch_errorsEmpty_shouldNotSetErrorMessage() {
+        RewardBatch batch = new RewardBatch();
+        batch.setId("id2");
+
+        ErogazioneOutcomeDTO erogazione = ErogazioneOutcomeDTO.builder()
+                .status("RIFIUTATA")
+                .build();
+
+        InvitaliaOutcomeResponseDTO response = new InvitaliaOutcomeResponseDTO();
+        response.setErrors(List.of());
+        response.setErogazione(erogazione);
+
+        when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        RewardBatch result = service.updateBatch(batch, response).block();
+
+        assertNull(result.getRefundErrorMessage());
+    }
+
+    @Test
+    void updateBatch_errorMessageNull_shouldUseDefaultMessage() {
+        RewardBatch batch = new RewardBatch();
+        batch.setId("id3");
+
+        ErrorInvitaliaDTO error = new ErrorInvitaliaDTO();
+        error.setCode("E01");
+        error.setMessage(null);
+
+        ErogazioneOutcomeDTO erogazione = ErogazioneOutcomeDTO.builder()
+                .status("RIFIUTATA")
+                .build();
+
+        InvitaliaOutcomeResponseDTO response = new InvitaliaOutcomeResponseDTO();
+        response.setErrors(List.of(error));
+        response.setErogazione(erogazione);
+
+        when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        RewardBatch result = service.updateBatch(batch, response).block();
+
+        assertEquals("E01 - Errore Generico", result.getRefundErrorMessage());
+    }
+
+    @Test
+    void updateBatch_errorMessageBlank_shouldUseDefaultMessage() {
+        RewardBatch batch = new RewardBatch();
+        batch.setId("id4");
+
+        ErrorInvitaliaDTO error = new ErrorInvitaliaDTO();
+        error.setCode("E02");
+        error.setMessage("   ");
+
+        ErogazioneOutcomeDTO erogazione = ErogazioneOutcomeDTO.builder()
+                .status("RIFIUTATA")
+                .build();
+
+        InvitaliaOutcomeResponseDTO response = new InvitaliaOutcomeResponseDTO();
+        response.setErrors(List.of(error));
+        response.setErogazione(erogazione);
+
+        when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        RewardBatch result = service.updateBatch(batch, response).block();
+
+        assertEquals("E02 - Errore Generico", result.getRefundErrorMessage());
+    }
+
+    @Test
+    void updateBatch_multipleErrors_shouldJoinMessages() {
+        RewardBatch batch = new RewardBatch();
+        batch.setId("id5");
+
+        ErrorInvitaliaDTO e1 = new ErrorInvitaliaDTO();
+        e1.setCode("E01");
+        e1.setMessage("Errore 1");
+
+        ErrorInvitaliaDTO e2 = new ErrorInvitaliaDTO();
+        e2.setCode("E02");
+        e2.setMessage("Errore 2");
+
+        ErogazioneOutcomeDTO erogazione = ErogazioneOutcomeDTO.builder()
+                .status("RIFIUTATA")
+                .build();
+
+        InvitaliaOutcomeResponseDTO response = new InvitaliaOutcomeResponseDTO();
+        response.setErrors(List.of(e1, e2));
+        response.setErogazione(erogazione);
+
+        when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        RewardBatch result = service.updateBatch(batch, response).block();
+
+        assertEquals("E01 - Errore 1; E02 - Errore 2", result.getRefundErrorMessage());
+    }
+
+    @Test
     void handleSuspendedTransactions_whenOriginalBatchMonthIsPast_createsOrUsesCurrentMonthBatch() {
         String originalMonth = YearMonth.now().minusMonths(1).toString();
         String targetMonth = YearMonth.now().toString();
