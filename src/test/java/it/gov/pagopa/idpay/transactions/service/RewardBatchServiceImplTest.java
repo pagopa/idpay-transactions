@@ -1880,8 +1880,6 @@ class RewardBatchServiceImplTest {
         String rewardBatchId = BATCH_ID;
         String transactionId = "TRX_ID";
 
-        LocalDate initiativeEndDate = LocalDate.of(2026, 12, 31);
-
         long accruedRewardCents = 100L;
 
         RewardTransaction trx = new RewardTransaction();
