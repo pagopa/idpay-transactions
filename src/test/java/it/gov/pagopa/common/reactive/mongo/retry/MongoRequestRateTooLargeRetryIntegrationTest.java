@@ -1,5 +1,6 @@
 package it.gov.pagopa.common.reactive.mongo.retry;
 
+import it.gov.pagopa.common.config.TimeConfig;
 import it.gov.pagopa.common.mongo.config.MongoConfig;
 import it.gov.pagopa.common.mongo.singleinstance.AutoConfigureSingleInstanceMongodb;
 import it.gov.pagopa.common.reactive.mongo.DummySpringRepository;
@@ -29,7 +30,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @TestPropertySource(
         properties = {
@@ -55,7 +56,7 @@ import java.time.LocalDateTime;
         MongoExceptionHandler.class,
         MongoConfig.class,
         ReactiveMongoConfig.class,
-
+        TimeConfig.class,
         MongoRequestRateTooLargeRetryIntegrationTest.TestController.class,
         MongoRequestRateTooLargeRetryIntegrationTest.TestRepository.class
 })
@@ -115,7 +116,7 @@ class MongoRequestRateTooLargeRetryIntegrationTest {
         }
 
         @GetMapping("/testFlux")
-        Flux<LocalDateTime> testFluxEndpoint() {
+        Flux<Instant> testFluxEndpoint() {
             return ReactiveRequestContextHolder.getRequest()
                     .doOnNext(r -> {
                         System.out.println("OK");
@@ -126,7 +127,7 @@ class MongoRequestRateTooLargeRetryIntegrationTest {
 
         @MongoRequestRateTooLargeApiRetryable(maxRetry = API_RETRYABLE_MAX_RETRY)
         @GetMapping("/testFluxRetryable")
-        Flux<LocalDateTime> testFluxEndpointRetryable() {
+        Flux<Instant> testFluxEndpointRetryable() {
             return ReactiveRequestContextHolder.getRequest()
                     .doOnNext(r -> {
                         System.out.println("OK");
@@ -143,7 +144,7 @@ class MongoRequestRateTooLargeRetryIntegrationTest {
                     );
         }
 
-        static Flux<LocalDateTime> buildNestedFluxChain(TestRepository repository) {
+        static Flux<Instant> buildNestedFluxChain(TestRepository repository) {
             return Flux.just("")
                     .flatMap(x ->
                             Mono.delay(Duration.ofMillis(5))
@@ -161,7 +162,7 @@ class MongoRequestRateTooLargeRetryIntegrationTest {
             });
         }
 
-        public Flux<LocalDateTime> testFlux() {
+        public Flux<Instant> testFlux() {
             return Flux.defer(() -> {
                 counter[0]++;
                 return Flux.error(MongoRequestRateTooLargeRetryerTest.buildRequestRateTooLargeMongodbException_whenReading());

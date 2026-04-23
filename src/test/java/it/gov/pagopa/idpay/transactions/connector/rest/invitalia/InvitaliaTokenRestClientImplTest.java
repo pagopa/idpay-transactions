@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.connector.rest.invitalia;
 
+import it.gov.pagopa.common.config.TimeConfig;
 import it.gov.pagopa.common.reactive.rest.config.WebClientConfig;
 import it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.config.InvitaliaConfig;
@@ -20,7 +21,8 @@ import static it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest.WIREMOCK_T
                 InvitaliaTokenRestClientImpl.class,
                 WebClientConfig.class,
                 InvitaliaConfig.class,
-                AuditUtilities.class
+                AuditUtilities.class,
+                TimeConfig.class
         })
 @TestPropertySource(
         properties = {

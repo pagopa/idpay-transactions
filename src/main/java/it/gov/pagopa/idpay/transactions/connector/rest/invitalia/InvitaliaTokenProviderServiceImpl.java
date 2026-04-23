@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.time.Clock;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Service
@@ -16,11 +17,13 @@ public class InvitaliaTokenProviderServiceImpl implements InvitaliaTokenProvider
 
     private final Integer refreshBeforeExpiryTokenMillis;
     private final InvitaliaTokenRestClient invitaliaTokenRestClient;
+    private final Clock clock;
 
     public InvitaliaTokenProviderServiceImpl(InvitaliaConfig invitaliaConfig,
-                                             InvitaliaTokenRestClient invitaliaTokenRestClient) {
+                                             InvitaliaTokenRestClient invitaliaTokenRestClient, Clock clock) {
         this.refreshBeforeExpiryTokenMillis = invitaliaConfig.getToken().getRefreshBeforeExpiry();
         this.invitaliaTokenRestClient = invitaliaTokenRestClient;
+        this.clock = clock;
     }
 
 
@@ -28,7 +31,7 @@ public class InvitaliaTokenProviderServiceImpl implements InvitaliaTokenProvider
     public Mono<String> retrieveToken() {
         return Mono.defer(() -> {
             TokenDTO current = cachedToken.get();
-            if (current != null && !current.isExpiringSoon(refreshBeforeExpiryTokenMillis)) {
+            if (current != null && !current.isExpiringSoon(refreshBeforeExpiryTokenMillis,clock)) {
                 return Mono.just(current.getAccessToken());
             }
 

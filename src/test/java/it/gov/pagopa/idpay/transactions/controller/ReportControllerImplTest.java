@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ReportMapper;
@@ -23,7 +24,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.Instant;
 import java.util.List;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REPORT_NOT_FOUND;
@@ -56,10 +58,29 @@ class ReportControllerImplTest {
                 .businessName("BusinessName")
                 .fileName("transactions_report_january.csv")
                 .reportStatus(ReportStatus.INSERTED)
-                .startPeriod(LocalDateTime.of(2026, 2, 1, 0, 0))
-                .endPeriod(LocalDateTime.of(2026, 2, 28, 23, 59))
-                .requestDate(LocalDateTime.of(2026, 2, 10, 10, 0))
-                .elaborationDate(LocalDateTime.of(2026, 2, 10, 12, 0))
+                .startPeriod(
+                        LocalDate.of(2026, 2, 1)
+                                .atStartOfDay(CommonConstants.ZONEID)
+                                .toInstant()
+                )
+                .endPeriod(
+                        LocalDate.of(2026, 2, 28)
+                                .atTime(23, 59)
+                                .atZone(CommonConstants.ZONEID)
+                                .toInstant()
+                )
+                .requestDate(
+                        LocalDate.of(2026, 2, 10)
+                                .atTime(10, 0)
+                                .atZone(CommonConstants.ZONEID)
+                                .toInstant()
+                )
+                .elaborationDate(
+                        LocalDate.of(2026, 2, 10)
+                                .atTime(12, 0)
+                                .atZone(CommonConstants.ZONEID)
+                                .toInstant()
+                )
                 .operatorLevel(RewardBatchAssignee.L1)
                 .build();
 
@@ -115,8 +136,20 @@ class ReportControllerImplTest {
                     assertEquals("report1", dto.getId());
                     assertEquals("transactions_report_january.csv", dto.getFileName());
                     assertEquals(ReportStatus.INSERTED, dto.getReportStatus());
-                    assertEquals(LocalDateTime.of(2026, 2, 1, 0, 0), dto.getStartPeriod());
-                    assertEquals(LocalDateTime.of(2026, 2, 28, 23, 59), dto.getEndPeriod());
+                    assertEquals(
+                            LocalDate.of(2026, 2, 1)
+                                    .atStartOfDay(CommonConstants.ZONEID)
+                                    .toInstant(),
+                            dto.getStartPeriod()
+                    );
+
+                    assertEquals(
+                            LocalDate.of(2026, 2, 28)
+                                    .atTime(23, 59)
+                                    .atZone(CommonConstants.ZONEID)
+                                    .toInstant(),
+                            dto.getEndPeriod()
+                    );
                     assertEquals(1, response.getTotalElements());
                     assertEquals(1, response.getTotalPages());
                     assertEquals(10, response.getSize());
@@ -166,9 +199,19 @@ class ReportControllerImplTest {
 
     @Test
     void generateReport_ReturnsReport_Success() {
+
+        Instant start = LocalDate.of(2026, 2, 1)
+                .atStartOfDay(CommonConstants.ZONEID)
+                .toInstant();
+
+        Instant end = LocalDate.of(2026, 2, 28)
+                .atTime(23, 59)
+                .atZone(CommonConstants.ZONEID)
+                .toInstant();
+
         ReportRequest request = ReportRequest.builder()
-                .startPeriod(LocalDateTime.of(2026, 2, 1, 0, 0))
-                .endPeriod(LocalDateTime.of(2026, 2, 28, 23, 59))
+                .startPeriod(start)
+                .endPeriod(end)
                 .reportType(ReportType.MERCHANT_TRANSACTIONS)
                 .build();
 
@@ -178,16 +221,21 @@ class ReportControllerImplTest {
                 .merchantId(MERCHANT_ID)
                 .fileName("generated_report.csv")
                 .reportStatus(ReportStatus.INSERTED)
-                .startPeriod(request.getStartPeriod())
-                .endPeriod(request.getEndPeriod())
+                .startPeriod(start)
+                .endPeriod(end)
                 .operatorLevel(null)
                 .build();
+
 
         when(reportService.generateReport(
                 eq(MERCHANT_ID),
                 isNull(),
                 eq(INITIATIVE_ID),
-                eq(request)
+                argThat(req ->
+                        req.getReportType() == request.getReportType() &&
+                                req.getStartPeriod().equals(start) &&
+                                req.getEndPeriod().equals(end)
+                )
         )).thenReturn(Mono.just(reportDTO));
 
         webClient.post()
@@ -202,28 +250,48 @@ class ReportControllerImplTest {
                     assertEquals("generatedReport1", response.getId());
                     assertEquals("generated_report.csv", response.getFileName());
                     assertEquals(ReportStatus.INSERTED, response.getReportStatus());
-                    assertEquals(request.getStartPeriod(), response.getStartPeriod());
-                    assertEquals(request.getEndPeriod(), response.getEndPeriod());
+                    assertEquals(start, response.getStartPeriod());
+                    assertEquals(end, response.getEndPeriod());
                 });
 
         verify(reportService, times(1))
-                .generateReport(eq(MERCHANT_ID), isNull(), eq(INITIATIVE_ID), eq(request));
+                .generateReport(
+                        eq(MERCHANT_ID),
+                        isNull(),
+                        eq(INITIATIVE_ID),
+                        any(ReportRequest.class)
+                );
     }
 
     @Test
     void generateReport_ServiceFails_InternalServerError() {
         ReportRequest request = ReportRequest.builder()
-                .startPeriod(LocalDateTime.of(2026, 2, 1, 0, 0))
-                .endPeriod(LocalDateTime.of(2026, 2, 28, 23, 59))
+                .startPeriod(
+                        LocalDate.of(2026, 2, 1)
+                                .atStartOfDay(CommonConstants.ZONEID)
+                                .toInstant()
+                )
+                .endPeriod(
+                        LocalDate.of(2026, 2, 28)
+                                .atTime(23, 59)
+                                .atZone(CommonConstants.ZONEID)
+                                .toInstant()
+                )
                 .reportType(ReportType.MERCHANT_TRANSACTIONS)
                 .build();
+
 
         when(reportService.generateReport(
                 eq(MERCHANT_ID),
                 isNull(),
                 eq(INITIATIVE_ID),
-                eq(request)
+                argThat(req ->
+                        req.getReportType() == request.getReportType() &&
+                                req.getStartPeriod().equals(request.getStartPeriod()) &&
+                                req.getEndPeriod().equals(request.getEndPeriod())
+                )
         )).thenReturn(Mono.error(new RuntimeException("Service failure")));
+
 
         webClient.post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reports", INITIATIVE_ID)
@@ -233,7 +301,7 @@ class ReportControllerImplTest {
                 .expectStatus().is5xxServerError();
 
         verify(reportService, times(1))
-                .generateReport(eq(MERCHANT_ID), isNull(), eq(INITIATIVE_ID), eq(request));
+                .generateReport(eq(MERCHANT_ID), isNull(), eq(INITIATIVE_ID), any(ReportRequest.class));
     }
 
     @Test

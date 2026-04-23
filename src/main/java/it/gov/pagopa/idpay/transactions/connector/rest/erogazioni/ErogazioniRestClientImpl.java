@@ -16,8 +16,10 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 import org.springframework.http.HttpStatusCode;
+
+import java.time.Clock;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import static it.gov.pagopa.idpay.transactions.utils.Utilities.sanitizeString;
 
@@ -38,17 +40,20 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
 
     private final ObjectMapper objectMapper;
 
+    private final Clock clock;
+
     public ErogazioniRestClientImpl(InvitaliaTokenProviderService tokenProvider,
                                     @Value("${app.erogazioni.retry.max-attempts:3}") Integer maxAttempts,
                                     @Value("${app.erogazioni.retry.delay-millis:500}") Integer retryDelay,
                                     @Value("${app.erogazioni.erogazioni-url}") String erogazioniBaseUrl,
                                     @Value("${app.erogazioni.authorizer:}") String autorizzatore,
                                     WebClient.Builder webClientBuilder,
-                                    ObjectMapper objectMapper) {
+                                    ObjectMapper objectMapper, Clock clock) {
         this.tokenProvider = tokenProvider;
         this.maxAttempts = maxAttempts;
         this.retryDelay = retryDelay;
         this.autorizzatore = autorizzatore;
+        this.clock = clock;
         this.webClient = webClientBuilder.clone()
                 .baseUrl(erogazioniBaseUrl)
                 .build();
@@ -114,7 +119,7 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
                     return Mono.just(DeliveryOutcomeDTO.builder()
                             .succeded(false)
                             .message("Technical error: " + detailedMessage)
-                            .timestamp(LocalDateTime.now())
+                            .timestamp(Instant.now(clock))
                             .build());
                 });
     }

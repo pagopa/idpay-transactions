@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.data.factory.DataFactoryService;
@@ -37,7 +38,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.time.LocalDateTime;
+import java.time.*;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static it.gov.pagopa.idpay.transactions.service.ReportServiceImpl.ALLOWED_ROLES;
@@ -78,10 +80,11 @@ class ReportServiceImplTest {
     private static final String INITIATIVE_ID = "INIT1";
     private static final String ORGANIZATION_ROLE = "operator1";
     private static final long PERIOD_LENGTH = 90;
+    private final Clock clock = Clock.fixed(Instant.parse("2026-04-03T10:00:00Z"), ZoneOffset.UTC);
 
     @BeforeEach
     void setup() {
-        service = new ReportServiceImpl(PERIOD_LENGTH, reportRepository, merchantRestClient, reportMapper, reportTransactionsBlobService, reportUserDetailsBlobService, dataFactoryServiceMock);
+        service = new ReportServiceImpl(PERIOD_LENGTH, reportRepository, merchantRestClient, reportMapper, reportTransactionsBlobService, reportUserDetailsBlobService, dataFactoryServiceMock, clock);
     }
 
     @Test
@@ -409,8 +412,8 @@ class ReportServiceImplTest {
                 .reportStatus(ReportStatus.INSERTED)
                 .operatorLevel(RewardBatchAssignee.L1)
                 .fileName("report2.csv")
-                .requestDate(LocalDateTime.now())
-                .elaborationDate(LocalDateTime.now())
+                .requestDate(Instant.now())
+                .elaborationDate(Instant.now())
                 .build();
 
         when(reportRepository.findReportsCombined(
@@ -454,8 +457,8 @@ class ReportServiceImplTest {
                 .reportStatus(ReportStatus.INSERTED)
                 .operatorLevel(RewardBatchAssignee.L1)
                 .fileName("report3.csv")
-                .requestDate(LocalDateTime.now())
-                .elaborationDate(LocalDateTime.now())
+                .requestDate(Instant.now())
+                .elaborationDate(Instant.now())
                 .build();
 
         when(reportRepository.findReportsCombined(
@@ -513,8 +516,8 @@ class ReportServiceImplTest {
     void generateReport_merchantTransactions_success() {
         ReportRequest request = new ReportRequest();
         request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
-        request.setStartPeriod(LocalDateTime.now().minusDays(10));
-        request.setEndPeriod(LocalDateTime.now());
+        request.setStartPeriod(Instant.now().minus(10,ChronoUnit.DAYS));
+        request.setEndPeriod(Instant.now());
 
         ReportDTO expectedDto = ReportDTO.builder().id("R1").build();
 
@@ -534,8 +537,8 @@ class ReportServiceImplTest {
     @Test
     void generateMerchantTransactionsReport_success() {
         ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(5));
-        request.setEndPeriod(LocalDateTime.now().minusDays(1));
+        request.setStartPeriod(Instant.now().minus(5,ChronoUnit.DAYS));
+        request.setEndPeriod(Instant.now().minus(1,ChronoUnit.DAYS));
         request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
 
         MerchantDetailDTO merchant = new MerchantDetailDTO();
@@ -579,8 +582,8 @@ class ReportServiceImplTest {
     @Test
     void generateMerchantTransactionsReport_merchantDetailError() {
         ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(5));
-        request.setEndPeriod(LocalDateTime.now().minusDays(1));
+        request.setStartPeriod(Instant.now().minus(5,ChronoUnit.DAYS));
+        request.setEndPeriod(Instant.now().minus(1,ChronoUnit.DAYS));
         request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
 
         RuntimeException remoteError = new RuntimeException("Merchant not found");
@@ -600,8 +603,8 @@ class ReportServiceImplTest {
     @Test
     void generateMerchantTransactionsReport_saveError() {
         ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(5));
-        request.setEndPeriod(LocalDateTime.now().minusDays(1));
+        request.setStartPeriod(Instant.now().minus(5,ChronoUnit.DAYS));
+        request.setEndPeriod(Instant.now().minus(1,ChronoUnit.DAYS));
         request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
 
         MerchantDetailDTO merchant = new MerchantDetailDTO();
@@ -627,54 +630,85 @@ class ReportServiceImplTest {
     @Test
     void generateMerchantTransactionsReport_fileNameGeneratedCorrectly() {
         ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.of(2026, 1, 1, 0, 0));
-        request.setEndPeriod(LocalDateTime.of(2026, 1, 31, 23, 59));
+       
+
+        request.setStartPeriod(
+                LocalDate.of(2026, 1, 1)
+                        .atStartOfDay(CommonConstants.ZONEID)
+                        .toInstant()
+        );
+
+        request.setEndPeriod(
+                LocalDate.of(2026, 1, 31)
+                        .atTime(23, 59)
+                        .atZone(CommonConstants.ZONEID)
+                        .toInstant()
+        );
+
         request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
 
         MerchantDetailDTO merchant = new MerchantDetailDTO();
         merchant.setBusinessName("Business");
 
-        LocalDateTime fixedNow = LocalDateTime.of(2026, 2, 1, 12, 30, 45);
+        when(merchantRestClient.getMerchantDetail(MERCHANT_ID, INITIATIVE_ID))
+                .thenReturn(Mono.just(merchant));
 
-        try (MockedStatic<LocalDateTime> mocked = mockStatic(LocalDateTime.class, CALLS_REAL_METHODS)) {
-            mocked.when(LocalDateTime::now).thenReturn(fixedNow);
+        ArgumentCaptor<Report> captor = ArgumentCaptor.forClass(Report.class);
 
-            when(merchantRestClient.getMerchantDetail(MERCHANT_ID, INITIATIVE_ID))
-                    .thenReturn(Mono.just(merchant));
+        Report saved = Report.builder()
+                .id("R200")
+                .fileName("Report_03042026120000")
+                .build();
 
-            ArgumentCaptor<Report> captor = ArgumentCaptor.forClass(Report.class);
+        when(reportRepository.save(any())).thenReturn(Mono.just(saved));
+        when(dataFactoryServiceMock.triggerTransactionReportPipeline(saved)).thenReturn(Mono.just("RUN_ID"));
+        when(reportMapper.toDTO(saved)).thenReturn(
+                ReportDTO.builder()
+                        .id("R200")
+                        .fileName(saved.getFileName())
+                        .build()
+        );
 
-            Report saved = Report.builder()
-                    .id("R200")
-                    .fileName("Report_01022026123045")
-                    .build();
+        StepVerifier.create(service.generateMerchantTransactionsReport(
+                        MERCHANT_ID,
+                        ORGANIZATION_ROLE,
+                        INITIATIVE_ID,
+                        request))
+                .assertNext(dto -> assertEquals("Report_03042026120000", dto.getFileName()))
+                .verifyComplete();
 
-            when(reportRepository.save(any())).thenReturn(Mono.just(saved));
-            when(dataFactoryServiceMock.triggerTransactionReportPipeline(saved)).thenReturn(Mono.just("RUN_ID"));
-            when(reportMapper.toDTO(saved)).thenReturn(ReportDTO.builder().id("R200").fileName(saved.getFileName()).build());
-
-            StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                    .assertNext(dto -> assertEquals("Report_01022026123045", dto.getFileName()))
-                    .verifyComplete();
-
-            verify(reportRepository).save(captor.capture());
-            assertEquals("Report_01022026123045.csv", captor.getValue().getFileName());
-        }
+        verify(reportRepository).save(captor.capture());
+        assertEquals("Report_03042026120000.csv", captor.getValue().getFileName());
     }
     @Test
     void generateMerchantTransactionsReport_TriggerPipelineError() {
         ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.of(2026, 1, 1, 0, 0));
-        request.setEndPeriod(LocalDateTime.of(2026, 1, 31, 23, 59));
+       
+
+        request.setStartPeriod(
+                LocalDate.of(2026, 1, 1)
+                        .atStartOfDay(CommonConstants.ZONEID)
+                        .toInstant()
+        );
+
+        request.setEndPeriod(
+                LocalDate.of(2026, 1, 31)
+                        .atTime(23, 59)
+                        .atZone(CommonConstants.ZONEID)
+                        .toInstant()
+        );
+
+        Instant fixedNow =
+                LocalDate.of(2026, 2, 1)
+                        .atTime(12, 30, 45)
+                        .atZone(CommonConstants.ZONEID)
+                        .toInstant();
         request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
 
         MerchantDetailDTO merchant = new MerchantDetailDTO();
         merchant.setBusinessName("Business");
-
-        LocalDateTime fixedNow = LocalDateTime.of(2026, 2, 1, 12, 30, 45);
-
-        try (MockedStatic<LocalDateTime> mocked = mockStatic(LocalDateTime.class, CALLS_REAL_METHODS)) {
-            mocked.when(LocalDateTime::now).thenReturn(fixedNow);
+        try (MockedStatic<Instant> mocked = mockStatic(Instant.class, CALLS_REAL_METHODS)) {
+            mocked.when(Instant::now).thenReturn(fixedNow);
 
             when(merchantRestClient.getMerchantDetail(MERCHANT_ID, INITIATIVE_ID))
                     .thenReturn(Mono.just(merchant));
@@ -701,8 +735,8 @@ class ReportServiceImplTest {
     @Test
     void generateMerchantTransactionsReport_invalidPeriod_startAfterEnd() {
         ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(1));
-        request.setEndPeriod(LocalDateTime.now().minusDays(5));
+        request.setStartPeriod(Instant.now().minus(1,ChronoUnit.DAYS));
+        request.setEndPeriod(Instant.now().minus(5,ChronoUnit.DAYS));
 
         StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
                 .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody
@@ -713,8 +747,8 @@ class ReportServiceImplTest {
     @Test
     void generateMerchantTransactionsReport_invalidPeriod_endNotBeforeToday() {
         ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(10));
-        request.setEndPeriod(LocalDateTime.now());
+        request.setStartPeriod(Instant.now().minus(10,ChronoUnit.DAYS));
+        request.setEndPeriod(Instant.now());
 
         StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
                 .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody
@@ -725,8 +759,8 @@ class ReportServiceImplTest {
     @Test
     void generateMerchantTransactionsReport_invalidLengthPeriod_exceedsLimit() {
         ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(PERIOD_LENGTH + 5));
-        request.setEndPeriod(LocalDateTime.now().minusDays(1));
+        request.setStartPeriod(Instant.now().minus(PERIOD_LENGTH + 5, ChronoUnit.DAYS));
+        request.setEndPeriod(Instant.now().minus(1,ChronoUnit.DAYS));
 
         StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
                 .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody
@@ -738,8 +772,8 @@ class ReportServiceImplTest {
     @Test
     void generateMerchantTransactionsReport_validLengthPeriod_equalToLimit() {
         ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(PERIOD_LENGTH));
-        request.setEndPeriod(LocalDateTime.now().minusDays(1));
+        request.setStartPeriod(Instant.now().minus(PERIOD_LENGTH,ChronoUnit.DAYS));
+        request.setEndPeriod(Instant.now().minus(1,ChronoUnit.DAYS));
 
         MerchantDetailDTO merchant = new MerchantDetailDTO();
         merchant.setBusinessName("Business");
@@ -768,8 +802,8 @@ class ReportServiceImplTest {
     void generateReport_userDetails_success() {
         ReportRequest request = new ReportRequest();
         request.setReportType(ReportType.USER_DETAILS);
-        request.setStartPeriod(LocalDateTime.now().minusDays(10));
-        request.setEndPeriod(LocalDateTime.now());
+        request.setStartPeriod(Instant.now().minus(10,ChronoUnit.DAYS));
+        request.setEndPeriod(Instant.now());
 
         ReportDTO expectedDto = ReportDTO.builder().id("R1").build();
 
@@ -789,8 +823,8 @@ class ReportServiceImplTest {
     @Test
     void generateUserDetailsReport_success() {
         ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(5));
-        request.setEndPeriod(LocalDateTime.now().minusDays(1));
+        request.setStartPeriod(Instant.now().minus(5,ChronoUnit.DAYS));
+        request.setEndPeriod(Instant.now().minus(1,ChronoUnit.DAYS));
         request.setReportType(ReportType.USER_DETAILS);
 
         Report savedReport = Report.builder()
@@ -825,8 +859,8 @@ class ReportServiceImplTest {
     @Test
     void generateUserDetailsReport_saveError() {
         ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(5));
-        request.setEndPeriod(LocalDateTime.now().minusDays(1));
+        request.setStartPeriod(Instant.now().minus(5,ChronoUnit.DAYS));
+        request.setEndPeriod(Instant.now().minus(1,ChronoUnit.DAYS));
         request.setReportType(ReportType.USER_DETAILS);
 
         RuntimeException saveError = new RuntimeException("DB error");
@@ -845,45 +879,72 @@ class ReportServiceImplTest {
     @Test
     void generateUserDetailsReport_fileNameGeneratedCorrectly() {
         ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.of(2026, 1, 1, 0, 0));
-        request.setEndPeriod(LocalDateTime.of(2026, 1, 31, 23, 59));
+       
+
+        request.setStartPeriod(
+                LocalDate.of(2026, 1, 1)
+                        .atStartOfDay(CommonConstants.ZONEID)
+                        .toInstant()
+        );
+
+        request.setEndPeriod(
+                LocalDate.of(2026, 1, 31)
+                        .atTime(23, 59)
+                        .atZone(CommonConstants.ZONEID)
+                        .toInstant()
+        );
+
         request.setReportType(ReportType.USER_DETAILS);
 
-        LocalDateTime fixedNow = LocalDateTime.of(2026, 2, 1, 12, 30, 45);
+        ArgumentCaptor<Report> captor = ArgumentCaptor.forClass(Report.class);
 
-        try (MockedStatic<LocalDateTime> mocked = mockStatic(LocalDateTime.class, CALLS_REAL_METHODS)) {
-            mocked.when(LocalDateTime::now).thenReturn(fixedNow);
+        Report saved = Report.builder()
+                .id("R200")
+                .fileName("Report_03042026120000")
+                .build();
 
-            ArgumentCaptor<Report> captor = ArgumentCaptor.forClass(Report.class);
+        when(reportRepository.save(any())).thenReturn(Mono.just(saved));
+        when(dataFactoryServiceMock.triggerUserDetailsReportPipeline(saved)).thenReturn(Mono.just("RUN_ID"));
+        when(reportMapper.toDTO(saved))
+                .thenReturn(ReportDTO.builder().id("R200").fileName(saved.getFileName()).build());
 
-            Report saved = Report.builder()
-                    .id("R200")
-                    .fileName("Report_01022026123045")
-                    .build();
+        StepVerifier.create(
+                        service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request)
+                )
+                .assertNext(dto ->
+                        assertEquals("Report_03042026120000", dto.getFileName())
+                )
+                .verifyComplete();
 
-            when(reportRepository.save(any())).thenReturn(Mono.just(saved));
-            when(dataFactoryServiceMock.triggerUserDetailsReportPipeline(saved)).thenReturn(Mono.just("RUN_ID"));
-            when(reportMapper.toDTO(saved)).thenReturn(ReportDTO.builder().id("R200").fileName(saved.getFileName()).build());
-
-            StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                    .assertNext(dto -> assertEquals("Report_01022026123045", dto.getFileName()))
-                    .verifyComplete();
-
-            verify(reportRepository).save(captor.capture());
-            assertEquals("Report_01022026123045.csv", captor.getValue().getFileName());
-        }
+        verify(reportRepository).save(captor.capture());
+        assertEquals("Report_03042026120000.csv", captor.getValue().getFileName());
     }
     @Test
     void generateUserDetailsReport_TriggerPipelineError() {
         ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.of(2026, 1, 1, 0, 0));
-        request.setEndPeriod(LocalDateTime.of(2026, 1, 31, 23, 59));
+       
+
+        request.setStartPeriod(
+                LocalDate.of(2026, 1, 1)
+                        .atStartOfDay(CommonConstants.ZONEID)
+                        .toInstant()
+        );
+
+        request.setEndPeriod(
+                LocalDate.of(2026, 1, 31)
+                        .atTime(23, 59)
+                        .atZone(CommonConstants.ZONEID)
+                        .toInstant()
+        );
+
+        Instant fixedNow =
+                LocalDate.of(2026, 2, 1)
+                        .atTime(12, 30, 45)
+                        .atZone(CommonConstants.ZONEID)
+                        .toInstant();
         request.setReportType(ReportType.USER_DETAILS);
-
-        LocalDateTime fixedNow = LocalDateTime.of(2026, 2, 1, 12, 30, 45);
-
-        try (MockedStatic<LocalDateTime> mocked = mockStatic(LocalDateTime.class, CALLS_REAL_METHODS)) {
-            mocked.when(LocalDateTime::now).thenReturn(fixedNow);
+        try (MockedStatic<Instant> mocked = mockStatic(Instant.class, CALLS_REAL_METHODS)) {
+            mocked.when(Instant::now).thenReturn(fixedNow);
 
             Report saved = Report.builder()
                     .id("R200")
@@ -906,8 +967,8 @@ class ReportServiceImplTest {
 
     @Test
     void generateUserDetailsReport_invalidPeriod_startAfterEnd() {
-        ReportRequest request = new ReportRequest();        request.setStartPeriod(LocalDateTime.now().minusDays(1));
-        request.setEndPeriod(LocalDateTime.now().minusDays(5));
+        ReportRequest request = new ReportRequest();        request.setStartPeriod(Instant.now().minus(1,ChronoUnit.DAYS));
+        request.setEndPeriod(Instant.now().minus(5,ChronoUnit.DAYS));
 
         StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
                 .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody
@@ -918,8 +979,8 @@ class ReportServiceImplTest {
     @Test
     void generateUserDetailsReport_invalidPeriod_endNotBeforeToday() {
         ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(10));
-        request.setEndPeriod(LocalDateTime.now());
+        request.setStartPeriod(Instant.now().minus(10,ChronoUnit.DAYS));
+        request.setEndPeriod(Instant.now());
 
         StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
                 .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody

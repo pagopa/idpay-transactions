@@ -14,7 +14,7 @@ import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
-import java.time.LocalDate;
+import java.time.Instant;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -277,7 +277,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
-  public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, LocalDate initiativeEndDate) {
+  public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, Instant initiativeEndDate) {
       String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
       String sanitizeMerchantId = merchantId == null ? null : Utilities.sanitizeString(merchantId);
       String sanitizeRewardBatchId = rewardBatchId == null ? null : Utilities.sanitizeString(rewardBatchId);

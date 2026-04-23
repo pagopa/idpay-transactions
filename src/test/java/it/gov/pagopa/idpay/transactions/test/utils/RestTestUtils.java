@@ -8,14 +8,14 @@ public class RestTestUtils {
 
     public static final String TRUSTSTORE_PATH = "src/test/resources/keystore.p12";
     public static final String TRUSTSTORE_KO_PATH = "src/test/resources/keystore2.p12";
-    public static boolean USE_TRUSTSTORE_KO = false;
+    public static boolean useTruststoreKo = false;
 
     public static WireMockConfiguration getWireMockConfiguration(){
         return wireMockConfig()
                 .dynamicPort()
                 .httpsPort(0)
                 .needClientAuth(true)
-                .trustStorePath(USE_TRUSTSTORE_KO ? TRUSTSTORE_KO_PATH : TRUSTSTORE_PATH)
+                .trustStorePath(useTruststoreKo ? TRUSTSTORE_KO_PATH : TRUSTSTORE_PATH)
                 .trustStorePassword("idpay")
                 .usingFilesUnderClasspath("src/test/resources/stub");
     }

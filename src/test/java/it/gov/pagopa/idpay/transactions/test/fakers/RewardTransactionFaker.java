@@ -1,14 +1,9 @@
 package it.gov.pagopa.idpay.transactions.test.fakers;
 
-import com.github.javafaker.service.FakeValuesService;
-import com.github.javafaker.service.RandomService;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.Locale;
+import java.time.*;
 import java.util.Random;
 
 public class RewardTransactionFaker {
@@ -21,19 +16,11 @@ public class RewardTransactionFaker {
         return bias == null ? randomGenerator : new Random(bias);
     }
 
-    private static int getRandomPositiveNumber(Integer bias) {
-        return Math.abs(getRandom(bias).nextInt());
-    }
 
     private static int getRandomPositiveNumber(Integer bias, int bound) {
         return Math.abs(getRandom(bias).nextInt(bound));
     }
 
-    private static final FakeValuesService fakeValuesServiceGlobal = new FakeValuesService(Locale.ITALIAN, new RandomService(null));
-
-    private static FakeValuesService getFakeValuesService(Integer bias) {
-        return bias == null ? fakeValuesServiceGlobal : new FakeValuesService(Locale.ITALIAN, new RandomService(getRandom(bias)));
-    }
 
     /**
      * It will return an example of {@link RewardTransactionDTO}. Providing a bias, it will return a pseudo-casual object
@@ -45,7 +32,12 @@ public class RewardTransactionFaker {
     public static RewardTransaction.RewardTransactionBuilder mockInstanceBuilder(Integer bias) {
         LocalDate trxDate = LocalDate.of(2022, getRandomPositiveNumber(bias, 11) + 1, getRandomPositiveNumber(bias, 27)+1);
         LocalTime trxTime = LocalTime.of(getRandomPositiveNumber(bias, 23), getRandomPositiveNumber(bias, 59), getRandomPositiveNumber(bias, 59));
-        LocalDateTime trxDateTime = LocalDateTime.of(trxDate, trxTime);
+        Instant trxDateTime = OffsetDateTime.of(
+                trxDate,
+                trxTime,
+                ZoneOffset.UTC
+        ).toInstant();
+
 
         return RewardTransaction.builder()
                 .idTrxAcquirer("IDTRXACQUIRER%s".formatted(bias))

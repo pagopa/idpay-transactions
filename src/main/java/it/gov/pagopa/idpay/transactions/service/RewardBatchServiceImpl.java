@@ -5,6 +5,7 @@ import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.models.BlockBlobItem;
 import com.mongodb.client.result.DeleteResult;
 import com.nimbusds.jose.util.Pair;
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
@@ -51,9 +52,7 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.NumberFormat;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.YearMonth;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
@@ -84,7 +83,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private final MerchantRestClient merchantRestClient;
     private final SelfcareInstitutionsRestClient selfcareInstitutionsRestClient;
     private final ErogazioniRestClient erogazioniRestClient;
-
+    private final Clock clock;
 
     private static final String OPERATOR_1 = "operator1";
     private static final String OPERATOR_2 = "operator2";
@@ -111,7 +110,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "%s_%s_%s.csv";
     private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern(DATE_FORMAT, Locale.ITALIAN);
 
-    public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService, ReactiveMongoTemplate reactiveMongoTemplate, ChecksErrorMapper checksErrorMapper, AuditUtilities auditUtilities, MerchantRestClient merchantRestClient, SelfcareInstitutionsRestClient selfcareInstitutionsRestClient, ErogazioniRestClient erogazioniRestClient) {
+    public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService, ReactiveMongoTemplate reactiveMongoTemplate, ChecksErrorMapper checksErrorMapper, AuditUtilities auditUtilities, MerchantRestClient merchantRestClient, SelfcareInstitutionsRestClient selfcareInstitutionsRestClient, ErogazioniRestClient erogazioniRestClient, Clock clock) {
         this.rewardBatchRepository = rewardBatchRepository;
         this.rewardTransactionRepository = rewardTransactionRepository;
         this.userRestClient = userRestClient;
@@ -122,6 +121,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         this.merchantRestClient = merchantRestClient;
         this.selfcareInstitutionsRestClient = selfcareInstitutionsRestClient;
         this.erogazioniRestClient = erogazioniRestClient;
+        this.clock = clock;
     }
 
     @Override
@@ -154,8 +154,20 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private Mono<RewardBatch> createBatch(String merchantId, PosType posType, String month, String businessName, String initiativeId) {
 
         YearMonth batchYearMonth = YearMonth.parse(month);
-        LocalDateTime startDate = batchYearMonth.atDay(1).atTime(0,0,0);
-        LocalDateTime endDate = batchYearMonth.atEndOfMonth().atTime(23,59,59);
+
+        ZoneId zone = ZoneId.of("Europe/Rome");
+        
+        Instant startDate = batchYearMonth
+                .atDay(1)
+                .atStartOfDay(zone)
+                .toInstant();
+        
+        Instant endDate = batchYearMonth
+                .plusMonths(1)
+                .atDay(1)
+                .atStartOfDay(zone)
+                .toInstant();
+
 
         RewardBatch batch = RewardBatch.builder()
                 .merchantId(merchantId)
@@ -176,8 +188,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .numberOfTransactionsSuspended(0L)
                 .numberOfTransactionsRejected(0L)
-                .creationDate(LocalDateTime.now())
-                .updateDate(LocalDateTime.now())
+                .creationDate(Instant.now(clock))
+                .updateDate(Instant.now(clock))
                 .initiativeId(initiativeId)
                 .build();
 
@@ -200,7 +212,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                 ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST));
                     }
                     YearMonth batchMonth = YearMonth.parse(batch.getMonth());
-                    if (!YearMonth.now().isAfter(batchMonth)) {
+                    if (!YearMonth.now(clock).isAfter(batchMonth)) {
                         log.warn("[SEND_REWARD_BATCHES] Batch month too early to be sent !");
                         return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
                                 ExceptionConstants.ExceptionCode.REWARD_BATCH_MONTH_TOO_EARLY));
@@ -215,7 +227,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                             ExceptionConstants.ExceptionCode.REWARD_BATCH_PREVIOUS_NOT_SENT));
                                 }
 
-                                LocalDateTime dateTimeNow = LocalDateTime.now();
+                                Instant dateTimeNow = Instant.now(clock);
                                 batch.setStatus(RewardBatchStatus.SENT);
                                 batch.setMerchantSendDate(dateTimeNow);
                                 batch.setUpdateDate(dateTimeNow);
@@ -242,7 +254,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         validChecksError(request.getChecksError());
 
         ChecksError checksErrorModel = checksErrorMapper.toModel(request.getChecksError());
-        ReasonDTO reason = generateReasonDto(request);
+        ReasonDTO reason = generateReasonDto(request,clock);
 
         return rewardBatchRepository.findByIdAndInitiativeIdAndStatus(rewardBatchId, initiativeId, RewardBatchStatus.EVALUATING)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(NOT_FOUND,
@@ -318,8 +330,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 });
     }
 
-    private static ReasonDTO generateReasonDto(TransactionsRequest request) {
-        LocalDateTime now = LocalDateTime.now();
+    private static ReasonDTO generateReasonDto(TransactionsRequest request, Clock clock) {
+        Instant now = Instant.now(clock);
         return new ReasonDTO(now, request.getReason());
     }
 
@@ -357,7 +369,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         validChecksError(request.getChecksError());
 
         ChecksError checksErrorModel = checksErrorMapper.toModel(request.getChecksError());
-        ReasonDTO reason = generateReasonDto(request);
+        ReasonDTO reason = generateReasonDto(request,clock);
 
         return rewardBatchRepository.findByIdAndInitiativeIdAndStatus(
                         rewardBatchId,
@@ -644,7 +656,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             );
                 })
                 .map(rewardBatch -> {
-                    LocalDateTime nowDateTime = LocalDateTime.now();
+                    Instant nowDateTime = Instant.now(clock);
                     rewardBatch.setStatus(RewardBatchStatus.APPROVING);
                     rewardBatch.setApprovalDate(nowDateTime);
                     rewardBatch.setUpdateDate(nowDateTime);
@@ -663,13 +675,20 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     @Override
     public Mono<RewardBatch> updateBatch(RewardBatch batch, InvitaliaOutcomeResponseDTO response) {
 
-        batch.setRefundOutcomeTimestamp(LocalDateTime.now());
+        batch.setRefundOutcomeTimestamp(Instant.now(clock));
 
         String status = response.getErogazione().getStatus();
 
         if (InvitaliaOutcomeStatus.COMPLETATA.name().equalsIgnoreCase(status)) {
             batch.setStatus(RewardBatchStatus.REFUNDED);
-            batch.setRefundValutaDate(response.getErogazione().getDateValue());
+
+            Instant refundDate = response.getErogazione()
+                    .getDateValue()
+                    .atStartOfDay(ZoneOffset.UTC)
+                    .toInstant();
+
+            batch.setRefundValutaDate(refundDate);
+
 
         } else if (InvitaliaOutcomeStatus.RIFIUTATA.name().equalsIgnoreCase(status)) {
 
@@ -786,7 +805,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .flatMap(originalBatch -> handleSuspendedTransactions(originalBatch, initiativeId))
                 .flatMap(originalBatch -> {
                     originalBatch.setStatus(RewardBatchStatus.APPROVED);
-                    originalBatch.setUpdateDate(LocalDateTime.now());
+                    originalBatch.setUpdateDate(Instant.now(clock));
                     return rewardBatchRepository.save(originalBatch);
                 })
                 .flatMap(savedBatch ->
@@ -860,7 +879,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                                 batch.setDeliveryOutcome(outcome);
                                                 if (outcome.isSucceded()) {
                                                     batch.setStatus(RewardBatchStatus.PENDING_REFUND);
-                                                    batch.setDeliveryDateRequest(LocalDateTime.now());
+                                                    batch.setDeliveryDateRequest(Instant.now());
                                                     log.info("[PROCESS_BATCH] Batch {} delivery succeeded. Status moved to PENDING_REFUND", rewardBatchId);
                                                 } else {
                                                     log.warn("[PROCESS_BATCH] Batch {} delivery rejected by server: {}", rewardBatchId, outcome.getMessage());
@@ -921,7 +940,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     public String getTargetMonth(String yearMonthBatchOriginal) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern(DATE_FORMAT);
         YearMonth originalBatchMonth = YearMonth.parse(yearMonthBatchOriginal, formatter);
-        YearMonth currentMonth = YearMonth.now();
+        YearMonth currentMonth = YearMonth.now(clock);
         YearMonth targetMonth = originalBatchMonth.isAfter(currentMonth) ? originalBatchMonth : currentMonth;
         return targetMonth.format(formatter);
     }
@@ -1105,9 +1124,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     private String mapTransactionToCsvRow(RewardTransaction trx, String initiativeId) {
 
-        Function<LocalDateTime, String> safeDateToString =
+        Function<Instant, String> safeDateToString =
                 date -> date != null
-                        ? date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy hh:mm"))
+                        ? LocalDateTime.ofInstant(date, CommonConstants.ZONEID)
+                        .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
                         : "";
 
         LongFunction<String> centsToEuroString = cents -> {
@@ -1202,7 +1222,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     }
 
     @Override
-    public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, LocalDate initiativeEndDate) {
+    public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, Instant initiativeEndDate) {
 
         return rewardTransactionRepository.findTransactionInBatch(initiativeId, merchantId, rewardBatchId, transactionId)
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
@@ -1232,7 +1252,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                 YearMonth currentBatchMonth = YearMonth.parse(currentBatch.getMonth());
                                 YearMonth nextBatchMonth = currentBatchMonth.plusMonths(1);
 
-                                YearMonth maxAllowedMonth = YearMonth.from(initiativeEndDate).plusMonths(1);
+
+                                YearMonth maxAllowedMonth = YearMonth.from(
+                                        initiativeEndDate.atZone(clock.getZone()).toLocalDate()
+                                ).plusMonths(1);
 
                                 if (nextBatchMonth.isAfter(maxAllowedMonth)) {
                                     return Mono.error(new ClientExceptionWithBody(
@@ -1284,8 +1307,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                                     .then(Mono.defer(() -> {
 
                                                         trx.setRewardBatchId(nextBatch.getId());
-                                                        trx.setRewardBatchInclusionDate(LocalDateTime.now());
-                                                        trx.setUpdateDate(LocalDateTime.now());
+                                                        trx.setRewardBatchInclusionDate(Instant.now(clock));
+                                                        trx.setUpdateDate(Instant.now(clock));
 
                                                         return rewardTransactionRepository.save(trx);
                                                     }));
@@ -1303,7 +1326,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     @Override
     public Mono<Void> deleteEmptyRewardBatches() {
 
-        String currentMonth = LocalDate.now()
+        String currentMonth = LocalDate.now(clock)
                 .withDayOfMonth(1)
                 .toString()
                 .substring(0, 7);

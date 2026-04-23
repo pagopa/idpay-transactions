@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.service;
 import com.azure.core.http.rest.Response;
 import com.azure.storage.blob.models.BlockBlobItem;
 import com.mongodb.client.result.DeleteResult;
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
@@ -51,9 +52,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.lang.reflect.Method;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.YearMonth;
+import java.time.*;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -83,6 +82,7 @@ class RewardBatchServiceImplTest {
 
     private RewardBatchServiceImpl service;
     private RewardBatchServiceImpl serviceSpy;
+    private final Clock clock = Clock.fixed(Instant.parse("2026-04-03T10:00:00Z"), ZoneOffset.UTC);
 
     private static final String INITIATIVE_ID = "INITIATIVE_ID";
     private static final List<String> INITIATIVES_ID = List.of(INITIATIVE_ID);
@@ -106,8 +106,8 @@ class RewardBatchServiceImplTest {
                 auditUtilities,
                 merchantRestClient,
                 selfcareInstitutionsRestClient,
-                erogazioniRestClient
-        );
+                erogazioniRestClient,
+                clock);
         serviceSpy = spy(service);
     }
 
@@ -1381,10 +1381,12 @@ class RewardBatchServiceImplTest {
 
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(batch));
         when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-
         RewardTransaction trxWithCF = RewardTransaction.builder()
                 .id("T1")
-                .trxChargeDate(LocalDateTime.of(2025, 12, 10, 10, 30))
+                .trxChargeDate(LocalDate.of(2025, 12, 10)
+                                .atTime(10, 30)
+                                .atZone(CommonConstants.ZONEID)
+                                .toInstant())
                 .fiscalCode("CF1")
                 .trxCode("CODE")
                 .effectiveAmountCents(1000L)
@@ -1553,7 +1555,7 @@ class RewardBatchServiceImplTest {
         when(rewardTransactionRepository.findTransactionInBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "T1"))
                 .thenReturn(Mono.empty());
 
-        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", LocalDate.now()))
+        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", Instant.now()))
                 .expectError(ClientExceptionNoBody.class)
                 .verify();
     }
@@ -1572,7 +1574,7 @@ class RewardBatchServiceImplTest {
 
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.empty());
 
-        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", LocalDate.now()))
+        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", Instant.now()))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
     }
@@ -1599,7 +1601,7 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Mono.just(trx));
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(current));
 
-        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", LocalDate.now()))
+        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", Instant.now()))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
     }
@@ -1622,7 +1624,7 @@ class RewardBatchServiceImplTest {
                 .status(RewardBatchStatus.CREATED)
                 .build();
 
-        LocalDate initiativeEnd = LocalDate.of(2026, 1, 6);
+        Instant initiativeEnd = LocalDate.of(2026, 1, 6).atStartOfDay(CommonConstants.ZONEID).toInstant();
 
         when(rewardTransactionRepository.findTransactionInBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "T1"))
                 .thenReturn(Mono.just(trx));
@@ -1678,7 +1680,7 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Mono.empty());
 
 
-        StepVerifier.create(serviceSpy.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", LocalDate.of(2026, 1, 6)))
+        StepVerifier.create(serviceSpy.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1", LocalDate.of(2026, 1, 6).atStartOfDay(CommonConstants.ZONEID).toInstant()))
                 .verifyComplete();
 
         verify(rewardBatchRepository, times(2))
@@ -1747,7 +1749,7 @@ class RewardBatchServiceImplTest {
         String rewardBatchId = BATCH_ID;
         String transactionId = "TRX_ID";
 
-        LocalDate initiativeEndDate = LocalDate.of(2026, 12, 31);
+        Instant initiativeEndDate = LocalDate.of(2026, 12, 31).atStartOfDay(CommonConstants.ZONEID).toInstant();
 
         long accruedRewardCents = 100L;
 

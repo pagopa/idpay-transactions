@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.common.web.dto.ErrorDTO;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
@@ -16,7 +17,9 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.Instant;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 @WebFluxTest(controllers = {TransactionsController.class})
@@ -32,9 +35,17 @@ class TransactionsControllerImplTest {
 
     @Test
     void findAllOk() {
-        LocalDateTime now = LocalDateTime.of(2022, 9, 20, 13, 15,45);
-        LocalDateTime startDate = now.minusMonths(5L);
-        LocalDateTime endDate = now.plusMonths(8L);
+
+        Instant now = LocalDate.of(2026, 2, 20)
+                .atTime(13, 15, 45)
+                .atZone(CommonConstants.ZONEID)
+                .toInstant();
+
+        ZonedDateTime zdt = now.atZone(CommonConstants.ZONEID);
+
+        Instant startDate = zdt.minusMonths(5).toInstant();
+        Instant endDate   = zdt.plusMonths(8).toInstant();
+
 
         RewardTransaction rt = RewardTransaction.builder()
                 .idTrxIssuer("IDTRXISSUER")
@@ -78,9 +89,12 @@ class TransactionsControllerImplTest {
 
     @Test
     void findAllBadRequest(){
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime startDate = now.minusMonths(5L);
-        LocalDateTime endDate = now.plusMonths(8L);
+        Instant now = Instant.now();
+
+        ZonedDateTime zdt = now.atZone(CommonConstants.ZONEID);
+
+        Instant startDate = zdt.minusMonths(5).toInstant();
+        Instant endDate   = zdt.plusMonths(8).toInstant();
 
         RewardTransaction rt = RewardTransaction.builder()
                 .idTrxIssuer("IDTRXISSUER")
@@ -152,9 +166,16 @@ class TransactionsControllerImplTest {
 
     @Test
     void pageable(){
-        LocalDateTime now = LocalDateTime.of(2022, 9, 20, 13, 15,45);
-        LocalDateTime startDate = now.minusMonths(5L);
-        LocalDateTime endDate = now.plusMonths(8L);
+        Instant now =    LocalDate.of(2026, 2, 20)
+                .atTime(13, 15,45)
+                .atZone(CommonConstants.ZONEID)
+                .toInstant();
+
+        ZonedDateTime zdt = now.atZone(CommonConstants.ZONEID);
+
+        Instant startDate = zdt.minusMonths(5).toInstant();
+        Instant endDate   = zdt.plusMonths(8).toInstant();
+
         String userId = "USERID";
         String idTrxIssuer = "IDTRXISSUER";
         Long amountCents = 3000L;
@@ -208,7 +229,10 @@ class TransactionsControllerImplTest {
 
   @Test
   void findByInitiativeIdAndUserId_Ok() {
-    LocalDateTime now = LocalDateTime.of(2022, 9, 20, 13, 15,45);
+      Instant now =    LocalDate.of(2026, 2, 20)
+              .atTime(13, 15,45)
+              .atZone(CommonConstants.ZONEID)
+              .toInstant();
 
     RewardTransaction rt = RewardTransaction.builder()
         .idTrxIssuer("IDTRXISSUER")

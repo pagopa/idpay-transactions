@@ -16,6 +16,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -38,6 +41,7 @@ class ReportTransactionsBlobServiceImplTest {
     private BlobStorageProperties propertiesMock;
 
     private ReportTransactionsBlobServiceImpl reportService;
+    private final Clock clock = Clock.fixed(Instant.parse("2026-04-03T10:00:00Z"), ZoneOffset.UTC);
 
     @BeforeEach
     void init() {
@@ -49,7 +53,8 @@ class ReportTransactionsBlobServiceImplTest {
         reportService = new ReportTransactionsBlobServiceImpl(
                 blobServiceClient,
                 reportsContainerClient,
-                propertiesMock
+                propertiesMock,
+                clock
         );
     }
 

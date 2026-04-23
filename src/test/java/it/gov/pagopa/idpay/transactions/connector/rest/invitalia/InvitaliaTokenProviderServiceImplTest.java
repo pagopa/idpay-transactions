@@ -10,6 +10,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Mono;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,17 +31,19 @@ class InvitaliaTokenProviderServiceImplTest {
 
     private InvitaliaTokenProviderService service;
 
+    private final Clock clock = Clock.fixed(Instant.parse("2026-04-03T10:00:00Z"), ZoneOffset.UTC);
+
     @BeforeEach
     void setUp() {
         InvitaliaConfig.Token tokenMock = mock(InvitaliaConfig.Token.class);
         when(invitaliaConfig.getToken()).thenReturn(tokenMock);
         when(tokenMock.getRefreshBeforeExpiry()).thenReturn(60000);
-        service = new InvitaliaTokenProviderServiceImpl(invitaliaConfig, invitaliaTokenRestClient);
+        service = new InvitaliaTokenProviderServiceImpl(invitaliaConfig, invitaliaTokenRestClient, clock);
     }
 
     @Test
     void retrieveToken_inCache() {
-        TokenDTO tokenCached = new TokenDTO("TOKEN", 360);
+        TokenDTO tokenCached = new TokenDTO("TOKEN", 360,clock);
 
         AtomicReference<TokenDTO> cached = (AtomicReference<TokenDTO>) ReflectionTestUtils.getField(service, "cachedToken");
         cached.set(tokenCached);
@@ -51,7 +56,7 @@ class InvitaliaTokenProviderServiceImplTest {
 
     @Test
     void retrieveToken_notInCache() {
-        TokenDTO token = new TokenDTO("TOKEN", 360);
+        TokenDTO token = new TokenDTO("TOKEN", 360,clock);
         when(invitaliaTokenRestClient.getToken()).thenReturn(Mono.just(token));
 
         String result = service.retrieveToken().block();
@@ -67,7 +72,7 @@ class InvitaliaTokenProviderServiceImplTest {
 
     @Test
     void retrieveToken_ongoingInCache() {
-        TokenDTO token = new TokenDTO("TOKEN", 360);
+        TokenDTO token = new TokenDTO("TOKEN", 360,clock);
         AtomicReference<Mono<TokenDTO>> ongoingCache = (AtomicReference<Mono<TokenDTO>>) ReflectionTestUtils.getField(service, "ongoingRefresh");
         ongoingCache.set(Mono.just(token));
 
@@ -79,11 +84,11 @@ class InvitaliaTokenProviderServiceImplTest {
 
     @Test
     void retrieveToken_ongoingInCacheParallels() {
-        TokenDTO tokenCached = new TokenDTO("TOKEN", 0);
+        TokenDTO tokenCached = new TokenDTO("TOKEN", 0,clock);
         AtomicReference<TokenDTO> cached = (AtomicReference<TokenDTO>) ReflectionTestUtils.getField(service, "cachedToken");
         cached.set(tokenCached);
 
-        TokenDTO token = new TokenDTO("TOKEN1", 360);
+        TokenDTO token = new TokenDTO("TOKEN1", 360,clock);
         when(invitaliaTokenRestClient.getToken()).thenReturn(Mono.just(token));
 
         String result = service.retrieveToken().block();

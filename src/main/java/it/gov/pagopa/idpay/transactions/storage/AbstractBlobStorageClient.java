@@ -19,7 +19,10 @@ import org.springframework.http.HttpStatus;
 import java.io.InputStream;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_ON_GET_FILE_URL_REQUEST;
 
@@ -29,25 +32,30 @@ public abstract class AbstractBlobStorageClient {
     protected final BlobServiceClient blobServiceClient;
     protected final BlobContainerClient containerClient;
     protected final Integer sasDurationSeconds;
+    protected final Clock clock;
 
     protected AbstractBlobStorageClient(
             BlobServiceClient blobServiceClient,
             BlobContainerClient containerClient,
-            Integer sasDurationSeconds) {
+            Integer sasDurationSeconds, Clock clock) {
 
         this.blobServiceClient = blobServiceClient;
         this.containerClient = containerClient;
         this.sasDurationSeconds = sasDurationSeconds;
+        this.clock = clock;
     }
 
     public String getFileSignedUrl(String blobPath) {
-        OffsetDateTime expiryTime = OffsetDateTime.now().plusSeconds(sasDurationSeconds);
+        Instant expiryTime = Instant.now(clock).plusSeconds(sasDurationSeconds);
+        OffsetDateTime expiryOffsetDateTime = expiryTime.atOffset(ZoneOffset.UTC);
+
         UserDelegationKey userDelegationKey =
-                blobServiceClient.getUserDelegationKey(null, expiryTime);
+                blobServiceClient.getUserDelegationKey(null, expiryOffsetDateTime);
 
         BlobSasPermission sasPermission = new BlobSasPermission().setReadPermission(true);
         BlobClient blobClient = containerClient.getBlobClient(blobPath);
-        BlobServiceSasSignatureValues sasValues = new BlobServiceSasSignatureValues(expiryTime, sasPermission);
+        BlobServiceSasSignatureValues sasValues =
+                new BlobServiceSasSignatureValues(expiryOffsetDateTime, sasPermission);
 
         try {
             String sasToken = blobClient.generateUserDelegationSas(sasValues, userDelegationKey);
@@ -59,6 +67,7 @@ public abstract class AbstractBlobStorageClient {
             throw new ClientException(HttpStatus.INTERNAL_SERVER_ERROR, ERROR_ON_GET_FILE_URL_REQUEST, e);
         }
     }
+
 
     public Response<BlockBlobItem> upload(InputStream inputStream, String destination, String contentType) {
         log.info("Uploading (contentType={}) into azure blob at destination {}",

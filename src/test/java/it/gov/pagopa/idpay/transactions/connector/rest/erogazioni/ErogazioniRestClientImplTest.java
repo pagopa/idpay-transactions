@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.connector.rest.erogazioni;
 
 import com.github.javafaker.Faker;
 import it.gov.pagopa.common.config.JsonConfig;
+import it.gov.pagopa.common.config.TimeConfig;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.InvitaliaTokenProviderService;
 import it.gov.pagopa.idpay.transactions.dto.AnagraficaDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
@@ -17,7 +18,7 @@ import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,7 +34,8 @@ import static org.junit.jupiter.api.Assertions.*;
         classes = {
                 ErogazioniRestClientImpl.class,
                 WebClientConfig.class,
-                JsonConfig.class
+                JsonConfig.class,
+                TimeConfig.class
         })
 @TestPropertySource(
         properties = {
@@ -152,7 +154,7 @@ class ErogazioniRestClientImplTest extends BaseWireMockTest {
                 .erogazione(ErogazioneDTO.builder()
                         .idPratica(id)
                         .importo(10.0)
-                        .dataAmmissione(LocalDateTime.now())
+                        .dataAmmissione(Instant.now())
                         .build())
                 .build();
     }

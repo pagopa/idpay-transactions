@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
@@ -20,7 +21,6 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 
@@ -51,7 +51,6 @@ class RewardBatchSpecificRepositoryImplTest {
   @BeforeEach
   void setUp() {
     rewardBatchRepository.deleteAll().block();
-
     batch1 = RewardBatch.builder()
         .id("batch1")
         .merchantId(MERCHANT)
@@ -63,8 +62,17 @@ class RewardBatchSpecificRepositoryImplTest {
         .assigneeLevel(RewardBatchAssignee.L1)
         .partial(false)
         .name("novembre 2025")
-        .startDate(LocalDateTime.of(2025, 11, 1, 0, 0))
-        .endDate(LocalDateTime.of(2025, 11, 30, 23, 59))
+            .startDate(
+                    LocalDate.of(2025, 11, 1)
+                            .atStartOfDay(CommonConstants.ZONEID)
+                            .toInstant()
+            )
+            .endDate(
+                    LocalDate.of(2025, 11, 30)
+                            .atTime(23, 59)
+                            .atZone(CommonConstants.ZONEID)
+                            .toInstant()
+            )
         .initialAmountCents(ZERO_LONG)
         .approvedAmountCents(ZERO_LONG)
         .numberOfTransactions(ZERO_LONG)
@@ -84,8 +92,17 @@ class RewardBatchSpecificRepositoryImplTest {
         .status(RewardBatchStatus.CREATED)
         .partial(false)
         .name("novembre 2025")
-        .startDate(LocalDateTime.of(2025, 11, 1, 0, 0))
-        .endDate(LocalDateTime.of(2025, 11, 30, 23, 59))
+        .startDate(
+                LocalDate.of(2025, 11, 1)
+                        .atStartOfDay(CommonConstants.ZONEID)
+                        .toInstant()
+        )
+        .endDate(
+                LocalDate.of(2025, 11, 30)
+                        .atTime(23, 59)
+                        .atZone(CommonConstants.ZONEID)
+                        .toInstant()
+        )
         .initialAmountCents(ZERO_LONG)
         .numberOfTransactions(ZERO_LONG)
         .numberOfTransactionsElaborated(ZERO_LONG)

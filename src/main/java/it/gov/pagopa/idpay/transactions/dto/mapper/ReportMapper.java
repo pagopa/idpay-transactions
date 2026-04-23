@@ -7,7 +7,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class ReportMapper {
@@ -37,7 +36,7 @@ public class ReportMapper {
         List<ReportDTO> dtoList = page.getContent()
                 .stream()
                 .map(this::toDTO)
-                .collect(Collectors.toList());
+                .toList();
 
         return ReportListDTO.builder()
                 .reports(dtoList)

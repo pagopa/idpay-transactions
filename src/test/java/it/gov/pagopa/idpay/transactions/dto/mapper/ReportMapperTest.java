@@ -2,14 +2,17 @@ package it.gov.pagopa.idpay.transactions.dto.mapper;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportListDTO;
 import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
 import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.model.Report;
-import java.time.LocalDateTime;
+
+import java.time.*;
 import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Page;
@@ -19,10 +22,12 @@ import org.springframework.data.domain.PageRequest;
 class ReportMapperTest {
 
     private ReportMapper mapper;
+    private ZoneId zone;
 
     @BeforeEach
     void setUp() {
         mapper = new ReportMapper();
+        zone = CommonConstants.ZONEID;
     }
 
     @Test
@@ -34,10 +39,10 @@ class ReportMapperTest {
                 .businessName("BusinessName")
                 .fileName("report.csv")
                 .reportStatus(ReportStatus.INSERTED)
-                .startPeriod(LocalDateTime.of(2026, 2, 1, 0, 0))
-                .endPeriod(LocalDateTime.of(2026, 2, 28, 23, 59))
-                .requestDate(LocalDateTime.of(2026, 2, 10, 10, 0))
-                .elaborationDate(LocalDateTime.of(2026, 2, 10, 12, 0))
+                .startPeriod(LocalDate.of(2026, 2, 1).atStartOfDay(zone).toInstant())
+                .endPeriod(LocalDate.of(2026, 2, 28).atTime(23, 59).atZone(zone).toInstant())
+                .requestDate(LocalDate.of(2026, 2, 10).atTime( 10, 0).atZone(zone).toInstant())
+                .elaborationDate(LocalDate.of(2026, 2, 10).atTime(12, 0).atZone(zone).toInstant())
                 .operatorLevel(RewardBatchAssignee.L1)
                 .reportType(ReportType.MERCHANT_TRANSACTIONS)
                 .build();
@@ -51,10 +56,12 @@ class ReportMapperTest {
         assertEquals("BusinessName", dto.getBusinessName());
         assertEquals("report.csv", dto.getFileName());
         assertEquals(ReportStatus.INSERTED, dto.getReportStatus());
-        assertEquals(LocalDateTime.of(2026, 2, 1, 0, 0), dto.getStartPeriod());
-        assertEquals(LocalDateTime.of(2026, 2, 28, 23, 59), dto.getEndPeriod());
-        assertEquals(LocalDateTime.of(2026, 2, 10, 10, 0), dto.getRequestDate());
-        assertEquals(LocalDateTime.of(2026, 2, 10, 12, 0), dto.getElaborationDate());
+
+        assertEquals(LocalDate.of(2026, 2, 1).atStartOfDay(zone).toInstant(), dto.getStartPeriod());
+        assertEquals(LocalDate.of(2026, 2, 28).atTime(23, 59).atZone(zone).toInstant(), dto.getEndPeriod());
+        assertEquals(LocalDate.of(2026, 2, 10).atTime(10, 0).atZone(zone).toInstant(), dto.getRequestDate());
+        assertEquals(LocalDate.of(2026, 2, 10).atTime(12, 0).atZone(zone).toInstant(), dto.getElaborationDate());
+
         assertEquals(RewardBatchAssignee.L1, dto.getOperatorLevel());
         assertEquals(ReportType.MERCHANT_TRANSACTIONS, dto.getReportType());
     }
@@ -73,8 +80,8 @@ class ReportMapperTest {
                 .merchantId("m1")
                 .fileName("file1.csv")
                 .reportStatus(ReportStatus.INSERTED)
-                .startPeriod(LocalDateTime.of(2026, 2, 1, 0, 0))
-                .endPeriod(LocalDateTime.of(2026, 2, 28, 23, 59))
+                .startPeriod(LocalDate.of(2026, 2, 1).atStartOfDay(zone).toInstant())
+                .endPeriod(LocalDate.of(2026, 2, 28).atTime(23, 59).atZone(zone).toInstant())
                 .build();
 
         Report report2 = Report.builder()
@@ -83,8 +90,8 @@ class ReportMapperTest {
                 .merchantId("m2")
                 .fileName("file2.csv")
                 .reportStatus(ReportStatus.GENERATED)
-                .startPeriod(LocalDateTime.of(2026, 3, 1, 0, 0))
-                .endPeriod(LocalDateTime.of(2026, 3, 31, 23, 59))
+                .startPeriod(LocalDate.of(2026, 3, 1).atStartOfDay(zone).toInstant())
+                .endPeriod(LocalDate.of(2026, 3, 31).atTime(23, 59).atZone(zone).toInstant())
                 .build();
 
         Page<Report> page = new PageImpl<>(List.of(report1, report2), PageRequest.of(0, 10), 2);
@@ -98,7 +105,7 @@ class ReportMapperTest {
         assertEquals(2, listDTO.getTotalElements());
         assertEquals(1, listDTO.getTotalPages());
 
-        ReportDTO dto1 = listDTO.getReports().getFirst();
+        ReportDTO dto1 = listDTO.getReports().get(0);
         assertEquals("r1", dto1.getId());
         assertEquals("file1.csv", dto1.getFileName());
         assertEquals(ReportStatus.INSERTED, dto1.getReportStatus());

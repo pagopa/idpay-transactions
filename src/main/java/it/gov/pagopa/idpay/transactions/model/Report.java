@@ -12,7 +12,7 @@ import lombok.experimental.FieldNameConstants;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.MongoId;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Data
 @AllArgsConstructor
@@ -27,12 +27,12 @@ public class Report {
     private String id;
     private String initiativeId;
     private ReportStatus reportStatus;
-    private LocalDateTime startPeriod;
-    private LocalDateTime endPeriod;
+    private Instant startPeriod;
+    private Instant endPeriod;
     private String merchantId;
     private String businessName;
-    private LocalDateTime requestDate;
-    private LocalDateTime elaborationDate;
+    private Instant requestDate;
+    private Instant elaborationDate;
     private RewardBatchAssignee operatorLevel;
     private String fileName;
     private ReportType reportType;

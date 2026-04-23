@@ -16,7 +16,9 @@ import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.service.invoice_lifecycle.InvoiceLifecyclePolicy;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
-import java.time.LocalDateTime;
+
+import java.time.Clock;
+import java.time.Instant;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -49,27 +51,30 @@ import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.Exceptio
 @Slf4j
 public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransactionService {
 
-    private final UserRestClient userRestClient;
-    private final RewardTransactionRepository rewardTransactionRepository;
-    private final InvoiceStorageClient invoiceStorageClient;
-    private final RewardBatchService rewardBatchService;
-    private final RewardBatchRepository rewardBatchRepository;
-    private final TransactionErrorNotifierService transactionErrorNotifierService;
-    private final TransactionNotifierService transactionNotifierService;
+  private final UserRestClient userRestClient;
+  private final RewardTransactionRepository rewardTransactionRepository;
+  private final InvoiceStorageClient invoiceStorageClient;
+  private final RewardBatchService rewardBatchService;
+  private final RewardBatchRepository rewardBatchRepository;
+  private final TransactionErrorNotifierService transactionErrorNotifierService;
+  private final TransactionNotifierService transactionNotifierService;
 
-    protected PointOfSaleTransactionServiceImpl(
-            UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository, InvoiceStorageClient invoiceStorageClient, RewardBatchService rewardBatchService,
-            RewardBatchRepository rewardBatchRepository,
-            TransactionErrorNotifierService transactionErrorNotifierService,
-            TransactionNotifierService transactionNotifierService) {
-        this.userRestClient = userRestClient;
-        this.rewardTransactionRepository = rewardTransactionRepository;
-        this.invoiceStorageClient = invoiceStorageClient;
-        this.rewardBatchService = rewardBatchService;
-        this.rewardBatchRepository = rewardBatchRepository;
-        this.transactionErrorNotifierService = transactionErrorNotifierService;
-        this.transactionNotifierService = transactionNotifierService;
-    }
+  private final Clock clock;
+  protected PointOfSaleTransactionServiceImpl(
+          UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository, InvoiceStorageClient invoiceStorageClient, RewardBatchService rewardBatchService,
+          RewardBatchRepository rewardBatchRepository,
+          TransactionErrorNotifierService transactionErrorNotifierService,
+          TransactionNotifierService transactionNotifierService, Clock clock) {
+    this.userRestClient = userRestClient;
+    this.rewardTransactionRepository = rewardTransactionRepository;
+    this.invoiceStorageClient = invoiceStorageClient;
+    this.rewardBatchService = rewardBatchService;
+    this.rewardBatchRepository = rewardBatchRepository;
+    this.transactionErrorNotifierService = transactionErrorNotifierService;
+    this.transactionNotifierService = transactionNotifierService;
+    this.clock = clock;
+  }
+
 
     @Override
     public Mono<Page<RewardTransaction>> getPointOfSaleTransactions(String merchantId,
@@ -215,8 +220,8 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                             .filename(file.filename())
                             .docNumber(docNumber)
                             .build());
-                    trx.setInvoiceUploadDate(LocalDateTime.now());
-                    trx.setUpdateDate(LocalDateTime.now());
+                    trx.setInvoiceUploadDate(Instant.now(clock));
+                    trx.setUpdateDate(Instant.now(clock));
                     return rewardTransactionRepository.save(trx);
                 }));
     }
@@ -295,7 +300,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     oldTransaction.setStatus(SyncTrxStatus.INVOICED.name());
                     oldTransaction.setRewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED);
                     oldTransaction.setRewardBatchId(newBatch.getId());
-                    oldTransaction.setUpdateDate(LocalDateTime.now());
+                    oldTransaction.setUpdateDate(Instant.now(clock));
 
                     return rewardTransactionRepository.save(oldTransaction)
                             .then(rewardBatchRepository.updateTotals(oldBatch.getInitiativeId(), oldBatch.getId(), oldBatchCounter))
@@ -368,7 +373,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                                     rt.setSamplingKey(0);
 
                                     rt.setStatus(SyncTrxStatus.REFUNDED.toString());
-                                    rt.setUpdateDate(LocalDateTime.now());
+                                    rt.setUpdateDate(Instant.now(clock));
 
                                     rt.setCreditNoteData(InvoiceData.builder()
                                             .filename(file.filename())

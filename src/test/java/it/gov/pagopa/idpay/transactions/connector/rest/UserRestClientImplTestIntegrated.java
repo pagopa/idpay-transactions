@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.connector.rest;
 
+import it.gov.pagopa.common.config.TimeConfig;
 import it.gov.pagopa.common.reactive.rest.config.WebClientConfig;
 import it.gov.pagopa.common.reactive.wireMock.BaseWireMockTest;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
@@ -24,7 +25,8 @@ import org.springframework.test.context.TestPropertySource;
 @ContextConfiguration(
         classes = {
                 UserRestClientImpl.class,
-                WebClientConfig.class
+                WebClientConfig.class,
+                TimeConfig.class
         })
 class UserRestClientImplTestIntegrated extends BaseWireMockTest {
 

@@ -1,14 +1,14 @@
 package it.gov.pagopa.idpay.transactions.dto.mapper;
 
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+
 
 @Service
 public class RewardTransactionMapper {
@@ -21,7 +21,7 @@ public class RewardTransactionMapper {
             if (StringUtils.isEmpty(rewardTrxDto.getId())) {
                 rewardTrx.setId(rewardTrxDto.getIdTrxAcquirer()
                         .concat(rewardTrxDto.getAcquirerCode())
-                        .concat(String.valueOf(toLocalDateTime(rewardTrxDto.getTrxDate())))
+                        .concat(TRX_DATE_FORMATTER.format(rewardTrxDto.getTrxDate()))
                         .concat(rewardTrxDto.getOperationType())
                         .concat(rewardTrxDto.getAcquirerId()));
             } else {
@@ -29,7 +29,7 @@ public class RewardTransactionMapper {
             }
             rewardTrx.setIdTrxAcquirer(rewardTrxDto.getIdTrxAcquirer());
             rewardTrx.setAcquirerCode(rewardTrxDto.getAcquirerCode());
-            rewardTrx.setTrxDate(rewardTrxDto.getTrxDate() != null ? toLocalDateTime(rewardTrxDto.getTrxDate()) : null);
+            rewardTrx.setTrxDate(rewardTrxDto.getTrxDate() != null ? rewardTrxDto.getTrxDate() : null);
             rewardTrx.setHpan(rewardTrxDto.getHpan());
             rewardTrx.setOperationType(rewardTrxDto.getOperationType());
             rewardTrx.setCircuitType(rewardTrxDto.getCircuitType());
@@ -58,7 +58,7 @@ public class RewardTransactionMapper {
             rewardTrx.setBrandLogo(rewardTrxDto.getBrandLogo());
             rewardTrx.setOperationTypeTranscoded(rewardTrxDto.getOperationTypeTranscoded());
             rewardTrx.setEffectiveAmountCents(rewardTrxDto.getEffectiveAmountCents());
-            rewardTrx.setTrxChargeDate(rewardTrxDto.getTrxChargeDate() != null ? toLocalDateTime(rewardTrxDto.getTrxChargeDate()) : null);
+            rewardTrx.setTrxChargeDate(rewardTrxDto.getTrxChargeDate() != null ? rewardTrxDto.getTrxChargeDate() : null);
             rewardTrx.setRefundInfo(rewardTrxDto.getRefundInfo());
 
             rewardTrx.setElaborationDateTime(rewardTrxDto.getElaborationDateTime() != null ? rewardTrxDto.getElaborationDateTime() : null);
@@ -81,7 +81,7 @@ public class RewardTransactionMapper {
         return rewardTrx;
     }
 
-    private LocalDateTime toLocalDateTime(OffsetDateTime offsetDateTime) {
-        return offsetDateTime.atZoneSameInstant(ZoneId.of("Europe/Rome")).toLocalDateTime();
-    }
+    private static final DateTimeFormatter TRX_DATE_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+                    .withZone(CommonConstants.ZONEID);
 }

@@ -7,7 +7,7 @@ import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import jakarta.validation.Valid;
-import java.time.LocalDate;
+import java.time.Instant;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -122,7 +122,7 @@ public interface MerchantRewardBatchController {
       @PathVariable String transactionId,
       @RequestParam("initiativeEndDate")
       @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-      LocalDate initiativeEndDate
+      Instant initiativeEndDate
   );
 
   @DeleteMapping("/empty-reward-batches")

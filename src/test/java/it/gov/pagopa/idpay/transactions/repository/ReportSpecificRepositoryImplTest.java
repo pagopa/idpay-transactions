@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.common.reactive.mongo.MongoTest;
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
@@ -15,7 +16,8 @@ import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import reactor.test.StepVerifier;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -57,10 +59,19 @@ class ReportSpecificRepositoryImplTest {
                 .reportType(ReportType.MERCHANT_TRANSACTIONS)
                 .operatorLevel(null)
                 .fileName("file1.csv")
-                .startPeriod(LocalDateTime.of(2026, 2, 1, 0, 0))
-                .endPeriod(LocalDateTime.of(2026, 2, 28, 23, 59))
-                .requestDate(LocalDateTime.now())
-                .elaborationDate(LocalDateTime.now())
+                .startPeriod(
+                        LocalDate.of(2026, 2, 1)
+                                .atStartOfDay(CommonConstants.ZONEID)
+                                .toInstant()
+                )
+                .endPeriod(
+                        LocalDate.of(2026, 2, 28)
+                                .atTime(23, 59)
+                                .atZone(CommonConstants.ZONEID)
+                                .toInstant()
+                )
+                .requestDate(Instant.now())
+                .elaborationDate(Instant.now())
                 .build();
 
         reportRepository.save(report).block();

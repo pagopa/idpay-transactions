@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.dto.mapper;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import it.gov.pagopa.common.utils.CommonConstants;
 import it.gov.pagopa.common.utils.TestUtils;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.enums.OrganizationRole;
@@ -13,7 +14,7 @@ import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionDTOFaker;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
 
@@ -81,11 +82,16 @@ class RewardTransactionMapperTest {
                 "franchiseName", "pointOfSaleType", "businessName", "invoiceUploadDate", "updateDate",
                 "extendedAuthorization", "voucherAmountCents","initiativeId", "rewardBatchLastMonthElaborated");
 
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+                .withZone(CommonConstants.ZONEID);
+
         String expectedId = rewardTrx.getIdTrxAcquirer()
                 .concat(rewardTrx.getAcquirerCode())
-                .concat(String.valueOf(rewardTrx.getTrxDate().atZoneSameInstant(ZoneId.of("Europe/Rome")).toLocalDateTime()))
+                .concat(formatter.format(rewardTrx.getTrxDate()))
                 .concat(rewardTrx.getOperationType())
                 .concat(rewardTrx.getAcquirerId());
+
 
         assertEquals(expectedId, result.getId());
     }
@@ -121,7 +127,7 @@ class RewardTransactionMapperTest {
     private void assertCommonFields(RewardTransaction result, RewardTransactionDTO rewardTrx) {
         Assertions.assertSame(result.getIdTrxAcquirer(), rewardTrx.getIdTrxAcquirer());
         Assertions.assertSame(result.getAcquirerCode(), rewardTrx.getAcquirerCode());
-        assertEquals(result.getTrxDate(), rewardTrx.getTrxDate().toLocalDateTime());
+        assertEquals(result.getTrxDate(), rewardTrx.getTrxDate());
         Assertions.assertSame(result.getHpan(), rewardTrx.getHpan());
         Assertions.assertSame(result.getOperationType(), rewardTrx.getOperationType());
         Assertions.assertSame(result.getCircuitType(), rewardTrx.getCircuitType());
@@ -152,7 +158,7 @@ class RewardTransactionMapperTest {
     private void assertRefundFields(RewardTransaction resultRefunded, RewardTransactionDTO refundedTrx) {
         Assertions.assertSame(resultRefunded.getOperationTypeTranscoded(), refundedTrx.getOperationTypeTranscoded());
         Assertions.assertSame(resultRefunded.getEffectiveAmountCents(), refundedTrx.getEffectiveAmountCents());
-        assertEquals(resultRefunded.getTrxChargeDate(), refundedTrx.getTrxChargeDate().toLocalDateTime());
+        assertEquals(resultRefunded.getTrxChargeDate(), refundedTrx.getTrxChargeDate());
         Assertions.assertSame(resultRefunded.getRefundInfo(), refundedTrx.getRefundInfo());
         Assertions.assertSame(resultRefunded.getRewards(), refundedTrx.getRewards());
         checkNotNullRewardField(resultRefunded.getRewards());

@@ -6,7 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Data
 @AllArgsConstructor
@@ -17,10 +17,10 @@ public class ErogazioneDTO {
   String idPratica;
   @JsonFormat(
           shape = JsonFormat.Shape.STRING,
-          pattern = "yyyyMMdd'T'HH:mm:ss'Z'",
+          pattern = "yyyyMMdd'T'HH:mm:ssX",
           timezone = "UTC"
   )
-  private LocalDateTime dataAmmissione;
+  private Instant dataAmmissione;
   String ibanBeneficiario;
   Double importo;
   String intestatarioContoCorrente;

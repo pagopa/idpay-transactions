@@ -4,6 +4,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import io.micrometer.core.instrument.binder.mongodb.MongoMetricsCommandListener;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import it.gov.pagopa.common.config.TimeConfig;
 import it.gov.pagopa.common.mongo.MongoTestUtilitiesService;
 import it.gov.pagopa.common.mongo.config.MongoConfig;
 import it.gov.pagopa.common.mongo.singleinstance.AutoConfigureSingleInstanceMongodb;
@@ -37,7 +38,7 @@ import java.util.Map;
 })
 @ExtendWith(SpringExtension.class)
 @AutoConfigureSingleInstanceMongodb
-@ContextConfiguration(classes = {BaseReactiveMongoRepositoryIntegrationTest.TestMongoRepositoryConfig.class, ReactiveMongoConfig.class, MongoTestUtilitiesService.TestMongoConfiguration.class, SimpleMeterRegistry.class})
+@ContextConfiguration(classes = {BaseReactiveMongoRepositoryIntegrationTest.TestMongoRepositoryConfig.class, ReactiveMongoConfig.class, MongoTestUtilitiesService.TestMongoConfiguration.class, SimpleMeterRegistry.class, TimeConfig.class})
 class BaseReactiveMongoRepositoryIntegrationTest {
 
     static {

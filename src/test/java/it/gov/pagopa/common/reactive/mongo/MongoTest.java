@@ -2,6 +2,7 @@ package it.gov.pagopa.common.reactive.mongo;
 
 import io.micrometer.core.instrument.binder.mongodb.MongoMetricsCommandListener;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import it.gov.pagopa.common.config.TimeConfig;
 import it.gov.pagopa.common.mongo.MongoTestUtilitiesService;
 import it.gov.pagopa.common.mongo.config.MongoConfig;
 import it.gov.pagopa.common.mongo.singleinstance.AutoConfigureSingleInstanceMongodb;
@@ -36,7 +37,8 @@ import java.lang.annotation.*;
 @Import({MongoTestUtilitiesService.TestMongoConfiguration.class,
         ReactiveMongoConfig.class,
         SimpleMeterRegistry.class,
-        MongoTest.MongoTestConfiguration.class})
+        MongoTest.MongoTestConfiguration.class,
+        TimeConfig.class})
 public @interface MongoTest {
     @TestConfiguration
     class MongoTestConfiguration extends MongoConfig {

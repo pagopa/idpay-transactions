@@ -15,8 +15,8 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 
-import java.time.LocalDateTime;
-import java.time.YearMonth;
+import java.time.*;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 
@@ -51,9 +51,12 @@ class RewardTransactionServiceImplTest {
     private MerchantRestClient merchantRestClient;
 
     private RewardTransactionService rewardTransactionService;
+
+    private final Clock clock = Clock.fixed(Instant.parse("2026-04-03T10:00:00Z"), ZoneOffset.UTC);
     private static final String INITIATIVE_ID = "INIT01";
     private static final List<String> INITIATIVES_ID = List.of(INITIATIVE_ID);
     private static final String MERCHANT_ID = "MERCH01";
+
 
     @BeforeEach
     void setUp(){
@@ -63,8 +66,8 @@ class RewardTransactionServiceImplTest {
                 rewardBatchService,
                 merchantRestClient,
                 seed,
-                rewardBatchRepository
-        );
+                rewardBatchRepository,
+                clock);
     }
 
     @Test
@@ -72,7 +75,9 @@ class RewardTransactionServiceImplTest {
         RewardTransaction rt = RewardTransaction.builder()
                 .userId("USERID")
                 .amountCents(3000L)
-                .trxDate(LocalDateTime.of(2022, 9, 19, 15, 43, 39))
+                .trxDate(LocalDate.of(2022, 9, 19)
+                                .atStartOfDay(ZoneId.systemDefault())
+                                .toInstant())
                 .idTrxIssuer("IDTRXISSUER")
                 .build();
 
@@ -88,9 +93,11 @@ class RewardTransactionServiceImplTest {
 
     @Test
     void findByRange() {
-        LocalDateTime date = LocalDateTime.of(2022, 9, 19, 15, 43, 39);
-        LocalDateTime startDate = date.minusMonths(9L);
-        LocalDateTime endDate = date.plusMonths(6L);
+        Instant date = LocalDate.of(2022, 9, 19)
+                                .atStartOfDay(ZoneId.systemDefault())
+                                .toInstant();
+        Instant startDate = date.minus(9L,ChronoUnit.DAYS);
+        Instant endDate = date.plus(6L, ChronoUnit.DAYS);
 
         RewardTransaction rt = RewardTransaction.builder()
                 .userId("USERID")
@@ -114,7 +121,10 @@ class RewardTransactionServiceImplTest {
         RewardTransaction rt = RewardTransaction.builder()
                 .userId("USERID")
                 .amountCents(3000L)
-                .trxDate(LocalDateTime.of(2022, 9, 19, 15, 43, 39))
+                .trxDate(
+                        LocalDate.of(2022, 9, 19)
+                                .atStartOfDay(ZoneId.systemDefault())
+                                .toInstant())
                 .idTrxIssuer("IDTRXISSUER")
                 .build();
 
@@ -134,14 +144,26 @@ class RewardTransactionServiceImplTest {
                 .id("TRX_ID")
                 .userId("USERID")
                 .amountCents(3000L)
-                .trxDate(LocalDateTime.of(2022, 9, 19, 15, 43, 39))
+                .trxDate(LocalDate.of(2022, 9, 19)
+                                .atTime(15,43,49)
+                        .atZone(ZoneId.systemDefault())
+                        .toInstant()
+                )
                 .idTrxIssuer("IDTRXISSUER")
                 .merchantId("MERCHANT1")
                 .pointOfSaleType(PosType.ONLINE)
                 .pointOfSaleId("POS1")
                 .businessName("Test Business")
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
-                .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
+                .trxChargeDate(LocalDate.of(2025, 11, 19)
+                        .atTime(15,43,39)
+                        .atZone(ZoneId.systemDefault())
+                        .toInstant()
+                )
+                .invoiceUploadDate(LocalDate.of(2025, 11, 19)
+                        .atTime(15,43,39)
+                        .atZone(ZoneId.systemDefault())
+                        .toInstant()
+                )
                 .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(1000L).build()))
                 .initiatives(List.of("initiative1"))
                 .status(SyncTrxStatus.INVOICED.name())
@@ -190,7 +212,9 @@ class RewardTransactionServiceImplTest {
         RewardTransaction rt = RewardTransaction.builder()
                 .userId("USERID")
                 .amountCents(3000L)
-                .trxDate(LocalDateTime.of(2022, 9, 19, 15, 43, 39))
+                .trxDate(LocalDate.of(2022, 9, 19)
+                                .atStartOfDay(ZoneId.systemDefault())
+                                .toInstant())
                 .initiatives(List.of("ID"))
                 .build();
 
@@ -230,8 +254,8 @@ class RewardTransactionServiceImplTest {
                 rewardBatchService,
                 merchantRestClient,
                 0x22222222,
-                rewardBatchRepository
-        );
+                rewardBatchRepository,
+                clock);
 
         int h1 = ((RewardTransactionServiceImpl) rewardTransactionService).computeSamplingKey(id);
         int h2 = hasher2.computeSamplingKey(id);
@@ -256,17 +280,23 @@ class RewardTransactionServiceImplTest {
     @CsvSource({"true", "false"})
     void save_invoiced_shouldUseDateBasedOnInvoiceUploadDatePresence(boolean hasInvoiceUploadDate) {
 
-        LocalDateTime invoiceUploadDate = hasInvoiceUploadDate ? LocalDateTime.of(2025, 11, 1, 1, 1) : null;
-        LocalDateTime trxChargeDate = LocalDateTime.of(2025, 10, 1, 1, 1);
+        Instant invoiceUploadDate = hasInvoiceUploadDate ? LocalDate.of(2022, 9, 19)
+                .atStartOfDay(ZoneId.systemDefault())
+                .toInstant() : null;
+        Instant trxChargeDate = LocalDate.of(2022, 9, 19)
+                .atStartOfDay(ZoneId.systemDefault())
+                .toInstant();
+        Instant expectedBatchDate = hasInvoiceUploadDate ? invoiceUploadDate : trxChargeDate;
 
-        LocalDateTime expectedBatchDate = hasInvoiceUploadDate ? invoiceUploadDate : trxChargeDate;
-        YearMonth expectedBatchMonth = YearMonth.from(expectedBatchDate);
+        YearMonth expectedBatchMonth =
+                YearMonth.from(expectedBatchDate.atZone(ZoneId.systemDefault()));
+
 
         RewardTransaction rt = RewardTransaction.builder()
                 .id("TRX_ID")
                 .userId("USERID")
                 .amountCents(3000L)
-                .trxDate(LocalDateTime.now())
+                .trxDate(Instant.now())
                 .idTrxIssuer("IDTRXISSUER")
                 .status(SyncTrxStatus.INVOICED.name())
                 .merchantId("MERCHANT1")
@@ -327,8 +357,12 @@ class RewardTransactionServiceImplTest {
                 .status("INVOICED")
                 .merchantId("M1")
                 .pointOfSaleId("POS1")
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
-                .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
+                .trxChargeDate(LocalDate.of(2022, 9, 19)
+                                .atStartOfDay(ZoneId.systemDefault())
+                                .toInstant())
+                .invoiceUploadDate(LocalDate.of(2022, 9, 19)
+                                .atStartOfDay(ZoneId.systemDefault())
+                                .toInstant())
                 .initiatives(List.of("initiative1"))
                 .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(500L).build()))
                 .build();
@@ -340,8 +374,12 @@ class RewardTransactionServiceImplTest {
                 .status("INVOICED")
                 .merchantId("M2")
                 .pointOfSaleId("POS2")
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
-                .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
+                .trxChargeDate(LocalDate.of(2022, 9, 19)
+                                .atStartOfDay(ZoneId.systemDefault())
+                                .toInstant())
+                .invoiceUploadDate(LocalDate.of(2022, 9, 19)
+                                .atStartOfDay(ZoneId.systemDefault())
+                                .toInstant())
                 .initiatives(List.of("initiative2"))
                 .rewards(Map.of("initiative2", Reward.builder().accruedRewardCents(1000L).build()))
                 .build();
@@ -403,8 +441,12 @@ class RewardTransactionServiceImplTest {
                 .status("INVOICED")
                 .merchantId("M1")
                 .pointOfSaleId("POS1")
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
-                .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
+                .trxChargeDate(LocalDate.of(2022, 9, 19)
+                                .atStartOfDay(ZoneId.systemDefault())
+                                .toInstant())
+                .invoiceUploadDate(LocalDate.of(2022, 9, 19)
+                                .atStartOfDay(ZoneId.systemDefault())
+                                .toInstant())
                 .initiatives(List.of("initiative1"))
                 .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(500L).build()))
                 .build();
@@ -416,8 +458,12 @@ class RewardTransactionServiceImplTest {
                 .status("INVOICED")
                 .merchantId("M2")
                 .pointOfSaleId("POS2")
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
-                .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
+                .trxChargeDate(LocalDate.of(2022, 9, 19)
+                                .atStartOfDay(ZoneId.systemDefault())
+                                .toInstant())
+                .invoiceUploadDate(LocalDate.of(2022, 9, 19)
+                                .atStartOfDay(ZoneId.systemDefault())
+                                .toInstant())
                 .initiatives(List.of("initiative2"))
                 .rewards(Map.of("initiative2", Reward.builder().accruedRewardCents(1000L).build()))
                 .build();
@@ -490,7 +536,9 @@ class RewardTransactionServiceImplTest {
         RewardTransaction trx = RewardTransaction.builder()
                 .id("TRX1")
                 .status("INVOICED")
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 10, 0))
+                .trxChargeDate(LocalDate.of(2022, 9, 19)
+                        .atStartOfDay(ZoneId.systemDefault())
+                        .toInstant())
                 .invoiceUploadDate(null)
                 .franchiseName(null)
                 .pointOfSaleType(null)
@@ -545,8 +593,12 @@ class RewardTransactionServiceImplTest {
         RewardTransaction trx = RewardTransaction.builder()
                 .id("TRX2")
                 .status("INVOICED")
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 10, 0))
-                .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 10, 0))
+                .trxChargeDate(LocalDate.of(2022, 9, 19)
+                        .atStartOfDay(ZoneId.systemDefault())
+                        .toInstant())
+                .invoiceUploadDate(LocalDate.of(2022, 9, 19)
+                        .atStartOfDay(ZoneId.systemDefault())
+                        .toInstant())
                 .franchiseName("FranchiseName")
                 .pointOfSaleType(PosType.ONLINE)
                 .businessName("BusinessName")
@@ -598,8 +650,12 @@ class RewardTransactionServiceImplTest {
         RewardTransaction trx = RewardTransaction.builder()
                 .id("TRX3")
                 .status("INVOICED")
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 10, 0))
-                .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 10, 0))
+                .trxChargeDate(LocalDate.of(2022, 9, 19)
+                        .atStartOfDay(ZoneId.systemDefault())
+                        .toInstant())
+                .invoiceUploadDate(LocalDate.of(2022, 9, 19)
+                        .atStartOfDay(ZoneId.systemDefault())
+                        .toInstant())
                 .franchiseName(null)
                 .pointOfSaleType(null)
                 .businessName(null)
@@ -654,8 +710,12 @@ class RewardTransactionServiceImplTest {
                 .pointOfSaleType(PosType.ONLINE)
                 .pointOfSaleId("POS1")
                 .businessName("Test Business")
-                .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
+                .invoiceUploadDate(LocalDate.of(2022, 9, 19)
+                                .atStartOfDay(ZoneId.systemDefault())
+                                .toInstant())
+                .trxChargeDate(LocalDate.of(2022, 9, 19)
+                                .atStartOfDay(ZoneId.systemDefault())
+                                .toInstant())
                 .initiatives(List.of("initiative1"))
                 .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(500L).build()))
                 .build();
@@ -685,8 +745,12 @@ class RewardTransactionServiceImplTest {
         RewardTransaction trx = RewardTransaction.builder()
                 .id(trxId)
                 .status("INVOICED")
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 10, 0))
-                .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 10, 0))
+                .trxChargeDate(LocalDate.of(2022, 9, 19)
+                        .atStartOfDay(ZoneId.systemDefault())
+                        .toInstant())
+                .invoiceUploadDate(LocalDate.of(2022, 9, 19)
+                        .atStartOfDay(ZoneId.systemDefault())
+                        .toInstant())
                 .initiatives(List.of("initiative1"))
                 .initiatives(INITIATIVES_ID)   // se esiste nel model
                 .merchantId(MERCHANT_ID)

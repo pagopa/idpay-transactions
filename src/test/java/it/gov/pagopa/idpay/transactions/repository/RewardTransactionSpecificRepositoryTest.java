@@ -17,9 +17,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.annotation.DirtiesContext;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 
@@ -65,7 +67,7 @@ class RewardTransactionSpecificRepositoryTest {
         trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
         rewardTransactionRepository.save(trx).block();
 
-        ReasonDTO reasons = new ReasonDTO(LocalDateTime.now(), "REJECTION_REASON");
+        ReasonDTO reasons = new ReasonDTO(Instant.now(), "REJECTION_REASON");
 
         StepVerifier.create(rewardTransactionSpecificRepository.updateStatusAndReturnOld(
                         trx.getInitiatives().getFirst(), trx.getRewardBatchId(), trxId, RewardBatchTrxStatus.REJECTED, reasons, batchMonth, null))
@@ -119,7 +121,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .pointOfSaleId(POS_ID)
                 .status(SyncTrxStatus.REWARDED.name())
                 .initiatives(List.of(INITIATIVE_ID))
-                .trxChargeDate(LocalDateTime.now())
+                .trxChargeDate(Instant.now())
                 .additionalProperties(Map.of("productName", "AAA"))
                 .build();
         rewardTransactionRepository.save(trx).block();
@@ -330,7 +332,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .status(SyncTrxStatus.REWARDED.name())
                 .initiatives(List.of(INITIATIVE_ID))
                 .additionalProperties(Map.of("productName", "B"))
-                .trxChargeDate(LocalDateTime.now())
+                .trxChargeDate(Instant.now())
                 .build();
 
         RewardTransaction t2 = RewardTransactionFaker.mockInstanceBuilder(2)
@@ -341,7 +343,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .status(SyncTrxStatus.REWARDED.name())
                 .initiatives(List.of(INITIATIVE_ID))
                 .additionalProperties(Map.of("productName", "A"))
-                .trxChargeDate(LocalDateTime.now().minusMinutes(1))
+                .trxChargeDate(Instant.now().minus(1, ChronoUnit.MINUTES))
                 .build();
 
         rewardTransactionRepository.saveAll(List.of(t1, t2)).collectList().block();
@@ -557,14 +559,14 @@ class RewardTransactionSpecificRepositoryTest {
 
     @Test
     void findByIdTrxIssuer_shouldFilterByAllFields() {
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
 
         RewardTransaction match = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("m1")
                 .idTrxIssuer("ISSUER1")
                 .userId(USER_ID)
                 .amountCents(100L)
-                .trxDate(now.minusHours(1))
+                .trxDate(now.minus(1, ChronoUnit.HOURS))
                 .build();
 
         RewardTransaction noUser = RewardTransactionFaker.mockInstanceBuilder(2)
@@ -572,13 +574,13 @@ class RewardTransactionSpecificRepositoryTest {
                 .idTrxIssuer("ISSUER1")
                 .userId("OTHER")
                 .amountCents(100L)
-                .trxDate(now.minusHours(1))
+                .trxDate(now.minus(1, ChronoUnit.HOURS))
                 .build();
 
         rewardTransactionRepository.saveAll(List.of(match, noUser)).collectList().block();
 
         List<String> ids = rewardTransactionSpecificRepository
-                .findByIdTrxIssuer("ISSUER1", USER_ID, now.minusDays(1), now, 100L, PageRequest.of(0, 10))
+                .findByIdTrxIssuer("ISSUER1", USER_ID, (now.minus(1, ChronoUnit.DAYS)), now, 100L, PageRequest.of(0, 10))
                 .map(RewardTransaction::getId)
                 .collectList()
                 .block();
@@ -588,24 +590,24 @@ class RewardTransactionSpecificRepositoryTest {
 
     @Test
     void findByIdTrxIssuer_withOnlyStartDate_shouldFilter() {
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
 
         RewardTransaction in = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("in")
                 .idTrxIssuer("ISSUER2")
-                .trxDate(now.minusHours(1))
+                .trxDate(now.minus(1, ChronoUnit.HOURS))
                 .build();
 
         RewardTransaction out = RewardTransactionFaker.mockInstanceBuilder(2)
                 .id("out")
                 .idTrxIssuer("ISSUER2")
-                .trxDate(now.minusDays(3))
+                .trxDate(now.minus(3,ChronoUnit.DAYS))
                 .build();
 
         rewardTransactionRepository.saveAll(List.of(in, out)).collectList().block();
 
         List<String> ids = rewardTransactionSpecificRepository
-                .findByIdTrxIssuer("ISSUER2", null, now.minusDays(1), null, null, PageRequest.of(0, 10))
+                .findByIdTrxIssuer("ISSUER2", null, now.minus(1, ChronoUnit.DAYS), null, null, PageRequest.of(0, 10))
                 .map(RewardTransaction::getId)
                 .collectList()
                 .block();
@@ -615,18 +617,18 @@ class RewardTransactionSpecificRepositoryTest {
 
     @Test
     void findByIdTrxIssuer_withOnlyEndDate_shouldFilter() {
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
 
         RewardTransaction in = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("in")
                 .idTrxIssuer("ISSUER3")
-                .trxDate(now.minusDays(2))
+                .trxDate(now.minus(2, ChronoUnit.DAYS))
                 .build();
 
         RewardTransaction out = RewardTransactionFaker.mockInstanceBuilder(2)
                 .id("out")
                 .idTrxIssuer("ISSUER3")
-                .trxDate(now.plusDays(1))
+                .trxDate(now.plus(1, ChronoUnit.DAYS))
                 .build();
 
         rewardTransactionRepository.saveAll(List.of(in, out)).collectList().block();
@@ -642,26 +644,26 @@ class RewardTransactionSpecificRepositoryTest {
 
     @Test
     void findByRange_shouldFilterByDateAndAmount() {
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
 
         RewardTransaction match = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("r1")
                 .userId(USER_ID)
                 .amountCents(500L)
-                .trxDate(now.minusHours(1))
+                .trxDate(now.minus(1, ChronoUnit.HOURS))
                 .build();
 
         RewardTransaction noAmount = RewardTransactionFaker.mockInstanceBuilder(2)
                 .id("r2")
                 .userId(USER_ID)
                 .amountCents(400L)
-                .trxDate(now.minusHours(1))
+                .trxDate(now.minus(1, ChronoUnit.HOURS))
                 .build();
 
         rewardTransactionRepository.saveAll(List.of(match, noAmount)).collectList().block();
 
         List<String> ids = rewardTransactionSpecificRepository
-                .findByRange(USER_ID, now.minusDays(1), now, 500L, PageRequest.of(0, 10))
+                .findByRange(USER_ID, now.minus(1, ChronoUnit.DAYS), now, 500L, PageRequest.of(0, 10))
                 .map(RewardTransaction::getId)
                 .collectList()
                 .block();
@@ -692,13 +694,21 @@ class RewardTransactionSpecificRepositoryTest {
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
                 .build();
 
-        rewardTransactionRepository.saveAll(List.of(t1, t2, t3)).collectList().block();
 
-        List<String> ids = rewardTransactionSpecificRepository
-                .findByFilter(BATCH_ID, INITIATIVE_ID, List.of(RewardBatchTrxStatus.SUSPENDED, RewardBatchTrxStatus.REJECTED))
+        StepVerifier.create(rewardTransactionRepository.saveAll(List.of(t1, t2, t3)))
+                .expectNextCount(3)
+                .verifyComplete();
+
+        Mono<List<String>> idsMono = rewardTransactionSpecificRepository
+                .findByFilter(
+                        BATCH_ID,
+                        INITIATIVE_ID,
+                        List.of(RewardBatchTrxStatus.SUSPENDED, RewardBatchTrxStatus.REJECTED)
+                )
                 .map(RewardTransaction::getId)
-                .collectList()
-                .block();
+                .collectList();
+
+        List<String> ids = idsMono.block();
 
         assertTrue(ids.contains("t1"));
         assertTrue(ids.contains("t2"));
@@ -917,10 +927,10 @@ class RewardTransactionSpecificRepositoryTest {
         trx.setMerchantId(MERCHANT_ID);
         trx.setInitiatives(INITIATIVES_ID);
         trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED);
-        trx.setRewardBatchRejectionReason(List.of(new ReasonDTO(LocalDateTime.now(), "OLD")));
+        trx.setRewardBatchRejectionReason(List.of(new ReasonDTO(Instant.now(), "OLD")));
         rewardTransactionRepository.save(trx).block();
 
-        ReasonDTO newReason = new ReasonDTO(LocalDateTime.now(), "NEW");
+        ReasonDTO newReason = new ReasonDTO(Instant.now(), "NEW");
 
         StepVerifier.create(rewardTransactionSpecificRepository.updateStatusAndReturnOld(
                 INITIATIVE_ID, BATCH_ID, trxId, RewardBatchTrxStatus.REJECTED, newReason, "2024-01", null))
