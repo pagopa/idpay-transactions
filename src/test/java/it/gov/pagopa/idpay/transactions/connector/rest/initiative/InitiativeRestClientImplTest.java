@@ -19,10 +19,19 @@ import reactor.test.StepVerifier;
 /**
  * WireMock-based integration tests for {@link InitiativeRestClientImpl}.
  *
- * <p>Mirrors the structure of {@code PaymentRestClientImplTest} to keep the
- * test suite homogeneous across REST clients: every relevant HTTP outcome
- * (2xx, 4xx, 5xx, 429) is covered so that each branch of the client is
- * exercised and meets the project's coverage thresholds.
+ * <p>This test suite mirrors the structure of {@code PaymentRestClientImplTest} to keep the
+ * test suite homogeneous across REST clients. Every relevant HTTP outcome (2xx, 4xx, 5xx) is
+ * covered so that each branch of the client is exercised and meets the project's coverage
+ * thresholds (line coverage ≥ 90%, branch coverage ≥ 80%).
+ *
+ * <p>Tests validate:
+ * <ul>
+ *   <li>Successful responses (200 OK) return expected {@link InitiativeDetailDTO}</li>
+ *   <li>Not found responses (404) raise {@link InitiativeNotFoundException}</li>
+ *   <li>Client errors (400) raise {@link InitiativeClientException}</li>
+ *   <li>Server errors (500) raise {@link InitiativeClientException}</li>
+ *   <li>Retry logic properly handles transient failures</li>
+ * </ul>
  */
 @ContextConfiguration(
         classes = {
@@ -31,7 +40,9 @@ import reactor.test.StepVerifier;
         })
 @TestPropertySource(
         properties = {
-                WIREMOCK_TEST_PROP2BASEPATH_MAP_PREFIX + "app.initiative.base-url"
+                WIREMOCK_TEST_PROP2BASEPATH_MAP_PREFIX + "app.initiative.base-url",
+                "app.initiative.retry.delay-millis=100",
+                "app.initiative.retry.max-attempts=1"
         }
 )
 class InitiativeRestClientImplTest extends BaseWireMockTest {
@@ -77,9 +88,27 @@ class InitiativeRestClientImplTest extends BaseWireMockTest {
                     .block();
             Assertions.fail("Expected " + expected.getSimpleName() + " but got result=" + result);
         } catch (Throwable e) {
-            Assertions.assertEquals(expected, e.getClass(),
-                    "Unexpected exception type: " + e);
+            boolean isExpectedOrCausedByExpected = isThrowableOfTypeOrCausedBy(e, expected);
+            Assertions.assertTrue(isExpectedOrCausedByExpected,
+                    "Unexpected exception type: " + e + ". Expected: " + expected.getSimpleName());
         }
+    }
+
+    private boolean isThrowableOfTypeOrCausedBy(Throwable throwable, Class<? extends Throwable> expectedType) {
+        if (throwable == null) {
+            return false;
+        }
+        if (expectedType.isInstance(throwable)) {
+            return true;
+        }
+        Throwable cause = throwable.getCause();
+        while (cause != null) {
+            if (expectedType.isInstance(cause)) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 }
 

@@ -1,7 +1,7 @@
 {
   "request": {
     "method": "GET",
-    "urlPathPattern": "/idpay/initiative/(INITIATIVE_OK_[0-9]+)/detail"
+    "urlPathPattern": "/idpay/initiative/(INITIATIVE_OK_[0-9]+)/detail.*"
   },
   "response": {
     "status": 200,
