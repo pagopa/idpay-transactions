@@ -654,14 +654,14 @@ class RewardTransactionSpecificRepositoryTest {
 
     @Test
     void findTransaction_shouldCoverAllCases() {
-        RewardTransaction trx = RewardTransaction.builder()
+        RewardTransaction transaction = RewardTransaction.builder()
                 .id("trx1")
                 .merchantId("M1")
                 .status(SyncTrxStatus.REWARDED.name())
                 .build();
 
         when(mongoTemplate.findOne(any(Query.class), eq(RewardTransaction.class)))
-                .thenReturn(Mono.just(trx));
+                .thenReturn(Mono.just(transaction));
 
         StepVerifier.create(
                         repository.findTransaction("M1", "trx1")
@@ -743,12 +743,12 @@ class RewardTransactionSpecificRepositoryTest {
         StepVerifier.create(result)
                 .verifyComplete();
 
-        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+        ArgumentCaptor<Query> argumentCaptor = ArgumentCaptor.forClass(Query.class);
         ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
 
-        verify(mongoTemplate).updateFirst(queryCaptor.capture(), updateCaptor.capture(), eq(RewardTransaction.class));
+        verify(mongoTemplate).updateFirst(argumentCaptor.capture(), updateCaptor.capture(), eq(RewardTransaction.class));
 
-        Query capturedQuery = queryCaptor.getValue();
+        Query capturedQuery = argumentCaptor.getValue();
         Update capturedUpdate = updateCaptor.getValue();
 
         assertNotNull(capturedQuery);
@@ -777,7 +777,7 @@ class RewardTransactionSpecificRepositoryTest {
         StepVerifier.create(result)
                 .verifyComplete();
 
-        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+        
         ArgumentCaptor<Update> updateCaptor = ArgumentCaptor.forClass(Update.class);
 
         verify(mongoTemplate).updateFirst(queryCaptor.capture(), updateCaptor.capture(), eq(RewardTransaction.class));
@@ -813,7 +813,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .expectNext(trx)
                 .verifyComplete();
 
-        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+        
 
         verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
 
@@ -840,7 +840,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .expectNext(trx)
                 .verifyComplete();
 
-        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+        
 
         verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
 
@@ -1058,7 +1058,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .expectNext(trx)
                 .verifyComplete();
 
-        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+        
 
         verify(mongoTemplate).find(queryCaptor.capture(), eq(RewardTransaction.class));
 
@@ -1092,7 +1092,7 @@ class RewardTransactionSpecificRepositoryTest {
                 .expectNext(trx)
                 .verifyComplete();
 
-        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+        
 
         verify(mongoTemplate).findOne(queryCaptor.capture(), eq(RewardTransaction.class));
 
