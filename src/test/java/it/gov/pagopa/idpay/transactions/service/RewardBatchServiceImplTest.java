@@ -4,6 +4,7 @@ import com.azure.core.http.rest.Response;
 import com.azure.storage.blob.models.BlockBlobItem;
 import com.mongodb.client.result.DeleteResult;
 import it.gov.pagopa.common.web.exception.*;
+import it.gov.pagopa.idpay.transactions.config.InitiativeNotFoundException;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.InitiativeDetailDTO;
@@ -1638,6 +1639,126 @@ class RewardBatchServiceImplTest {
         StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1"))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
+    }
+
+    @Test
+    void postponeTransaction_initiativeNotFound_mapsToClientExceptionWithBody() {
+        RewardTransaction trx = RewardTransaction.builder()
+                .id("T1")
+                .merchantId(MERCHANT_ID)
+                .rewardBatchId(BATCH_ID)
+                .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
+                .build();
+
+        RewardBatch current = RewardBatch.builder()
+                .id(BATCH_ID)
+                .merchantId(MERCHANT_ID)
+                .businessName(BUSINESS_NAME)
+                .posType(PHYSICAL)
+                .month("2026-01")
+                .status(RewardBatchStatus.CREATED)
+                .build();
+
+        when(rewardTransactionRepository.findTransactionInBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "T1"))
+                .thenReturn(Mono.just(trx));
+        when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(current));
+        when(initiativeDataService.getInitiativeData(INITIATIVE_ID))
+                .thenReturn(Mono.error(new InitiativeNotFoundException("not found")));
+
+        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1"))
+                .expectErrorSatisfies(error -> {
+                    assertInstanceOf(ClientExceptionWithBody.class, error);
+                    ClientExceptionWithBody exception = (ClientExceptionWithBody) error;
+                    assertEquals(HttpStatus.NOT_FOUND, exception.getHttpStatus());
+                    assertEquals(ExceptionConstants.ExceptionCode.GENERIC_ERROR, exception.getCode());
+                })
+                .verify();
+
+        verify(rewardBatchRepository, never())
+                .findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(anyString(), anyString(), any(), anyString());
+    }
+
+    @Test
+    void postponeTransaction_initiativeDataGenericError_mapsToInternalServerError() {
+        RewardTransaction trx = RewardTransaction.builder()
+                .id("T1")
+                .merchantId(MERCHANT_ID)
+                .rewardBatchId(BATCH_ID)
+                .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
+                .build();
+
+        RewardBatch current = RewardBatch.builder()
+                .id(BATCH_ID)
+                .merchantId(MERCHANT_ID)
+                .businessName(BUSINESS_NAME)
+                .posType(PHYSICAL)
+                .month("2026-01")
+                .status(RewardBatchStatus.CREATED)
+                .build();
+
+        when(rewardTransactionRepository.findTransactionInBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "T1"))
+                .thenReturn(Mono.just(trx));
+        when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(current));
+        when(initiativeDataService.getInitiativeData(INITIATIVE_ID))
+                .thenReturn(Mono.error(new RuntimeException("boom")));
+
+        StepVerifier.create(service.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1"))
+                .expectErrorSatisfies(error -> {
+                    assertInstanceOf(ClientExceptionWithBody.class, error);
+                    ClientExceptionWithBody exception = (ClientExceptionWithBody) error;
+                    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, exception.getHttpStatus());
+                    assertEquals(ExceptionConstants.ExceptionCode.GENERIC_ERROR, exception.getCode());
+                    assertTrue(exception.getMessage().contains("Failed to retrieve initiative data"));
+                })
+                .verify();
+
+        verify(rewardBatchRepository, never())
+                .findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(anyString(), anyString(), any(), anyString());
+    }
+
+    @Test
+    void postponeTransaction_nextBatchInvalidStatus() {
+        RewardTransaction trx = RewardTransaction.builder()
+                .id("T1")
+                .merchantId(MERCHANT_ID)
+                .rewardBatchId(BATCH_ID)
+                .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
+                .build();
+
+        RewardBatch current = RewardBatch.builder()
+                .id(BATCH_ID)
+                .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
+                .businessName(BUSINESS_NAME)
+                .posType(PHYSICAL)
+                .month("2026-01")
+                .status(RewardBatchStatus.CREATED)
+                .build();
+
+        RewardBatch next = RewardBatch.builder()
+                .id(BATCH_ID_2)
+                .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
+                .status(RewardBatchStatus.SENT)
+                .build();
+
+        InitiativeDetailDTO detail = new InitiativeDetailDTO();
+        detail.setFruitionEndDate(LocalDate.of(2027, 1, 1));
+
+        when(rewardTransactionRepository.findTransactionInBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "T1"))
+                .thenReturn(Mono.just(trx));
+        when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.just(current));
+        when(initiativeDataService.getInitiativeData(INITIATIVE_ID))
+                .thenReturn(Mono.just(detail));
+        doReturn(Mono.just(next)).when(serviceSpy)
+                .findOrCreateBatch(INITIATIVE_ID, MERCHANT_ID, PHYSICAL, "2026-02", BUSINESS_NAME);
+
+        StepVerifier.create(serviceSpy.postponeTransaction(MERCHANT_ID, INITIATIVE_ID, BATCH_ID, "T1"))
+                .expectError(ClientExceptionNoBody.class)
+                .verify();
+
+        verify(rewardBatchRepository, never()).updateTotals(anyString(), anyString(), any());
+        verify(rewardTransactionRepository, never()).save(any());
     }
 
     @Test
