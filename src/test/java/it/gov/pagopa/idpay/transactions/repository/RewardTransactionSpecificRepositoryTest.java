@@ -1043,19 +1043,19 @@ class RewardTransactionSpecificRepositoryTest {
     @Test
     void findInvoicedTransactionsWithoutBatch_shouldReturnResults_withPageableAndCriteria() {
 
-        RewardTransaction trx = new RewardTransaction();
-        trx.setId("trx1");
-        trx.setRewardBatchId(null);
-        trx.setStatus(SyncTrxStatus.INVOICED.name());
+        RewardTransaction transaction = new RewardTransaction();
+        transaction.setId("trx1");
+        transaction.setRewardBatchId(null);
+        transaction.setStatus(SyncTrxStatus.INVOICED.name());
 
         when(mongoTemplate.find(any(Query.class), eq(RewardTransaction.class)))
-                .thenReturn(Flux.just(trx));
+                .thenReturn(Flux.just(transaction));
 
         Flux<RewardTransaction> result =
                 repository.findInvoicedTransactionsWithoutBatch(20);
 
         StepVerifier.create(result)
-                .expectNext(trx)
+                .expectNext(transaction)
                 .verifyComplete();
 
         
@@ -1076,20 +1076,20 @@ class RewardTransactionSpecificRepositoryTest {
     @Test
     void findInvoicedTrxByIdWithoutBatch_shouldReturnTransaction_whenFound() {
 
-        RewardTransaction trx = new RewardTransaction();
-        trx.setId("TRX1");
-        trx.setStatus(SyncTrxStatus.INVOICED.name());
-        trx.setRewardBatchId(null);
-        trx.setMerchantId("M1");
+        RewardTransaction transaction = new RewardTransaction();
+        transaction.setId("TRX1");
+        transaction.setStatus(SyncTrxStatus.INVOICED.name());
+        transaction.setRewardBatchId(null);
+        transaction.setMerchantId("M1");
 
         when(mongoTemplate.findOne(any(Query.class), eq(RewardTransaction.class)))
-                .thenReturn(Mono.just(trx));
+                .thenReturn(Mono.just(transaction));
 
         Mono<RewardTransaction> result =
                 repository.findInvoicedTrxByIdWithoutBatch("INIT1", "M1", "TRX1");
 
         StepVerifier.create(result)
-                .expectNext(trx)
+                .expectNext(transaction)
                 .verifyComplete();
 
         
