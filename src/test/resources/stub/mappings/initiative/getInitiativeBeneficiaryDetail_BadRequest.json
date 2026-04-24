@@ -1,0 +1,11 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/idpay/initiative/(INITIATIVE_BADREQUEST_[0-9]+)/detail.*"
+  },
+  "response": {
+    "status": 400,
+    "body": "Bad Request"
+  }
+}
+
