@@ -842,8 +842,7 @@ class MerchantRewardBatchControllerImplTest {
                 MERCHANT_ID,
                 INITIATIVE_ID,
                 REWARD_BATCH_ID_1,
-                transactionId,
-                initiativeEndDate
+                transactionId
         )).thenReturn(Mono.empty());
 
         webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
@@ -856,7 +855,7 @@ class MerchantRewardBatchControllerImplTest {
                 .expectStatus().isNoContent();
 
         verify(rewardBatchService, times(1))
-                .postponeTransaction(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1, transactionId, initiativeEndDate);
+                .postponeTransaction(MERCHANT_ID, INITIATIVE_ID, REWARD_BATCH_ID_1, transactionId);
     }
 
     @Test
@@ -865,7 +864,7 @@ class MerchantRewardBatchControllerImplTest {
         LocalDate initiativeEndDate = LocalDate.now();
 
         when(rewardBatchService.postponeTransaction(
-                anyString(), anyString(), anyString(), eq(transactionId), any(LocalDate.class)
+                anyString(), anyString(), anyString(), eq(transactionId)
         )).thenReturn(Mono.error(new ClientExceptionNoBody(HttpStatus.NOT_FOUND, ExceptionMessage.TRANSACTION_NOT_FOUND)));
 
         webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
@@ -884,7 +883,7 @@ class MerchantRewardBatchControllerImplTest {
         LocalDate initiativeEndDate = LocalDate.now();
 
         when(rewardBatchService.postponeTransaction(
-                anyString(), anyString(), anyString(), eq(transactionId), any(LocalDate.class)
+                anyString(), anyString(), anyString(), eq(transactionId)
         )).thenReturn(Mono.error(new ClientExceptionWithBody(
                 HttpStatus.NOT_FOUND, ExceptionCode.REWARD_BATCH_NOT_FOUND, String.format(ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH, REWARD_BATCH_ID_1))));
 
@@ -907,7 +906,7 @@ class MerchantRewardBatchControllerImplTest {
         LocalDate initiativeEndDate = LocalDate.now();
 
         when(rewardBatchService.postponeTransaction(
-                anyString(), anyString(), anyString(), eq(transactionId), any(LocalDate.class)
+                anyString(), anyString(), anyString(), eq(transactionId)
         )).thenReturn(Mono.error(new ClientExceptionWithBody(
                 HttpStatus.BAD_REQUEST, ExceptionCode.REWARD_BATCH_INVALID_REQUEST, ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH)));
 
@@ -930,7 +929,7 @@ class MerchantRewardBatchControllerImplTest {
         LocalDate initiativeEndDate = LocalDate.now();
 
         when(rewardBatchService.postponeTransaction(
-                anyString(), anyString(), anyString(), eq(transactionId), any(LocalDate.class)
+                anyString(), anyString(), anyString(), eq(transactionId)
         )).thenReturn(Mono.error(new ClientExceptionWithBody(
                 HttpStatus.BAD_REQUEST, ExceptionCode.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED, ExceptionMessage.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED)));
 
