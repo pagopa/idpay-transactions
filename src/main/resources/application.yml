@@ -244,6 +244,11 @@ app:
     tenant-id: ${DATA_FACTORY_TENANT_ID:}
     subscription-id: ${DATA_FACTORY_SUBSCRIPTION_ID:}
   period-length-transactions-report: ${PERIOD_LENGTH_TRANSACTIONS_REPORT:}
+  initiative:
+    base-url: ${IDPAY_INITIATIVE_BASE_URL:}
+    retry:
+      delay-millis: ${INITIATIVE_RETRY_DELAY_MILLIS:2000}
+      max-attempts: ${INITIATIVE_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:10}}
   invitalia:
     credentials:
       client-id: ${INVITALIA_CLIENT_ID:}

@@ -1,0 +1,11 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPathPattern": "/idpay/initiative/(INITIATIVE_NOTFOUND_[0-9]+)/detail.*"
+  },
+  "response": {
+    "status": 404,
+    "body": "Initiative not found"
+  }
+}
+
