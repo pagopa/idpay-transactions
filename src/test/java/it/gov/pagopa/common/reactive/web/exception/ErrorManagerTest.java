@@ -3,6 +3,9 @@ package it.gov.pagopa.common.reactive.web.exception;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockUser;
+
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.IThrowableProxy;
@@ -24,7 +27,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -78,7 +81,7 @@ public class ErrorManagerTest {
         Mockito.doThrow(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, "NOTFOUND ClientExceptionNoBody"))
                 .when(testController).testEndpoint();
 
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/test").build())
                 .exchange()
                 .expectStatus().isBadRequest()
@@ -95,7 +98,7 @@ public class ErrorManagerTest {
 
         ErrorDTO errorClientExceptionWithBody= new ErrorDTO("Error","Error ClientExceptionWithBody");
 
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/test").build())
                 .exchange()
                 .expectStatus().isBadRequest()
@@ -106,7 +109,7 @@ public class ErrorManagerTest {
                 .when(testController).testEndpoint();
         ErrorDTO errorClientExceptionWithBodyWithStatusAndTitleAndMessageAndThrowable= new ErrorDTO("Error","Error ClientExceptionWithBody");
 
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/test").build())
                 .exchange()
                 .expectStatus().isBadRequest()
@@ -120,7 +123,7 @@ public class ErrorManagerTest {
         Mockito.doThrow(ClientException.class)
                 .when(testController).testEndpoint();
 
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/test").build())
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -131,7 +134,7 @@ public class ErrorManagerTest {
 
         Mockito.doThrow(new ClientException(HttpStatus.BAD_REQUEST, "ClientException with httpStatus and message"))
                 .when(testController).testEndpoint();
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/test").build())
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -143,7 +146,7 @@ public class ErrorManagerTest {
         Mockito.doThrow(new ClientException(HttpStatus.BAD_REQUEST, "ClientException with httpStatus, message and throwable", new Throwable()))
                 .when(testController).testEndpoint();
 
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/test").build())
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -162,7 +165,7 @@ public class ErrorManagerTest {
 
         Mockito.doThrow(RuntimeException.class)
                 .when(testController).testEndpoint();
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/test").build())
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -178,7 +181,7 @@ public class ErrorManagerTest {
 
         ErrorDTO expected = new ErrorDTO("RB_ERROR", "RB_ERROR");
 
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser()).mutateWith(csrf()).get()
             .uri("/test")
             .exchange()
             .expectStatus().isBadRequest()

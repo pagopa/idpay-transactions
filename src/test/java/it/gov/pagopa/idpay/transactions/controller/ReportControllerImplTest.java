@@ -3,16 +3,17 @@ package it.gov.pagopa.idpay.transactions.controller;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ReportMapper;
-import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.dto.report.Report2RunDto;
 import it.gov.pagopa.idpay.transactions.dto.report.ReportGenerateForce;
-import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
+import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
+import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.service.ReportService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
+import org.springframework.cache.CacheManager;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -28,9 +29,12 @@ import java.util.List;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REPORT_NOT_FOUND;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_REPORT_NOT_FOUND;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockUser;
 
 @WebFluxTest(controllers = ReportControllerImpl.class)
 class ReportControllerImplTest {
@@ -43,6 +47,9 @@ class ReportControllerImplTest {
 
     @MockitoBean
     private ReportMapper reportMapper;
+
+    @MockitoBean
+    CacheManager cacheManager;
 
     private static final String MERCHANT_ID = "280b09dc-76d9-3b93-bf21-68a5094bc322";
     private static final String INITIATIVE_ID = "68dd003ccce8c534d1da22bc";
@@ -97,7 +104,7 @@ class ReportControllerImplTest {
 
         when(reportMapper.toListDTO(servicePage)).thenReturn(listDTO);
 
-        webClient.get()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/idpay/merchant/portal/initiatives/{initiativeId}/reports")
                         .queryParam("page", 0)
@@ -143,7 +150,7 @@ class ReportControllerImplTest {
                 any(Pageable.class)
         )).thenReturn(Mono.error(new RuntimeException("Service failure")));
 
-        webClient.get()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/idpay/merchant/portal/initiatives/{initiativeId}/reports")
                         .queryParam("page", 0)
@@ -190,7 +197,7 @@ class ReportControllerImplTest {
                 eq(request)
         )).thenReturn(Mono.just(reportDTO));
 
-        webClient.post()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reports", INITIATIVE_ID)
                 .header("x-merchant-id", MERCHANT_ID)
                 .bodyValue(request)
@@ -225,7 +232,7 @@ class ReportControllerImplTest {
                 eq(request)
         )).thenReturn(Mono.error(new RuntimeException("Service failure")));
 
-        webClient.post()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reports", INITIATIVE_ID)
                 .header("x-merchant-id", MERCHANT_ID)
                 .bodyValue(request)
@@ -259,7 +266,7 @@ class ReportControllerImplTest {
         when(reportService.patchReport(eq(INITIATIVE_ID), eq("report123"), any(PatchReportRequest.class)))
                 .thenReturn(Mono.just(reportDTO));
 
-        webClient.patch()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).patch()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reports/{reportId}",
                         INITIATIVE_ID, "report123")
                 .bodyValue(request)
@@ -289,7 +296,7 @@ class ReportControllerImplTest {
                         ERROR_MESSAGE_REPORT_NOT_FOUND.formatted("missingReport", INITIATIVE_ID)
                 )));
 
-        webClient.patch()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).patch()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reports/{reportId}",
                         INITIATIVE_ID, "missingReport")
                 .header("x-merchant-id", MERCHANT_ID)
@@ -315,7 +322,7 @@ class ReportControllerImplTest {
                 eq("report123")
         )).thenReturn(Mono.just(responseDTO));
 
-        webClient.get()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reports/{reportId}/download",
                         INITIATIVE_ID, "report123")
                 .header("x-merchant-id", MERCHANT_ID)
@@ -345,7 +352,7 @@ class ReportControllerImplTest {
                 eq("report123")
         )).thenReturn(Mono.just(responseDTO));
 
-        webClient.get()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reports/{reportId}/download",
                         INITIATIVE_ID, "report123")
                 .header("x-organization-role", "ADMIN")
@@ -375,7 +382,7 @@ class ReportControllerImplTest {
                 ERROR_MESSAGE_REPORT_NOT_FOUND.formatted("missingReport", INITIATIVE_ID)
         )));
 
-        webClient.get()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reports/{reportId}/download",
                         INITIATIVE_ID, "missingReport")
                 .header("x-merchant-id", MERCHANT_ID)
@@ -396,7 +403,7 @@ class ReportControllerImplTest {
                 eq("report123")
         )).thenReturn(Mono.error(new RuntimeException("Service failure")));
 
-        webClient.get()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reports/{reportId}/download",
                         INITIATIVE_ID, "report123")
                 .header("x-merchant-id", MERCHANT_ID)
@@ -420,7 +427,7 @@ class ReportControllerImplTest {
         when(reportService.forceGenerateReports(any()))
                 .thenReturn(Mono.just(List.of(responseMock)));
 
-        webClient.post()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
                 .uri("/idpay/merchant/portal/reports/transaction/force")
                 .bodyValue(request)
                 .exchange()

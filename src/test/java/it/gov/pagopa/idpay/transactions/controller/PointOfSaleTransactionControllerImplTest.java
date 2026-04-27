@@ -1,10 +1,5 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionDTO;
@@ -17,13 +12,10 @@ import it.gov.pagopa.idpay.transactions.service.invoice_lifecycle.InvoiceLifecyc
 import it.gov.pagopa.idpay.transactions.test.fakers.PointOfSaleTransactionDTOFaker;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.List;
-
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
+import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -37,6 +29,17 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.reactive.function.BodyInserters;
 import reactor.core.publisher.Mono;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockUser;
+
 @WebFluxTest(controllers = PointOfSaleTransactionControllerImpl.class)
 class PointOfSaleTransactionControllerImplTest {
 
@@ -48,6 +51,10 @@ class PointOfSaleTransactionControllerImplTest {
 
     @MockitoBean
     PointOfSaleTransactionMapper mapper;
+
+    @MockitoBean
+    CacheManager cacheManager;
+
 
     private static final String INITIATIVE_ID = "INITIATIVE_ID";
     private static final String POINT_OF_SALE_ID = "POINT_OF_SALE_ID";
@@ -81,7 +88,7 @@ class PointOfSaleTransactionControllerImplTest {
         when(mapper.toDTO(eq(trx), eq(INITIATIVE_ID), isNull()))
                 .thenReturn(Mono.just(dto));
 
-        webClient.get()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/idpay/initiatives/{initiativeId}/point-of-sales/{pointOfSaleId}/transactions/processed")
                         .build(INITIATIVE_ID, POINT_OF_SALE_ID))
@@ -106,7 +113,7 @@ class PointOfSaleTransactionControllerImplTest {
         doReturn(Mono.just(DownloadInvoiceResponseDTO.builder().invoiceUrl("testUrl").build()))
                 .when(pointOfSaleTransactionService).downloadTransactionInvoice(
                         MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
-        webClient.get()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
                         .build(POINT_OF_SALE_ID, TRX_ID))
@@ -130,7 +137,7 @@ class PointOfSaleTransactionControllerImplTest {
                 ExceptionConstants.ExceptionMessage.TRANSACTION_MISSING_INVOICE)))
                 .when(pointOfSaleTransactionService).downloadTransactionInvoice(
                         MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
-        webClient.get()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
                         .build(POINT_OF_SALE_ID, TRX_ID))
@@ -142,7 +149,7 @@ class PointOfSaleTransactionControllerImplTest {
 
     @Test
     void downloadInvoiceShouldReturnKOOnMissingMerchHeader() {
-        webClient.get()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
                         .build(POINT_OF_SALE_ID, TRX_ID))
@@ -152,7 +159,7 @@ class PointOfSaleTransactionControllerImplTest {
 
     @Test
     void getPointOfSaleTransactionsForbidden() {
-        webClient.get()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/idpay/initiatives/{initiativeId}/point-of-sales/{pointOfSaleId}/transactions/processed")
                         .build(INITIATIVE_ID, POINT_OF_SALE_ID))
@@ -164,7 +171,7 @@ class PointOfSaleTransactionControllerImplTest {
 
     @Test
     void downloadInvoiceShouldReturnForbiddenOnPosMismatch() {
-        webClient.get()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
                         .build(POINT_OF_SALE_ID, TRX_ID))
@@ -180,7 +187,7 @@ class PointOfSaleTransactionControllerImplTest {
                 .when(pointOfSaleTransactionService).downloadTransactionInvoice(
                         MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
 
-        webClient.get()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
                         .build(POINT_OF_SALE_ID, TRX_ID))
@@ -216,7 +223,7 @@ class PointOfSaleTransactionControllerImplTest {
                 .contentType(MediaType.APPLICATION_OCTET_STREAM);
         builder.part("docNumber", "DOC123");
 
-        webClient.put()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).put()
                 .uri("/idpay/transactions/{id}/invoice/update", TRX_ID)
                 .header("x-merchant-id", MERCHANT_ID)
                 .header("x-point-of-sale-id", POINT_OF_SALE_ID)
@@ -242,7 +249,7 @@ class PointOfSaleTransactionControllerImplTest {
                 .filename("f.pdf")
                 .contentType(MediaType.APPLICATION_OCTET_STREAM);
 
-        webClient.put()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).put()
                 .uri("/idpay/transactions/{transactionId}/invoice/update", TRX_ID)
                 .header("x-point-of-sale-id", POINT_OF_SALE_ID)
                 .contentType(MediaType.MULTIPART_FORM_DATA)
@@ -268,7 +275,7 @@ class PointOfSaleTransactionControllerImplTest {
                 .contentType(MediaType.APPLICATION_OCTET_STREAM);
         builder.part("docNumber", "DOC456");
 
-        webClient.post()
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
                 .uri("/idpay/transactions/{id}/reversal-invoiced", TRX_ID)
                 .header("x-merchant-id", MERCHANT_ID)
                 .header("x-point-of-sale-id", POINT_OF_SALE_ID)
