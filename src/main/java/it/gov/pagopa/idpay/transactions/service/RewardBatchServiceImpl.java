@@ -739,34 +739,70 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             RewardBatchStatus statusIfEmpty,
             BiFunction<RewardBatch, String, Mono<?>> businessLogic) {
 
-        Flux<RewardBatch> batchFlux;
-
         if (rewardBatchIds != null && !rewardBatchIds.isEmpty()) {
-            batchFlux = Flux.fromIterable(rewardBatchIds)
+            return Flux.fromIterable(rewardBatchIds)
                     .concatMap(batchId ->
-                            rewardBatchRepository.findRewardBatchByIdAndInitiativeId(batchId, initiativeId));
-        } else {
-            batchFlux = rewardBatchRepository.findByStatusAndInitiativeId(statusIfEmpty, initiativeId)
-                    .collectList()
-                    .flatMapMany(batchList -> {
-                        if (batchList.isEmpty()) {
-                            log.warn("No batches found with status {} to process.", statusIfEmpty);
-                            return Flux.empty();
-                        }
-                        log.info("Found {} batches with status {} to process.", batchList.size(), statusIfEmpty);
-                        return Flux.fromIterable(batchList);
-                    });
+                            rewardBatchRepository.findRewardBatchByIdAndInitiativeId(batchId, initiativeId)
+                    )
+                    .concatMap(batch -> {
+                        log.info("Processing batch {}", batch.getId());
+
+                        return businessLogic.apply(batch, initiativeId)
+                                .onErrorResume(error -> {
+                                    log.error("Failed to process batch {}: {}",
+                                            batch.getId(), error.getMessage(), error);
+                                    return Mono.empty();
+                                });
+                    })
+                    .then();
         }
 
-        return batchFlux
-                .doOnNext(batch -> log.info("Processing batch {}", batch.getId()))
-                .concatMap(batch -> businessLogic.apply(batch, initiativeId)
-                        .onErrorResume(error -> {
-                            log.error("Failed to process batch {}: {}", batch.getId(), error.getMessage(), error);
-                            return Mono.empty();
-                        })
-                )
-                .then();
+        return processBatchesByStatusPaginated(
+                initiativeId,
+                statusIfEmpty,
+                10,
+                businessLogic
+        );
+    }
+
+    private Mono<Void> processBatchesByStatusPaginated(
+            String initiativeId,
+            RewardBatchStatus status,
+            int pageSize,
+            BiFunction<RewardBatch, String, Mono<?>> businessLogic) {
+
+        return rewardBatchRepository
+                .findByStatusAndInitiativeId(status, initiativeId, Pageable.ofSize(pageSize))
+                .collectList()
+                .flatMap(batchList -> {
+                    if (batchList.isEmpty()) {
+                        log.info("No more batches found with status {} to process.", status);
+                        return Mono.empty();
+                    }
+
+                    log.info("Found {} batches with status {} to process in current page.",
+                            batchList.size(), status);
+
+                    return Flux.fromIterable(batchList)
+                            .concatMap(batch -> {
+                                log.info("Processing batch {}", batch.getId());
+
+                                return businessLogic.apply(batch, initiativeId)
+                                        .onErrorResume(error -> {
+                                            log.error("Failed to process batch {}: {}",
+                                                    batch.getId(), error.getMessage(), error);
+                                            return Mono.empty();
+                                        });
+                            })
+                            .then(Mono.defer(() ->
+                                    processBatchesByStatusPaginated(
+                                            initiativeId,
+                                            status,
+                                            pageSize,
+                                            businessLogic
+                                    )
+                            ));
+                });
     }
 
 
