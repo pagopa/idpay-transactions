@@ -114,6 +114,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "%s_%s_%s.csv";
     private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern(DATE_FORMAT, Locale.ITALIAN);
 
+    private static final Integer PAGE_SIZE = 10;
+
     public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService, ReactiveMongoTemplate reactiveMongoTemplate, ChecksErrorMapper checksErrorMapper, AuditUtilities auditUtilities, MerchantRestClient merchantRestClient, SelfcareInstitutionsRestClient selfcareInstitutionsRestClient, ErogazioniRestClient erogazioniRestClient, InitiativeDataService initiativeDataService) {
         this.rewardBatchRepository = rewardBatchRepository;
         this.rewardTransactionRepository = rewardTransactionRepository;
@@ -760,7 +762,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         return processBatchesByStatusPaginated(
                 initiativeId,
                 statusIfEmpty,
-                10,
+                PAGE_SIZE,
                 businessLogic
         );
     }
