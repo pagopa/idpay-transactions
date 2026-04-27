@@ -58,7 +58,7 @@ public final class JwtUtils {
 
         } catch (ResponseStatusException ex) {
             throw ex; // Rethrow HTTP exceptions so they don't get swallowed
-        } catch (Exception e) {
+        } catch (Exception _) {
             // Catch Base64 or Jackson parsing errors
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid token format");
         }
@@ -74,12 +74,12 @@ public final class JwtUtils {
 
         if (node.isArray()) {
             List<String> result = new ArrayList<>();
-            node.forEach(n -> result.add(n.asText()));
+            node.forEach(n -> result.add(n.asString()));
             return result;
         }
 
-        if (node.isTextual()) {
-            String text = node.asText().trim();
+        if (node.isString()) {
+            String text = node.asString().trim();
             return text.isEmpty() ? List.of() : List.of(text.split("\\s+"));
         }
 
