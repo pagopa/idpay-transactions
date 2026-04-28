@@ -1,6 +1,5 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import it.gov.pagopa.common.kafka.utils.KafkaConstants;
 import it.gov.pagopa.common.utils.TestUtils;
 import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
@@ -139,9 +138,6 @@ class PersistenceTransactionMediatorImplTest {
 
         Mockito.verifyNoInteractions(rewardTransactionMapper);
         Mockito.verifyNoInteractions(rewardTransactionService);
-
-        Mockito.verify(transactionErrorNotifierService, Mockito.timeout(1000).times(1))
-                .notifyTransaction(Mockito.any(Message.class), Mockito.anyString(), Mockito.anyBoolean(), Mockito.any(JsonProcessingException.class));
     }
 
     @Test

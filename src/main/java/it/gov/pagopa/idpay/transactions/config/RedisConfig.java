@@ -1,14 +1,15 @@
 package it.gov.pagopa.idpay.transactions.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.PointOfSaleDTO;
-import java.time.Duration;
-import org.springframework.boot.autoconfigure.cache.RedisCacheManagerBuilderCustomizer;
+import org.springframework.boot.cache.autoconfigure.RedisCacheManagerBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
-import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext.SerializationPair;
+import tools.jackson.databind.ObjectMapper;
+
+import java.time.Duration;
 
 @Configuration
 public class RedisConfig {
@@ -16,9 +17,8 @@ public class RedisConfig {
   public RedisCacheManagerBuilderCustomizer redisCacheManagerBuilderCustomizer() {
 
     ObjectMapper mapper = new ObjectMapper();
-    mapper.findAndRegisterModules();
 
-    Jackson2JsonRedisSerializer<PointOfSaleDTO> serializer = new Jackson2JsonRedisSerializer<>(mapper, PointOfSaleDTO.class);
+    JacksonJsonRedisSerializer<PointOfSaleDTO> serializer = new JacksonJsonRedisSerializer<>(mapper, PointOfSaleDTO.class);
 
     return builder -> builder
         .withCacheConfiguration("getPointOfSale",
