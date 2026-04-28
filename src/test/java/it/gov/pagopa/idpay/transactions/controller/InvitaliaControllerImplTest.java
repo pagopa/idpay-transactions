@@ -10,7 +10,8 @@ import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
 import it.gov.pagopa.idpay.transactions.dto.ErogazioneDTO;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -22,6 +23,8 @@ import java.time.LocalDateTime;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockUser;
 
 @WebFluxTest(controllers = InvitaliaControllerImpl.class)
 @Import({ServiceExceptionConfig.class})
@@ -34,13 +37,18 @@ class InvitaliaControllerImplTest {
     @MockitoBean
     private ErogazioniRestClient erogazioniRestClient;
 
+    @MockitoBean
+    CacheManager cacheManager;
+
     @Test
     void getToken_Success() {
         String token = "TOKEN";
 
         when(invitaliaTokenProviderService.retrieveToken()).thenReturn(Mono.just(token));
 
-        webTestClient.get()
+        webTestClient
+                .mutateWith(mockUser()).mutateWith(csrf())
+                .get()
                 .uri("/idpay/invitalia/token")
                 .exchange()
                 .expectStatus().isOk()
@@ -55,7 +63,8 @@ class InvitaliaControllerImplTest {
 
         when(invitaliaTokenProviderService.retrieveToken()).thenReturn(Mono.error(new RuntimeException("DUMMY_EXCEPTION")));
 
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri("/idpay/invitalia/token")
                 .exchange()
                 .expectStatus().is5xxServerError()
@@ -99,7 +108,8 @@ class InvitaliaControllerImplTest {
         when(erogazioniRestClient.postErogazione(any(DeliveryRequest.class)))
                 .thenReturn(Mono.just(expectedOutcome));
 
-        webTestClient.post()
+        webTestClient.mutateWith(mockUser())
+                .mutateWith(csrf()).post()
                 .uri("/idpay/invitalia/erogazioni")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
@@ -118,7 +128,8 @@ class InvitaliaControllerImplTest {
         when(erogazioniRestClient.postErogazione(any(DeliveryRequest.class)))
                 .thenReturn(Mono.error(new RuntimeException("API Error")));
 
-        webTestClient.post()
+        webTestClient.mutateWith(mockUser())
+                .mutateWith(csrf()).post()
                 .uri("/idpay/invitalia/erogazioni")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
@@ -134,7 +145,8 @@ class InvitaliaControllerImplTest {
         when(erogazioniRestClient.getOutcome(batchId))
                 .thenReturn(Mono.just(outcomeDTO));
 
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/idpay/invitalia/checkRefundOutcome")
                         .queryParam("rewardBatchId", batchId)
@@ -155,7 +167,8 @@ class InvitaliaControllerImplTest {
         when(erogazioniRestClient.getOutcome(batchId))
                 .thenReturn(Mono.error(new RuntimeException("API Error")));
 
-        webTestClient.get()
+        webTestClient.mutateWith(mockUser())
+                .mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/idpay/invitalia/checkRefundOutcome")
                         .queryParam("rewardBatchId", batchId)

@@ -44,6 +44,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpStatus;
@@ -110,7 +111,9 @@ class RewardBatchServiceImplTest {
                 merchantRestClient,
                 selfcareInstitutionsRestClient,
                 erogazioniRestClient,
-                initiativeDataService
+                initiativeDataService,
+                10
+
         );
         serviceSpy = spy(service);
     }
@@ -1040,8 +1043,8 @@ class RewardBatchServiceImplTest {
                 .build();
 
         when(rewardBatchRepository.findByStatusAndInitiativeId(
-                RewardBatchStatus.APPROVING, INITIATIVE_ID))
-                .thenReturn(Flux.just(b1));
+                eq(RewardBatchStatus.APPROVING), eq(INITIATIVE_ID), any(Pageable.class)))
+                .thenReturn(Flux.just(b1), Flux.empty());
 
         doReturn(Mono.just(b1)).when(serviceSpy).processSingleBatchConfirmation(b1, INITIATIVE_ID);
 
@@ -1050,6 +1053,8 @@ class RewardBatchServiceImplTest {
                 .verifyComplete();
 
         verify(serviceSpy).processSingleBatchConfirmation(b1, INITIATIVE_ID);
+        verify(rewardBatchRepository, times(2))
+                .findByStatusAndInitiativeId(eq(RewardBatchStatus.APPROVING), eq(INITIATIVE_ID), any(Pageable.class));
     }
 
     @Test
