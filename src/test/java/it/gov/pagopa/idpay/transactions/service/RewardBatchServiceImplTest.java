@@ -111,7 +111,9 @@ class RewardBatchServiceImplTest {
                 merchantRestClient,
                 selfcareInstitutionsRestClient,
                 erogazioniRestClient,
-                initiativeDataService
+                initiativeDataService,
+                10
+
         );
         serviceSpy = spy(service);
     }
