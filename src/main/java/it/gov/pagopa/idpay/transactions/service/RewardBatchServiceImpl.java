@@ -36,6 +36,7 @@ import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessag
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -114,7 +115,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "%s_%s_%s.csv";
     private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern(DATE_FORMAT, Locale.ITALIAN);
 
-    private static final Integer PAGE_SIZE = 10;
+    @Value("${app.batch.paginationSize}")
+    private Integer PAGE_SIZE;
 
     public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService, ReactiveMongoTemplate reactiveMongoTemplate, ChecksErrorMapper checksErrorMapper, AuditUtilities auditUtilities, MerchantRestClient merchantRestClient, SelfcareInstitutionsRestClient selfcareInstitutionsRestClient, ErogazioniRestClient erogazioniRestClient, InitiativeDataService initiativeDataService) {
         this.rewardBatchRepository = rewardBatchRepository;
@@ -762,7 +764,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         return processBatchesByStatusPaginated(
                 initiativeId,
                 statusIfEmpty,
-                PAGE_SIZE,
                 businessLogic
         );
     }
@@ -770,11 +771,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private Mono<Void> processBatchesByStatusPaginated(
             String initiativeId,
             RewardBatchStatus status,
-            int pageSize,
             BiFunction<RewardBatch, String, Mono<?>> businessLogic) {
 
         return rewardBatchRepository
-                .findByStatusAndInitiativeId(status, initiativeId, Pageable.ofSize(pageSize))
+                .findByStatusAndInitiativeId(status, initiativeId, Pageable.ofSize(PAGE_SIZE))
                 .collectList()
                 .flatMap(batchList -> {
                     if (batchList.isEmpty()) {
@@ -800,7 +800,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                     processBatchesByStatusPaginated(
                                             initiativeId,
                                             status,
-                                            pageSize,
                                             businessLogic
                                     )
                             ));
