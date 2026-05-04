@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.repository;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.ReactiveMongoRepository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -16,6 +17,11 @@ public interface RewardBatchRepository extends ReactiveMongoRepository<RewardBat
   Mono<RewardBatch> findByIdAndInitiativeIdAndStatus(String rewardBatchId, String initiativeId, RewardBatchStatus rewardBatchTrxStatus);
 
   Flux<RewardBatch> findByStatusAndInitiativeId(RewardBatchStatus rewardBatchStatus, String initiativeId);
+  Flux<RewardBatch> findByStatusAndInitiativeId(
+          RewardBatchStatus status,
+          String initiativeId,
+          Pageable pageable
+  );
   Flux<RewardBatch> findByMerchantIdAndInitiativeIdAndPosType(String merchantId, String initiativeId, PosType posType);
 
   Mono<RewardBatch> findByMerchantIdAndInitiativeIdAndId(String merchantId, String initiativeId, String rewardBatchId);

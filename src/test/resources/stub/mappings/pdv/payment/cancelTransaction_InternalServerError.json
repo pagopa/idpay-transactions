@@ -1,0 +1,16 @@
+{
+  "request": {
+    "method": "DELETE",
+    "urlPathPattern": "/idpay/payment/transactions/(TRX_INTERNALSERVERERROR_[0-9]+)"
+  },
+  "response": {
+    "status": 500,
+    "jsonBody": {
+      "error": "Internal Server Error"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}
+

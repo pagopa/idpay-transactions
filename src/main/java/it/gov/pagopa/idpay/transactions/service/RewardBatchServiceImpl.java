@@ -6,9 +6,11 @@ import com.azure.storage.blob.models.BlockBlobItem;
 import com.mongodb.client.result.DeleteResult;
 import com.nimbusds.jose.util.Pair;
 import it.gov.pagopa.common.web.exception.*;
+import it.gov.pagopa.idpay.transactions.config.InitiativeNotFoundException;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.dto.InitiativeDetailDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.SelfcareInstitutionsRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionDTO;
@@ -34,6 +36,7 @@ import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessag
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -84,6 +87,9 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private final MerchantRestClient merchantRestClient;
     private final SelfcareInstitutionsRestClient selfcareInstitutionsRestClient;
     private final ErogazioniRestClient erogazioniRestClient;
+    private final InitiativeDataService initiativeDataService;
+
+    private final int pagesize;
 
 
     private static final String OPERATOR_1 = "operator1";
@@ -111,7 +117,18 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "%s_%s_%s.csv";
     private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern(DATE_FORMAT, Locale.ITALIAN);
 
-    public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository, RewardTransactionRepository rewardTransactionRepository, UserRestClient userRestClient, ApprovedRewardBatchBlobService approvedRewardBatchBlobService, ReactiveMongoTemplate reactiveMongoTemplate, ChecksErrorMapper checksErrorMapper, AuditUtilities auditUtilities, MerchantRestClient merchantRestClient, SelfcareInstitutionsRestClient selfcareInstitutionsRestClient, ErogazioniRestClient erogazioniRestClient) {
+    public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository,
+                                  RewardTransactionRepository rewardTransactionRepository,
+                                  UserRestClient userRestClient,
+                                  ApprovedRewardBatchBlobService approvedRewardBatchBlobService,
+                                  ReactiveMongoTemplate reactiveMongoTemplate,
+                                  ChecksErrorMapper checksErrorMapper,
+                                  AuditUtilities auditUtilities,
+                                  MerchantRestClient merchantRestClient,
+                                  SelfcareInstitutionsRestClient selfcareInstitutionsRestClient,
+                                  ErogazioniRestClient erogazioniRestClient,
+                                  InitiativeDataService initiativeDataService,
+                                  @Value("${app.batch.paginationSize}") int pagesize) {
         this.rewardBatchRepository = rewardBatchRepository;
         this.rewardTransactionRepository = rewardTransactionRepository;
         this.userRestClient = userRestClient;
@@ -122,6 +139,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         this.merchantRestClient = merchantRestClient;
         this.selfcareInstitutionsRestClient = selfcareInstitutionsRestClient;
         this.erogazioniRestClient = erogazioniRestClient;
+        this.initiativeDataService = initiativeDataService;
+        this.pagesize = pagesize;
     }
 
     @Override
@@ -735,34 +754,67 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             RewardBatchStatus statusIfEmpty,
             BiFunction<RewardBatch, String, Mono<?>> businessLogic) {
 
-        Flux<RewardBatch> batchFlux;
-
         if (rewardBatchIds != null && !rewardBatchIds.isEmpty()) {
-            batchFlux = Flux.fromIterable(rewardBatchIds)
+            return Flux.fromIterable(rewardBatchIds)
                     .concatMap(batchId ->
-                            rewardBatchRepository.findRewardBatchByIdAndInitiativeId(batchId, initiativeId));
-        } else {
-            batchFlux = rewardBatchRepository.findByStatusAndInitiativeId(statusIfEmpty, initiativeId)
-                    .collectList()
-                    .flatMapMany(batchList -> {
-                        if (batchList.isEmpty()) {
-                            log.warn("No batches found with status {} to process.", statusIfEmpty);
-                            return Flux.empty();
-                        }
-                        log.info("Found {} batches with status {} to process.", batchList.size(), statusIfEmpty);
-                        return Flux.fromIterable(batchList);
-                    });
+                            rewardBatchRepository.findRewardBatchByIdAndInitiativeId(batchId, initiativeId)
+                    )
+                    .concatMap(batch -> {
+                        log.info("Processing batch {}", batch.getId());
+
+                        return businessLogic.apply(batch, initiativeId)
+                                .onErrorResume(error -> {
+                                    log.error("Failed to process batch {}: {}",
+                                            batch.getId(), error.getMessage(), error);
+                                    return Mono.empty();
+                                });
+                    })
+                    .then();
         }
 
-        return batchFlux
-                .doOnNext(batch -> log.info("Processing batch {}", batch.getId()))
-                .concatMap(batch -> businessLogic.apply(batch, initiativeId)
-                        .onErrorResume(error -> {
-                            log.error("Failed to process batch {}: {}", batch.getId(), error.getMessage(), error);
-                            return Mono.empty();
-                        })
-                )
-                .then();
+        return processBatchesByStatusPaginated(
+                initiativeId,
+                statusIfEmpty,
+                businessLogic
+        );
+    }
+
+    private Mono<Void> processBatchesByStatusPaginated(
+            String initiativeId,
+            RewardBatchStatus status,
+            BiFunction<RewardBatch, String, Mono<?>> businessLogic) {
+
+        return rewardBatchRepository
+                .findByStatusAndInitiativeId(status, initiativeId, Pageable.ofSize(pagesize))
+                .collectList()
+                .flatMap(batchList -> {
+                    if (batchList.isEmpty()) {
+                        log.info("No more batches found with status {} to process.", status);
+                        return Mono.empty();
+                    }
+
+                    log.info("Found {} batches with status {} to process in current page.",
+                            batchList.size(), status);
+
+                    return Flux.fromIterable(batchList)
+                            .concatMap(batch -> {
+                                log.info("Processing batch {}", batch.getId());
+
+                                return businessLogic.apply(batch, initiativeId)
+                                        .onErrorResume(error -> {
+                                            log.error("Failed to process batch {}: {}",
+                                                    batch.getId(), error.getMessage(), error);
+                                            return Mono.empty();
+                                        });
+                            })
+                            .then(Mono.defer(() ->
+                                    processBatchesByStatusPaginated(
+                                            initiativeId,
+                                            status,
+                                            businessLogic
+                                    )
+                            ));
+                });
     }
 
 
@@ -1202,97 +1254,173 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     }
 
     @Override
-    public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, LocalDate initiativeEndDate) {
+    public Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId) {
 
+        return findTransactionToPostpone(merchantId, initiativeId, rewardBatchId, transactionId)
+                .flatMap(trx -> findCurrentBatchForPostpone(rewardBatchId)
+                        .flatMap(currentBatch -> postponeTransactionOnNextBatch(trx, currentBatch, initiativeId)))
+                .then();
+    }
+
+    private Mono<RewardTransaction> findTransactionToPostpone(String merchantId, String initiativeId, String rewardBatchId, String transactionId) {
         return rewardTransactionRepository.findTransactionInBatch(initiativeId, merchantId, rewardBatchId, transactionId)
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
                         HttpStatus.NOT_FOUND,
                         String.format(ExceptionMessage.TRANSACTION_NOT_FOUND, transactionId)
-                )))
-                .flatMap(trx -> {
+                )));
+    }
 
-                    long accruedRewardCents = trx.getRewards().get(initiativeId).getAccruedRewardCents();
+    private Mono<RewardBatch> findCurrentBatchForPostpone(String rewardBatchId) {
+        return rewardBatchRepository.findById(rewardBatchId)
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.NOT_FOUND,
+                        ExceptionCode.REWARD_BATCH_NOT_FOUND,
+                        String.format(ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH, rewardBatchId)
+                )));
+    }
 
-                    return rewardBatchRepository.findById(rewardBatchId)
-                            .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
-                                    HttpStatus.NOT_FOUND,
-                                    ExceptionCode.REWARD_BATCH_NOT_FOUND,
-                                    String.format(ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH, rewardBatchId)
-                            )))
-                            .flatMap(currentBatch -> {
+    private Mono<RewardTransaction> postponeTransactionOnNextBatch(RewardTransaction trx, RewardBatch currentBatch, String initiativeId) {
+        return validateCurrentBatchCanPostpone(currentBatch)
+                .flatMap(batch -> {
+                    YearMonth nextBatchMonth = getNextBatchMonth(batch);
+                    return getInitiativeDataForPostpone(initiativeId)
+                            .flatMap(initiativeData -> validatePostponeLimit(initiativeData, nextBatchMonth))
+                            .then(Mono.defer(() -> createNextBatchForPostpone(batch, initiativeId, nextBatchMonth)))
+                            .flatMap(nextBatch -> moveTransactionToNextBatch(trx, batch, nextBatch, initiativeId));
+                });
+    }
 
-                                if (currentBatch.getStatus() != RewardBatchStatus.CREATED) {
-                                    return Mono.error(new ClientExceptionWithBody(
-                                            HttpStatus.BAD_REQUEST,
-                                            ExceptionCode.REWARD_BATCH_INVALID_REQUEST,
-                                            ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH
-                                    ));
-                                }
+    private Mono<RewardBatch> validateCurrentBatchCanPostpone(RewardBatch currentBatch) {
+        if (currentBatch.getStatus() != RewardBatchStatus.CREATED) {
+            return Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    ExceptionCode.REWARD_BATCH_INVALID_REQUEST,
+                    ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH
+            ));
+        }
+        return Mono.just(currentBatch);
+    }
 
-                                YearMonth currentBatchMonth = YearMonth.parse(currentBatch.getMonth());
-                                YearMonth nextBatchMonth = currentBatchMonth.plusMonths(1);
+    private YearMonth getNextBatchMonth(RewardBatch currentBatch) {
+        YearMonth currentBatchMonth = YearMonth.parse(currentBatch.getMonth());
+        YearMonth nextBatchMonth = currentBatchMonth.plusMonths(1);
+        log.info("[POSTPONE_TRANSACTION] Current batch month: {}, next batch month: {}", currentBatchMonth, nextBatchMonth);
+        return nextBatchMonth;
+    }
 
-                                YearMonth maxAllowedMonth = YearMonth.from(initiativeEndDate).plusMonths(1);
+    private Mono<InitiativeDetailDTO> getInitiativeDataForPostpone(String initiativeId) {
+        return initiativeDataService.getInitiativeData(initiativeId)
+                .onErrorResume(error -> mapInitiativeDataError(initiativeId, error));
+    }
 
-                                if (nextBatchMonth.isAfter(maxAllowedMonth)) {
-                                    return Mono.error(new ClientExceptionWithBody(
-                                            HttpStatus.BAD_REQUEST,
-                                            ExceptionCode.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED,
-                                            ExceptionMessage.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED
-                                    ));
-                                }
+    private Mono<InitiativeDetailDTO> mapInitiativeDataError(String initiativeId, Throwable error) {
+        log.error("[POSTPONE_TRANSACTION] Failed to retrieve initiative data for initiativeId={}", initiativeId, error);
 
-                                return this.findOrCreateBatch(
-                                                initiativeId,
-                                                currentBatch.getMerchantId(),
-                                                currentBatch.getPosType(),
-                                                nextBatchMonth.toString(),
-                                                currentBatch.getBusinessName()
-                                        )
-                                        .flatMap(nextBatch -> {
+        if (error instanceof InitiativeNotFoundException) {
+            return Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.NOT_FOUND,
+                    ExceptionCode.GENERIC_ERROR,
+                    "Initiative not found: " + initiativeId
+            ));
+        }
 
-                                            if (nextBatch.getStatus() != RewardBatchStatus.CREATED) {
-                                                return Mono.error(new ClientExceptionNoBody(
-                                                        HttpStatus.BAD_REQUEST,
-                                                        ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH
-                                                ));
-                                            }
+        return Mono.error(new ClientExceptionWithBody(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                ExceptionCode.GENERIC_ERROR,
+                "Failed to retrieve initiative data: " + error.getMessage()
+        ));
+    }
 
+    private Mono<Void> validatePostponeLimit(InitiativeDetailDTO initiativeData, YearMonth nextBatchMonth) {
+        YearMonth maxAllowedMonth = YearMonth.from(initiativeData.getFruitionEndDate()).plusMonths(1);
 
-                                            boolean isTrxSuspended = RewardBatchTrxStatus.SUSPENDED.equals(trx.getRewardBatchTrxStatus());
-                                            BatchCountersDTO oldBatchCounters = BatchCountersDTO.newBatch()
-                                                    .decrementInitialAmountCents(accruedRewardCents)
-                                                    .decrementNumberOfTransactions();
-                                            BatchCountersDTO newBatchCounters = BatchCountersDTO.newBatch()
-                                                    .incrementInitialAmountCents(accruedRewardCents)
-                                                    .incrementNumberOfTransactions(1L);
-                                            if(isTrxSuspended){
+        log.info("[POSTPONE_TRANSACTION] InitiativeEndDate: {}, maxAllowedMonth: {}, nextBatchMonth: {}",
+                initiativeData.getFruitionEndDate(), maxAllowedMonth, nextBatchMonth);
 
-                                                oldBatchCounters
-                                                        .decrementSuspendedAmountCents(accruedRewardCents)
-                                                        .decrementTrxElaborated()
-                                                        .decrementTrxSuspended();
+        if (nextBatchMonth.isAfter(maxAllowedMonth)) {
+            log.warn("[POSTPONE_TRANSACTION] Postpone limit exceeded! nextBatchMonth={} > maxAllowedMonth={}",
+                    nextBatchMonth, maxAllowedMonth);
+            return Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    ExceptionCode.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED,
+                    ExceptionMessage.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED
+            ));
+        }
 
-                                                newBatchCounters
-                                                        .incrementSuspendedAmountCents(accruedRewardCents)
-                                                        .incrementTrxElaborated()
-                                                        .incrementTrxSuspended();
-                                            }
+        log.info("[POSTPONE_TRANSACTION] Postpone validation passed, creating next batch");
+        return Mono.empty();
+    }
 
-                                            return  rewardBatchRepository.updateTotals(currentBatch.getInitiativeId(), currentBatch.getId(), oldBatchCounters)
-                                                    .then(rewardBatchRepository.updateTotals(nextBatch.getInitiativeId(), nextBatch.getId(), newBatchCounters))
-                                                    .then(Mono.defer(() -> {
+    private Mono<RewardBatch> createNextBatchForPostpone(RewardBatch currentBatch, String initiativeId, YearMonth nextBatchMonth) {
+        return findOrCreateBatch(
+                initiativeId,
+                currentBatch.getMerchantId(),
+                currentBatch.getPosType(),
+                nextBatchMonth.toString(),
+                currentBatch.getBusinessName()
+        ).flatMap(this::validateNextBatchCanReceivePostponedTransaction);
+    }
 
-                                                        trx.setRewardBatchId(nextBatch.getId());
-                                                        trx.setRewardBatchInclusionDate(LocalDateTime.now());
-                                                        trx.setUpdateDate(LocalDateTime.now());
+    private Mono<RewardBatch> validateNextBatchCanReceivePostponedTransaction(RewardBatch nextBatch) {
+        if (nextBatch.getStatus() != RewardBatchStatus.CREATED) {
+            return Mono.error(new ClientExceptionNoBody(
+                    HttpStatus.BAD_REQUEST,
+                    ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH
+            ));
+        }
+        return Mono.just(nextBatch);
+    }
 
-                                                        return rewardTransactionRepository.save(trx);
-                                                    }));
-                                        });
-                            });
-                })
-                .then();
+    private Mono<RewardTransaction> moveTransactionToNextBatch(RewardTransaction trx, RewardBatch currentBatch, RewardBatch nextBatch, String initiativeId) {
+        long accruedRewardCents = trx.getRewards().get(initiativeId).getAccruedRewardCents();
+        BatchCountersDTO oldBatchCounters = buildOldBatchCounters(trx, accruedRewardCents);
+        BatchCountersDTO newBatchCounters = buildNewBatchCounters(trx, accruedRewardCents);
+
+        return rewardBatchRepository.updateTotals(currentBatch.getInitiativeId(), currentBatch.getId(), oldBatchCounters)
+                .then(rewardBatchRepository.updateTotals(nextBatch.getInitiativeId(), nextBatch.getId(), newBatchCounters))
+                .then(Mono.defer(() -> savePostponedTransaction(trx, nextBatch)));
+    }
+
+    private BatchCountersDTO buildOldBatchCounters(RewardTransaction trx, long accruedRewardCents) {
+        BatchCountersDTO counters = BatchCountersDTO.newBatch()
+                .decrementInitialAmountCents(accruedRewardCents)
+                .decrementNumberOfTransactions();
+
+        if (isSuspended(trx)) {
+            counters
+                    .decrementSuspendedAmountCents(accruedRewardCents)
+                    .decrementTrxElaborated()
+                    .decrementTrxSuspended();
+        }
+
+        return counters;
+    }
+
+    private BatchCountersDTO buildNewBatchCounters(RewardTransaction trx, long accruedRewardCents) {
+        BatchCountersDTO counters = BatchCountersDTO.newBatch()
+                .incrementInitialAmountCents(accruedRewardCents)
+                .incrementNumberOfTransactions(1L);
+
+        if (isSuspended(trx)) {
+            counters
+                    .incrementSuspendedAmountCents(accruedRewardCents)
+                    .incrementTrxElaborated()
+                    .incrementTrxSuspended();
+        }
+
+        return counters;
+    }
+
+    private boolean isSuspended(RewardTransaction trx) {
+        return RewardBatchTrxStatus.SUSPENDED.equals(trx.getRewardBatchTrxStatus());
+    }
+
+    private Mono<RewardTransaction> savePostponedTransaction(RewardTransaction trx, RewardBatch nextBatch) {
+        trx.setRewardBatchId(nextBatch.getId());
+        trx.setRewardBatchInclusionDate(LocalDateTime.now());
+        trx.setUpdateDate(LocalDateTime.now());
+
+        return rewardTransactionRepository.save(trx);
     }
 
     @Data
