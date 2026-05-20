@@ -956,7 +956,12 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                             .incrementSuspendedAmountCents(totalAccrued)
                                             .incrementTrxSuspended(countToMove);
 
-                                    return rewardBatchRepository.updateTotals(newBatch.getInitiativeId(), newBatch.getId(), batchCounters);
+                                    return rewardBatchRepository.updateTotals(newBatch.getInitiativeId(), newBatch.getId(), batchCounters)
+                                            .then(rewardBatchRepository.updateTotals(
+                                                    originalBatch.getInitiativeId(),
+                                                    originalBatch.getId(),
+                                                    BatchCountersDTO.newBatch().decrementNumberOfTransactions(countToMove)
+                                            ));
                                 })
                         )
                 )
