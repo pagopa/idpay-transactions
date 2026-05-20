@@ -24,6 +24,7 @@ import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
