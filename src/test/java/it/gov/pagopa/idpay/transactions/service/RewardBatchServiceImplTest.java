@@ -1241,8 +1241,10 @@ class RewardBatchServiceImplTest {
                 .verifyComplete();
 
         assertEquals(BATCH_ID_2, t1.getRewardBatchId());
+        assertEquals(SyncTrxStatus.INVOICED.name(), t1.getStatus());
         assertEquals("2025-12", t1.getRewardBatchLastMonthElaborated());
         assertEquals(BATCH_ID_2, t2.getRewardBatchId());
+        assertEquals(SyncTrxStatus.INVOICED.name(), t2.getStatus());
         assertEquals("2025-11", t2.getRewardBatchLastMonthElaborated());
     }
 

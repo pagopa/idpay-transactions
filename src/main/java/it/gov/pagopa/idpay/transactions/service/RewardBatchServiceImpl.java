@@ -964,8 +964,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                             ));
                                 })
                         )
-                )
-                .thenReturn(originalBatch);
+                );
     }
 
     public String addOneMonth(String yearMonthString) {
@@ -1023,6 +1022,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 }))
                 .flatMap(rewardTransaction -> {
                     rewardTransaction.setRewardBatchId(newBatchId);
+                    rewardTransaction.setStatus(SyncTrxStatus.INVOICED.name());
                     if(rewardTransaction.getRewardBatchLastMonthElaborated() == null) {
                         rewardTransaction.setRewardBatchLastMonthElaborated(oldMonth);
                     }
