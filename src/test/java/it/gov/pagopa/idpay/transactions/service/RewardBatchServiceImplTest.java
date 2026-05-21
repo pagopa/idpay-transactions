@@ -2262,6 +2262,9 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(targetBatch));
 
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID), any(BatchCountersDTO.class)))
+                .thenReturn(Mono.just(originalBatch));
+
         when(rewardTransactionRepository.findByFilter(
                 BATCH_ID,
                 INITIATIVE_ID,
@@ -2316,6 +2319,9 @@ class RewardBatchServiceImplTest {
 
         when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(targetBatch));
+
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID), any(BatchCountersDTO.class)))
+                .thenReturn(Mono.just(originalBatch));
 
         when(rewardTransactionRepository.findByFilter(
                 BATCH_ID,
