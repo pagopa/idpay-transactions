@@ -956,11 +956,15 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                             .incrementSuspendedAmountCents(totalAccrued)
                                             .incrementTrxSuspended(countToMove);
 
-                                    return rewardBatchRepository.updateTotals(newBatch.getInitiativeId(), newBatch.getId(), batchCounters);
+                                    return rewardBatchRepository.updateTotals(newBatch.getInitiativeId(), newBatch.getId(), batchCounters)
+                                            .then(rewardBatchRepository.updateTotals(
+                                                    originalBatch.getInitiativeId(),
+                                                    originalBatch.getId(),
+                                                    BatchCountersDTO.newBatch().decrementNumberOfTransactions(countToMove)
+                                            ));
                                 })
                         )
-                )
-                .thenReturn(originalBatch);
+                );
     }
 
     public String addOneMonth(String yearMonthString) {
@@ -1018,6 +1022,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 }))
                 .flatMap(rewardTransaction -> {
                     rewardTransaction.setRewardBatchId(newBatchId);
+                    rewardTransaction.setStatus(SyncTrxStatus.INVOICED.name());
                     if(rewardTransaction.getRewardBatchLastMonthElaborated() == null) {
                         rewardTransaction.setRewardBatchLastMonthElaborated(oldMonth);
                     }

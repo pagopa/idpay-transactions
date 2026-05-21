@@ -49,6 +49,11 @@ public class BatchCountersDTO {
     return this;
   }
 
+  public BatchCountersDTO decrementNumberOfTransactions(Long number) {
+    this.numberOfTransactions = this.numberOfTransactions - number;
+    return this;
+  }
+
   public BatchCountersDTO incrementApprovedAmountCents(Long amountCents) {
     this.approvedAmountCents = this.approvedAmountCents + amountCents;
     return this;
