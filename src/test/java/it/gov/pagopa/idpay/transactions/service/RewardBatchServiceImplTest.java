@@ -2262,6 +2262,9 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(targetBatch));
 
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID), any(BatchCountersDTO.class)))
+                .thenReturn(Mono.just(originalBatch));
+
         when(rewardTransactionRepository.findByFilter(
                 BATCH_ID,
                 INITIATIVE_ID,
@@ -2284,6 +2287,7 @@ class RewardBatchServiceImplTest {
         verify(serviceSpy).findOrCreateBatch(INITIATIVE_ID, MERCHANT_ID, PHYSICAL, targetMonth, BUSINESS_NAME);
         verify(serviceSpy).updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, originalMonth);
         verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class));
+        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID), any(BatchCountersDTO.class));
     }
 
     @Test
@@ -2317,6 +2321,9 @@ class RewardBatchServiceImplTest {
         when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(targetBatch));
 
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID), any(BatchCountersDTO.class)))
+                .thenReturn(Mono.just(originalBatch));
+
         when(rewardTransactionRepository.findByFilter(
                 BATCH_ID,
                 INITIATIVE_ID,
@@ -2339,6 +2346,7 @@ class RewardBatchServiceImplTest {
         verify(serviceSpy).findOrCreateBatch(INITIATIVE_ID, MERCHANT_ID, PHYSICAL, originalMonth, BUSINESS_NAME);
         verify(serviceSpy).updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, originalMonth);
         verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class));
+        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID), any(BatchCountersDTO.class));
     }
 
     @Test
