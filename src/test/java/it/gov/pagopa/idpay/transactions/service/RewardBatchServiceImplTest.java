@@ -24,6 +24,7 @@ import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
@@ -1241,8 +1242,10 @@ class RewardBatchServiceImplTest {
                 .verifyComplete();
 
         assertEquals(BATCH_ID_2, t1.getRewardBatchId());
+        assertEquals(SyncTrxStatus.INVOICED.name(), t1.getStatus());
         assertEquals("2025-12", t1.getRewardBatchLastMonthElaborated());
         assertEquals(BATCH_ID_2, t2.getRewardBatchId());
+        assertEquals(SyncTrxStatus.INVOICED.name(), t2.getStatus());
         assertEquals("2025-11", t2.getRewardBatchLastMonthElaborated());
     }
 
