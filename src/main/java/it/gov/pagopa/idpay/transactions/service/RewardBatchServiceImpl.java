@@ -743,9 +743,28 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     }
 
     @Override
-    public Mono<Void> rewardBatchDeliveryBatch(String initiativeId,  List<String> rewardBatchIds) {
-        return processBatchesOrchestrator(initiativeId, rewardBatchIds,
-                RewardBatchStatus.APPROVED, this::processSingleBatchDelivery);
+    public Mono<Void> rewardBatchDeliveryBatch(String initiativeId, List<String> rewardBatchIds) {
+        if (rewardBatchIds != null && !rewardBatchIds.isEmpty()) {
+            return processBatchesOrchestrator(
+                    initiativeId,
+                    rewardBatchIds,
+                    RewardBatchStatus.APPROVED,
+                    this::processSingleBatchDelivery
+            );
+        }
+
+        return processBatchesByStatusPaginated(
+                initiativeId,
+                RewardBatchStatus.APPROVED,
+                pageable -> rewardBatchRepository
+                        .findByStatusAndInitiativeIdAndApprovedAmountCentsGreaterThan(
+                                RewardBatchStatus.APPROVED,
+                                initiativeId,
+                                0L,
+                                pageable
+                        ),
+                this::processSingleBatchDelivery
+        );
     }
 
     private Mono<Void> processBatchesOrchestrator(
@@ -811,6 +830,45 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                     processBatchesByStatusPaginated(
                                             initiativeId,
                                             status,
+                                            businessLogic
+                                    )
+                            ));
+                });
+    }
+
+    private Mono<Void> processBatchesByStatusPaginated(
+            String initiativeId,
+            RewardBatchStatus status,
+            Function<Pageable, Flux<RewardBatch>> batchFinder,
+            BiFunction<RewardBatch, String, Mono<?>> businessLogic) {
+
+        return batchFinder.apply(Pageable.ofSize(pagesize))
+                .collectList()
+                .flatMap(batchList -> {
+                    if (batchList.isEmpty()) {
+                        log.info("No more batches found with status {} to process.", status);
+                        return Mono.empty();
+                    }
+
+                    log.info("Found {} batches with status {} to process in current page.",
+                            batchList.size(), status);
+
+                    return Flux.fromIterable(batchList)
+                            .concatMap(batch -> {
+                                log.info("Processing batch {}", batch.getId());
+
+                                return businessLogic.apply(batch, initiativeId)
+                                        .onErrorResume(error -> {
+                                            log.error("Failed to process batch {}: {}",
+                                                    batch.getId(), error.getMessage(), error);
+                                            return Mono.empty();
+                                        });
+                            })
+                            .then(Mono.defer(() ->
+                                    processBatchesByStatusPaginated(
+                                            initiativeId,
+                                            status,
+                                            batchFinder,
                                             businessLogic
                                     )
                             ));

@@ -2387,4 +2387,102 @@ class RewardBatchServiceImplTest {
                 })
                 .verify();
     }
+
+    @Test
+    void rewardBatchDeliveryBatch_withoutIds_shouldFetchOnlyApprovedBatchesWithPositiveAmount() {
+        when(rewardBatchRepository.findByStatusAndInitiativeIdAndApprovedAmountCentsGreaterThan(
+                eq(RewardBatchStatus.APPROVED),
+                eq(INITIATIVE_ID),
+                eq(0L),
+                any(Pageable.class)
+        )).thenReturn(Flux.empty());
+
+        StepVerifier.create(service.rewardBatchDeliveryBatch(INITIATIVE_ID, null))
+                .verifyComplete();
+
+        verify(rewardBatchRepository).findByStatusAndInitiativeIdAndApprovedAmountCentsGreaterThan(
+                eq(RewardBatchStatus.APPROVED),
+                eq(INITIATIVE_ID),
+                eq(0L),
+                any(Pageable.class)
+        );
+
+        verify(rewardBatchRepository, never()).findByStatusAndInitiativeId(
+                eq(RewardBatchStatus.APPROVED),
+                eq(INITIATIVE_ID),
+                any(Pageable.class)
+        );
+    }
+
+    @Test
+    void rewardBatchDeliveryBatch_withoutIds_shouldProcessFoundValidBatchAndThenStop() {
+        RewardBatch batch = RewardBatch.builder()
+                .id(BATCH_ID)
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
+                .status(RewardBatchStatus.APPROVED)
+                .approvedAmountCents(100L)
+                .build();
+
+        when(rewardBatchRepository.findByStatusAndInitiativeIdAndApprovedAmountCentsGreaterThan(
+                eq(RewardBatchStatus.APPROVED),
+                eq(INITIATIVE_ID),
+                eq(0L),
+                any(Pageable.class)
+        ))
+                .thenReturn(Flux.just(batch))
+                .thenReturn(Flux.empty());
+
+        doReturn(Mono.just(batch))
+                .when(serviceSpy)
+                .processSingleBatchDelivery(batch, INITIATIVE_ID);
+
+        StepVerifier.create(serviceSpy.rewardBatchDeliveryBatch(INITIATIVE_ID, Collections.emptyList()))
+                .verifyComplete();
+
+        verify(rewardBatchRepository, times(2))
+                .findByStatusAndInitiativeIdAndApprovedAmountCentsGreaterThan(
+                        eq(RewardBatchStatus.APPROVED),
+                        eq(INITIATIVE_ID),
+                        eq(0L),
+                        any(Pageable.class)
+                );
+
+        verify(serviceSpy).processSingleBatchDelivery(batch, INITIATIVE_ID);
+
+        verify(rewardBatchRepository, never())
+                .findByStatusAndInitiativeId(
+                        eq(RewardBatchStatus.APPROVED),
+                        eq(INITIATIVE_ID),
+                        any(Pageable.class)
+                );
+    }
+
+    @Test
+    void rewardBatchDeliveryBatch_withoutIds_shouldNotProcessBatchesWithZeroAmount() {
+        when(rewardBatchRepository.findByStatusAndInitiativeIdAndApprovedAmountCentsGreaterThan(
+                eq(RewardBatchStatus.APPROVED),
+                eq(INITIATIVE_ID),
+                eq(0L),
+                any(Pageable.class)
+        )).thenReturn(Flux.empty());
+
+        StepVerifier.create(
+                serviceSpy.rewardBatchDeliveryBatch(
+                        INITIATIVE_ID,
+                        Collections.emptyList()
+                )
+        ).verifyComplete();
+
+        verify(serviceSpy, never())
+                .processSingleBatchDelivery(any(), anyString());
+
+        verify(rewardBatchRepository)
+                .findByStatusAndInitiativeIdAndApprovedAmountCentsGreaterThan(
+                        eq(RewardBatchStatus.APPROVED),
+                        eq(INITIATIVE_ID),
+                        eq(0L),
+                        any(Pageable.class)
+                );
+    }
 }
