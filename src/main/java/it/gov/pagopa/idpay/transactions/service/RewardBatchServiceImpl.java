@@ -117,6 +117,9 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "%s_%s_%s.csv";
     private static final DateTimeFormatter BATCH_MONTH_FORMAT = DateTimeFormatter.ofPattern(DATE_FORMAT, Locale.ITALIAN);
 
+    private static final String PROCESSING_BATCH_LOG = "Processing batch {}";
+    private static final String FAILED_TO_PROCESS_BATCH_LOG = "Failed to process batch {}: {}";
+
     public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository,
                                   RewardTransactionRepository rewardTransactionRepository,
                                   UserRestClient userRestClient,
@@ -779,11 +782,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             rewardBatchRepository.findRewardBatchByIdAndInitiativeId(batchId, initiativeId)
                     )
                     .concatMap(batch -> {
-                        log.info("Processing batch {}", batch.getId());
+                        log.info(PROCESSING_BATCH_LOG, batch.getId());
 
                         return businessLogic.apply(batch, initiativeId)
                                 .onErrorResume(error -> {
-                                    log.error("Failed to process batch {}: {}",
+                                    log.error(FAILED_TO_PROCESS_BATCH_LOG,
                                             batch.getId(), error.getMessage(), error);
                                     return Mono.empty();
                                 });
@@ -817,11 +820,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
                     return Flux.fromIterable(batchList)
                             .concatMap(batch -> {
-                                log.info("Processing batch {}", batch.getId());
+                                log.info(PROCESSING_BATCH_LOG, batch.getId());
 
                                 return businessLogic.apply(batch, initiativeId)
                                         .onErrorResume(error -> {
-                                            log.error("Failed to process batch {}: {}",
+                                            log.error(FAILED_TO_PROCESS_BATCH_LOG,
                                                     batch.getId(), error.getMessage(), error);
                                             return Mono.empty();
                                         });
@@ -855,11 +858,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
                     return Flux.fromIterable(batchList)
                             .concatMap(batch -> {
-                                log.info("Processing batch {}", batch.getId());
+                                log.info(PROCESSING_BATCH_LOG, batch.getId());
 
                                 return businessLogic.apply(batch, initiativeId)
                                         .onErrorResume(error -> {
-                                            log.error("Failed to process batch {}: {}",
+                                            log.error(FAILED_TO_PROCESS_BATCH_LOG,
                                                     batch.getId(), error.getMessage(), error);
                                             return Mono.empty();
                                         });
