@@ -678,8 +678,24 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     @Override
     public Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds) {
-        return processBatchesOrchestrator(initiativeId, rewardBatchIds,
-                RewardBatchStatus.APPROVING, this::processSingleBatchConfirmation);
+        if (rewardBatchIds != null && !rewardBatchIds.isEmpty()) {
+            return processBatchesOrchestrator(
+                    initiativeId,
+                    rewardBatchIds,
+                    this::processSingleBatchConfirmation
+            );
+        }
+
+        return processBatchesByStatusPaginated(
+                initiativeId,
+                RewardBatchStatus.APPROVING,
+                pageable -> rewardBatchRepository.findByStatusAndInitiativeId(
+                        RewardBatchStatus.APPROVING,
+                        initiativeId,
+                        pageable
+                ),
+                this::processSingleBatchConfirmation
+        );
     }
 
     @Override
@@ -751,7 +767,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             return processBatchesOrchestrator(
                     initiativeId,
                     rewardBatchIds,
-                    RewardBatchStatus.APPROVED,
                     this::processSingleBatchDelivery
             );
         }
@@ -773,70 +788,14 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private Mono<Void> processBatchesOrchestrator(
             String initiativeId,
             List<String> rewardBatchIds,
-            RewardBatchStatus statusIfEmpty,
             BiFunction<RewardBatch, String, Mono<?>> businessLogic) {
 
-        if (rewardBatchIds != null && !rewardBatchIds.isEmpty()) {
-            return Flux.fromIterable(rewardBatchIds)
-                    .concatMap(batchId ->
-                            rewardBatchRepository.findRewardBatchByIdAndInitiativeId(batchId, initiativeId)
-                    )
-                    .concatMap(batch -> {
-                        log.info(PROCESSING_BATCH_LOG, batch.getId());
-
-                        return businessLogic.apply(batch, initiativeId)
-                                .onErrorResume(error -> {
-                                    log.error(FAILED_TO_PROCESS_BATCH_LOG,
-                                            batch.getId(), error.getMessage(), error);
-                                    return Mono.empty();
-                                });
-                    })
-                    .then();
-        }
-
-        return processBatchesByStatusPaginated(
-                initiativeId,
-                statusIfEmpty,
-                businessLogic
-        );
-    }
-
-    private Mono<Void> processBatchesByStatusPaginated(
-            String initiativeId,
-            RewardBatchStatus status,
-            BiFunction<RewardBatch, String, Mono<?>> businessLogic) {
-
-        return rewardBatchRepository
-                .findByStatusAndInitiativeId(status, initiativeId, Pageable.ofSize(pagesize))
-                .collectList()
-                .flatMap(batchList -> {
-                    if (batchList.isEmpty()) {
-                        log.info("No more batches found with status {} to process.", status);
-                        return Mono.empty();
-                    }
-
-                    log.info("Found {} batches with status {} to process in current page.",
-                            batchList.size(), status);
-
-                    return Flux.fromIterable(batchList)
-                            .concatMap(batch -> {
-                                log.info(PROCESSING_BATCH_LOG, batch.getId());
-
-                                return businessLogic.apply(batch, initiativeId)
-                                        .onErrorResume(error -> {
-                                            log.error(FAILED_TO_PROCESS_BATCH_LOG,
-                                                    batch.getId(), error.getMessage(), error);
-                                            return Mono.empty();
-                                        });
-                            })
-                            .then(Mono.defer(() ->
-                                    processBatchesByStatusPaginated(
-                                            initiativeId,
-                                            status,
-                                            businessLogic
-                                    )
-                            ));
-                });
+        return Flux.fromIterable(rewardBatchIds)
+                .concatMap(batchId ->
+                        rewardBatchRepository.findRewardBatchByIdAndInitiativeId(batchId, initiativeId)
+                )
+                .concatMap(batch -> processBatch(batch, initiativeId, businessLogic))
+                .then();
     }
 
     private Mono<Void> processBatchesByStatusPaginated(
@@ -857,16 +816,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             batchList.size(), status);
 
                     return Flux.fromIterable(batchList)
-                            .concatMap(batch -> {
-                                log.info(PROCESSING_BATCH_LOG, batch.getId());
-
-                                return businessLogic.apply(batch, initiativeId)
-                                        .onErrorResume(error -> {
-                                            log.error(FAILED_TO_PROCESS_BATCH_LOG,
-                                                    batch.getId(), error.getMessage(), error);
-                                            return Mono.empty();
-                                        });
-                            })
+                            .concatMap(batch -> processBatch(batch, initiativeId, businessLogic))
                             .then(Mono.defer(() ->
                                     processBatchesByStatusPaginated(
                                             initiativeId,
@@ -875,6 +825,25 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                             businessLogic
                                     )
                             ));
+                });
+    }
+
+    private Mono<?> processBatch(
+            RewardBatch batch,
+            String initiativeId,
+            BiFunction<RewardBatch, String, Mono<?>> businessLogic) {
+
+        log.info(PROCESSING_BATCH_LOG, batch.getId());
+
+        return businessLogic.apply(batch, initiativeId)
+                .onErrorResume(error -> {
+                    log.error(
+                            FAILED_TO_PROCESS_BATCH_LOG,
+                            batch.getId(),
+                            error.getMessage(),
+                            error
+                    );
+                    return Mono.empty();
                 });
     }
 
