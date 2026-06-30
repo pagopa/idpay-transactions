@@ -22,6 +22,14 @@ public interface RewardBatchRepository extends ReactiveMongoRepository<RewardBat
           String initiativeId,
           Pageable pageable
   );
+
+  Flux<RewardBatch> findByStatusAndInitiativeIdAndApprovedAmountCentsGreaterThan(
+            RewardBatchStatus status,
+            String initiativeId,
+            Long approvedAmountCents,
+            Pageable pageable
+  );
+
   Flux<RewardBatch> findByMerchantIdAndInitiativeIdAndPosType(String merchantId, String initiativeId, PosType posType);
 
   Mono<RewardBatch> findByMerchantIdAndInitiativeIdAndId(String merchantId, String initiativeId, String rewardBatchId);
