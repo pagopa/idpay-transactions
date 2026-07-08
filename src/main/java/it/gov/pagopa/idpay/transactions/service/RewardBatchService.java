@@ -5,7 +5,6 @@ import it.gov.pagopa.idpay.transactions.dto.DownloadRewardBatchResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
-import java.time.LocalDate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Mono;
@@ -36,7 +35,7 @@ public interface RewardBatchService {
 
   Mono<DownloadRewardBatchResponseDTO> downloadApprovedRewardBatchFile(String merchantId, String organizationRole, String initiativeId, String rewardBatchId);
 
-  Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId, LocalDate initiativeEndDate);
+  Mono<Void> postponeTransaction(String merchantId, String initiativeId, String rewardBatchId, String transactionId);
 
   Mono<Void> deleteEmptyRewardBatches();
 }

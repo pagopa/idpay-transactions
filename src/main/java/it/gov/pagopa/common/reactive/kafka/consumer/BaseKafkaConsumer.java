@@ -1,6 +1,5 @@
 package it.gov.pagopa.common.reactive.kafka.consumer;
 
-import com.fasterxml.jackson.databind.ObjectReader;
 import it.gov.pagopa.common.reactive.kafka.exception.UncommittableError;
 import it.gov.pagopa.common.kafka.utils.KafkaConstants;
 import it.gov.pagopa.common.reactive.utils.PerformanceLogger;
@@ -13,6 +12,7 @@ import org.springframework.messaging.Message;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.context.Context;
+import tools.jackson.databind.ObjectReader;
 import reactor.util.retry.Retry;
 
 import java.nio.charset.StandardCharsets;
@@ -116,7 +116,7 @@ public abstract class BaseKafkaConsumer<T, R> {
     private Mono<KafkaAcknowledgeResult<R>> executeAcknowledgeAware(Message<String> message) {
 
         KafkaAcknowledgeResult<R> defaultAck = new KafkaAcknowledgeResult<>(message, null);
-        
+
         byte[] retryingApplicationNameBytes =
                 message.getHeaders().get(KafkaConstants.ERROR_MSG_HEADER_APPLICATION_NAME, byte[].class);
 
@@ -136,7 +136,7 @@ public abstract class BaseKafkaConsumer<T, R> {
         ctx.put(CONTEXT_KEY_MSG_ID, CommonUtilities.readMessagePayload(message));
 
         return execute(message, ctx)
-                
+
                 .retryWhen(
                         Retry.backoff(3, Duration.ofSeconds(1))
                                 .filter(e -> !(e instanceof UncommittableError))
@@ -150,7 +150,7 @@ public abstract class BaseKafkaConsumer<T, R> {
                     if (e instanceof UncommittableError) {
                         return Mono.error(e);
                     }
-                    
+
                     String msgId = (String) ctx.get(CONTEXT_KEY_MSG_ID);
                     log.error("[{}] Error processing message with id {}: {}",
                             getFlowName(), msgId, e.toString(), e);
@@ -159,7 +159,7 @@ public abstract class BaseKafkaConsumer<T, R> {
 
                     return Mono.just(defaultAck);
                 })
-                
+
                 .doFinally(signalType -> doFinally(message, ctx));
     }
 

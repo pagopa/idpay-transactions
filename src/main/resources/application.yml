@@ -153,18 +153,18 @@ spring:
   data:
     redis:
       url: ${REDIS_CONNECTION_URL:redis://@localhost:6379}
-    mongodb:
-      uri: ${MONGODB_URI:mongodb://localhost:27017}
-      database: ${MONGODB_DBNAME:idpay-pagamenti}
-      # custom configured properties
-      config:
-        connectionPool:
-          maxSize: ${MONGODB_CONNECTIONPOOL_MAX_SIZE:100}
-          minSize: ${MONGODB_CONNECTIONPOOL_MIN_SIZE:2}
-          maxWaitTimeMS: ${MONGODB_CONNECTIONPOOL_MAX_WAIT_MS:120000}
-          maxConnectionLifeTimeMS: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTION_LIFE_MS:0}
-          maxConnectionIdleTimeMS: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTION_IDLE_MS:120000}
-          maxConnecting: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTING:2}
+  mongodb:
+    uri: ${MONGODB_URI:mongodb://localhost:27017}
+    database: ${MONGODB_DBNAME:idpay-pagamenti}
+    # custom configured properties
+    config:
+      connectionPool:
+        maxSize: ${MONGODB_CONNECTIONPOOL_MAX_SIZE:100}
+        minSize: ${MONGODB_CONNECTIONPOOL_MIN_SIZE:2}
+        maxWaitTimeMS: ${MONGODB_CONNECTIONPOOL_MAX_WAIT_MS:120000}
+        maxConnectionLifeTimeMS: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTION_LIFE_MS:0}
+        maxConnectionIdleTimeMS: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTION_IDLE_MS:120000}
+        maxConnecting: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTING:2}
 
 management:
   health:
@@ -221,6 +221,11 @@ app:
     retry:
       delay-millis: ${MERCHANT_RETRY_DELAY_MILLIS:2000}
       max-attempts: ${MERCHANT_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:10}}
+  payment:
+    base-url: ${IDPAY_PAYMENT_BASE_URL:}
+    retry:
+      delay-millis: ${PAYMENT_RETRY_DELAY_MILLIS:2000}
+      max-attempts: ${PAYMENT_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:10}}
   web-client:
     connect.timeout.millis: ${CONNECT_TIMEOUT_MILLIS:10000}
     response.timeout: ${RESPONSE_TIMEOUT:60000}
@@ -239,6 +244,11 @@ app:
     tenant-id: ${DATA_FACTORY_TENANT_ID:}
     subscription-id: ${DATA_FACTORY_SUBSCRIPTION_ID:}
   period-length-transactions-report: ${PERIOD_LENGTH_TRANSACTIONS_REPORT:}
+  initiative:
+    base-url: ${IDPAY_INITIATIVE_BASE_URL:}
+    retry:
+      delay-millis: ${INITIATIVE_RETRY_DELAY_MILLIS:2000}
+      max-attempts: ${INITIATIVE_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:10}}
   invitalia:
     credentials:
       client-id: ${INVITALIA_CLIENT_ID:}
@@ -266,3 +276,5 @@ app:
     retry:
       delay-millis: ${EROGAZIONI_RETRY_DELAY_MILLIS:2000}
       max-attempts: ${EROGAZIONI_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:3}}
+  batch:
+    paginationSize: ${ELABORATION_PAGE_SIZE:10}

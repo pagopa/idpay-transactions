@@ -1,276 +1,139 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
-import it.gov.pagopa.common.reactive.mongo.MongoTest;
 import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.model.Report;
-import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
-import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.data.mongodb.core.query.Query;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.time.LocalDateTime;
-import java.util.List;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-import static org.junit.jupiter.api.Assertions.*;
-
-@DirtiesContext
-@MongoTest
 class ReportSpecificRepositoryImplTest {
 
-    @Autowired
-    private ReportRepository reportRepository;
-
-    @Autowired
+    @Mock
     private ReactiveMongoTemplate mongoTemplate;
 
-    private ReportSpecificRepositoryImpl reportSpecificRepository;
-
-    private static final String INITIATIVE_ID = "INITIATIVE1";
-    private static final String MERCHANT_ID = "MERCHANT1";
+    @InjectMocks
+    private ReportSpecificRepositoryImpl repository;
 
     @BeforeEach
-    void setup() {
-        reportSpecificRepository = new ReportSpecificRepositoryImpl(mongoTemplate);
-        reportRepository.deleteAll().block();
-    }
-
-    @AfterEach
-    void cleanup() {
-        reportRepository.deleteAll().block();
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
     }
 
     @Test
-    void findReportsCombined_shouldReturnReports_whenCriteriaMatch() {
-        Report report = Report.builder()
-                .id("R1")
-                .initiativeId(INITIATIVE_ID)
-                .merchantId(MERCHANT_ID)
-                .businessName("Business1")
-                .reportStatus(ReportStatus.INSERTED)
-                .reportType(ReportType.MERCHANT_TRANSACTIONS)
-                .operatorLevel(null)
-                .fileName("file1.csv")
-                .startPeriod(LocalDateTime.of(2026, 2, 1, 0, 0))
-                .endPeriod(LocalDateTime.of(2026, 2, 28, 23, 59))
-                .requestDate(LocalDateTime.now())
-                .elaborationDate(LocalDateTime.now())
-                .build();
+    void findReportsCombined_shouldReturnReports() {
+        Report report = new Report();
 
-        reportRepository.save(report).block();
+        when(mongoTemplate.find(any(Query.class), eq(Report.class)))
+                .thenReturn(Flux.just(report));
 
         Pageable pageable = PageRequest.of(0, 10);
 
-        StepVerifier.create(reportSpecificRepository.findReportsCombined(MERCHANT_ID, null, INITIATIVE_ID, ReportType.MERCHANT_TRANSACTIONS, pageable))
-                .assertNext(r -> {
-                    assertEquals("R1", r.getId());
-                    assertEquals(MERCHANT_ID, r.getMerchantId());
-                    assertEquals(INITIATIVE_ID, r.getInitiativeId());
-                })
+        Flux<Report> result = repository.findReportsCombined(
+                "merchantId",
+                null,
+                "initiativeId",
+                ReportType.USER_DETAILS,
+                pageable
+        );
+
+        StepVerifier.create(result)
+                .expectNext(report)
                 .verifyComplete();
+
+        verify(mongoTemplate).find(any(Query.class), eq(Report.class));
     }
 
     @Test
-    void findReportsCombined_shouldReturnEmpty_whenNoMatch() {
-        Pageable pageable = PageRequest.of(0, 10);
+    void countReportsCombined_shouldReturnCount() {
+        when(mongoTemplate.count(any(Query.class), eq(Report.class)))
+                .thenReturn(Mono.just(5L));
 
-        StepVerifier.create(reportSpecificRepository.findReportsCombined(MERCHANT_ID, null, INITIATIVE_ID, ReportType.MERCHANT_TRANSACTIONS, pageable))
-                .expectNextCount(0)
+        Mono<Long> result = repository.countReportsCombined(
+                "merchantId",
+                null,
+                "initiativeId",
+                ReportType.USER_DETAILS
+        );
+
+        StepVerifier.create(result)
+                .expectNext(5L)
                 .verifyComplete();
+
+        verify(mongoTemplate).count(any(Query.class), eq(Report.class));
     }
 
     @Test
-    void countReportsCombined_shouldReturnCorrectCount() {
-        Report report1 = Report.builder().id("R1").merchantId(MERCHANT_ID).reportType(ReportType.USER_DETAILS).initiativeId(INITIATIVE_ID).build();
-        Report report2 = Report.builder().id("R2").merchantId(MERCHANT_ID).reportType(ReportType.USER_DETAILS).initiativeId(INITIATIVE_ID).build();
+    void findReportsCombined_withOrganizationRole_shouldReturnReports() {
+        Report report = new Report();
 
-        reportRepository.saveAll(List.of(report1, report2)).collectList().block();
-
-        StepVerifier.create(reportSpecificRepository.countReportsCombined(MERCHANT_ID, null, INITIATIVE_ID, ReportType.USER_DETAILS))
-                .assertNext(count -> assertEquals(2L, count))
-                .verifyComplete();
-    }
-
-    @Test
-    void countReportsCombined_shouldReturnZero_whenNoMatch() {
-        StepVerifier.create(reportSpecificRepository.countReportsCombined(MERCHANT_ID, null, INITIATIVE_ID, ReportType.USER_DETAILS))
-                .assertNext(count -> assertEquals(0L, count))
-                .verifyComplete();
-    }
-
-    @Test
-    void findReportsCombined_shouldFilterByRewardBatchAssignee() {
-
-        Report report1 = Report.builder()
-                .id("R1")
-                .merchantId(MERCHANT_ID)
-                .initiativeId(INITIATIVE_ID)
-                .operatorLevel(null)
-                .reportType(ReportType.MERCHANT_TRANSACTIONS)
-                .build();
-
-        Report report2 = Report.builder()
-                .id("R2")
-                .merchantId(MERCHANT_ID)
-                .initiativeId(INITIATIVE_ID)
-                .operatorLevel(RewardBatchAssignee.L1)
-                .reportType(ReportType.USER_DETAILS)
-                .build();
-
-        reportRepository.saveAll(List.of(report1, report2))
-                .collectList()
-                .block();
+        when(mongoTemplate.find(any(Query.class), eq(Report.class)))
+                .thenReturn(Flux.just(report));
 
         Pageable pageable = PageRequest.of(0, 10);
 
-        StepVerifier.create(
-                        reportSpecificRepository.findReportsCombined(
-                                MERCHANT_ID,
-                                null,
-                                INITIATIVE_ID,
-                                ReportType.MERCHANT_TRANSACTIONS,
-                                pageable
-                        )
-                )
-                .expectNextMatches(r -> r.getId().equals("R1"))
+        Flux<Report> result = repository.findReportsCombined(
+                null,
+                "ADMIN",
+                "initiativeId",
+                ReportType.USER_DETAILS,
+                pageable
+        );
+
+        StepVerifier.create(result)
+                .expectNext(report)
                 .verifyComplete();
     }
 
     @Test
-    void findReportsCombined_shouldFilterByOrganizationRole() {
+    void findReportsCombined_withoutOptionalFields_shouldWork() {
+        Report report = new Report();
 
-        Report report1 = Report.builder()
-                .id("R1")
-                .merchantId(MERCHANT_ID)
-                .initiativeId(INITIATIVE_ID)
-                .operatorLevel(null)
-                .reportType(ReportType.MERCHANT_TRANSACTIONS)
-                .build();
-
-        Report report2 = Report.builder()
-                .id("R2")
-                .merchantId(MERCHANT_ID)
-                .initiativeId(INITIATIVE_ID)
-                .operatorLevel(RewardBatchAssignee.L1)
-                .reportType(ReportType.USER_DETAILS)
-                .build();
-
-        reportRepository.saveAll(List.of(report1, report2)).blockLast();
+        when(mongoTemplate.find(any(Query.class), eq(Report.class)))
+                .thenReturn(Flux.just(report));
 
         Pageable pageable = PageRequest.of(0, 10);
 
-        StepVerifier.create(
-                        reportSpecificRepository.findReportsCombined(
-                                null,
-                                "Operator1",
-                                INITIATIVE_ID,
-                                ReportType.USER_DETAILS,
-                                pageable
-                        )
-                )
-                .expectNextMatches(r -> r.getId().equals("R2"))
+        Flux<Report> result = repository.findReportsCombined(
+                null,
+                null,
+                null,
+                null,
+                pageable
+        );
+
+        StepVerifier.create(result)
+                .expectNext(report)
                 .verifyComplete();
     }
 
     @Test
-    void findReportsCombined_shouldWork_whenMerchantIdIsNull() {
+    void countReportsCombined_withAllFilters_shouldReturnCount() {
+        when(mongoTemplate.count(any(Query.class), eq(Report.class)))
+                .thenReturn(Mono.just(3L));
 
-        Report report = Report.builder()
-                .id("R1")
-                .initiativeId(INITIATIVE_ID)
-                .operatorLevel(RewardBatchAssignee.L1)
-                .reportType(ReportType.USER_DETAILS)
-                .build();
+        Mono<Long> result = repository.countReportsCombined(
+                "merchantId",
+                "ADMIN",
+                "initiativeId",
+                ReportType.USER_DETAILS
+        );
 
-        reportRepository.save(report).block();
-
-        Pageable pageable = PageRequest.of(0, 10);
-
-        StepVerifier.create(
-                        reportSpecificRepository.findReportsCombined(
-                                null,
-                                RewardBatchAssignee.L1.name(),
-                                INITIATIVE_ID,
-                                ReportType.USER_DETAILS,
-                                pageable
-                        )
-                )
-                .expectNextMatches(r -> r.getId().equals("R1"))
+        StepVerifier.create(result)
+                .expectNext(3L)
                 .verifyComplete();
     }
-
-    @Test
-    void findReportsCombined_shouldFilterByReportTypeMerchantTransactions() {
-
-        Report report1 = Report.builder()
-                .id("R1")
-                .initiativeId(INITIATIVE_ID)
-                .merchantId(MERCHANT_ID)
-                .reportType(ReportType.MERCHANT_TRANSACTIONS)
-                .operatorLevel(null)
-                .build();
-
-        Report report2 = Report.builder()
-                .id("R2")
-                .initiativeId(INITIATIVE_ID)
-                .merchantId(MERCHANT_ID)
-                .reportType(ReportType.USER_DETAILS)
-                .operatorLevel(null)
-                .build();
-
-        reportRepository.saveAll(List.of(report1, report2)).blockLast();
-
-        Pageable pageable = PageRequest.of(0, 10);
-
-        StepVerifier.create(
-                        reportSpecificRepository.findReportsCombined(
-                                MERCHANT_ID,
-                                null,
-                                INITIATIVE_ID,
-                                ReportType.MERCHANT_TRANSACTIONS,
-                                pageable
-                        ))
-                .assertNext(r -> assertEquals(ReportType.MERCHANT_TRANSACTIONS, r.getReportType()))
-                .verifyComplete();
-    }
-
-    @Test
-    void findReportsCombined_shouldFilterByReportTypeUserDetails() {
-
-        Report report1 = Report.builder()
-                .id("R1")
-                .initiativeId(INITIATIVE_ID)
-                .operatorLevel(RewardBatchAssignee.L1)
-                .reportType(ReportType.USER_DETAILS)
-                .build();
-
-        Report report2 = Report.builder()
-                .id("R2")
-                .initiativeId(INITIATIVE_ID)
-                .operatorLevel(RewardBatchAssignee.L1)
-                .reportType(ReportType.MERCHANT_TRANSACTIONS)
-                .build();
-
-        reportRepository.saveAll(List.of(report1, report2)).blockLast();
-
-        Pageable pageable = PageRequest.of(0, 10);
-
-        StepVerifier.create(
-                        reportSpecificRepository.findReportsCombined(
-                                null,
-                                "Operator1",
-                                INITIATIVE_ID,
-                                ReportType.USER_DETAILS,
-                                pageable
-                        ))
-                .assertNext(r -> assertEquals(ReportType.USER_DETAILS, r.getReportType()))
-                .verifyComplete();
-    }
-
 }

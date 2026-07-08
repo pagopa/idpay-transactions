@@ -1,0 +1,15 @@
+{
+  "request": {
+    "method": "DELETE",
+    "urlPathPattern": "/idpay/payment/transactions/(TRX_FORBIDDEN_[0-9]+)"
+  },
+  "response": {
+    "status": 403,
+    "jsonBody": {
+      "error": "Forbidden"
+    },
+    "headers": {
+      "Content-Type": "application/json"
+    }
+  }
+}

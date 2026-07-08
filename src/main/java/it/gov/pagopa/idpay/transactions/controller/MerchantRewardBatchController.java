@@ -7,12 +7,10 @@ import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import jakarta.validation.Valid;
-import java.time.LocalDate;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
@@ -119,10 +117,7 @@ public interface MerchantRewardBatchController {
       @RequestHeader(value = "x-merchant-id", required = false) String merchantId,
       @PathVariable String initiativeId,
       @PathVariable String rewardBatchId,
-      @PathVariable String transactionId,
-      @RequestParam("initiativeEndDate")
-      @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-      LocalDate initiativeEndDate
+      @PathVariable String transactionId
   );
 
   @DeleteMapping("/empty-reward-batches")
