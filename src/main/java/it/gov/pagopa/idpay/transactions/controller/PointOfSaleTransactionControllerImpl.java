@@ -1,17 +1,13 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
-import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
-import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
 import it.gov.pagopa.idpay.transactions.service.invoice_lifecycle.InvoiceLifecyclePolicy;
 import it.gov.pagopa.idpay.transactions.service.invoice_lifecycle.InvoiceLifecyclePolicyFactory;
-import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.JwtUtils;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
@@ -29,31 +25,6 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
                                                 PointOfSaleTransactionMapper mapper) {
         this.pointOfSaleTransactionService = pointOfSaleTransactionService;
         this.mapper = mapper;
-    }
-
-    @Override
-    public Mono<DownloadInvoiceResponseDTO> downloadInvoiceFile(
-            String merchantId, String tokenPointOfSaleId, String pointOfSaleId, String transactionId) {
-        String sanitizeMerchantId = merchantId == null ? null : Utilities.sanitizeString(merchantId);
-        String sanitizeTokenPointOfSaleId = tokenPointOfSaleId == null ? null : Utilities.sanitizeString(tokenPointOfSaleId);
-        String sanitizePointOfSaleId = pointOfSaleId == null ? null : Utilities.sanitizeString(pointOfSaleId);
-        String sanitizeTransactionId = transactionId == null ? null : Utilities.sanitizeString(transactionId);
-        log.info("[DOWNLOAD_TRANSACTION] Requested to download invoice for transaction {}",
-                sanitizeTransactionId);
-
-        if (tokenPointOfSaleId != null && (!sanitizeTokenPointOfSaleId
-                .equals(sanitizePointOfSaleId))){
-
-            return Mono.error(new ClientExceptionWithBody(
-                    HttpStatus.FORBIDDEN,
-                    ExceptionConstants.ExceptionCode.POINT_OF_SALE_NOT_ALLOWED,
-                    String.format(
-                            "Point of sale mismatch: expected [%s], but received [%s]", sanitizeTokenPointOfSaleId, sanitizePointOfSaleId
-                    )
-            ));
-        }
-
-        return pointOfSaleTransactionService.downloadTransactionInvoice(sanitizeMerchantId, sanitizePointOfSaleId, sanitizeTransactionId);
     }
 
     @Override

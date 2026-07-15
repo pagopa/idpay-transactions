@@ -10,7 +10,6 @@ import java.util.List;
 
 public interface PointOfSaleTransactionService {
 
-    Mono<DownloadInvoiceResponseDTO> downloadTransactionInvoice(String merchantId, String pointOfSaleId, String transactionId);
 
     Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId, FilePart file, String docNumber, InvoiceLifecyclePolicy policy);
 

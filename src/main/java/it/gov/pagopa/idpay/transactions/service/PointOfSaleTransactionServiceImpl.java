@@ -2,7 +2,6 @@ package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
-import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionKafkaDTO;
@@ -67,43 +66,6 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         this.transactionNotifierService = transactionNotifierService;
     }
 
-
-    @Override
-    public Mono<DownloadInvoiceResponseDTO> downloadTransactionInvoice(
-            String merchantId, String pointOfSaleId, String transactionId) {
-        return rewardTransactionRepository.findTransaction(merchantId, transactionId)
-                .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
-                .handle((rewardTransaction, sink) -> {
-                    String status = rewardTransaction.getStatus();
-                    InvoiceData documentData = null;
-                    String typeFolder;
-
-                    if (SyncTrxStatus.INVOICED.name().equalsIgnoreCase(status) || SyncTrxStatus.REWARDED.name().equalsIgnoreCase(status)) {
-                        documentData = rewardTransaction.getInvoiceData();
-                        typeFolder = "invoice";
-                    } else if (SyncTrxStatus.REFUNDED.name().equalsIgnoreCase(status)) {
-                        documentData = rewardTransaction.getCreditNoteData();
-                        typeFolder = "creditNote";
-                    } else {
-                        sink.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE));
-                        return;
-                    }
-
-                    if (documentData == null || documentData.getFilename() == null) {
-                        sink.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE));
-                        return;
-                    }
-
-                    String filename = documentData.getFilename();
-
-                    String blobPath = String.format("invoices/merchant/%s/pos/%s/transaction/%s/%s/%s",
-                            merchantId, pointOfSaleId, transactionId, typeFolder, filename);
-
-                    sink.next(DownloadInvoiceResponseDTO.builder()
-                            .invoiceUrl(invoiceStorageClient.getFileSignedUrl(blobPath))
-                            .build());
-                });
-    }
 
     public Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId,
                                                FilePart file, String docNumber, InvoiceLifecyclePolicy policy) {

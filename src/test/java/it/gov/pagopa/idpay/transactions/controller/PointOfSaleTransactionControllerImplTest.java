@@ -1,16 +1,12 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
-import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
-import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
 import it.gov.pagopa.idpay.transactions.service.invoice_lifecycle.InvoiceLifecyclePolicy;
-import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
 import org.springframework.cache.CacheManager;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.http.codec.multipart.FilePart;
@@ -22,11 +18,10 @@ import reactor.core.publisher.Mono;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockUser;
 
@@ -52,86 +47,6 @@ class PointOfSaleTransactionControllerImplTest {
     private static final String FISCAL_CODE = "FISCALCODE1";
     private static final String TRX_ID = "TRX_ID_1";
 
-    @Test
-    void downloadInvoiceShouldReturnUrl() {
-        doReturn(Mono.just(DownloadInvoiceResponseDTO.builder().invoiceUrl("testUrl").build()))
-                .when(pointOfSaleTransactionService).downloadTransactionInvoice(
-                        MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
-        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
-                        .build(POINT_OF_SALE_ID, TRX_ID))
-                .header("x-merchant-id", MERCHANT_ID)
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody(DownloadInvoiceResponseDTO.class)
-                .value(res -> {
-                    assertNotNull(res);
-                    assertNotNull(res.getInvoiceUrl());
-                    assertEquals("testUrl", res.getInvoiceUrl());
-                    verify(pointOfSaleTransactionService).downloadTransactionInvoice(
-                            MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
-                });
-
-    }
-
-    @Test
-    void downloadInvoiceShouldErrorOnServiceKO() {
-        doReturn(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST,
-                ExceptionConstants.ExceptionMessage.TRANSACTION_MISSING_INVOICE)))
-                .when(pointOfSaleTransactionService).downloadTransactionInvoice(
-                        MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
-        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
-                        .build(POINT_OF_SALE_ID, TRX_ID))
-                .header("x-merchant-id", MERCHANT_ID)
-                .exchange()
-                .expectStatus().isBadRequest();
-
-    }
-
-    @Test
-    void downloadInvoiceShouldReturnKOOnMissingMerchHeader() {
-        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
-                        .build(POINT_OF_SALE_ID, TRX_ID))
-                .exchange()
-                .expectStatus().isBadRequest();
-    }
-
-    @Test
-    void downloadInvoiceShouldReturnForbiddenOnPosMismatch() {
-        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
-                        .build(POINT_OF_SALE_ID, TRX_ID))
-                .header("x-merchant-id", MERCHANT_ID)
-                .header("x-point-of-sale-id", "ALTRO_POS")
-                .exchange()
-                .expectStatus().isForbidden();
-    }
-
-    @Test
-    void downloadInvoiceShouldReturnOkWithoutPosHeader() {
-        doReturn(Mono.just(DownloadInvoiceResponseDTO.builder().invoiceUrl("testUrl").build()))
-                .when(pointOfSaleTransactionService).downloadTransactionInvoice(
-                        MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
-
-        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
-                        .build(POINT_OF_SALE_ID, TRX_ID))
-                .header("x-merchant-id", MERCHANT_ID)
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody(DownloadInvoiceResponseDTO.class)
-                .value(res -> {
-                    assertNotNull(res);
-                    assertEquals("testUrl", res.getInvoiceUrl());
-                });
-    }
 
     @Test
     void updateInvoiceFileOk() {
