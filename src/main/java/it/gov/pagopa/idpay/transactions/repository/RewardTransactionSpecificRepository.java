@@ -2,8 +2,8 @@ package it.gov.pagopa.idpay.transactions.repository;
 
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.springframework.data.domain.Pageable;
@@ -21,7 +21,6 @@ public interface RewardTransactionSpecificRepository {
     Mono<RewardTransaction> findOneByInitiativeId(String initiativeId);
     Mono<Void> removeInitiativeOnTransaction(String trxId, String initiativeId);
     Flux<RewardTransaction> findByInitiativesWithBatch(String initiativeId, int batchSize);
-    Flux<RewardTransaction> findByFilterTrx(TrxFiltersDTO filters, String pointOfSaleId, String userId, String productGtin, boolean includeToCheckWithConsultable, Pageable pageable);
 
     Flux<RewardTransaction> findByFilter(String rewardBatchId, String initiativeId, List<RewardBatchTrxStatus> statusList);
     /**

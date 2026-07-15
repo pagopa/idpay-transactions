@@ -8,10 +8,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import it.gov.pagopa.common.web.dto.ErrorDTO;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
-import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionsListDTO;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.multipart.FilePart;
@@ -22,18 +18,6 @@ import java.util.List;
 
 @RequestMapping("/idpay")
 public interface PointOfSaleTransactionController {
-
-    @GetMapping("/initiatives/{initiativeId}/point-of-sales/{pointOfSaleId}/transactions/processed")
-    Mono<PointOfSaleTransactionsListDTO> getPointOfSaleTransactions(
-            @RequestHeader("x-merchant-id") String merchantId,
-            @RequestHeader(name = "x-point-of-sale-id", required = false) String tokenPointOfSaleId,
-            @PathVariable("initiativeId") String initiativeId,
-            @PathVariable("pointOfSaleId") String pointOfSaleId,
-            @RequestParam(required = false) String productGtin,
-            @RequestParam(required = false) String fiscalCode,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String trxCode,
-            @PageableDefault(sort = "trxChargeDate", direction = Sort.Direction.DESC) Pageable pageable);
 
     /**
      * Provides method to download an invoice file of a rewarded transaction

@@ -2,24 +2,14 @@ package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
-import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionDTO;
-import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionsListDTO;
-import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
-import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
 import it.gov.pagopa.idpay.transactions.service.invoice_lifecycle.InvoiceLifecyclePolicy;
-import it.gov.pagopa.idpay.transactions.test.fakers.PointOfSaleTransactionDTOFaker;
-import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
 import org.springframework.cache.CacheManager;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
@@ -31,11 +21,11 @@ import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockUser;
@@ -61,52 +51,6 @@ class PointOfSaleTransactionControllerImplTest {
     private static final String MERCHANT_ID = "MERCHANT_ID";
     private static final String FISCAL_CODE = "FISCALCODE1";
     private static final String TRX_ID = "TRX_ID_1";
-
-
-    @Test
-    void getPointOfSaleTransactionsOk() {
-        RewardTransaction trx = RewardTransactionFaker.mockInstance(1);
-        trx.setId("TRX1");
-
-        Page<RewardTransaction> page = new PageImpl<>(
-                List.of(trx),
-                PageRequest.of(0, 10), 1
-        );
-
-        PointOfSaleTransactionDTO dto = PointOfSaleTransactionDTOFaker
-                .mockInstance(trx, INITIATIVE_ID, FISCAL_CODE);
-
-        when(pointOfSaleTransactionService.getPointOfSaleTransactions(
-                eq(MERCHANT_ID),
-                eq(INITIATIVE_ID),
-                eq(POINT_OF_SALE_ID),
-                isNull(),
-                any(TrxFiltersDTO.class),
-                any(Pageable.class)))
-                .thenReturn(Mono.just(page));
-
-        when(mapper.toDTO(eq(trx), eq(INITIATIVE_ID), isNull()))
-                .thenReturn(Mono.just(dto));
-
-        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/initiatives/{initiativeId}/point-of-sales/{pointOfSaleId}/transactions/processed")
-                        .build(INITIATIVE_ID, POINT_OF_SALE_ID))
-                .header("x-merchant-id", MERCHANT_ID)
-                .header("x-point-of-sale-id", POINT_OF_SALE_ID)
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody(PointOfSaleTransactionsListDTO.class)
-                .value(res -> {
-                    assertNotNull(res);
-                    assertEquals(1, res.getContent().size());
-                    assertEquals("TRX1", res.getContent().getFirst().getTrxId());
-                    assertEquals(FISCAL_CODE, res.getContent().getFirst().getFiscalCode());
-                    assertEquals(1, res.getTotalElements());
-                    assertEquals(1, res.getTotalPages());
-                    assertEquals(10, res.getPageSize());
-                });
-    }
 
     @Test
     void downloadInvoiceShouldReturnUrl() {
@@ -155,18 +99,6 @@ class PointOfSaleTransactionControllerImplTest {
                         .build(POINT_OF_SALE_ID, TRX_ID))
                 .exchange()
                 .expectStatus().isBadRequest();
-    }
-
-    @Test
-    void getPointOfSaleTransactionsForbidden() {
-        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/initiatives/{initiativeId}/point-of-sales/{pointOfSaleId}/transactions/processed")
-                        .build(INITIATIVE_ID, POINT_OF_SALE_ID))
-                .header("x-merchant-id", MERCHANT_ID)
-                .header("x-point-of-sale-id", "ALTRO_POS")
-                .exchange()
-                .expectStatus().isForbidden();
     }
 
     @Test

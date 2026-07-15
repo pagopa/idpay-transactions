@@ -3,8 +3,6 @@ package it.gov.pagopa.idpay.transactions.controller;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
-import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionsListDTO;
-import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
 import it.gov.pagopa.idpay.transactions.service.invoice_lifecycle.InvoiceLifecyclePolicy;
@@ -13,11 +11,9 @@ import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.JwtUtils;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.RestController;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -33,57 +29,6 @@ public class PointOfSaleTransactionControllerImpl implements PointOfSaleTransact
                                                 PointOfSaleTransactionMapper mapper) {
         this.pointOfSaleTransactionService = pointOfSaleTransactionService;
         this.mapper = mapper;
-    }
-
-    @Override
-    public Mono<PointOfSaleTransactionsListDTO> getPointOfSaleTransactions(String merchantId,
-                                                                           String tokenPointOfSaleId,
-                                                                           String initiativeId,
-                                                                           String pointOfSaleId,
-                                                                           String productGtin,
-                                                                           String fiscalCode,
-                                                                           String status,
-                                                                           String trxCode,
-                                                                           Pageable pageable) {
-        String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
-        String sanitizeMerchantId = merchantId == null ? null : Utilities.sanitizeString(merchantId);
-        String sanitizeTokenPointOfSaleId = tokenPointOfSaleId == null ? null : Utilities.sanitizeString(tokenPointOfSaleId);
-        String sanitizePointOfSaleId = pointOfSaleId == null ? null : Utilities.sanitizeString(pointOfSaleId);
-        String sanitizeProductGtin = productGtin == null ? null : Utilities.sanitizeString(productGtin);
-        String sanitizeFiscalCode = fiscalCode == null ? null : Utilities.sanitizeString(fiscalCode);
-        String sanitizeStatus = status == null ? null : Utilities.sanitizeString(status);
-        String sanitizeTrxCode = trxCode == null ? null : Utilities.sanitizeString(trxCode);
-        log.info("[GET_POINT-OF-SALE_TRANSACTIONS] Point Of Sale {} requested to retrieve transactions", sanitizePointOfSaleId);
-
-        if (tokenPointOfSaleId != null && (!sanitizeTokenPointOfSaleId
-                .equals(sanitizePointOfSaleId))){
-
-            return Mono.error(new ClientExceptionWithBody(
-                    HttpStatus.FORBIDDEN,
-                    ExceptionConstants.ExceptionCode.POINT_OF_SALE_NOT_ALLOWED,
-                    String.format(
-                            "Point of sale mismatch: expected [%s], but received [%s]", sanitizeTokenPointOfSaleId, sanitizePointOfSaleId
-                    )
-            ));
-        }
-
-        TrxFiltersDTO filters = new TrxFiltersDTO();
-        filters.setFiscalCode(sanitizeFiscalCode);
-        filters.setStatus(sanitizeStatus);
-        filters.setTrxCode(sanitizeTrxCode);
-
-        return pointOfSaleTransactionService.getPointOfSaleTransactions(sanitizeMerchantId, sanitizeInitiativeId, sanitizePointOfSaleId, sanitizeProductGtin, filters, pageable)
-                .flatMap(page ->
-                        Flux.fromIterable(page.getContent())
-                                .flatMapSequential(trx -> mapper.toDTO(trx, initiativeId, fiscalCode))
-                                .collectList()
-                                .map(dtoList -> new PointOfSaleTransactionsListDTO(
-                                        dtoList,
-                                        page.getNumber(),
-                                        page.getSize(),
-                                        (int) page.getTotalElements(),
-                                        page.getTotalPages()))
-                );
     }
 
     @Override

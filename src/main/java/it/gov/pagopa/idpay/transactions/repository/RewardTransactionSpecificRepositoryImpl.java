@@ -1,8 +1,5 @@
 package it.gov.pagopa.idpay.transactions.repository;
 
-import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_PRODUCT_NAME;
-import static it.gov.pagopa.idpay.transactions.utils.AggregationConstants.FIELD_STATUS;
-
 import com.mongodb.client.result.UpdateResult;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
@@ -21,7 +18,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
-import org.springframework.data.mongodb.core.aggregation.*;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.GroupOperation;
+import org.springframework.data.mongodb.core.aggregation.MatchOperation;
+import org.springframework.data.mongodb.core.aggregation.ProjectionOperation;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
@@ -31,7 +31,6 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.regex.Pattern;
 
 @Slf4j
@@ -87,13 +86,6 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
         Query.query(criteria)
             .with(getPageable(pageable)),
         RewardTransaction.class);
-  }
-
-  private Pageable getPageableTrx(Pageable pageable) {
-    if (pageable == null || pageable.getSort().isUnsorted()) {
-      return PageRequest.of(0, 10, Sort.by("trxChargeDate").descending());
-    }
-    return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort());
   }
 
   private Pageable getPageable(Pageable pageable) {
@@ -170,32 +162,6 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
   }
 
   @Override
-  public Flux<RewardTransaction> findByFilterTrx(TrxFiltersDTO filters,
-      String pointOfSaleId,
-      String userId,
-      String productGtin,
-      boolean includeToCheckWithConsultable,
-      Pageable pageable) {
-
-    Criteria criteria = getCriteria(filters, pointOfSaleId, userId, productGtin,
-        includeToCheckWithConsultable);
-
-    Pageable mappedPageable = mapSort(pageable);
-
-    Aggregation aggregation = buildAggregation(criteria, mappedPageable);
-
-    if (aggregation != null) {
-      return mongoTemplate.aggregate(aggregation, RewardTransaction.class, RewardTransaction.class);
-    } else {
-      return mongoTemplate.find(
-          Query.query(criteria).with(getPageableTrx(mappedPageable)),
-          RewardTransaction.class
-      );
-    }
-  }
-
-
-  @Override
   public Flux<RewardTransaction> findByFilter(String rewardBatchId, String initiativeId,
       List<RewardBatchTrxStatus> statusList) {
     Criteria criteria = getCriteria(rewardBatchId, initiativeId, statusList);
@@ -220,67 +186,6 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     return mongoTemplate.findOne(Query.query(criteria), RewardTransaction.class);
   }
 
-    private Pageable mapSort(Pageable pageable) {
-    Pageable basePageable = getPageableTrx(pageable);
-
-    Sort mappedSort = Sort.by(
-        basePageable.getSort().stream()
-            .map(order -> {
-              if ("productName".equalsIgnoreCase(order.getProperty())) {
-                return new Sort.Order(order.getDirection(), FIELD_PRODUCT_NAME);
-              }
-              return order;
-            })
-            .toList()
-    );
-
-    return PageRequest.of(basePageable.getPageNumber(), basePageable.getPageSize(), mappedSort);
-  }
-
-  private Aggregation buildAggregation(Criteria criteria, Pageable pageable) {
-    Sort sort = pageable.getSort();
-
-    if (isSortedBy(sort, FIELD_STATUS)) {
-      return buildStatusAggregation(criteria, pageable);
-    }
-    return null;
-  }
-
-  private boolean isSortedBy(Sort sort, String property) {
-    return sort.stream().anyMatch(order -> order.getProperty().equalsIgnoreCase(property));
-  }
-
-  private Aggregation buildStatusAggregation(Criteria criteria, Pageable pageable) {
-    Sort.Direction direction = getSortDirection(pageable, FIELD_STATUS);
-
-    return Aggregation.newAggregation(
-        Aggregation.addFields()
-            .addField("statusRank")
-            .withValue(
-                ConditionalOperators.switchCases(
-                    ConditionalOperators.Switch.CaseOperator.when(
-                            ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("CANCELLED"))
-                        .then(1),
-                    ConditionalOperators.Switch.CaseOperator.when(
-                        ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("INVOICED")).then(2),
-                    ConditionalOperators.Switch.CaseOperator.when(
-                        ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REWARDED")).then(3),
-                    ConditionalOperators.Switch.CaseOperator.when(
-                        ComparisonOperators.valueOf(FIELD_STATUS).equalToValue("REFUNDED")).then(4)
-                ).defaultTo(99)
-            ).build(),
-        Aggregation.match(criteria),
-        Aggregation.sort(Sort.by(direction, "statusRank")),
-        Aggregation.skip(pageable.getOffset()),
-        Aggregation.limit(pageable.getPageSize())
-    );
-  }
-
-  private Sort.Direction getSortDirection(Pageable pageable, String property) {
-    return Optional.ofNullable(pageable.getSort().getOrderFor(property))
-        .map(Sort.Order::getDirection)
-        .orElse(Sort.Direction.ASC);
-  }
 
   @Override
   public Mono<Long> getCount(TrxFiltersDTO filters,

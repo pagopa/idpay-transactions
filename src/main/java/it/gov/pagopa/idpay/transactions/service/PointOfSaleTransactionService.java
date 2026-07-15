@@ -2,23 +2,13 @@ package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
-import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
-import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.invoice_lifecycle.InvoiceLifecyclePolicy;
-import java.util.List;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.codec.multipart.FilePart;
 import reactor.core.publisher.Mono;
 
-public interface PointOfSaleTransactionService {
+import java.util.List;
 
-    Mono<Page<RewardTransaction>> getPointOfSaleTransactions(String merchantId,
-                                                             String initiativeId,
-                                                             String pointOfSaleId,
-                                                             String productGtin,
-                                                             TrxFiltersDTO filters,
-                                                             Pageable pageable);
+public interface PointOfSaleTransactionService {
 
     Mono<DownloadInvoiceResponseDTO> downloadTransactionInvoice(String merchantId, String pointOfSaleId, String transactionId);
 

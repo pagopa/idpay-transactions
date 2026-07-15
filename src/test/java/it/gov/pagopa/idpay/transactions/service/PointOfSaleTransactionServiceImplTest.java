@@ -5,11 +5,9 @@ import com.azure.storage.blob.models.BlockBlobItem;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
-import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionKafkaDTO;
-import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -23,7 +21,6 @@ import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.service.invoice_lifecycle.InvoiceLifecyclePolicy;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
-import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,7 +50,8 @@ import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.http.MediaType.APPLICATION_PDF_VALUE;
@@ -97,97 +95,6 @@ class PointOfSaleTransactionServiceImplTest {
         Files.deleteIfExists(srcFile);
     }
 
-    @Test
-    void getPointOfSaleTransactions_withFiscalCode_resolvesUserAndReturnsPage() {
-        RewardTransaction trx = RewardTransactionFaker.mockInstance(1);
-
-        when(userRestClient.retrieveFiscalCodeInfo(FISCAL_CODE))
-                .thenReturn(Mono.just(new FiscalCodeInfoPDV(USER_ID)));
-
-        ArgumentCaptor<TrxFiltersDTO> filtersCaptor = ArgumentCaptor.forClass(TrxFiltersDTO.class);
-
-        when(rewardTransactionRepository.findByFilterTrx(
-                filtersCaptor.capture(),
-                eq(POS_ID),
-                eq(USER_ID),
-                eq(""),
-                eq(false),
-                eq(pageable)))
-                .thenReturn(Flux.just(trx));
-
-        when(rewardTransactionRepository.getCount(
-                any(TrxFiltersDTO.class),
-                eq(POS_ID),
-                eq(""),
-                eq(USER_ID),
-                eq(false)))
-                .thenReturn(Mono.just(1L));
-
-        TrxFiltersDTO filters = new TrxFiltersDTO();
-        filters.setFiscalCode(FISCAL_CODE);
-        filters.setStatus(STATUS);
-
-        StepVerifier.create(service.getPointOfSaleTransactions(MERCHANT_ID, INITIATIVE_ID, POS_ID, "", filters, pageable))
-                .assertNext(page -> {
-                    assertEquals(1, page.getTotalElements());
-                    assertEquals(1, page.getContent().size());
-                })
-                .verifyComplete();
-
-        verify(userRestClient).retrieveFiscalCodeInfo(FISCAL_CODE);
-
-        TrxFiltersDTO passedFilters = filtersCaptor.getValue();
-        assertNotNull(passedFilters);
-        assertEquals(MERCHANT_ID, passedFilters.getMerchantId());
-        assertEquals(INITIATIVE_ID, passedFilters.getInitiativeId());
-        assertEquals(FISCAL_CODE, passedFilters.getFiscalCode());
-    }
-
-    @Test
-    void getPointOfSaleTransactions_withoutFiscalCode_doesNotCallUserService() {
-        RewardTransaction trx = RewardTransactionFaker.mockInstance(2);
-
-        when(rewardTransactionRepository.findByFilterTrx(
-                any(TrxFiltersDTO.class),
-                eq(POS_ID),
-                isNull(),
-                isNull(),
-                eq(false),
-                eq(pageable)))
-                .thenReturn(Flux.just(trx));
-
-        when(rewardTransactionRepository.getCount(
-                any(TrxFiltersDTO.class),
-                eq(POS_ID),
-                isNull(),
-                isNull(),
-                eq(false)))
-                .thenReturn(Mono.just(1L));
-
-        TrxFiltersDTO filters = new TrxFiltersDTO();
-        filters.setStatus(STATUS);
-
-        StepVerifier.create(service.getPointOfSaleTransactions(MERCHANT_ID, INITIATIVE_ID, POS_ID, null, filters, pageable))
-                .assertNext(page -> assertEquals(1, page.getTotalElements()))
-                .verifyComplete();
-
-        verifyNoInteractions(userRestClient);
-    }
-
-    @Test
-    void getPointOfSaleTransactions_withFiscalCode_userServiceError_propagates() {
-        TrxFiltersDTO filters = new TrxFiltersDTO();
-        filters.setFiscalCode(FISCAL_CODE);
-
-        when(userRestClient.retrieveFiscalCodeInfo(FISCAL_CODE))
-                .thenReturn(Mono.error(new RuntimeException("boom")));
-
-        StepVerifier.create(service.getPointOfSaleTransactions(MERCHANT_ID, INITIATIVE_ID, POS_ID, "", filters, pageable))
-                .expectErrorMatches(e -> e instanceof RuntimeException && "boom".equals(e.getMessage()))
-                .verify();
-
-        verifyNoInteractions(rewardTransactionRepository);
-    }
 
     @Test
     void downloadTransactionInvoice_invoiced_ok_usesInvoiceFolder() {

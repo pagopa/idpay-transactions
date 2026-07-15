@@ -1,9 +1,11 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
-import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
-import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
-import it.gov.pagopa.idpay.transactions.dto.*;
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
+import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
+import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
+import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
+import it.gov.pagopa.idpay.transactions.dto.RewardTransactionKafkaDTO;
 import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionKafkaMapper;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
@@ -16,40 +18,33 @@ import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.service.invoice_lifecycle.InvoiceLifecyclePolicy;
 import it.gov.pagopa.idpay.transactions.storage.InvoiceStorageClient;
-import java.time.LocalDateTime;
-
+import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
-import it.gov.pagopa.idpay.transactions.utils.Utilities;
-import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Objects;
 
-import static it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus.*;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
+import static it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus.CREATED;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.GENERIC_ERROR;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.*;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.TRANSACTION_MISSING_INVOICE;
 
 
 @Service
 @Slf4j
 public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransactionService {
 
-    private final UserRestClient userRestClient;
     private final RewardTransactionRepository rewardTransactionRepository;
     private final InvoiceStorageClient invoiceStorageClient;
     private final RewardBatchService rewardBatchService;
@@ -58,11 +53,12 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     private final TransactionNotifierService transactionNotifierService;
 
     protected PointOfSaleTransactionServiceImpl(
-            UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository, InvoiceStorageClient invoiceStorageClient, RewardBatchService rewardBatchService,
+            RewardTransactionRepository rewardTransactionRepository,
+            InvoiceStorageClient invoiceStorageClient,
+            RewardBatchService rewardBatchService,
             RewardBatchRepository rewardBatchRepository,
             TransactionErrorNotifierService transactionErrorNotifierService,
             TransactionNotifierService transactionNotifierService) {
-        this.userRestClient = userRestClient;
         this.rewardTransactionRepository = rewardTransactionRepository;
         this.invoiceStorageClient = invoiceStorageClient;
         this.rewardBatchService = rewardBatchService;
@@ -71,39 +67,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         this.transactionNotifierService = transactionNotifierService;
     }
 
-    @Override
-    public Mono<Page<RewardTransaction>> getPointOfSaleTransactions(String merchantId,
-                                                                    String initiativeId,
-                                                                    String pointOfSaleId,
-                                                                    String productGtin,
-                                                                    TrxFiltersDTO filters,
-                                                                    Pageable pageable) {
 
-        filters.setMerchantId(merchantId);
-        filters.setInitiativeId(initiativeId);
-
-
-        if (StringUtils.isNotBlank(filters.getFiscalCode())) {
-            return userRestClient.retrieveFiscalCodeInfo(filters.getFiscalCode())
-                    .map(FiscalCodeInfoPDV::getToken)
-                    .flatMap(userId ->
-                            getTransactions(filters, pointOfSaleId, userId, productGtin, pageable));
-        } else {
-            return getTransactions(filters, pointOfSaleId, null, productGtin, pageable);
-        }
-    }
-
-
-
-    /**
-     * Method to generate a download url of an invoice for a rewardTransaction in status REWARDED, REFUNDED or INVOICED,
-     * the url will be provided with a Shared Access Signature token for the resource
-     * @param merchantId
-     * @param pointOfSaleId
-     * @param transactionId
-     * @return Mono containing the invoiceUrl, error if parameters do not match an existing transaction, or the invoice
-     * reference is missing
-     */
     @Override
     public Mono<DownloadInvoiceResponseDTO> downloadTransactionInvoice(
             String merchantId, String pointOfSaleId, String transactionId) {
@@ -139,27 +103,6 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                             .invoiceUrl(invoiceStorageClient.getFileSignedUrl(blobPath))
                             .build());
                 });
-    }
-
-    private Mono<Page<RewardTransaction>> getTransactions(TrxFiltersDTO filters,
-                                                          String pointOfSaleId,
-                                                          String userId,
-                                                          String productGtin,
-                                                          Pageable pageable) {
-
-        boolean includeToCheckWithConsultable = false;
-
-        return rewardTransactionRepository
-                .findByFilterTrx(filters, pointOfSaleId, userId, productGtin, includeToCheckWithConsultable, pageable)
-                .collectList()
-                .zipWith(rewardTransactionRepository.getCount(
-                        filters,
-                        pointOfSaleId,
-                        productGtin,
-                        userId,
-                        includeToCheckWithConsultable
-                ))
-                .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
     }
 
     public Mono<Void> updateInvoiceTransaction(String transactionId, String merchantId,
