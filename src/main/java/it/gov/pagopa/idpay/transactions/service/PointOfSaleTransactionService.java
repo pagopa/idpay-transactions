@@ -1,6 +1,5 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.service.invoice_lifecycle.InvoiceLifecyclePolicy;
 import org.springframework.http.codec.multipart.FilePart;

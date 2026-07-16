@@ -29,6 +29,8 @@ public interface PointOfSaleTransactionController {
             @PathVariable("rewardBatchId") String rewardBatchId,
             @RequestHeader("x-merchant-id") String merchantId
     );
+
+
     @PostMapping("/transactions/{transactionId}/reversal-invoiced")
     @ResponseStatus(code = HttpStatus.NO_CONTENT)
     Mono<Void> reversalTransactionInvoiced(

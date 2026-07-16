@@ -7,16 +7,6 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 
 public interface MerchantTransactionService {
-    Mono<MerchantTransactionsListDTO> getMerchantTransactions(String merchantId,
-                                                              String organizationRole,
-                                                              String initiativeId,
-                                                              String fiscalCode,
-                                                              String status,
-                                                              String rewardBatchId,
-                                                              String rewardBatchTrxStatus,
-                                                              String pointOfSaleId,
-                                                              String trxCode,
-                                                              Pageable pageable);
 
     Mono<List<String>> getProcessedTransactionStatuses(
             String organizationRole);
