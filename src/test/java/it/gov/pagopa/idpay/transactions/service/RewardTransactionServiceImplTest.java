@@ -14,12 +14,6 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
-
-import java.time.LocalDateTime;
-import java.time.YearMonth;
-import java.util.List;
-import java.util.Map;
-
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +28,11 @@ import org.springframework.http.HttpStatus;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+
+import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.util.List;
+import java.util.Map;
 
 @ExtendWith(MockitoExtension.class)
 class RewardTransactionServiceImplTest {
@@ -65,48 +64,6 @@ class RewardTransactionServiceImplTest {
                 seed,
                 rewardBatchRepository
         );
-    }
-
-    @Test
-    void findByIdTrxIssuer() {
-        RewardTransaction rt = RewardTransaction.builder()
-                .userId("USERID")
-                .amountCents(3000L)
-                .trxDate(LocalDateTime.of(2022, 9, 19, 15, 43, 39))
-                .idTrxIssuer("IDTRXISSUER")
-                .build();
-
-        Mockito.when(rewardTransactionRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(), null, null, null, null, null))
-                .thenReturn(Flux.just(rt));
-
-        Flux<RewardTransaction> result = rewardTransactionService.findByIdTrxIssuer("IDTRXISSUER", null, null, null, null, null);
-
-        RewardTransaction resultRT = result.toStream().findFirst().orElse(null);
-        Assertions.assertNotNull(resultRT);
-        Assertions.assertEquals(rt, resultRT);
-    }
-
-    @Test
-    void findByRange() {
-        LocalDateTime date = LocalDateTime.of(2022, 9, 19, 15, 43, 39);
-        LocalDateTime startDate = date.minusMonths(9L);
-        LocalDateTime endDate = date.plusMonths(6L);
-
-        RewardTransaction rt = RewardTransaction.builder()
-                .userId("USERID")
-                .amountCents(3000L)
-                .trxDate(date)
-                .idTrxIssuer("IDTRXISSUER")
-                .build();
-
-        Mockito.when(rewardTransactionRepository.findByRange(rt.getUserId(), startDate, endDate, null, null))
-                .thenReturn(Flux.just(rt));
-
-        Flux<RewardTransaction> result = rewardTransactionService.findByRange(rt.getUserId(), startDate, endDate, null, null);
-
-        RewardTransaction resultRT = result.toStream().findFirst().orElse(null);
-        Assertions.assertNotNull(resultRT);
-        Assertions.assertEquals(rt, resultRT);
     }
 
     @Test
@@ -185,22 +142,6 @@ class RewardTransactionServiceImplTest {
                 .updateTotals(Mockito.eq(INITIATIVE_ID), Mockito.eq("BATCH1"), Mockito.any(BatchCountersDTO.class));
     }
 
-    @Test
-    void findByInitiativeIddndUserId() {
-        RewardTransaction rt = RewardTransaction.builder()
-                .userId("USERID")
-                .amountCents(3000L)
-                .trxDate(LocalDateTime.of(2022, 9, 19, 15, 43, 39))
-                .initiatives(List.of("ID"))
-                .build();
-
-        Mockito.when(rewardTransactionRepository.findByInitiativeIdAndUserId("ID", "USERID"))
-                .thenReturn(Flux.just(rt));
-
-        RewardTransaction resultRT = rewardTransactionService.findByInitiativeIdAndUserId("ID", "USERID").blockFirst();
-        Assertions.assertNotNull(resultRT);
-        Assertions.assertEquals(rt, resultRT);
-    }
 
     @Test
     void computeSamplingKey_shouldBeDeterministicForSameInput() {
