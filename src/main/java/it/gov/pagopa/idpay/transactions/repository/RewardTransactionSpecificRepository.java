@@ -10,12 +10,9 @@ import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 public interface RewardTransactionSpecificRepository {
-    Flux<RewardTransaction> findByIdTrxIssuer(String idTrxIssuer, String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, Long amountCents, Pageable pageable);
-    Flux<RewardTransaction> findByRange(String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, Long amountCents, Pageable pageable);
     Flux<RewardTransaction> findByFilter(TrxFiltersDTO filters, String userId, boolean includeToCheckWithConsultable, Pageable pageable);
     Mono<Long> getCount(TrxFiltersDTO filters, String pointOfSaleId, String productGtin, String userId, boolean includeToCheckWithConsultable);
     Mono<RewardTransaction> findOneByInitiativeId(String initiativeId);
@@ -31,7 +28,6 @@ public interface RewardTransactionSpecificRepository {
      * @return Mono containing a transaction, or empty if no document matches the criteria
      */
     Mono<RewardTransaction> findTransaction(String merchantId, String transactionId);
-    Flux<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId);
     Mono<Long> sumSuspendedAccruedRewardCents(String initiativeId, String rewardBatchId);
     Mono<Void> rewardTransactionsByBatchIdAndInitiativeId(String batchId, String initiativeId);
     Mono<RewardTransaction> updateStatusAndReturnOld(String initiativeId, String batchId, String trxId, RewardBatchTrxStatus status, ReasonDTO reasons, String batchMonth, ChecksError checksError);

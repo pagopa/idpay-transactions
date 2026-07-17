@@ -1,21 +1,11 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
-import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
-import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
-import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
-import java.util.UUID;
-
-import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.RestController;
-import reactor.core.publisher.Flux;
 
-import java.time.LocalDateTime;
+import java.util.UUID;
 
 @RestController
 @Slf4j
@@ -26,24 +16,6 @@ public class TransactionsControllerImpl implements TransactionsController{
         this.rewardTransactionService = rewardTransactionService;
     }
 
-    @Override
-    public Flux<RewardTransaction> findAll(String idTrxIssuer, String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, Long amountCents, Pageable pageable) {
-        if(idTrxIssuer != null){
-            return rewardTransactionService.findByIdTrxIssuer(idTrxIssuer,userId,trxDateStart, trxDateEnd, amountCents, pageable);
-        }else if(userId != null && trxDateStart != null && trxDateEnd != null){
-            return rewardTransactionService.findByRange(userId, trxDateStart, trxDateEnd, amountCents, pageable);
-        }else {
-            throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, ExceptionConstants.ExceptionCode.TRANSACTIONS_MISSING_MANDATORY_FILTERS,ExceptionConstants.ExceptionMessage.TRANSACTIONS_MISSING_MANDATORY_FILTERS);
-        }
-    }
-
-    @Override
-    public Flux<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId) {
-        if(initiativeId != null && userId != null) {
-            return rewardTransactionService.findByInitiativeIdAndUserId(initiativeId, userId);
-        }
-        throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, ExceptionConstants.ExceptionCode.TRANSACTIONS_MISSING_MANDATORY_FILTERS,ExceptionConstants.ExceptionMessage.TRANSACTIONS_MISSING_MANDATORY_FILTERS);
-    }
 
     @Override
     public ResponseEntity<String> cleanupInvoicedTransactions(Integer chunkSize, Integer repetitionsNumber, boolean processAll, String trxId) {

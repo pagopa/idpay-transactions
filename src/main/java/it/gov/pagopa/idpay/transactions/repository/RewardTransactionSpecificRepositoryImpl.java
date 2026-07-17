@@ -28,7 +28,6 @@ import org.springframework.data.mongodb.core.query.Update;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
@@ -42,51 +41,7 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     this.mongoTemplate = mongoTemplate;
   }
 
-  @Override
-  public Flux<RewardTransaction> findByIdTrxIssuer(String idTrxIssuer, String userId,
-      LocalDateTime trxDateStart, LocalDateTime trxDateEnd, Long amountCents, Pageable pageable) {
-    Criteria criteria = Criteria.where(RewardTransaction.Fields.idTrxIssuer).is(idTrxIssuer);
-    if (userId != null) {
-      criteria.and(RewardTransaction.Fields.userId).is(userId);
-    }
-    if (amountCents != null) {
-      criteria.and(RewardTransaction.Fields.amountCents).is(amountCents);
-    }
-    if (trxDateStart != null && trxDateEnd != null) {
-      criteria.and(RewardTransaction.Fields.trxDate)
-          .gte(trxDateStart)
-          .lte(trxDateEnd);
-    } else if (trxDateStart != null) {
-      criteria.and(RewardTransaction.Fields.trxDate)
-          .gte(trxDateStart);
-    } else if (trxDateEnd != null) {
-      criteria.and(RewardTransaction.Fields.trxDate)
-          .lte(trxDateEnd);
-    }
 
-    return mongoTemplate.find(
-        Query.query(criteria)
-            .with(getPageable(pageable)),
-        RewardTransaction.class);
-  }
-
-  @Override
-  public Flux<RewardTransaction> findByRange(String userId, LocalDateTime trxDateStart,
-      LocalDateTime trxDateEnd, Long amountCents, Pageable pageable) {
-    Criteria criteria = Criteria
-        .where(RewardTransaction.Fields.userId).is(userId)
-        .and(RewardTransaction.Fields.trxDate)
-        .gte(trxDateStart)
-        .lte(trxDateEnd);
-    if (amountCents != null) {
-      criteria.and(RewardTransaction.Fields.amountCents).is(amountCents);
-    }
-
-    return mongoTemplate.find(
-        Query.query(criteria)
-            .with(getPageable(pageable)),
-        RewardTransaction.class);
-  }
 
   private Pageable getPageable(Pageable pageable) {
     if (pageable == null) {
@@ -227,15 +182,6 @@ public class RewardTransactionSpecificRepositoryImpl implements RewardTransactio
     Query query = Query.query(Criteria.where(RewardTransaction.Fields.initiatives).is(initiativeId))
         .cursorBatchSize(batchSize);
     return mongoTemplate.find(query, RewardTransaction.class);
-  }
-
-  @Override
-
-  public Flux<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId) {
-    Criteria criteria = Criteria.where(RewardTransaction.Fields.userId).is(userId)
-        .and(Fields.initiatives).in(initiativeId);
-
-    return mongoTemplate.find(Query.query(criteria), RewardTransaction.class);
   }
 
 
