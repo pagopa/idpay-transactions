@@ -65,6 +65,7 @@ Testcontainers integration tests may apply the repository migration files solely
 ## PR execution rules
 
 - Keep every PR limited to its stated deliverable.
+- Every PR must build successfully and pass the full test suite.
 - Do not use git branches with folder separator like `feat/example`.
 - Use `StepVerifier` for reactive unit tests and focused Testcontainers PostgreSQL integration tests for SQL adapter/mutation work.
 - Apply SQL mutations only through `TransactionalOperator`; never add blocking bridges.
