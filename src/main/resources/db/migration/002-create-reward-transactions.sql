@@ -19,7 +19,6 @@ CREATE TABLE reward_transactions (
     acquirer_id TEXT,
     merchant_id TEXT,
     point_of_sale_id TEXT,
-    sender_code TEXT,
     pos_type TEXT,
     status TEXT,
     rejection_reasons JSONB,
