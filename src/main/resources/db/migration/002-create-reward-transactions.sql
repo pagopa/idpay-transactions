@@ -77,9 +77,6 @@ CREATE INDEX idx_reward_transactions_initiative_merchant_status
 CREATE INDEX idx_reward_transactions_initiative_merchant_pos
     ON reward_transactions (initiative_id, merchant_id, point_of_sale_id);
 
-CREATE INDEX idx_reward_transactions_initiative_merchant_fiscal_code
-    ON reward_transactions (initiative_id, merchant_id, fiscal_code);
-
 CREATE INDEX idx_reward_transactions_initiative_merchant_trx_code
     ON reward_transactions (initiative_id, merchant_id, trx_code);
 
