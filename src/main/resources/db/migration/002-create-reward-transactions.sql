@@ -44,8 +44,6 @@ CREATE TABLE reward_transactions (
     elaboration_date_time TIMESTAMP,
     channel TEXT,
     additional_properties JSONB,
-    product_name TEXT GENERATED ALWAYS AS (additional_properties ->> 'productName') STORED,
-    product_gtin TEXT GENERATED ALWAYS AS (additional_properties ->> 'productGtin') STORED,
     invoice_data JSONB,
     credit_note_data JSONB,
     trx_code TEXT,
@@ -94,9 +92,6 @@ CREATE INDEX idx_reward_transactions_initiative_merchant_fiscal_code
 
 CREATE INDEX idx_reward_transactions_initiative_merchant_trx_code
     ON reward_transactions (initiative_id, merchant_id, trx_code);
-
-CREATE INDEX idx_reward_transactions_initiative_merchant_product_gtin
-    ON reward_transactions (initiative_id, merchant_id, product_gtin);
 
 CREATE INDEX idx_reward_transactions_invoiced_without_batch
     ON reward_transactions (initiative_id, merchant_id, transaction_id)

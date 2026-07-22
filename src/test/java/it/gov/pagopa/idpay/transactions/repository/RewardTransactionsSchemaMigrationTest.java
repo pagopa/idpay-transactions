@@ -53,7 +53,7 @@ class RewardTransactionsSchemaMigrationTest extends PostgresqlMigrationTestSuppo
                                     :invoiceData, :rejectionReasons, :checksError
                                 )
                                 RETURNING rewards, additional_properties, invoice_data,
-                                    reward_batch_rejection_reasons, checks_error, product_name, product_gtin
+                                    reward_batch_rejection_reasons, checks_error
                                 """)
                         .bind("rewards", Json.of("""
                                 {"initiative-1":{"accruedRewardCents":120}}
@@ -73,9 +73,7 @@ class RewardTransactionsSchemaMigrationTest extends PostgresqlMigrationTestSuppo
                                 row.get("additional_properties", Json.class).asString(),
                                 row.get("invoice_data", Json.class).asString(),
                                 row.get("reward_batch_rejection_reasons", Json.class).asString(),
-                                row.get("checks_error", Json.class).asString(),
-                                row.get("product_name", String.class),
-                                row.get("product_gtin", String.class)
+                                row.get("checks_error", Json.class).asString()
                         ))
                         .one())
                 .expectNext(new JsonbTransaction(
@@ -83,9 +81,7 @@ class RewardTransactionsSchemaMigrationTest extends PostgresqlMigrationTestSuppo
                         additionalProperties.strip(),
                         "{\"filename\":\"invoice.pdf\",\"docNumber\":\"42\"}",
                         "[{\"code\":\"INVALID_PRODUCT\"}]",
-                        "{\"productEligibilityError\":true}",
-                        "Coffee machine",
-                        "1234567890123"
+                        "{\"productEligibilityError\":true}"
                 ))
                 .verifyComplete();
     }
@@ -95,9 +91,7 @@ class RewardTransactionsSchemaMigrationTest extends PostgresqlMigrationTestSuppo
             String additionalProperties,
             String invoiceData,
             String rejectionReasons,
-            String checksError,
-            String productName,
-            String productGtin
+            String checksError
     ) {
     }
 }
