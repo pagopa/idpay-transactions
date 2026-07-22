@@ -1,45 +1,38 @@
 CREATE TABLE reward_batches (
-    id VARCHAR(255) PRIMARY KEY,
-    initiative_id VARCHAR(255) NOT NULL,
-    merchant_id VARCHAR(255) NOT NULL,
-    business_name VARCHAR(255),
+    id TEXT PRIMARY KEY,
+    initiative_id TEXT NOT NULL,
+    merchant_id TEXT NOT NULL,
+    business_name TEXT,
     month CHAR(7) NOT NULL,
-    pos_type VARCHAR(16) NOT NULL,
+    pos_type TEXT NOT NULL,
+    -- Kept as text: application validation permits additive statuses without enum rollout coupling.
     status VARCHAR(32) NOT NULL,
     partial BOOLEAN NOT NULL DEFAULT FALSE,
-    name VARCHAR(255) NOT NULL,
+    name TEXT NOT NULL,
+
     start_date TIMESTAMP,
     end_date TIMESTAMP,
+    creation_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    merchant_send_date TIMESTAMP,
+    approval_date TIMESTAMP,
+    delivery_date_request TIMESTAMP,
+    refund_outcome_timestamp TIMESTAMP,
     approved_amount_cents BIGINT NOT NULL DEFAULT 0,
     suspended_amount_cents BIGINT NOT NULL DEFAULT 0,
     initial_amount_cents BIGINT NOT NULL DEFAULT 0,
     number_of_transactions BIGINT NOT NULL DEFAULT 0,
     number_of_transactions_elaborated BIGINT NOT NULL DEFAULT 0,
-    report_path VARCHAR(1024),
-    filename VARCHAR(1024),
-    assignee_level VARCHAR(2) NOT NULL,
     number_of_transactions_suspended BIGINT NOT NULL DEFAULT 0,
     number_of_transactions_rejected BIGINT NOT NULL DEFAULT 0,
+
+    report_path TEXT,
+    filename TEXT,
+    assignee_level TEXT NOT NULL,
     refund_valuta_date DATE,
     refund_error_message TEXT,
-    refund_outcome_timestamp TIMESTAMP,
-    merchant_send_date TIMESTAMP,
-    approval_date TIMESTAMP,
-    creation_date TIMESTAMP NOT NULL,
-    update_date TIMESTAMP NOT NULL,
-    delivery_date_request TIMESTAMP,
     delivery_outcome JSONB,
-    CONSTRAINT ck_reward_batches_month_format
-        CHECK (month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'),
-    CONSTRAINT ck_reward_batches_pos_type
-        CHECK (pos_type IN ('PHYSICAL', 'ONLINE')),
-    CONSTRAINT ck_reward_batches_status
-        CHECK (status IN (
-            'CREATED', 'SENT', 'EVALUATING', 'APPROVING', 'APPROVED',
-            'PENDING_REFUND', 'NOT_REFUNDED', 'REFUNDED'
-        )),
-    CONSTRAINT ck_reward_batches_assignee_level
-        CHECK (assignee_level IN ('L1', 'L2', 'L3')),
+
     CONSTRAINT ck_reward_batches_approved_amount_non_negative
         CHECK (approved_amount_cents >= 0),
     CONSTRAINT ck_reward_batches_suspended_amount_non_negative
@@ -58,18 +51,18 @@ CREATE TABLE reward_batches (
         UNIQUE (initiative_id, merchant_id, pos_type, month)
 );
 
-CREATE INDEX idx_reward_batches_merchant_initiative
-    ON reward_batches (merchant_id, initiative_id);
+-- Merchant-facing batch lists and prior-month checks.
+CREATE INDEX idx_reward_batches_merchant_initiative_month
+    ON reward_batches (merchant_id, initiative_id, month DESC);
 
-CREATE INDEX idx_reward_batches_initiative_status
-    ON reward_batches (initiative_id, status);
+-- Initiative lifecycle queues, with database-side pagination by month.
+CREATE INDEX idx_reward_batches_initiative_status_month
+    ON reward_batches (initiative_id, status, month DESC);
 
-CREATE INDEX idx_reward_batches_initiative_assignee
-    ON reward_batches (initiative_id, assignee_level);
+CREATE INDEX idx_reward_batches_initiative_assignee_status_month
+    ON reward_batches (initiative_id, assignee_level, status, month DESC);
 
-CREATE INDEX idx_reward_batches_month
-    ON reward_batches (month);
-
+-- Small partial indexes target background delivery and outcome polling.
 CREATE INDEX idx_reward_batches_delivery
     ON reward_batches (initiative_id, approved_amount_cents)
     WHERE status = 'APPROVED' AND approved_amount_cents > 0;
