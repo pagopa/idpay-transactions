@@ -165,6 +165,10 @@ spring:
         maxConnectionLifeTimeMS: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTION_LIFE_MS:0}
         maxConnectionIdleTimeMS: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTION_IDLE_MS:120000}
         maxConnecting: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTING:2}
+  r2dbc:
+    url: ${POSTGRES_R2DBC_URL:r2dbc:postgresql://localhost:5432/idpay-transactions}
+    username: ${POSTGRES_USERNAME:idpay}
+    password: ${POSTGRES_PASSWORD:idpay}
 
 management:
   health:
