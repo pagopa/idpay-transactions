@@ -52,8 +52,14 @@ class RewardTransactionsSchemaMigrationTest extends PostgresqlMigrationTestSuppo
                                     'transaction-1', 'initiative-1', :rewards, :additionalProperties,
                                     :invoiceData, :rejectionReasons, :checksError
                                 )
-                                RETURNING rewards, additional_properties, invoice_data,
-                                    reward_batch_rejection_reasons, checks_error
+                                RETURNING
+                                    rewards -> 'initiative-1' ->> 'accruedRewardCents' AS accrued_reward_cents,
+                                    additional_properties ->> 'productName' AS product_name,
+                                    additional_properties ->> 'productGtin' AS product_gtin,
+                                    invoice_data ->> 'filename' AS invoice_filename,
+                                    invoice_data ->> 'docNumber' AS invoice_doc_number,
+                                    reward_batch_rejection_reasons -> 0 ->> 'code' AS rejection_code,
+                                    checks_error ->> 'productEligibilityError' AS product_eligibility_error
                                 """)
                         .bind("rewards", Json.of("""
                                 {"initiative-1":{"accruedRewardCents":120}}
@@ -69,29 +75,35 @@ class RewardTransactionsSchemaMigrationTest extends PostgresqlMigrationTestSuppo
                                 {"productEligibilityError":true}
                                 """))
                         .map((row, metadata) -> new JsonbTransaction(
-                                row.get("rewards", Json.class).asString(),
-                                row.get("additional_properties", Json.class).asString(),
-                                row.get("invoice_data", Json.class).asString(),
-                                row.get("reward_batch_rejection_reasons", Json.class).asString(),
-                                row.get("checks_error", Json.class).asString()
+                                row.get("accrued_reward_cents", String.class),
+                                row.get("product_name", String.class),
+                                row.get("product_gtin", String.class),
+                                row.get("invoice_filename", String.class),
+                                row.get("invoice_doc_number", String.class),
+                                row.get("rejection_code", String.class),
+                                row.get("product_eligibility_error", String.class)
                         ))
                         .one())
                 .expectNext(new JsonbTransaction(
-                        "{\"initiative-1\":{\"accruedRewardCents\":120}}",
-                        additionalProperties.strip(),
-                        "{\"filename\":\"invoice.pdf\",\"docNumber\":\"42\"}",
-                        "[{\"code\":\"INVALID_PRODUCT\"}]",
-                        "{\"productEligibilityError\":true}"
+                        "120",
+                        "Coffee machine",
+                        "1234567890123",
+                        "invoice.pdf",
+                        "42",
+                        "INVALID_PRODUCT",
+                        "true"
                 ))
                 .verifyComplete();
     }
 
     private record JsonbTransaction(
-            String rewards,
-            String additionalProperties,
-            String invoiceData,
-            String rejectionReasons,
-            String checksError
+            String accruedRewardCents,
+            String productName,
+            String productGtin,
+            String invoiceFilename,
+            String invoiceDocNumber,
+            String rejectionCode,
+            String productEligibilityError
     ) {
     }
 }
