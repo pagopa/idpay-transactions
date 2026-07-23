@@ -46,11 +46,12 @@ class RewardTransactionsSchemaMigrationTest extends PostgresqlMigrationTestSuppo
                         .sql("""
                                 INSERT INTO reward_transactions (
                                     transaction_id, initiative_id, rewards, additional_properties,
-                                    invoice_data, reward_batch_rejection_reasons, checks_error
+                                    invoice_data, reward_batch_rejection_reasons, checks_error,
+                                    accrued_reward_cents
                                 )
                                 VALUES (
                                     'transaction-1', 'initiative-1', :rewards, :additionalProperties,
-                                    :invoiceData, :rejectionReasons, :checksError
+                                    :invoiceData, :rejectionReasons, :checksError, 120
                                 )
                                 RETURNING
                                     rewards -> 'initiative-1' ->> 'accruedRewardCents' AS accrued_reward_cents,
