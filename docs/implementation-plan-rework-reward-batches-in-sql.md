@@ -68,7 +68,7 @@ Testcontainers integration tests may apply the repository migration files solely
 
 - Keep every PR limited to its stated deliverable.
 - Every PR must build successfully and pass the full test suite.
-- Commit the changes to a git branch from `migration-to-sql-database` base branch. Do not use git branches with folder separator like `feat/example`. 
+- For every numbered PR, create a new dedicated git branch before making its changes. Branch it from the branch `migration-to-sql-database`. Commit the completed PR changes on that branch before reporting the PR as implemented. Do not use git branch names with a folder separator, such as `feat/example`.
 - Use `StepVerifier` for reactive unit tests and focused Testcontainers PostgreSQL integration tests for SQL adapter/mutation work.
 - Apply SQL mutations only through `TransactionalOperator`; never add blocking bridges.
 - Before merging a mutation PR, assert the transaction, all affected batch aggregate projections, and idempotent retry/concurrent behavior where applicable.
