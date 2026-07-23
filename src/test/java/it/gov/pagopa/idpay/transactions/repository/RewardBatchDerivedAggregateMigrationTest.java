@@ -158,7 +158,7 @@ class RewardBatchDerivedAggregateMigrationTest extends PostgresqlMigrationTestSu
                                 """)
                         .fetch()
                         .rowsUpdated()
-                        .thenMany(databaseClient()
+                        .concatWith(databaseClient()
                                 .sql("""
                                         INSERT INTO reward_transactions (
                                             transaction_id, initiative_id, reward_batch_id,
