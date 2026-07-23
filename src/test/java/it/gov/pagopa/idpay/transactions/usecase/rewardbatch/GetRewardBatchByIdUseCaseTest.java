@@ -5,7 +5,7 @@ import static org.mockito.Mockito.*;
 import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
-import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchReadPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.MerchantRewardBatchLookupPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,7 +18,7 @@ import reactor.test.StepVerifier;
 class GetRewardBatchByIdUseCaseTest {
 
     @Mock
-    private RewardBatchReadPort rewardBatchReadPort;
+    private MerchantRewardBatchLookupPort merchantRewardBatchLookupPort;
 
     private GetRewardBatchByIdUseCase useCase;
 
@@ -28,7 +28,7 @@ class GetRewardBatchByIdUseCaseTest {
 
     @BeforeEach
     void setup() {
-        useCase = new GetRewardBatchByIdUseCase(rewardBatchReadPort);
+        useCase = new GetRewardBatchByIdUseCase(merchantRewardBatchLookupPort);
     }
 
     @Test
@@ -39,19 +39,19 @@ class GetRewardBatchByIdUseCaseTest {
                 .status(RewardBatchStatus.CREATED)
                 .build();
 
-        when(rewardBatchReadPort.findByMerchantIdAndInitiativeIdAndId(MERCHANT_ID, INITIATIVE_ID, BATCH_ID))
+        when(merchantRewardBatchLookupPort.findMerchantBatch(MERCHANT_ID, INITIATIVE_ID, BATCH_ID))
                 .thenReturn(Mono.just(batch));
 
         StepVerifier.create(useCase.execute(MERCHANT_ID, INITIATIVE_ID, BATCH_ID))
                 .expectNext(batch)
                 .verifyComplete();
 
-        verify(rewardBatchReadPort, times(1)).findByMerchantIdAndInitiativeIdAndId(MERCHANT_ID, INITIATIVE_ID, BATCH_ID);
+        verify(merchantRewardBatchLookupPort, times(1)).findMerchantBatch(MERCHANT_ID, INITIATIVE_ID, BATCH_ID);
     }
 
     @Test
     void execute_notFound() {
-        when(rewardBatchReadPort.findByMerchantIdAndInitiativeIdAndId(MERCHANT_ID, INITIATIVE_ID, BATCH_ID))
+        when(merchantRewardBatchLookupPort.findMerchantBatch(MERCHANT_ID, INITIATIVE_ID, BATCH_ID))
                 .thenReturn(Mono.empty());
 
         StepVerifier.create(useCase.execute(MERCHANT_ID, INITIATIVE_ID, BATCH_ID))
@@ -59,6 +59,6 @@ class GetRewardBatchByIdUseCaseTest {
                         && ex.getMessage().contains(BATCH_ID))
                 .verify();
 
-        verify(rewardBatchReadPort, times(1)).findByMerchantIdAndInitiativeIdAndId(MERCHANT_ID, INITIATIVE_ID, BATCH_ID);
+        verify(merchantRewardBatchLookupPort, times(1)).findMerchantBatch(MERCHANT_ID, INITIATIVE_ID, BATCH_ID);
     }
 }

@@ -5,7 +5,7 @@ import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.Exceptio
 
 import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
-import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchReadPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.MerchantRewardBatchLookupPort;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,10 +16,10 @@ import reactor.core.publisher.Mono;
 @AllArgsConstructor
 public class GetRewardBatchByIdUseCase {
 
-    private final RewardBatchReadPort rewardBatchReadPort;
+    private final MerchantRewardBatchLookupPort merchantRewardBatchLookupPort;
 
     public Mono<RewardBatch> execute(String merchantId, String initiativeId, String rewardBatchId) {
-        return rewardBatchReadPort.findByMerchantIdAndInitiativeIdAndId(merchantId, initiativeId, rewardBatchId)
+        return merchantRewardBatchLookupPort.findMerchantBatch(merchantId, initiativeId, rewardBatchId)
                 .switchIfEmpty(Mono.error(new RewardBatchNotFound(
                         REWARD_BATCH_NOT_FOUND,
                         ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId)

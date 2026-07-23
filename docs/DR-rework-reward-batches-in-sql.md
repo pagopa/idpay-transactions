@@ -30,6 +30,7 @@ Migrate the batch domain and its local transaction data from reactive MongoDB to
 - Persist `accrued_reward_cents` as a typed transaction column for aggregation. Keep the source reward payload as JSONB only where it is otherwise required.
 - Persist the amount sent to Erogazioni only as immutable delivery-request metadata or in its outbox payload; it is not a mutable batch counter.
 - Keep the existing external REST and Kafka contracts unless a separately approved contract change replaces them. In particular, no assumed `PaymentCapturedEvent`, endpoint, or ownership change in another service is introduced by this decision.
+- Develop the migration through human-reviewed, fully validated incremental PRs that are not deployed before direct cutover. Introduce a storage port only with the specific caller behavior it represents; do not add generic CRUD or one-to-one repository-wrapper ports solely for a future migration.
 
 This is a data-access and data-model migration. It does not redesign the public API or the business lifecycle.
 
