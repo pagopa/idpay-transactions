@@ -31,7 +31,7 @@ Testcontainers integration tests may apply the repository migration files solely
 5. Persist deferred complex structures as JSONB initially; retain typed/indexed columns for all batch, search, and lifecycle predicates.
 6. Do not persist mutable batch counters. Derive all batch amount/count response fields through database-side aggregate queries over assigned transactions; do not aggregate in application memory or introduce N+1 reads.
 7. Persist `accrued_reward_cents` as a typed transaction column for aggregate queries. Persist an Erogazioni amount only as an immutable delivery-request snapshot or outbox payload.
-8. Intermediate PRs retain Mongo behavior through adapters. The final PR selects SQL and removes Mongo; no runtime dual-write/read exists.
+8. Intermediate PRs are human-reviewed and fully validated refactoring checkpoints; they are not deployed. Retain Mongo behavior through adapters while moving one behavior at a time. Introduce a port only with the caller behavior it expresses; do not add speculative generic CRUD or one-to-one repository-wrapper ports. The final PR selects SQL and removes Mongo; no runtime dual-write/read exists.
 
 ## Thin PR sequence
 
@@ -42,7 +42,7 @@ Testcontainers integration tests may apply the repository migration files solely
 | 03 | Add `002-create-reward-transactions.sql`, defining typed identity/search/batch fields, JSONB deferred structures, `initiative_id NOT NULL`, composite batch/initiative FK, and lookup/batch-status/sampling indexes. Add JSONB converter tests. | 02 |
 | 04 | Add the next ordered SQL migration with read-only batch-counter reconciliation views/queries. Document expected results; do not execute reconciliation or backfill. | 03 |
 | 05 | Add the next forward-only migration: drop the temporary reconciliation views and persisted batch counter columns, add typed `accrued_reward_cents`, and add the aggregate-query indexes/constraints. Document the external legacy-counter-to-SQL-aggregate audit; do not execute it. | 04 |
-| 06 | Introduce batch read/write, transaction read/write, and atomic-mutation ports. Provide behavior-preserving Mongo adapters and migrate the batch lookup use case. | 01 |
+| 06 | Introduce a semantic merchant batch-lookup port, provide its behavior-preserving Mongo adapter, and migrate the batch lookup use case. | 01 |
 | 07 | Put batch list/count filtering, `TO_APPROVE`/`TO_WORK` translation, pagination, sorting, and prior-month lookup behind the Mongo batch adapter; characterize current authorization-visible results. | 06 |
 | 08 | Put transaction search/count/filter behavior behind the Mongo transaction adapter, including fiscal-code/POS/product/trx-code filters, status ordering, and `TO_CHECK` visibility. | 06 |
 | 09 | Put Kafka save/upsert, assignment candidate lookup, transaction-in-batch reads, and invoice lookups behind the Mongo transaction adapter; preserve `REFUNDED` skipping and `INVOICED` payment cancellation. | 08 |
@@ -69,6 +69,7 @@ Testcontainers integration tests may apply the repository migration files solely
 - Keep every PR limited to its stated deliverable.
 - Every PR must build successfully and pass the full test suite.
 - For every numbered PR, create a new dedicated git branch before making its changes. Branch it from the branch `migration-to-sql-database`. Commit the completed PR changes on that branch before reporting the PR as implemented. Do not use git branch names with a folder separator, such as `feat/example`.
+- Do not deploy intermediate PRs. Each PR is a human-in-the-loop review and validation checkpoint; introduce ports only when their specific caller behavior is migrated.
 - Use `StepVerifier` for reactive unit tests and focused Testcontainers PostgreSQL integration tests for SQL adapter/mutation work.
 - Apply SQL mutations only through `TransactionalOperator`; never add blocking bridges.
 - Before merging a mutation PR, assert the transaction, all affected batch aggregate projections, and idempotent retry/concurrent behavior where applicable.
