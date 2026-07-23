@@ -26,6 +26,7 @@ import it.gov.pagopa.idpay.transactions.enums.*;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchListPort;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
@@ -78,6 +79,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     private static final String DATE_FORMAT = "yyyy-MM";
     private final RewardBatchRepository rewardBatchRepository;
+    private final RewardBatchListPort rewardBatchListPort;
     private final RewardTransactionRepository rewardTransactionRepository;
     private final UserRestClient userRestClient;
     private final ReactiveMongoTemplate reactiveMongoTemplate;
@@ -121,6 +123,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private static final String FAILED_TO_PROCESS_BATCH_LOG = "Failed to process batch {}: {}";
 
     public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository,
+                                  RewardBatchListPort rewardBatchListPort,
                                   RewardTransactionRepository rewardTransactionRepository,
                                   UserRestClient userRestClient,
                                   ApprovedRewardBatchBlobService approvedRewardBatchBlobService,
@@ -133,6 +136,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                   InitiativeDataService initiativeDataService,
                                   @Value("${app.batch.paginationSize}") int pagesize) {
         this.rewardBatchRepository = rewardBatchRepository;
+        this.rewardBatchListPort = rewardBatchListPort;
         this.rewardTransactionRepository = rewardTransactionRepository;
         this.userRestClient = userRestClient;
         this.approvedRewardBatchBlobService = approvedRewardBatchBlobService;
@@ -163,9 +167,9 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     public Mono<Page<RewardBatch>> getRewardBatches(String merchantId, String initiativeId, String organizationRole, String status, String assigneeLevel, String month, Pageable pageable) {
         boolean callerIsOperator = isOperator(organizationRole);
 
-        return rewardBatchRepository.findRewardBatchesCombined(merchantId, initiativeId, status, assigneeLevel, month, callerIsOperator, pageable)
+        return rewardBatchListPort.findRewardBatches(merchantId, initiativeId, status, assigneeLevel, month, callerIsOperator, pageable)
                 .collectList()
-                .zipWith(rewardBatchRepository.getCountCombined(merchantId, initiativeId, status, assigneeLevel, month, callerIsOperator))
+                .zipWith(rewardBatchListPort.countRewardBatches(merchantId, initiativeId, status, assigneeLevel, month, callerIsOperator))
                 .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
     }
 
@@ -646,7 +650,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
                 )))
                 .flatMap(rewardBatch -> {
-                    Flux<RewardBatch> previousBatchesFlux = rewardBatchRepository.findRewardBatchByMonthBefore(
+                    Flux<RewardBatch> previousBatchesFlux = rewardBatchListPort.findBatchesBeforeMonth(
                             rewardBatch.getMerchantId(),
                             rewardBatch.getInitiativeId(),
                             rewardBatch.getPosType(),

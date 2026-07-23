@@ -29,6 +29,7 @@ import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchListPort;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
@@ -74,6 +75,7 @@ import static org.mockito.Mockito.*;
 class RewardBatchServiceImplTest {
 
     @Mock private RewardBatchRepository rewardBatchRepository;
+    @Mock private RewardBatchListPort rewardBatchListPort;
     @Mock private RewardTransactionRepository rewardTransactionRepository;
     @Mock private UserRestClient userRestClient;
     @Mock private ApprovedRewardBatchBlobService approvedRewardBatchBlobService;
@@ -103,6 +105,7 @@ class RewardBatchServiceImplTest {
     void setup() {
         service = new RewardBatchServiceImpl(
                 rewardBatchRepository,
+                rewardBatchListPort,
                 rewardTransactionRepository,
                 userRestClient,
                 approvedRewardBatchBlobService,
@@ -212,9 +215,9 @@ class RewardBatchServiceImplTest {
         RewardBatch b1 = RewardBatch.builder().id("B1").merchantId("M1").build();
         RewardBatch b2 = RewardBatch.builder().id("B2").merchantId("M2").build();
 
-        when(rewardBatchRepository.findRewardBatchesCombined(null, null, null, null, null, true, pageable))
+        when(rewardBatchListPort.findRewardBatches(null, null, null, null, null, true, pageable))
                 .thenReturn(Flux.just(b1, b2));
-        when(rewardBatchRepository.getCountCombined(null, null, null, null, null, true))
+        when(rewardBatchListPort.countRewardBatches(null, null, null, null, null, true))
                 .thenReturn(Mono.just(10L));
 
         StepVerifier.create(service.getRewardBatches(null, null, "operator1", null, null, null, pageable))
@@ -224,9 +227,9 @@ class RewardBatchServiceImplTest {
                 })
                 .verifyComplete();
 
-        when(rewardBatchRepository.findRewardBatchesCombined("M1", INITIATIVE_ID, null, null, null, false, pageable))
+        when(rewardBatchListPort.findRewardBatches("M1", INITIATIVE_ID, null, null, null, false, pageable))
                 .thenReturn(Flux.just(b1));
-        when(rewardBatchRepository.getCountCombined("M1", INITIATIVE_ID, null, null, null, false))
+        when(rewardBatchListPort.countRewardBatches("M1", INITIATIVE_ID, null, null, null, false))
                 .thenReturn(Mono.just(1L));
 
         StepVerifier.create(service.getRewardBatches("M1", INITIATIVE_ID, "guest", null, null, null, pageable))
@@ -960,7 +963,7 @@ class RewardBatchServiceImplTest {
         RewardBatch prev = RewardBatch.builder().id("P1").status(RewardBatchStatus.SENT).build();
 
         when(rewardBatchRepository.findRewardBatchByIdAndInitiativeId(BATCH_ID, INITIATIVE_ID)).thenReturn(Mono.just(rb));
-        when(rewardBatchRepository.findRewardBatchByMonthBefore(MERCHANT_ID, INITIATIVE_ID, PHYSICAL, "2025-12"))
+        when(rewardBatchListPort.findBatchesBeforeMonth(MERCHANT_ID, INITIATIVE_ID, PHYSICAL, "2025-12"))
                 .thenReturn(Flux.just(prev));
 
         StepVerifier.create(service.rewardBatchConfirmation(INITIATIVE_ID, BATCH_ID))
@@ -976,7 +979,7 @@ class RewardBatchServiceImplTest {
         RewardBatch prevApproved = RewardBatch.builder().id("P1").status(RewardBatchStatus.PENDING_REFUND).build();
 
         when(rewardBatchRepository.findRewardBatchByIdAndInitiativeId(BATCH_ID, INITIATIVE_ID)).thenReturn(Mono.just(rb));
-        when(rewardBatchRepository.findRewardBatchByMonthBefore(MERCHANT_ID, INITIATIVE_ID, PHYSICAL, "2025-12"))
+        when(rewardBatchListPort.findBatchesBeforeMonth(MERCHANT_ID, INITIATIVE_ID, PHYSICAL, "2025-12"))
                 .thenReturn(Flux.just(prevApproved));
         when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
@@ -997,7 +1000,7 @@ class RewardBatchServiceImplTest {
         RewardBatch prevApproved = RewardBatch.builder().id("P1").status(RewardBatchStatus.APPROVED).build();
 
         when(rewardBatchRepository.findRewardBatchByIdAndInitiativeId(BATCH_ID, INITIATIVE_ID)).thenReturn(Mono.just(rb));
-        when(rewardBatchRepository.findRewardBatchByMonthBefore(MERCHANT_ID, INITIATIVE_ID, PHYSICAL, "2025-12"))
+        when(rewardBatchListPort.findBatchesBeforeMonth(MERCHANT_ID, INITIATIVE_ID, PHYSICAL, "2025-12"))
                 .thenReturn(Flux.just(prevApproved));
         when(rewardBatchRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
 
