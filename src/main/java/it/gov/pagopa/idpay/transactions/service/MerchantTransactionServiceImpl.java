@@ -7,7 +7,7 @@ import it.gov.pagopa.idpay.transactions.dto.*;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
-import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSearchPort;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.*;
@@ -24,16 +24,16 @@ import java.util.*;
 @Slf4j
 public class MerchantTransactionServiceImpl implements MerchantTransactionService {
     private final UserRestClient userRestClient;
-    private final RewardTransactionRepository rewardTransactionRepository;
+    private final RewardTransactionSearchPort rewardTransactionSearchPort;
     private final ChecksErrorMapper checksErrorMapper;
     private static final Set<String> OPERATORS =
             Set.of("operator1", "operator2", "operator3");
 
     protected MerchantTransactionServiceImpl(
-            UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository,
+            UserRestClient userRestClient, RewardTransactionSearchPort rewardTransactionSearchPort,
             ChecksErrorMapper checksErrorMapper) {
         this.userRestClient = userRestClient;
-        this.rewardTransactionRepository = rewardTransactionRepository;
+        this.rewardTransactionSearchPort = rewardTransactionSearchPort;
         this.checksErrorMapper = checksErrorMapper;
     }
 
@@ -141,8 +141,8 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
             Pageable pageable,
             boolean includeToCheckWithConsultable) {
 
-        return rewardTransactionRepository
-                .findByFilter(filters, userId, includeToCheckWithConsultable, pageable)
+        return rewardTransactionSearchPort
+                .findMerchantTransactions(filters, userId, includeToCheckWithConsultable, pageable)
                 .concatMap(t -> createMerchantTransactionDTO(
                         filters.getInitiativeId(),
                         t,
@@ -151,10 +151,8 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 ))
                 .collectList()
                 .zipWith(
-                        rewardTransactionRepository.getCount(
+                        rewardTransactionSearchPort.countMerchantTransactions(
                                 filters,
-                                filters.getPointOfSaleId(),
-                                null,
                                 userId,
                                 includeToCheckWithConsultable
                         )
