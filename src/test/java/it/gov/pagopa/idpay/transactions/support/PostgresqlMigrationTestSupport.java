@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.support;
 
 import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
+import io.r2dbc.spi.ConnectionFactoryOptions;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -25,14 +26,19 @@ public abstract class PostgresqlMigrationTestSupport {
     private static ConnectionFactory connectionFactory;
 
     protected static void applyRepositoryMigrations() {
-        connectionFactory = ConnectionFactories.get(
-                "r2dbc:postgresql://%s:%d/%s?user=%s&password=%s".formatted(
+        ConnectionFactoryOptions options = ConnectionFactoryOptions.parse(
+                "r2dbc:postgresql://%s:%d/%s".formatted(
                         postgresql.getHost(),
                         postgresql.getMappedPort(PostgreSQLContainer.POSTGRESQL_PORT),
-                        postgresql.getDatabaseName(),
-                        postgresql.getUsername(),
-                        postgresql.getPassword()
+                        postgresql.getDatabaseName()
                 )
+        );
+        connectionFactory = ConnectionFactories.get(
+                ConnectionFactoryOptions.builder()
+                        .from(options)
+                        .option(ConnectionFactoryOptions.USER, postgresql.getUsername())
+                        .option(ConnectionFactoryOptions.PASSWORD, postgresql.getPassword())
+                        .build()
         );
         databaseClient = DatabaseClient.create(connectionFactory);
 
