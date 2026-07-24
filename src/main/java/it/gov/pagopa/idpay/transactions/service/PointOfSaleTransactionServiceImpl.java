@@ -13,6 +13,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.notifier.TransactionNotifierService;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSearchPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.InvoiceTransactionLookupPort;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.service.invoice_lifecycle.InvoiceLifecyclePolicy;
@@ -53,6 +54,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     private final UserRestClient userRestClient;
     private final RewardTransactionRepository rewardTransactionRepository;
     private final RewardTransactionSearchPort rewardTransactionSearchPort;
+    private final InvoiceTransactionLookupPort invoiceTransactionLookupPort;
     private final InvoiceStorageClient invoiceStorageClient;
     private final RewardBatchService rewardBatchService;
     private final RewardBatchRepository rewardBatchRepository;
@@ -61,7 +63,9 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
     protected PointOfSaleTransactionServiceImpl(
             UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository,
-            RewardTransactionSearchPort rewardTransactionSearchPort, InvoiceStorageClient invoiceStorageClient,
+            RewardTransactionSearchPort rewardTransactionSearchPort,
+            InvoiceTransactionLookupPort invoiceTransactionLookupPort,
+            InvoiceStorageClient invoiceStorageClient,
             RewardBatchService rewardBatchService,
             RewardBatchRepository rewardBatchRepository,
             TransactionErrorNotifierService transactionErrorNotifierService,
@@ -69,6 +73,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         this.userRestClient = userRestClient;
         this.rewardTransactionRepository = rewardTransactionRepository;
         this.rewardTransactionSearchPort = rewardTransactionSearchPort;
+        this.invoiceTransactionLookupPort = invoiceTransactionLookupPort;
         this.invoiceStorageClient = invoiceStorageClient;
         this.rewardBatchService = rewardBatchService;
         this.rewardBatchRepository = rewardBatchRepository;
@@ -112,7 +117,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     @Override
     public Mono<DownloadInvoiceResponseDTO> downloadTransactionInvoice(
             String merchantId, String pointOfSaleId, String transactionId) {
-        return rewardTransactionRepository.findTransaction(merchantId, transactionId)
+        return invoiceTransactionLookupPort.findInvoiceTransaction(merchantId, transactionId)
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
                 .handle((rewardTransaction, sink) -> {
                     String status = rewardTransaction.getStatus();
@@ -176,8 +181,8 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
         Utilities.checkFileExtensionOrThrow(file);
 
-        return rewardTransactionRepository
-                .findTransaction(merchantId, transactionId)
+        return invoiceTransactionLookupPort
+                .findInvoiceTransaction(merchantId, transactionId)
                 .switchIfEmpty(Mono.defer(() -> Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE))))
                 .flatMap(trx -> validateBatchAndUpdateInvoiceFlow(trx, file, docNumber, policy));
     }
@@ -327,7 +332,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         log.info("[REVERSAL-TRANSACTION-SERVICE] Start reversalTransaction transactionId={}, merchantId={}, docNumber={}",
                 sanitizedTransactionId, sanitizedMerchantId, sanitizedDocNumber);
 
-        return rewardTransactionRepository.findTransaction(sanitizedMerchantId, sanitizedTransactionId)
+        return invoiceTransactionLookupPort.findInvoiceTransaction(sanitizedMerchantId, sanitizedTransactionId)
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, TRANSACTION_MISSING_INVOICE)))
                 .doOnNext(rt -> log.info("[REVERSAL-TRANSACTION-SERVICE] Found transaction id={}, status={}, rewardBatchId={}",
                         rt.getId(), rt.getStatus(), rt.getRewardBatchId()))

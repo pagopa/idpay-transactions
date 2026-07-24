@@ -30,6 +30,7 @@ import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchListPort;
+import it.gov.pagopa.idpay.transactions.persistence.mongo.MongoRewardTransactionAdapter;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
@@ -107,6 +108,7 @@ class RewardBatchServiceImplTest {
                 rewardBatchRepository,
                 rewardBatchListPort,
                 rewardTransactionRepository,
+                new MongoRewardTransactionAdapter(rewardTransactionRepository),
                 userRestClient,
                 approvedRewardBatchBlobService,
                 reactiveMongoTemplate,

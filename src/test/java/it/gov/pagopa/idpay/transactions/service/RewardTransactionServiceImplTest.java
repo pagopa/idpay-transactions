@@ -12,6 +12,7 @@ import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.persistence.mongo.MongoRewardTransactionAdapter;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 
@@ -60,6 +61,8 @@ class RewardTransactionServiceImplTest {
         int seed = 0x5a17beef;
         rewardTransactionService = new RewardTransactionServiceImpl(
                 rewardTransactionRepository,
+                new MongoRewardTransactionAdapter(rewardTransactionRepository),
+                new MongoRewardTransactionAdapter(rewardTransactionRepository),
                 rewardBatchService,
                 merchantRestClient,
                 seed,
@@ -227,6 +230,8 @@ class RewardTransactionServiceImplTest {
         String id = "6543e5b9d9f31b0d94f6d21c";
         RewardTransactionServiceImpl hasher2 = new RewardTransactionServiceImpl(
                 rewardTransactionRepository,
+                new MongoRewardTransactionAdapter(rewardTransactionRepository),
+                new MongoRewardTransactionAdapter(rewardTransactionRepository),
                 rewardBatchService,
                 merchantRestClient,
                 0x22222222,

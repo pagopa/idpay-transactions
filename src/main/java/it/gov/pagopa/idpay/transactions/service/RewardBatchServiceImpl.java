@@ -27,6 +27,7 @@ import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchListPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionReadPort;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
@@ -81,6 +82,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private final RewardBatchRepository rewardBatchRepository;
     private final RewardBatchListPort rewardBatchListPort;
     private final RewardTransactionRepository rewardTransactionRepository;
+    private final RewardBatchTransactionReadPort rewardBatchTransactionReadPort;
     private final UserRestClient userRestClient;
     private final ReactiveMongoTemplate reactiveMongoTemplate;
     private final ChecksErrorMapper checksErrorMapper;
@@ -125,6 +127,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     public RewardBatchServiceImpl(RewardBatchRepository rewardBatchRepository,
                                   RewardBatchListPort rewardBatchListPort,
                                   RewardTransactionRepository rewardTransactionRepository,
+                                  RewardBatchTransactionReadPort rewardBatchTransactionReadPort,
                                   UserRestClient userRestClient,
                                   ApprovedRewardBatchBlobService approvedRewardBatchBlobService,
                                   ReactiveMongoTemplate reactiveMongoTemplate,
@@ -138,6 +141,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         this.rewardBatchRepository = rewardBatchRepository;
         this.rewardBatchListPort = rewardBatchListPort;
         this.rewardTransactionRepository = rewardTransactionRepository;
+        this.rewardBatchTransactionReadPort = rewardBatchTransactionReadPort;
         this.userRestClient = userRestClient;
         this.approvedRewardBatchBlobService = approvedRewardBatchBlobService;
         this.reactiveMongoTemplate = reactiveMongoTemplate;
@@ -966,8 +970,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             return Mono.just(originalBatch);
         }
 
-        return rewardTransactionRepository
-                .findByFilter(originalBatch.getId(), initiativeId, List.of(RewardBatchTrxStatus.SUSPENDED))
+        return rewardBatchTransactionReadPort
+                .findBatchTransactions(originalBatch.getId(), initiativeId, List.of(RewardBatchTrxStatus.SUSPENDED))
                 .count()
                 .flatMap(countToMove ->
                         findOrCreateBatch(
@@ -1030,7 +1034,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         statusList.add(RewardBatchTrxStatus.CONSULTABLE);
 
 
-        return rewardTransactionRepository.findByFilter(oldBatchId, initiativeId, statusList)
+        return rewardBatchTransactionReadPort.findBatchTransactions(oldBatchId, initiativeId, statusList)
                 .collectList()
                 .doOnNext(list ->
                         log.info("Found {} transactions to approve for batch {}",
@@ -1049,7 +1053,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     public Mono<Long> updateAndSaveRewardTransactionsSuspended(String oldBatchId, String initiativeId, String newBatchId, String oldMonth) {
         List<RewardBatchTrxStatus> statusList = List.of(RewardBatchTrxStatus.SUSPENDED);
 
-        return rewardTransactionRepository.findByFilter(oldBatchId, initiativeId, statusList)
+        return rewardBatchTransactionReadPort.findBatchTransactions(oldBatchId, initiativeId, statusList)
                 .switchIfEmpty(Flux.defer(() -> {
                     log.info("No suspended transactions found for the batch {}", Utilities.sanitizeString(oldBatchId));
                     return Flux.empty();
@@ -1163,7 +1167,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
                     String filename = pathPrefix + reportFilename;
 
-                    Flux<RewardTransaction> transactionFlux = rewardTransactionRepository.findByFilter(
+                    Flux<RewardTransaction> transactionFlux = rewardBatchTransactionReadPort.findBatchTransactions(
                             rewardBatchId, initiativeId, List.of(RewardBatchTrxStatus.APPROVED, RewardBatchTrxStatus.REJECTED));
 
                     Flux<String> csvRowsFlux = transactionFlux
@@ -1302,7 +1306,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     }
 
     private Mono<RewardTransaction> findTransactionToPostpone(String merchantId, String initiativeId, String rewardBatchId, String transactionId) {
-        return rewardTransactionRepository.findTransactionInBatch(initiativeId, merchantId, rewardBatchId, transactionId)
+        return rewardBatchTransactionReadPort.findTransactionInBatch(initiativeId, merchantId, rewardBatchId, transactionId)
                 .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
                         HttpStatus.NOT_FOUND,
                         String.format(ExceptionMessage.TRANSACTION_NOT_FOUND, transactionId)

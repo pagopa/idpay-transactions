@@ -13,6 +13,8 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.persistence.port.InvoicedTransactionAssignmentPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSynchronizationPort;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
@@ -35,6 +37,8 @@ import java.util.Optional;
 public class RewardTransactionServiceImpl implements RewardTransactionService {
 
     private final RewardTransactionRepository rewardTrxRepository;
+    private final RewardTransactionSynchronizationPort rewardTransactionSynchronizationPort;
+    private final InvoicedTransactionAssignmentPort invoicedTransactionAssignmentPort;
     private final RewardBatchService rewardBatchService;
     private final MerchantRestClient merchantRestClient;
     private final int seed;
@@ -42,11 +46,15 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
 
     public RewardTransactionServiceImpl(RewardTransactionRepository rewardTrxRepository,
+                                        RewardTransactionSynchronizationPort rewardTransactionSynchronizationPort,
+                                        InvoicedTransactionAssignmentPort invoicedTransactionAssignmentPort,
                                         RewardBatchService rewardBatchService,
                                         MerchantRestClient merchantRestClient,
                                         @Value(value="${app.sampling}") int seed,
                                         RewardBatchRepository rewardBatchRepository) {
         this.rewardTrxRepository = rewardTrxRepository;
+        this.rewardTransactionSynchronizationPort = rewardTransactionSynchronizationPort;
+        this.invoicedTransactionAssignmentPort = invoicedTransactionAssignmentPort;
         this.rewardBatchService = rewardBatchService;
         this.merchantRestClient = merchantRestClient;
         this.seed = seed;
@@ -58,9 +66,9 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
         if (SyncTrxStatus.INVOICED.name().equalsIgnoreCase(rewardTransaction.getStatus())) {
             return enrichBatchData(rewardTransaction)
-                .flatMap(rewardTrxRepository::save);
+                .flatMap(rewardTransactionSynchronizationPort::upsert);
         }
-        return rewardTrxRepository.save(rewardTransaction);
+        return rewardTransactionSynchronizationPort.upsert(rewardTransaction);
     }
 
     @Override
@@ -88,14 +96,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
         if (trxId != null && !trxId.isEmpty()) {
             log.info("[BATCH_ASSIGNMENT] Processing transaction with ID={}", Utilities.sanitizeString(trxId));
 
-            return rewardTrxRepository.findById(trxId)
-                    .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
-                            HttpStatus.NOT_FOUND,
-                            String.format(TRANSACTION_NOT_FOUND, trxId))))
-                    .flatMap(rt -> rewardTrxRepository.findInvoicedTrxByIdWithoutBatch(
-                            rt.getInitiatives().getFirst(),
-                            rt.getMerchantId(),
-                            trxId))
+            return invoicedTransactionAssignmentPort.findInvoicedTransactionWithoutBatch(trxId)
                     .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
                             HttpStatus.NOT_FOUND,
                             String.format(TRANSACTION_NOT_FOUND, trxId))))
@@ -111,7 +112,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
     }
 
     private Mono<Void> processAllOperation(int chunkSize) {
-      return rewardTrxRepository.findInvoicedTransactionsWithoutBatch(chunkSize)
+      return invoicedTransactionAssignmentPort.findInvoicedTransactionsWithoutBatch(chunkSize)
           .collectList()
           .flatMap(list -> {
             if (list.isEmpty()) {
@@ -137,7 +138,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
     return Flux.range(1, repetitionsNumber)
         .concatMap(i ->
-            rewardTrxRepository.findInvoicedTransactionsWithoutBatch(chunkSize)
+            invoicedTransactionAssignmentPort.findInvoicedTransactionsWithoutBatch(chunkSize)
                 .collectList()
                 .flatMap(list -> {
                   if (list.isEmpty()) {

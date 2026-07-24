@@ -18,6 +18,7 @@ import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.persistence.mongo.MongoRewardTransactionAdapter;
 import it.gov.pagopa.idpay.transactions.notifier.TransactionNotifierService;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSearchPort;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
@@ -30,7 +31,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
@@ -72,7 +72,7 @@ class PointOfSaleTransactionServiceImplTest {
     @Mock private RewardBatchService rewardBatchService;
     @Mock private InvoiceLifecyclePolicy invoiceLifeCyclePolicy;
 
-    @InjectMocks private PointOfSaleTransactionServiceImpl service;
+    private PointOfSaleTransactionServiceImpl service;
 
     private final Pageable pageable = PageRequest.of(0, 10);
 
@@ -92,6 +92,17 @@ class PointOfSaleTransactionServiceImplTest {
     void setup() throws Exception {
         srcFile = Files.createTempFile("src-", ".pdf");
         Files.write(srcFile, "content".getBytes());
+        service = new PointOfSaleTransactionServiceImpl(
+                userRestClient,
+                rewardTransactionRepository,
+                rewardTransactionSearchPort,
+                new MongoRewardTransactionAdapter(rewardTransactionRepository),
+                invoiceStorageClient,
+                rewardBatchService,
+                rewardBatchRepository,
+                transactionErrorNotifierService,
+                transactionNotifierService
+        );
     }
 
     @AfterEach
