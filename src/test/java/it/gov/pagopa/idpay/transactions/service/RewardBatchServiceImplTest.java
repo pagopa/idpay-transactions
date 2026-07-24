@@ -30,6 +30,8 @@ import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchListPort;
+import it.gov.pagopa.idpay.transactions.persistence.mongo.MongoMerchantRewardBatchLookupAdapter;
+import it.gov.pagopa.idpay.transactions.persistence.mongo.MongoRewardBatchLifecycleAdapter;
 import it.gov.pagopa.idpay.transactions.persistence.mongo.MongoRewardTransactionAdapter;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
@@ -106,7 +108,9 @@ class RewardBatchServiceImplTest {
     void setup() {
         service = new RewardBatchServiceImpl(
                 rewardBatchRepository,
+                new MongoRewardBatchLifecycleAdapter(rewardBatchRepository),
                 rewardBatchListPort,
+                new MongoMerchantRewardBatchLookupAdapter(rewardBatchRepository),
                 rewardTransactionRepository,
                 new MongoRewardTransactionAdapter(rewardTransactionRepository),
                 userRestClient,
