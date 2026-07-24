@@ -12,6 +12,7 @@ import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.notifier.TransactionNotifierService;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSearchPort;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.service.invoice_lifecycle.InvoiceLifecyclePolicy;
@@ -51,6 +52,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
     private final UserRestClient userRestClient;
     private final RewardTransactionRepository rewardTransactionRepository;
+    private final RewardTransactionSearchPort rewardTransactionSearchPort;
     private final InvoiceStorageClient invoiceStorageClient;
     private final RewardBatchService rewardBatchService;
     private final RewardBatchRepository rewardBatchRepository;
@@ -58,12 +60,15 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     private final TransactionNotifierService transactionNotifierService;
 
     protected PointOfSaleTransactionServiceImpl(
-            UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository, InvoiceStorageClient invoiceStorageClient, RewardBatchService rewardBatchService,
+            UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository,
+            RewardTransactionSearchPort rewardTransactionSearchPort, InvoiceStorageClient invoiceStorageClient,
+            RewardBatchService rewardBatchService,
             RewardBatchRepository rewardBatchRepository,
             TransactionErrorNotifierService transactionErrorNotifierService,
             TransactionNotifierService transactionNotifierService) {
         this.userRestClient = userRestClient;
         this.rewardTransactionRepository = rewardTransactionRepository;
+        this.rewardTransactionSearchPort = rewardTransactionSearchPort;
         this.invoiceStorageClient = invoiceStorageClient;
         this.rewardBatchService = rewardBatchService;
         this.rewardBatchRepository = rewardBatchRepository;
@@ -149,10 +154,11 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
         boolean includeToCheckWithConsultable = false;
 
-        return rewardTransactionRepository
-                .findByFilterTrx(filters, pointOfSaleId, userId, productGtin, includeToCheckWithConsultable, pageable)
+        return rewardTransactionSearchPort
+                .findPointOfSaleTransactions(
+                        filters, pointOfSaleId, userId, productGtin, includeToCheckWithConsultable, pageable)
                 .collectList()
-                .zipWith(rewardTransactionRepository.getCount(
+                .zipWith(rewardTransactionSearchPort.countPointOfSaleTransactions(
                         filters,
                         pointOfSaleId,
                         productGtin,

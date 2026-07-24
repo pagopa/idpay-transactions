@@ -19,6 +19,7 @@ import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.notifier.TransactionNotifierService;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSearchPort;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.service.invoice_lifecycle.InvoiceLifecyclePolicy;
@@ -63,6 +64,7 @@ class PointOfSaleTransactionServiceImplTest {
 
     @Mock private UserRestClient userRestClient;
     @Mock private RewardTransactionRepository rewardTransactionRepository;
+    @Mock private RewardTransactionSearchPort rewardTransactionSearchPort;
     @Mock private InvoiceStorageClient invoiceStorageClient;
     @Mock private RewardBatchRepository rewardBatchRepository;
     @Mock private TransactionErrorNotifierService transactionErrorNotifierService;
@@ -106,7 +108,7 @@ class PointOfSaleTransactionServiceImplTest {
 
         ArgumentCaptor<TrxFiltersDTO> filtersCaptor = ArgumentCaptor.forClass(TrxFiltersDTO.class);
 
-        when(rewardTransactionRepository.findByFilterTrx(
+        when(rewardTransactionSearchPort.findPointOfSaleTransactions(
                 filtersCaptor.capture(),
                 eq(POS_ID),
                 eq(USER_ID),
@@ -115,7 +117,7 @@ class PointOfSaleTransactionServiceImplTest {
                 eq(pageable)))
                 .thenReturn(Flux.just(trx));
 
-        when(rewardTransactionRepository.getCount(
+        when(rewardTransactionSearchPort.countPointOfSaleTransactions(
                 any(TrxFiltersDTO.class),
                 eq(POS_ID),
                 eq(""),
@@ -147,7 +149,7 @@ class PointOfSaleTransactionServiceImplTest {
     void getPointOfSaleTransactions_withoutFiscalCode_doesNotCallUserService() {
         RewardTransaction trx = RewardTransactionFaker.mockInstance(2);
 
-        when(rewardTransactionRepository.findByFilterTrx(
+        when(rewardTransactionSearchPort.findPointOfSaleTransactions(
                 any(TrxFiltersDTO.class),
                 eq(POS_ID),
                 isNull(),
@@ -156,7 +158,7 @@ class PointOfSaleTransactionServiceImplTest {
                 eq(pageable)))
                 .thenReturn(Flux.just(trx));
 
-        when(rewardTransactionRepository.getCount(
+        when(rewardTransactionSearchPort.countPointOfSaleTransactions(
                 any(TrxFiltersDTO.class),
                 eq(POS_ID),
                 isNull(),
@@ -186,7 +188,7 @@ class PointOfSaleTransactionServiceImplTest {
                 .expectErrorMatches(e -> e instanceof RuntimeException && "boom".equals(e.getMessage()))
                 .verify();
 
-        verifyNoInteractions(rewardTransactionRepository);
+        verifyNoInteractions(rewardTransactionSearchPort);
     }
 
     @Test
