@@ -29,6 +29,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.MerchantRewardBatchLookupPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchLifecyclePort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchListPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionDecisionPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionReadPort;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
@@ -87,6 +88,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private final MerchantRewardBatchLookupPort merchantRewardBatchLookupPort;
     private final RewardTransactionRepository rewardTransactionRepository;
     private final RewardBatchTransactionReadPort rewardBatchTransactionReadPort;
+    private final RewardBatchTransactionDecisionPort rewardBatchTransactionDecisionPort;
     private final UserRestClient userRestClient;
     private final ReactiveMongoTemplate reactiveMongoTemplate;
     private final ChecksErrorMapper checksErrorMapper;
@@ -134,6 +136,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                   MerchantRewardBatchLookupPort merchantRewardBatchLookupPort,
                                   RewardTransactionRepository rewardTransactionRepository,
                                   RewardBatchTransactionReadPort rewardBatchTransactionReadPort,
+                                  RewardBatchTransactionDecisionPort rewardBatchTransactionDecisionPort,
                                   UserRestClient userRestClient,
                                   ApprovedRewardBatchBlobService approvedRewardBatchBlobService,
                                   ReactiveMongoTemplate reactiveMongoTemplate,
@@ -150,6 +153,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         this.merchantRewardBatchLookupPort = merchantRewardBatchLookupPort;
         this.rewardTransactionRepository = rewardTransactionRepository;
         this.rewardBatchTransactionReadPort = rewardBatchTransactionReadPort;
+        this.rewardBatchTransactionDecisionPort = rewardBatchTransactionDecisionPort;
         this.userRestClient = userRestClient;
         this.approvedRewardBatchBlobService = approvedRewardBatchBlobService;
         this.reactiveMongoTemplate = reactiveMongoTemplate;
@@ -287,7 +291,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND_OR_INVALID_STATE,
                         ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds()).map(trxId -> Pair.of(trxId, batch.getMonth())))
-                .flatMap(trxId2ActualBatchMonth -> rewardTransactionRepository
+                .flatMap(trxId2ActualBatchMonth -> rewardBatchTransactionDecisionPort
                         .updateStatusAndReturnOld(initiativeId, rewardBatchId, trxId2ActualBatchMonth.getLeft(), RewardBatchTrxStatus.SUSPENDED, reason, trxId2ActualBatchMonth.getRight(), checksErrorModel)
                         .map(trxOld -> Pair.of(trxOld, trxId2ActualBatchMonth.getRight()))
                 )
@@ -408,7 +412,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId)
                 )))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds())
-                        .flatMap(trxId -> rewardTransactionRepository
+                        .flatMap(trxId -> rewardBatchTransactionDecisionPort
                                 .updateStatusAndReturnOld(
                                         initiativeId,
                                         rewardBatchId,
@@ -502,7 +506,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH.formatted(rewardBatchId))))
                 .flatMapMany(batch -> Flux.fromIterable(request.getTransactionIds())
                         .map(trxId -> Pair.of(trxId, batch.getMonth())))
-                .flatMap(trxIdAndMonthElaborated -> rewardTransactionRepository.updateStatusAndReturnOld(initiativeId, rewardBatchId, trxIdAndMonthElaborated.getLeft(), RewardBatchTrxStatus.APPROVED, null, trxIdAndMonthElaborated.getRight(), null)
+                .flatMap(trxIdAndMonthElaborated -> rewardBatchTransactionDecisionPort.updateStatusAndReturnOld(initiativeId, rewardBatchId, trxIdAndMonthElaborated.getLeft(), RewardBatchTrxStatus.APPROVED, null, trxIdAndMonthElaborated.getRight(), null)
                         .map(trxOld -> Pair.of(trxOld, trxIdAndMonthElaborated.getRight())))
                 .reduce(BatchCountersDTO.newBatch(), (acc, trxOld2ActualBatchMonth) -> {
                     RewardTransaction trxOld = trxOld2ActualBatchMonth.getLeft();
