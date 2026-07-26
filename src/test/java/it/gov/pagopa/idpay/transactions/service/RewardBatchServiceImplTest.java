@@ -42,6 +42,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
@@ -66,6 +68,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static it.gov.pagopa.idpay.transactions.enums.PosType.PHYSICAL;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_INVALID_CHECKS_ERROR;
@@ -112,6 +115,7 @@ class RewardBatchServiceImplTest {
                 rewardBatchListPort,
                 new MongoMerchantRewardBatchLookupAdapter(rewardBatchRepository),
                 rewardTransactionRepository,
+                new MongoRewardTransactionAdapter(rewardTransactionRepository),
                 new MongoRewardTransactionAdapter(rewardTransactionRepository),
                 userRestClient,
                 approvedRewardBatchBlobService,
@@ -793,6 +797,111 @@ class RewardBatchServiceImplTest {
         StepVerifier.create(service.approvedTransactions(BATCH_ID, req, INITIATIVE_ID))
                 .expectNext(updated)
                 .verifyComplete();
+    }
+
+    @ParameterizedTest(name = "{0}: {1} -> {2}")
+    @MethodSource("decisionCounterCases")
+    void transactionDecisions_applyCharacterizedCounterDeltas(
+            String decision,
+            RewardBatchTrxStatus oldStatus,
+            RewardBatchTrxStatus newStatus,
+            CounterExpectation expected
+    ) {
+        String batchMonth = "2025-12";
+        RewardBatch batch = RewardBatch.builder()
+                .id(BATCH_ID)
+                .status(RewardBatchStatus.EVALUATING)
+                .month(batchMonth)
+                .build();
+        RewardTransaction transaction = RewardTransaction.builder()
+                .id("transaction")
+                .rewardBatchTrxStatus(oldStatus)
+                .rewardBatchLastMonthElaborated("2025-11")
+                .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
+                .build();
+        ChecksErrorDTO checksError = new ChecksErrorDTO();
+        checksError.setCfError(true);
+        TransactionsRequest request = TransactionsRequest.builder()
+                .transactionIds(List.of(transaction.getId()))
+                .reason("reason")
+                .checksError("suspend".equals(decision) ? checksError : null)
+                .build();
+
+        when(rewardBatchRepository.findByIdAndInitiativeIdAndStatus(
+                BATCH_ID, INITIATIVE_ID, RewardBatchStatus.EVALUATING
+        )).thenReturn(Mono.just(batch));
+        when(rewardTransactionRepository.updateStatusAndReturnOld(
+                eq(INITIATIVE_ID),
+                eq(BATCH_ID),
+                eq(transaction.getId()),
+                eq(newStatus),
+                nullable(it.gov.pagopa.idpay.transactions.dto.ReasonDTO.class),
+                eq(batchMonth),
+                nullable(ChecksError.class)
+        )).thenReturn(Mono.just(transaction));
+        when(rewardBatchRepository.updateTotals(
+                eq(INITIATIVE_ID),
+                eq(BATCH_ID),
+                any(BatchCountersDTO.class)
+        )).thenReturn(Mono.just(batch));
+
+        Mono<RewardBatch> result = switch (decision) {
+            case "approve" -> service.approvedTransactions(BATCH_ID, request, INITIATIVE_ID);
+            case "reject" -> service.rejectTransactions(BATCH_ID, INITIATIVE_ID, request);
+            case "suspend" -> service.suspendTransactions(BATCH_ID, INITIATIVE_ID, request);
+            default -> throw new IllegalArgumentException("Unsupported decision " + decision);
+        };
+
+        StepVerifier.create(result)
+                .expectNext(batch)
+                .verifyComplete();
+
+        org.mockito.ArgumentCaptor<BatchCountersDTO> countersCaptor =
+                org.mockito.ArgumentCaptor.forClass(BatchCountersDTO.class);
+        verify(rewardBatchRepository).updateTotals(
+                eq(INITIATIVE_ID),
+                eq(BATCH_ID),
+                countersCaptor.capture()
+        );
+        assertCounterExpectation(countersCaptor.getValue(), expected);
+    }
+
+    private static Stream<Arguments> decisionCounterCases() {
+        CounterExpectation unchanged = new CounterExpectation(0, 0, 0, 0, 0);
+        return Stream.of(
+                Arguments.of("approve", RewardBatchTrxStatus.APPROVED, RewardBatchTrxStatus.APPROVED, unchanged),
+                Arguments.of("approve", RewardBatchTrxStatus.TO_CHECK, RewardBatchTrxStatus.APPROVED, new CounterExpectation(1, 0, 0, 0, 0)),
+                Arguments.of("approve", RewardBatchTrxStatus.CONSULTABLE, RewardBatchTrxStatus.APPROVED, new CounterExpectation(1, 0, 0, 0, 0)),
+                Arguments.of("approve", RewardBatchTrxStatus.SUSPENDED, RewardBatchTrxStatus.APPROVED, new CounterExpectation(0, -1, 0, 100, -100)),
+                Arguments.of("approve", RewardBatchTrxStatus.REJECTED, RewardBatchTrxStatus.APPROVED, new CounterExpectation(0, 0, -1, 100, 0)),
+                Arguments.of("reject", RewardBatchTrxStatus.APPROVED, RewardBatchTrxStatus.REJECTED, new CounterExpectation(0, 0, 1, -100, 0)),
+                Arguments.of("reject", RewardBatchTrxStatus.TO_CHECK, RewardBatchTrxStatus.REJECTED, new CounterExpectation(1, 0, 1, -100, 0)),
+                Arguments.of("reject", RewardBatchTrxStatus.CONSULTABLE, RewardBatchTrxStatus.REJECTED, new CounterExpectation(1, 0, 1, -100, 0)),
+                Arguments.of("reject", RewardBatchTrxStatus.SUSPENDED, RewardBatchTrxStatus.REJECTED, new CounterExpectation(0, -1, 1, 0, -100)),
+                Arguments.of("reject", RewardBatchTrxStatus.REJECTED, RewardBatchTrxStatus.REJECTED, unchanged),
+                Arguments.of("suspend", RewardBatchTrxStatus.APPROVED, RewardBatchTrxStatus.SUSPENDED, new CounterExpectation(0, 1, 0, -100, 100)),
+                Arguments.of("suspend", RewardBatchTrxStatus.TO_CHECK, RewardBatchTrxStatus.SUSPENDED, new CounterExpectation(1, 1, 0, -100, 100)),
+                Arguments.of("suspend", RewardBatchTrxStatus.CONSULTABLE, RewardBatchTrxStatus.SUSPENDED, new CounterExpectation(1, 1, 0, -100, 100)),
+                Arguments.of("suspend", RewardBatchTrxStatus.SUSPENDED, RewardBatchTrxStatus.SUSPENDED, new CounterExpectation(1, 0, 0, 0, 0)),
+                Arguments.of("suspend", RewardBatchTrxStatus.REJECTED, RewardBatchTrxStatus.SUSPENDED, new CounterExpectation(0, 1, -1, 0, 100))
+        );
+    }
+
+    private static void assertCounterExpectation(BatchCountersDTO actual, CounterExpectation expected) {
+        assertEquals(expected.elaborated(), actual.getTrxElaborated());
+        assertEquals(expected.suspended(), actual.getTrxSuspended());
+        assertEquals(expected.rejected(), actual.getTrxRejected());
+        assertEquals(expected.approvedAmount(), actual.getApprovedAmountCents());
+        assertEquals(expected.suspendedAmount(), actual.getSuspendedAmountCents());
+    }
+
+    private record CounterExpectation(
+            long elaborated,
+            long suspended,
+            long rejected,
+            long approvedAmount,
+            long suspendedAmount
+    ) {
     }
 
     @Test

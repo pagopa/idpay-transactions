@@ -1,9 +1,12 @@
 package it.gov.pagopa.idpay.transactions.persistence.mongo;
 
+import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.InvoicedTransactionAssignmentPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.InvoiceTransactionLookupPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionDecisionPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionReadPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSynchronizationPort;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
@@ -19,6 +22,7 @@ public class MongoRewardTransactionAdapter implements
         RewardTransactionSynchronizationPort,
         InvoicedTransactionAssignmentPort,
         RewardBatchTransactionReadPort,
+        RewardBatchTransactionDecisionPort,
         InvoiceTransactionLookupPort {
 
     private final RewardTransactionRepository rewardTransactionRepository;
@@ -70,5 +74,26 @@ public class MongoRewardTransactionAdapter implements
     @Override
     public Mono<RewardTransaction> findInvoiceTransaction(String merchantId, String transactionId) {
         return rewardTransactionRepository.findTransaction(merchantId, transactionId);
+    }
+
+    @Override
+    public Mono<RewardTransaction> updateStatusAndReturnOld(
+            String initiativeId,
+            String rewardBatchId,
+            String transactionId,
+            RewardBatchTrxStatus newStatus,
+            ReasonDTO reason,
+            String batchMonth,
+            ChecksError checksError
+    ) {
+        return rewardTransactionRepository.updateStatusAndReturnOld(
+                initiativeId,
+                rewardBatchId,
+                transactionId,
+                newStatus,
+                reason,
+                batchMonth,
+                checksError
+        );
     }
 }

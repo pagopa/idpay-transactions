@@ -3,7 +3,9 @@ package it.gov.pagopa.idpay.transactions.persistence.mongo;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import java.util.List;
@@ -97,6 +99,46 @@ class MongoRewardTransactionAdapterTest {
                 .verifyComplete();
 
         verify(rewardTransactionRepository).findTransaction(MERCHANT_ID, TRANSACTION_ID);
+    }
+
+    @Test
+    void decisionMutationDelegatesAtomicStatusUpdate() {
+        MongoRewardTransactionAdapter adapter = new MongoRewardTransactionAdapter(rewardTransactionRepository);
+        RewardTransaction transaction = transaction();
+        ReasonDTO reason = new ReasonDTO(null, "reason");
+        ChecksError checksError = new ChecksError();
+
+        when(rewardTransactionRepository.updateStatusAndReturnOld(
+                INITIATIVE_ID,
+                BATCH_ID,
+                TRANSACTION_ID,
+                RewardBatchTrxStatus.REJECTED,
+                reason,
+                "2025-12",
+                checksError
+        )).thenReturn(Mono.just(transaction));
+
+        StepVerifier.create(adapter.updateStatusAndReturnOld(
+                        INITIATIVE_ID,
+                        BATCH_ID,
+                        TRANSACTION_ID,
+                        RewardBatchTrxStatus.REJECTED,
+                        reason,
+                        "2025-12",
+                        checksError
+                ))
+                .expectNext(transaction)
+                .verifyComplete();
+
+        verify(rewardTransactionRepository).updateStatusAndReturnOld(
+                INITIATIVE_ID,
+                BATCH_ID,
+                TRANSACTION_ID,
+                RewardBatchTrxStatus.REJECTED,
+                reason,
+                "2025-12",
+                checksError
+        );
     }
 
     private RewardTransaction transaction() {
