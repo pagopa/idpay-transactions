@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Comparator;
 
@@ -33,11 +34,7 @@ public final class JooqCodegen {
     }
 
     private static void applyRepositoryMigrations(PostgreSQLContainer<?> postgresql) throws Exception {
-        try (Connection connection = DriverManager.getConnection(
-                postgresql.getJdbcUrl(),
-                postgresql.getUsername(),
-                postgresql.getPassword()
-        );
+        try (Connection connection = openConnection(postgresql);
              var migrations = Files.list(Path.of("src", "main", "resources", "db", "migration"))) {
             for (Path migration : migrations
                     .filter(path -> path.getFileName().toString().endsWith(".sql"))
@@ -48,6 +45,23 @@ public final class JooqCodegen {
                 }
             }
         }
+    }
+
+    private static Connection openConnection(PostgreSQLContainer<?> postgresql) throws InterruptedException, SQLException {
+        SQLException failure = null;
+        for (int attempt = 0; attempt < 20; attempt++) {
+            try {
+                return DriverManager.getConnection(
+                        postgresql.getJdbcUrl(),
+                        postgresql.getUsername(),
+                        postgresql.getPassword()
+                );
+            } catch (SQLException exception) {
+                failure = exception;
+                Thread.sleep(250);
+            }
+        }
+        throw failure;
     }
 
     private static Configuration configuration(PostgreSQLContainer<?> postgresql, String outputDirectory) {

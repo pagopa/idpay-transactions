@@ -53,7 +53,7 @@ public class SqlRewardBatchAdapter {
     }
 
     public Mono<RewardBatch> createOrRead(RewardBatch batch) {
-        RewardBatchEntity entity = mapper.toEntity(batch, false);
+        RewardBatchEntity entity = mapper.toEntity(batch);
         return transactionalOperator.transactional(insert(entity)
                 .switchIfEmpty(findByGrouping(
                         entity.initiativeId(),
@@ -64,9 +64,16 @@ public class SqlRewardBatchAdapter {
     }
 
     public Mono<RewardBatch> save(RewardBatch batch) {
-        return transactionalOperator.transactional(repository.existsById(batch.getId())
-                        .flatMap(exists -> repository.save(mapper.toEntity(batch, !exists))))
-                .map(mapper::fromEntity);
+        RewardBatchEntity entity = mapper.toEntity(batch);
+        return transactionalOperator.transactional(repository.existsById(entity.id())
+                        .flatMap(exists -> exists
+                                ? repository.save(entity).map(mapper::fromEntity)
+                                : insert(entity).switchIfEmpty(findByGrouping(
+                                        entity.initiativeId(),
+                                        entity.merchantId(),
+                                        PosType.valueOf(entity.posType()),
+                                        entity.month()
+                                ))));
     }
 
     public Mono<RewardBatch> updateStatus(
@@ -84,7 +91,7 @@ public class SqlRewardBatchAdapter {
     }
 
     public Mono<RewardBatch> updateMetadata(RewardBatch batch) {
-        RewardBatchEntity entity = mapper.toEntity(batch, false);
+        RewardBatchEntity entity = mapper.toEntity(batch);
         return transactionalOperator.transactional(Mono.from(dslContext.update(REWARD_BATCHES)
                         .set(REWARD_BATCHES.BUSINESS_NAME, entity.businessName())
                         .set(REWARD_BATCHES.PARTIAL, entity.partial())

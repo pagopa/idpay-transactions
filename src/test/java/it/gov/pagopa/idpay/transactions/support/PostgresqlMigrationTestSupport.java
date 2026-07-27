@@ -11,10 +11,13 @@ import org.springframework.data.r2dbc.dialect.PostgresDialect;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -51,8 +54,11 @@ public abstract class PostgresqlMigrationTestSupport {
         r2dbcEntityTemplate = new R2dbcEntityTemplate(databaseClient, PostgresDialect.INSTANCE);
         transactionalOperator = TransactionalOperator.create(new R2dbcTransactionManager(connectionFactory));
 
-        Flux.fromIterable(repositoryMigrationStatements())
-                .concatMap(statement -> databaseClient.sql(statement).fetch().rowsUpdated())
+        Mono.from(connectionFactory.create())
+                .flatMap(connection -> Mono.from(connection.close()))
+                .retryWhen(Retry.backoff(20, Duration.ofMillis(250)))
+                .thenMany(Flux.fromIterable(repositoryMigrationStatements())
+                        .concatMap(statement -> databaseClient.sql(statement).fetch().rowsUpdated()))
                 .then()
                 .block();
     }

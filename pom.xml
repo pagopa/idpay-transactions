@@ -291,6 +291,7 @@
 								<additionalClasspathElement>${project.build.directory}/codegen-classes</additionalClasspathElement>
 							</additionalClasspathElements>
 							<classpathScope>compile</classpathScope>
+							<cleanupDaemonThreads>false</cleanupDaemonThreads>
 						</configuration>
 					</execution>
 				</executions>

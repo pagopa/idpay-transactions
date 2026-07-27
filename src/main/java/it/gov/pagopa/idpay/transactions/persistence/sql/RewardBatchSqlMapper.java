@@ -18,7 +18,7 @@ public class RewardBatchSqlMapper {
 
     private final ObjectMapper objectMapper;
 
-    RewardBatchEntity toEntity(RewardBatch batch, boolean newEntity) {
+    RewardBatchEntity toEntity(RewardBatch batch) {
         return new RewardBatchEntity(
                 batch.getId(),
                 batch.getInitiativeId(),
@@ -42,8 +42,7 @@ public class RewardBatchSqlMapper {
                 batch.getAssigneeLevel().name(),
                 batch.getRefundValutaDate(),
                 batch.getRefundErrorMessage(),
-                toJson(batch.getDeliveryOutcome()),
-                newEntity
+                toJson(batch.getDeliveryOutcome())
         );
     }
 
@@ -99,8 +98,7 @@ public class RewardBatchSqlMapper {
                 record.getAssigneeLevel(),
                 record.getRefundValutaDate(),
                 record.getRefundErrorMessage(),
-                record.getDeliveryOutcome() == null ? null : Json.of(record.getDeliveryOutcome().data()),
-                false
+                record.getDeliveryOutcome() == null ? null : Json.of(record.getDeliveryOutcome().data())
         ));
     }
 

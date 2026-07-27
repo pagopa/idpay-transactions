@@ -93,13 +93,16 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
         RewardBatch batch = batch("batch-identity");
 
         StepVerifier.create(adapter.createOrRead(batch)
-                        .then(adapter.findByIdAndInitiativeId(batch.getId(), batch.getInitiativeId()))
-                        .zipWith(adapter.findByMerchantInitiativeAndId(
-                                batch.getMerchantId(),
-                                batch.getInitiativeId(),
-                                batch.getId()
-                        )))
-                .assertNext(batches -> assertEquals(batches.getT1(), batches.getT2()))
+                        .then(adapter.findByIdAndInitiativeId(batch.getId(), batch.getInitiativeId())))
+                .expectNextMatches(found -> found.getId().equals(batch.getId()))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findByMerchantInitiativeAndId(
+                        batch.getMerchantId(),
+                        batch.getInitiativeId(),
+                        batch.getId()
+                ))
+                .expectNextMatches(found -> found.getId().equals(batch.getId()))
                 .verifyComplete();
 
         StepVerifier.create(adapter.findByIdAndInitiativeId(batch.getId(), "other-initiative"))
