@@ -285,7 +285,7 @@
 						<configuration>
 							<mainClass>it.gov.pagopa.idpay.transactions.codegen.JooqCodegen</mainClass>
 							<arguments>
-								<argument>${project.build.directory}/generated-sources/jooq</argument>
+								<argument>${project.basedir}/src/main/generated/jooq</argument>
 							</arguments>
 							<additionalClasspathElements>
 								<additionalClasspathElement>${project.build.directory}/codegen-classes</additionalClasspathElement>
@@ -309,7 +309,7 @@
 						</goals>
 						<configuration>
 							<sources>
-								<source>${project.build.directory}/generated-sources/jooq</source>
+								<source>${project.basedir}/src/main/generated/jooq</source>
 							</sources>
 						</configuration>
 					</execution>
