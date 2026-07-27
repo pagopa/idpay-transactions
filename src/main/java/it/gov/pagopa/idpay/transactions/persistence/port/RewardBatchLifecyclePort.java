@@ -45,4 +45,6 @@ public interface RewardBatchLifecyclePort {
             String initiativeId,
             long approvedAmountCents
     );
+
+    Mono<Void> deleteEmptyBatches();
 }

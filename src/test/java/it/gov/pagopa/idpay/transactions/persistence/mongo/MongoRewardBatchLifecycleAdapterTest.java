@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -26,9 +27,15 @@ class MongoRewardBatchLifecycleAdapterTest {
     @Mock
     private RewardBatchRepository rewardBatchRepository;
 
+    @Mock
+    private ReactiveMongoTemplate reactiveMongoTemplate;
+
     @Test
     void lifecycleReads_delegateToRepository() {
-        MongoRewardBatchLifecycleAdapter adapter = new MongoRewardBatchLifecycleAdapter(rewardBatchRepository);
+        MongoRewardBatchLifecycleAdapter adapter = new MongoRewardBatchLifecycleAdapter(
+                rewardBatchRepository,
+                reactiveMongoTemplate
+        );
         RewardBatch batch = RewardBatch.builder().id(BATCH_ID).build();
         PageRequest pageable = PageRequest.of(0, 10);
 
@@ -87,7 +94,10 @@ class MongoRewardBatchLifecycleAdapterTest {
 
     @Test
     void lifecycleUpdates_delegateToRepository() {
-        MongoRewardBatchLifecycleAdapter adapter = new MongoRewardBatchLifecycleAdapter(rewardBatchRepository);
+        MongoRewardBatchLifecycleAdapter adapter = new MongoRewardBatchLifecycleAdapter(
+                rewardBatchRepository,
+                reactiveMongoTemplate
+        );
         RewardBatch batch = RewardBatch.builder().id(BATCH_ID).build();
 
         when(rewardBatchRepository.save(batch)).thenReturn(Mono.just(batch));
