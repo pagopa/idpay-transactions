@@ -25,20 +25,6 @@ jobs:
   sonarcloud:
     name: SonarCloud Analysis
     runs-on: ubuntu-22.04
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: idpay_transactions
-          POSTGRES_USER: idpay
-          POSTGRES_PASSWORD: idpay
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U idpay -d idpay_transactions"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - name: Checkout code
@@ -60,21 +46,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Apply PostgreSQL schema for jOOQ
-        env:
-          PGPASSWORD: idpay
-        run: |
-          for migration in src/main/resources/db/migration/*.sql; do
-            psql --host localhost --username idpay --dbname idpay_transactions \
-              --set ON_ERROR_STOP=1 --file "$migration"
-          done
-
       - name: Build and test with Maven
-        env:
-          JOOQ_JDBC_URL: jdbc:postgresql://localhost:5432/idpay_transactions
-          JOOQ_JDBC_USERNAME: idpay
-          JOOQ_JDBC_PASSWORD: idpay
-        run: mvn clean -Pjooq-codegen org.jacoco:jacoco-maven-plugin:0.8.14:prepare-agent verify org.jacoco:jacoco-maven-plugin:0.8.14:report org.jacoco:jacoco-maven-plugin:0.8.14:report-aggregate -B
+        run: mvn clean org.jacoco:jacoco-maven-plugin:0.8.14:prepare-agent verify org.jacoco:jacoco-maven-plugin:0.8.14:report org.jacoco:jacoco-maven-plugin:0.8.14:report-aggregate -B
 
       - name: Generate JaCoCo XML Report
         run: mvn org.jacoco:jacoco-maven-plugin:0.8.14:report -Djacoco.reportFormat=xml -B
