@@ -19,6 +19,7 @@ import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.mongo.MongoRewardTransactionAdapter;
+import it.gov.pagopa.idpay.transactions.persistence.mongo.MongoRewardBatchTransactionMutationAdapter;
 import it.gov.pagopa.idpay.transactions.notifier.TransactionNotifierService;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSearchPort;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
@@ -97,6 +98,10 @@ class PointOfSaleTransactionServiceImplTest {
                 rewardTransactionRepository,
                 rewardTransactionSearchPort,
                 new MongoRewardTransactionAdapter(rewardTransactionRepository),
+                new MongoRewardBatchTransactionMutationAdapter(
+                        rewardTransactionRepository,
+                        rewardBatchRepository
+                ),
                 invoiceStorageClient,
                 rewardBatchService,
                 rewardBatchRepository,
