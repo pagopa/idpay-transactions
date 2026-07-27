@@ -112,7 +112,7 @@ class RewardBatchServiceImplTest {
     void setup() {
         service = new RewardBatchServiceImpl(
                 rewardBatchRepository,
-                new MongoRewardBatchLifecycleAdapter(rewardBatchRepository),
+                new MongoRewardBatchLifecycleAdapter(rewardBatchRepository, reactiveMongoTemplate),
                 rewardBatchListPort,
                 new MongoMerchantRewardBatchLookupAdapter(rewardBatchRepository),
                 rewardTransactionRepository,
@@ -124,7 +124,6 @@ class RewardBatchServiceImplTest {
                 ),
                 userRestClient,
                 approvedRewardBatchBlobService,
-                reactiveMongoTemplate,
                 checksErrorMapper,
                 auditUtilities,
                 merchantRestClient,

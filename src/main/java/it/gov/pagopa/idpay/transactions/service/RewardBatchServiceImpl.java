@@ -3,7 +3,6 @@ package it.gov.pagopa.idpay.transactions.service;
 import com.azure.core.http.rest.Response;
 import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.models.BlockBlobItem;
-import com.mongodb.client.result.DeleteResult;
 import com.nimbusds.jose.util.Pair;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.config.InitiativeNotFoundException;
@@ -47,9 +46,6 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -92,7 +88,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private final RewardBatchTransactionDecisionPort rewardBatchTransactionDecisionPort;
     private final RewardBatchTransactionMutationPort rewardBatchTransactionMutationPort;
     private final UserRestClient userRestClient;
-    private final ReactiveMongoTemplate reactiveMongoTemplate;
     private final ChecksErrorMapper checksErrorMapper;
 
     private final AuditUtilities auditUtilities;
@@ -142,7 +137,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                   RewardBatchTransactionMutationPort rewardBatchTransactionMutationPort,
                                   UserRestClient userRestClient,
                                   ApprovedRewardBatchBlobService approvedRewardBatchBlobService,
-                                  ReactiveMongoTemplate reactiveMongoTemplate,
                                   ChecksErrorMapper checksErrorMapper,
                                   AuditUtilities auditUtilities,
                                   MerchantRestClient merchantRestClient,
@@ -160,7 +154,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         this.rewardBatchTransactionMutationPort = rewardBatchTransactionMutationPort;
         this.userRestClient = userRestClient;
         this.approvedRewardBatchBlobService = approvedRewardBatchBlobService;
-        this.reactiveMongoTemplate = reactiveMongoTemplate;
         this.checksErrorMapper = checksErrorMapper;
         this.auditUtilities = auditUtilities;
         this.merchantRestClient = merchantRestClient;
@@ -1433,41 +1426,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     @Override
     public Mono<Void> deleteEmptyRewardBatches() {
-
-        String currentMonth = LocalDate.now()
-                .withDayOfMonth(1)
-                .toString()
-                .substring(0, 7);
-
-        Query toDeleteQuery = Query.query(new Criteria().andOperator(
-                Criteria.where(RewardBatch.Fields.numberOfTransactions).in(0L, 0),
-                Criteria.where(RewardBatch.Fields.month).lt(currentMonth)
-        ));
-
-        return reactiveMongoTemplate.getMongoDatabase()
-                .doOnNext(db -> log.info("[CANCEL_EMPTY_BATCHES] DB={}", db.getName()))
-                .then(Mono.fromCallable(() -> reactiveMongoTemplate.getCollectionName(RewardBatch.class))
-                        .doOnNext(c -> log.info("[CANCEL_EMPTY_BATCHES] Collection={}", c))
-                )
-                .then(reactiveMongoTemplate.count(new Query(), RewardBatch.class)
-                        .doOnNext(total -> log.info("[CANCEL_EMPTY_BATCHES] Total docs={}", total))
-                )
-                .then(reactiveMongoTemplate.count(toDeleteQuery, RewardBatch.class)
-                        .doOnNext(match -> log.info("[CANCEL_EMPTY_BATCHES] Matching docs={}", match))
-                )
-                .thenMany(reactiveMongoTemplate.find(toDeleteQuery, RewardBatch.class)
-                        .doOnNext(rewardBatch -> log.info("[CANCEL_EMPTY_BATCHES] WILL DELETE rewardBatch={}",rewardBatch))
-                )
-                .concatMap(b ->
-                        reactiveMongoTemplate.remove(
-                                        Query.query(Criteria.where("_id").is(b.getId())),
-                                        RewardBatch.class
-                                )
-                                .map(DeleteResult::getDeletedCount)
-                )
-                .reduce(0L, Long::sum)
-                .doOnNext(count -> log.info("[CANCEL_EMPTY_BATCHES] Deleted {} empty batches", count))
-                .then();
+        return rewardBatchLifecyclePort.deleteEmptyBatches();
     }
 
 }
