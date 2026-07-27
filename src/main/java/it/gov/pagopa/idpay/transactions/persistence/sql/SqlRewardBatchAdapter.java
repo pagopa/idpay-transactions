@@ -4,15 +4,19 @@ import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import lombok.RequiredArgsConstructor;
-import org.springframework.r2dbc.core.DatabaseClient;
+import org.jooq.DSLContext;
+import org.jooq.JSONB;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Mono;
+
+import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches.REWARD_BATCHES;
+import static org.jooq.impl.DSL.currentLocalDateTime;
 
 @RequiredArgsConstructor
 public class SqlRewardBatchAdapter {
 
-    private final DatabaseClient databaseClient;
     private final TransactionalOperator transactionalOperator;
+    private final DSLContext dslContext;
     private final RewardBatchSqlRepository repository;
     private final RewardBatchSqlMapper mapper;
 
@@ -70,107 +74,75 @@ public class SqlRewardBatchAdapter {
             String initiativeId,
             RewardBatchStatus status
     ) {
-        return transactionalOperator.transactional(databaseClient.sql("""
-                        UPDATE reward_batches
-                        SET status = :status, update_date = CURRENT_TIMESTAMP
-                        WHERE id = :id AND initiative_id = :initiativeId
-                        RETURNING *
-                        """)
-                .bind("status", status.name())
-                .bind("id", id)
-                .bind("initiativeId", initiativeId)
-                .map((row, metadata) -> mapper.fromEntity(mapper.entityFromRow(row)))
-                .one());
+        return transactionalOperator.transactional(Mono.from(dslContext.update(REWARD_BATCHES)
+                        .set(REWARD_BATCHES.STATUS, status.name())
+                        .set(REWARD_BATCHES.UPDATE_DATE, currentLocalDateTime())
+                        .where(REWARD_BATCHES.ID.eq(id))
+                        .and(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId))
+                        .returning())
+                .map(mapper::fromRecord));
     }
 
     public Mono<RewardBatch> updateMetadata(RewardBatch batch) {
         RewardBatchEntity entity = mapper.toEntity(batch, false);
-        return transactionalOperator.transactional(bindMetadata(databaseClient.sql("""
-                        UPDATE reward_batches
-                        SET business_name = :businessName,
-                            partial = :partial,
-                            name = :name,
-                            merchant_send_date = :merchantSendDate,
-                            approval_date = :approvalDate,
-                            delivery_date_request = :deliveryDateRequest,
-                            refund_outcome_timestamp = :refundOutcomeTimestamp,
-                            report_path = :reportPath,
-                            filename = :filename,
-                            assignee_level = :assigneeLevel,
-                            refund_valuta_date = :refundValutaDate,
-                            refund_error_message = :refundErrorMessage,
-                            delivery_outcome = :deliveryOutcome,
-                            update_date = CURRENT_TIMESTAMP
-                        WHERE id = :id AND initiative_id = :initiativeId
-                        RETURNING *
-                        """), entity)
-                .map((row, metadata) -> mapper.fromEntity(mapper.entityFromRow(row)))
-                .one());
+        return transactionalOperator.transactional(Mono.from(dslContext.update(REWARD_BATCHES)
+                        .set(REWARD_BATCHES.BUSINESS_NAME, entity.businessName())
+                        .set(REWARD_BATCHES.PARTIAL, entity.partial())
+                        .set(REWARD_BATCHES.NAME, entity.name())
+                        .set(REWARD_BATCHES.MERCHANT_SEND_DATE, entity.merchantSendDate())
+                        .set(REWARD_BATCHES.APPROVAL_DATE, entity.approvalDate())
+                        .set(REWARD_BATCHES.DELIVERY_DATE_REQUEST, entity.deliveryDateRequest())
+                        .set(REWARD_BATCHES.REFUND_OUTCOME_TIMESTAMP, entity.refundOutcomeTimestamp())
+                        .set(REWARD_BATCHES.REPORT_PATH, entity.reportPath())
+                        .set(REWARD_BATCHES.FILENAME, entity.filename())
+                        .set(REWARD_BATCHES.ASSIGNEE_LEVEL, entity.assigneeLevel())
+                        .set(REWARD_BATCHES.REFUND_VALUTA_DATE, entity.refundValutaDate())
+                        .set(REWARD_BATCHES.REFUND_ERROR_MESSAGE, entity.refundErrorMessage())
+                        .set(REWARD_BATCHES.DELIVERY_OUTCOME, jsonb(entity.deliveryOutcome()))
+                        .set(REWARD_BATCHES.UPDATE_DATE, currentLocalDateTime())
+                        .where(REWARD_BATCHES.ID.eq(entity.id()))
+                        .and(REWARD_BATCHES.INITIATIVE_ID.eq(entity.initiativeId()))
+                        .returning())
+                .map(mapper::fromRecord));
     }
 
     private Mono<RewardBatch> insert(RewardBatchEntity entity) {
-        return bindInsert(databaseClient.sql("""
-                        INSERT INTO reward_batches (
-                            id, initiative_id, merchant_id, business_name, month, pos_type, status, partial, name,
-                            start_date, end_date, creation_date, update_date, merchant_send_date, approval_date,
-                            delivery_date_request, refund_outcome_timestamp, report_path, filename, assignee_level,
-                            refund_valuta_date, refund_error_message, delivery_outcome
-                        ) VALUES (
-                            :id, :initiativeId, :merchantId, :businessName, :month, :posType, :status, :partial, :name,
-                            :startDate, :endDate, :creationDate, :updateDate, :merchantSendDate, :approvalDate,
-                            :deliveryDateRequest, :refundOutcomeTimestamp, :reportPath, :filename, :assigneeLevel,
-                            :refundValutaDate, :refundErrorMessage, :deliveryOutcome
+        return Mono.from(dslContext.insertInto(REWARD_BATCHES)
+                        .set(REWARD_BATCHES.ID, entity.id())
+                        .set(REWARD_BATCHES.INITIATIVE_ID, entity.initiativeId())
+                        .set(REWARD_BATCHES.MERCHANT_ID, entity.merchantId())
+                        .set(REWARD_BATCHES.BUSINESS_NAME, entity.businessName())
+                        .set(REWARD_BATCHES.MONTH, entity.month())
+                        .set(REWARD_BATCHES.POS_TYPE, entity.posType())
+                        .set(REWARD_BATCHES.STATUS, entity.status())
+                        .set(REWARD_BATCHES.PARTIAL, entity.partial())
+                        .set(REWARD_BATCHES.NAME, entity.name())
+                        .set(REWARD_BATCHES.START_DATE, entity.startDate())
+                        .set(REWARD_BATCHES.END_DATE, entity.endDate())
+                        .set(REWARD_BATCHES.CREATION_DATE, entity.creationDate())
+                        .set(REWARD_BATCHES.UPDATE_DATE, entity.updateDate())
+                        .set(REWARD_BATCHES.MERCHANT_SEND_DATE, entity.merchantSendDate())
+                        .set(REWARD_BATCHES.APPROVAL_DATE, entity.approvalDate())
+                        .set(REWARD_BATCHES.DELIVERY_DATE_REQUEST, entity.deliveryDateRequest())
+                        .set(REWARD_BATCHES.REFUND_OUTCOME_TIMESTAMP, entity.refundOutcomeTimestamp())
+                        .set(REWARD_BATCHES.REPORT_PATH, entity.reportPath())
+                        .set(REWARD_BATCHES.FILENAME, entity.filename())
+                        .set(REWARD_BATCHES.ASSIGNEE_LEVEL, entity.assigneeLevel())
+                        .set(REWARD_BATCHES.REFUND_VALUTA_DATE, entity.refundValutaDate())
+                        .set(REWARD_BATCHES.REFUND_ERROR_MESSAGE, entity.refundErrorMessage())
+                        .set(REWARD_BATCHES.DELIVERY_OUTCOME, jsonb(entity.deliveryOutcome()))
+                        .onConflict(
+                                REWARD_BATCHES.INITIATIVE_ID,
+                                REWARD_BATCHES.MERCHANT_ID,
+                                REWARD_BATCHES.POS_TYPE,
+                                REWARD_BATCHES.MONTH
                         )
-                        ON CONFLICT (initiative_id, merchant_id, pos_type, month) DO NOTHING
-                        RETURNING *
-                        """), entity)
-                .map((row, metadata) -> mapper.fromEntity(mapper.entityFromRow(row)))
-                .one();
+                        .doNothing()
+                        .returning())
+                .map(mapper::fromRecord);
     }
 
-    private static DatabaseClient.GenericExecuteSpec bindInsert(
-            DatabaseClient.GenericExecuteSpec spec,
-            RewardBatchEntity entity
-    ) {
-        return bindMetadata(spec, entity)
-                .bind("month", entity.month())
-                .bind("posType", entity.posType())
-                .bind("status", entity.status())
-                .bind("id", entity.id())
-                .bind("initiativeId", entity.initiativeId())
-                .bind("merchantId", entity.merchantId());
-    }
-
-    private static DatabaseClient.GenericExecuteSpec bindMetadata(
-            DatabaseClient.GenericExecuteSpec spec,
-            RewardBatchEntity entity
-    ) {
-        spec = bind(spec, "businessName", entity.businessName(), String.class);
-        spec = bind(spec, "partial", entity.partial(), Boolean.class);
-        spec = bind(spec, "name", entity.name(), String.class);
-        spec = bind(spec, "merchantSendDate", entity.merchantSendDate(), java.time.LocalDateTime.class);
-        spec = bind(spec, "approvalDate", entity.approvalDate(), java.time.LocalDateTime.class);
-        spec = bind(spec, "deliveryDateRequest", entity.deliveryDateRequest(), java.time.LocalDateTime.class);
-        spec = bind(spec, "refundOutcomeTimestamp", entity.refundOutcomeTimestamp(), java.time.LocalDateTime.class);
-        spec = bind(spec, "reportPath", entity.reportPath(), String.class);
-        spec = bind(spec, "filename", entity.filename(), String.class);
-        spec = bind(spec, "refundValutaDate", entity.refundValutaDate(), java.time.LocalDate.class);
-        spec = bind(spec, "refundErrorMessage", entity.refundErrorMessage(), String.class);
-        spec = bind(spec, "deliveryOutcome", entity.deliveryOutcome(), io.r2dbc.postgresql.codec.Json.class);
-        spec = bind(spec, "assigneeLevel", entity.assigneeLevel(), String.class);
-        spec = bind(spec, "startDate", entity.startDate(), java.time.LocalDateTime.class);
-        spec = bind(spec, "endDate", entity.endDate(), java.time.LocalDateTime.class);
-        spec = bind(spec, "creationDate", entity.creationDate(), java.time.LocalDateTime.class);
-        spec = bind(spec, "updateDate", entity.updateDate(), java.time.LocalDateTime.class);
-        return spec;
-    }
-
-    private static DatabaseClient.GenericExecuteSpec bind(
-            DatabaseClient.GenericExecuteSpec spec,
-            String name,
-            Object value,
-            Class<?> type
-    ) {
-        return value == null ? spec.bindNull(name, type) : spec.bind(name, value);
+    private static JSONB jsonb(io.r2dbc.postgresql.codec.Json value) {
+        return value == null ? null : JSONB.jsonb(value.asString());
     }
 }

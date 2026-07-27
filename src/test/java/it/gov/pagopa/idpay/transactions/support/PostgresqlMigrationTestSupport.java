@@ -69,6 +69,10 @@ public abstract class PostgresqlMigrationTestSupport {
         return r2dbcEntityTemplate;
     }
 
+    protected static ConnectionFactory connectionFactory() {
+        return connectionFactory;
+    }
+
     protected static void closeConnectionFactory() {
         if (connectionFactory instanceof AutoCloseable closeable) {
             try {

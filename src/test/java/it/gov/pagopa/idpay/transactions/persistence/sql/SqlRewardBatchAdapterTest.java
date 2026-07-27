@@ -12,6 +12,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.springframework.data.r2dbc.repository.support.R2dbcRepositoryFactory;
+import org.springframework.r2dbc.connection.TransactionAwareConnectionFactoryProxy;
+import org.jooq.SQLDialect;
+import org.jooq.impl.DSL;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 import tools.jackson.databind.json.JsonMapper;
@@ -29,8 +32,11 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
     static void setUpDatabase() {
         applyRepositoryMigrations();
         adapter = new SqlRewardBatchAdapter(
-                databaseClient(),
                 transactionalOperator(),
+                DSL.using(
+                        new TransactionAwareConnectionFactoryProxy(connectionFactory()),
+                        SQLDialect.POSTGRES
+                ),
                 new R2dbcRepositoryFactory(r2dbcEntityTemplate())
                         .getRepository(RewardBatchSqlRepository.class),
                 new RewardBatchSqlMapper(JsonMapper.builder().build())
