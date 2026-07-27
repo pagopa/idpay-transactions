@@ -10,6 +10,7 @@ import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionM
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -108,8 +109,8 @@ public class MongoRewardBatchTransactionMutationAdapter implements RewardBatchTr
             BatchCountersDTO targetCounters
     ) {
         transaction.setRewardBatchId(targetBatch.getId());
-        transaction.setRewardBatchInclusionDate(LocalDateTime.now());
-        transaction.setUpdateDate(LocalDateTime.now());
+        transaction.setRewardBatchInclusionDate(LocalDateTime.now(ZoneId.systemDefault()));
+        transaction.setUpdateDate(LocalDateTime.now(ZoneId.systemDefault()));
 
         return rewardBatchRepository.updateTotals(
                         sourceBatch.getInitiativeId(),

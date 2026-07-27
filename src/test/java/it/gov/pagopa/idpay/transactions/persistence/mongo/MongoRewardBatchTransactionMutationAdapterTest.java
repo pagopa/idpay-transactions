@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -82,7 +83,7 @@ class MongoRewardBatchTransactionMutationAdapterTest {
                 .verifyComplete();
 
         verify(rewardTransactionRepository).save(transaction);
-        verify(rewardBatchRepository, org.mockito.Mockito.never()).updateTotals(any(), any(), any());
+        verify(rewardBatchRepository, never()).updateTotals(any(), any(), any());
     }
 
     @Test
@@ -109,7 +110,7 @@ class MongoRewardBatchTransactionMutationAdapterTest {
                 ))
                 .verifyComplete();
 
-        verify(rewardTransactionRepository, org.mockito.Mockito.never()).save(any());
+        verify(rewardTransactionRepository, never()).save(any());
 
         ArgumentCaptor<BatchCountersDTO> targetCounters = ArgumentCaptor.forClass(BatchCountersDTO.class);
         verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(TARGET_BATCH_ID), targetCounters.capture());
