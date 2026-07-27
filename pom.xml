@@ -51,6 +51,10 @@
 			<artifactId>r2dbc-postgresql</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>org.jooq</groupId>
+			<artifactId>jooq</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-aspectj</artifactId>
 		</dependency>
@@ -293,5 +297,54 @@
 			</plugin>
 		</plugins>
 	</build>
+
+	<profiles>
+		<profile>
+			<id>jooq-codegen</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.jooq</groupId>
+						<artifactId>jooq-codegen-maven</artifactId>
+						<version>${jooq.version}</version>
+						<executions>
+							<execution>
+								<id>generate-postgresql-schema-types</id>
+								<phase>generate-sources</phase>
+								<goals>
+									<goal>generate</goal>
+								</goals>
+								<configuration>
+									<jdbc>
+										<driver>org.postgresql.Driver</driver>
+										<url>${env.JOOQ_JDBC_URL}</url>
+										<user>${env.JOOQ_JDBC_USERNAME}</user>
+										<password>${env.JOOQ_JDBC_PASSWORD}</password>
+									</jdbc>
+									<generator>
+										<database>
+											<inputSchema>public</inputSchema>
+											<includes>reward_batches|reward_transactions</includes>
+										</database>
+										<target>
+											<packageName>it.gov.pagopa.idpay.transactions.persistence.sql.generated</packageName>
+											<directory>${project.build.directory}/generated-sources/jooq</directory>
+										</target>
+									</generator>
+								</configuration>
+							</execution>
+						</executions>
+						<dependencies>
+							<dependency>
+								<groupId>org.postgresql</groupId>
+								<artifactId>postgresql</artifactId>
+								<version>${postgresql.version}</version>
+							</dependency>
+						</dependencies>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 
 </project>
