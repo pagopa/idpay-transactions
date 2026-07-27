@@ -9,6 +9,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import lombok.RequiredArgsConstructor;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardBatchesRecord;
 import org.springframework.stereotype.Component;
+import org.jooq.Record;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
@@ -100,6 +101,27 @@ public class RewardBatchSqlMapper {
                 batchRecord.getRefundErrorMessage(),
                 batchRecord.getDeliveryOutcome() == null ? null : Json.of(batchRecord.getDeliveryOutcome().data())
         ));
+    }
+
+    RewardBatch fromAggregateRecord(
+            Record record,
+            org.jooq.Field<Long> numberOfTransactions,
+            org.jooq.Field<Long> initialAmountCents,
+            org.jooq.Field<Long> numberOfTransactionsElaborated,
+            org.jooq.Field<Long> numberOfTransactionsSuspended,
+            org.jooq.Field<Long> numberOfTransactionsRejected,
+            org.jooq.Field<Long> suspendedAmountCents,
+            org.jooq.Field<Long> approvedAmountCents
+    ) {
+        RewardBatch batch = fromRecord(record.into(RewardBatchesRecord.class));
+        batch.setNumberOfTransactions(record.get(numberOfTransactions));
+        batch.setInitialAmountCents(record.get(initialAmountCents));
+        batch.setNumberOfTransactionsElaborated(record.get(numberOfTransactionsElaborated));
+        batch.setNumberOfTransactionsSuspended(record.get(numberOfTransactionsSuspended));
+        batch.setNumberOfTransactionsRejected(record.get(numberOfTransactionsRejected));
+        batch.setSuspendedAmountCents(record.get(suspendedAmountCents));
+        batch.setApprovedAmountCents(record.get(approvedAmountCents));
+        return batch;
     }
 
     private Json toJson(DeliveryOutcomeDTO deliveryOutcome) {
