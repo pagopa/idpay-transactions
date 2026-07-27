@@ -24,7 +24,7 @@ Testcontainers integration tests may apply the repository migration files solely
 
 ## Architecture rules
 
-1. Use Spring Data R2DBC, `DatabaseClient`/custom SQL, and `TransactionalOperator`; do not add JPA, Hibernate, blocking repositories, or `.block()` in application flows.
+1. Use Spring Data R2DBC mapped entities and reactive repositories for ordinary identity CRUD. Use `R2dbcEntityTemplate` and `Criteria` for composable single-table filters. Use generated jOOQ PostgreSQL DSL types for joins, aggregates, virtual statuses, database-side filtering/pagination, conflict handling, and partial writes. Apply writes through `TransactionalOperator`; do not add JPA, Hibernate, blocking repositories, or `.block()` in application flows.
 2. Preserve controllers, DTOs, error codes, Kafka contracts, Blob paths, and external REST integrations.
 3. Keep storage-specific annotations and query code in persistence adapters behind ports.
 4. Persist one non-null `initiative_id` per transaction. A nullable `reward_batch_id` references a batch of the same initiative through a composite foreign key.
@@ -32,6 +32,14 @@ Testcontainers integration tests may apply the repository migration files solely
 6. Do not persist mutable batch counters. Derive all batch amount/count response fields through database-side aggregate queries over assigned transactions; do not aggregate in application memory or introduce N+1 reads.
 7. Persist `accrued_reward_cents` as a typed transaction column for aggregate queries. Persist an Erogazioni amount only as an immutable delivery-request snapshot or outbox payload.
 8. Intermediate PRs are human-reviewed and fully validated refactoring checkpoints; they are not deployed. Retain Mongo behavior through adapters while moving one behavior at a time. Introduce a port only with the caller behavior it expresses; do not add speculative generic CRUD or one-to-one repository-wrapper ports. The final PR selects SQL and removes Mongo; no runtime dual-write/read exists.
+
+## SQL construction and validation
+
+- Repository method derivation is limited to ordinary identity CRUD. `R2dbcEntityTemplate`/`Criteria` is limited to composable, single-table predicates.
+- Starting after PR 14, use jOOQ-generated PostgreSQL table, field, and record types for every query involving joins, aggregates, grouped projections, virtual statuses, conflict clauses, or partial writes. Do not introduce new handwritten `DatabaseClient` SQL for those queries. PR 14's already-scoped create-or-read and partial-write statements are the only pre-generation exception.
+- Run jOOQ code generation in every Maven build before application compilation. A build-only launcher starts a temporary PostgreSQL Testcontainer, applies the ordered repository migration files directly without a schema-history table, then regenerates the checked-in sources under `src/main/generated/jooq`. CI rejects stale generated sources. Docker image builds compile those checked-in sources with the generator skipped because their build container cannot run sibling Testcontainers.
+- Code generation may use a build-time schema connection only. The running application remains R2DBC-only: it must not include a JDBC driver, execute migrations, or create a schema-history table.
+- Keep Testcontainers integration tests as the runtime verification layer for query semantics and migration compatibility. SQL linting may enforce PostgreSQL syntax/style but is not a substitute for generated-schema compilation.
 
 ## Thin PR sequence
 
@@ -50,12 +58,12 @@ Testcontainers integration tests may apply the repository migration files solely
 | 11 | Put transaction decisions behind an atomic-mutation port. Keep Mongo behavior and add table-driven tests for every old/new in-batch-state aggregate result. | 09, 10 |
 | 12 | Put invoice update/reversal, suspended reassignment, and postponement behind explicit mutation commands with characterization tests. | 11 |
 | 13 | Remove direct `ReactiveMongoTemplate` use from `RewardBatchServiceImpl`, representing cleanup as a port operation. | 10 |
-| 14 | Implement SQL batch records/mappers and basic SQL batch adapter CRUD, unique create-or-read, identity access, and simple status/metadata writes. Test duplicate-key races. | 02, 05, 06 |
-| 15 | Implement SQL batch lists/counts with database-side aggregate projections, virtual statuses, ordering, delivery/outcome selection, prior-month validation, and empty-batch eligibility. | 14 |
+| 14 | Implement a mapped SQL batch entity/repository and mapper for ordinary identity CRUD. Use custom SQL only for unique create-or-read and simple partial status/metadata writes. Add jOOQ code generation from a temporary PostgreSQL schema provisioned by the ordered repository migration files, compile generated sources in CI, and keep the generator/build-only JDBC access outside the running application. Test duplicate-key races. | 02, 05, 06 |
+| 15 | Implement SQL batch lists/counts with jOOQ database-side aggregate projections, virtual statuses, ordering, delivery/outcome selection, prior-month validation, and empty-batch eligibility. | 14 |
 | 16 | Implement SQL transaction records, JSONB converters, typed accrued reward, and initiative-safe idempotent upsert. Reject changes to an existing transaction's initiative. | 03, 05, 09 |
-| 17 | Implement SQL transaction searches, database paging/sorting, batch lists, invoice lookup, and deterministic sampling. | 16 |
+| 17 | Implement SQL transaction searches with jOOQ database paging/sorting, batch lists, invoice lookup, and deterministic sampling. | 16 |
 | 18 | Implement atomic batch assignment: lock/find-or-create batch, claim one eligible transaction, and set assignment fields exactly once. Test retry and concurrency. | 14, 16, 17 |
-| 19 | Implement evaluation preparation and decision mutations with conditional transaction updates, idempotency, batch locks, and aggregate-projection tests. | 11, 14, 16 |
+| 19 | Implement evaluation preparation and decision mutations with jOOQ conditional transaction updates, idempotency, batch locks, and aggregate-projection tests. | 11, 14, 16 |
 | 20 | Implement transactional invoice update/reversal and lifecycle reads, preserving Basic/Full policies and state/membership invariants. | 12, 19 |
 | 21 | Implement final-approval suspended reassignment: stable source/target locks, target creation, last-elaborated-month preservation, `INVOICED`/`SUSPENDED` state, and full invariant tests. | 12, 19 |
 | 22 | Implement constrained merchant postponement: `CREATED` source only, initiative end-date validation, and `CREATED` target. | 12, 19 |

@@ -4,13 +4,20 @@ import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
 import io.r2dbc.spi.ConnectionFactoryOptions;
 import org.springframework.r2dbc.core.DatabaseClient;
+import org.springframework.r2dbc.connection.R2dbcTransactionManager;
+import org.springframework.transaction.reactive.TransactionalOperator;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.data.r2dbc.dialect.PostgresDialect;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -25,6 +32,8 @@ public abstract class PostgresqlMigrationTestSupport {
 
     private static DatabaseClient databaseClient;
     private static ConnectionFactory connectionFactory;
+    private static TransactionalOperator transactionalOperator;
+    private static R2dbcEntityTemplate r2dbcEntityTemplate;
 
     protected static void applyRepositoryMigrations() {
         ConnectionFactoryOptions options = ConnectionFactoryOptions.parse(
@@ -42,15 +51,32 @@ public abstract class PostgresqlMigrationTestSupport {
                         .build()
         );
         databaseClient = DatabaseClient.create(connectionFactory);
+        r2dbcEntityTemplate = new R2dbcEntityTemplate(databaseClient, PostgresDialect.INSTANCE);
+        transactionalOperator = TransactionalOperator.create(new R2dbcTransactionManager(connectionFactory));
 
-        Flux.fromIterable(repositoryMigrationStatements())
-                .concatMap(statement -> databaseClient.sql(statement).fetch().rowsUpdated())
+        Mono.from(connectionFactory.create())
+                .flatMap(connection -> Mono.from(connection.close()))
+                .retryWhen(Retry.backoff(20, Duration.ofMillis(250)))
+                .thenMany(Flux.fromIterable(repositoryMigrationStatements())
+                        .concatMap(statement -> databaseClient.sql(statement).fetch().rowsUpdated()))
                 .then()
                 .block();
     }
 
     protected static DatabaseClient databaseClient() {
         return databaseClient;
+    }
+
+    protected static TransactionalOperator transactionalOperator() {
+        return transactionalOperator;
+    }
+
+    protected static R2dbcEntityTemplate r2dbcEntityTemplate() {
+        return r2dbcEntityTemplate;
+    }
+
+    protected static ConnectionFactory connectionFactory() {
+        return connectionFactory;
     }
 
     protected static void closeConnectionFactory() {
