@@ -6,6 +6,8 @@ import io.r2dbc.spi.ConnectionFactoryOptions;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.r2dbc.connection.R2dbcTransactionManager;
 import org.springframework.transaction.reactive.TransactionalOperator;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.data.r2dbc.dialect.PostgresDialect;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import reactor.core.publisher.Flux;
@@ -28,6 +30,7 @@ public abstract class PostgresqlMigrationTestSupport {
     private static DatabaseClient databaseClient;
     private static ConnectionFactory connectionFactory;
     private static TransactionalOperator transactionalOperator;
+    private static R2dbcEntityTemplate r2dbcEntityTemplate;
 
     protected static void applyRepositoryMigrations() {
         ConnectionFactoryOptions options = ConnectionFactoryOptions.parse(
@@ -45,6 +48,7 @@ public abstract class PostgresqlMigrationTestSupport {
                         .build()
         );
         databaseClient = DatabaseClient.create(connectionFactory);
+        r2dbcEntityTemplate = new R2dbcEntityTemplate(databaseClient, PostgresDialect.INSTANCE);
         transactionalOperator = TransactionalOperator.create(new R2dbcTransactionManager(connectionFactory));
 
         Flux.fromIterable(repositoryMigrationStatements())
@@ -59,6 +63,10 @@ public abstract class PostgresqlMigrationTestSupport {
 
     protected static TransactionalOperator transactionalOperator() {
         return transactionalOperator;
+    }
+
+    protected static R2dbcEntityTemplate r2dbcEntityTemplate() {
+        return r2dbcEntityTemplate;
     }
 
     protected static void closeConnectionFactory() {

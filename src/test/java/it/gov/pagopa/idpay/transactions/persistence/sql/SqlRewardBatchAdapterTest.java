@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.springframework.data.r2dbc.repository.support.R2dbcRepositoryFactory;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 import tools.jackson.databind.json.JsonMapper;
@@ -30,6 +31,8 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
         adapter = new SqlRewardBatchAdapter(
                 databaseClient(),
                 transactionalOperator(),
+                new R2dbcRepositoryFactory(r2dbcEntityTemplate())
+                        .getRepository(RewardBatchSqlRepository.class),
                 new RewardBatchSqlMapper(JsonMapper.builder().build())
         );
     }
@@ -101,6 +104,20 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                         batch.getInitiativeId(),
                         batch.getId()
                 ))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldPersistOrdinaryCrudThroughTheR2dbcRepository() {
+        RewardBatch batch = batch("batch-crud");
+
+        StepVerifier.create(adapter.save(batch)
+                        .flatMap(saved -> {
+                            saved.setBusinessName("Updated merchant");
+                            return adapter.save(saved);
+                        })
+                        .flatMap(saved -> adapter.findById(saved.getId())))
+                .assertNext(saved -> assertEquals("Updated merchant", saved.getBusinessName()))
                 .verifyComplete();
     }
 

@@ -21,15 +21,15 @@ public class RewardBatchSqlMapper {
 
     private final ObjectMapper objectMapper;
 
-    RewardBatchRecord toRecord(RewardBatch batch) {
-        return new RewardBatchRecord(
+    RewardBatchEntity toEntity(RewardBatch batch, boolean newEntity) {
+        return new RewardBatchEntity(
                 batch.getId(),
                 batch.getInitiativeId(),
                 batch.getMerchantId(),
                 batch.getBusinessName(),
                 batch.getMonth(),
-                batch.getPosType(),
-                batch.getStatus(),
+                batch.getPosType().name(),
+                batch.getStatus().name(),
                 Boolean.TRUE.equals(batch.getPartial()),
                 batch.getName(),
                 batch.getStartDate(),
@@ -42,38 +42,68 @@ public class RewardBatchSqlMapper {
                 batch.getRefundOutcomeTimestamp(),
                 batch.getReportPath(),
                 batch.getFilename(),
-                batch.getAssigneeLevel(),
+                batch.getAssigneeLevel().name(),
                 batch.getRefundValutaDate(),
                 batch.getRefundErrorMessage(),
-                toJson(batch.getDeliveryOutcome())
+                toJson(batch.getDeliveryOutcome()),
+                newEntity
         );
     }
 
-    RewardBatch fromRow(Row row) {
+    RewardBatchEntity entityFromRow(Row row) {
+        return new RewardBatchEntity(
+                row.get("id", String.class),
+                row.get("initiative_id", String.class),
+                row.get("merchant_id", String.class),
+                row.get("business_name", String.class),
+                row.get("month", String.class),
+                row.get("pos_type", String.class),
+                row.get("status", String.class),
+                Boolean.TRUE.equals(row.get("partial", Boolean.class)),
+                row.get("name", String.class),
+                row.get("start_date", LocalDateTime.class),
+                row.get("end_date", LocalDateTime.class),
+                row.get("creation_date", LocalDateTime.class),
+                row.get("update_date", LocalDateTime.class),
+                row.get("merchant_send_date", LocalDateTime.class),
+                row.get("approval_date", LocalDateTime.class),
+                row.get("delivery_date_request", LocalDateTime.class),
+                row.get("refund_outcome_timestamp", LocalDateTime.class),
+                row.get("report_path", String.class),
+                row.get("filename", String.class),
+                row.get("assignee_level", String.class),
+                row.get("refund_valuta_date", LocalDate.class),
+                row.get("refund_error_message", String.class),
+                row.get("delivery_outcome", Json.class),
+                false
+        );
+    }
+
+    RewardBatch fromEntity(RewardBatchEntity entity) {
         return RewardBatch.builder()
-                .id(row.get("id", String.class))
-                .initiativeId(row.get("initiative_id", String.class))
-                .merchantId(row.get("merchant_id", String.class))
-                .businessName(row.get("business_name", String.class))
-                .month(row.get("month", String.class))
-                .posType(PosType.valueOf(row.get("pos_type", String.class)))
-                .status(RewardBatchStatus.valueOf(row.get("status", String.class)))
-                .partial(row.get("partial", Boolean.class))
-                .name(row.get("name", String.class))
-                .startDate(row.get("start_date", LocalDateTime.class))
-                .endDate(row.get("end_date", LocalDateTime.class))
-                .creationDate(row.get("creation_date", LocalDateTime.class))
-                .updateDate(row.get("update_date", LocalDateTime.class))
-                .merchantSendDate(row.get("merchant_send_date", LocalDateTime.class))
-                .approvalDate(row.get("approval_date", LocalDateTime.class))
-                .deliveryDateRequest(row.get("delivery_date_request", LocalDateTime.class))
-                .refundOutcomeTimestamp(row.get("refund_outcome_timestamp", LocalDateTime.class))
-                .reportPath(row.get("report_path", String.class))
-                .filename(row.get("filename", String.class))
-                .assigneeLevel(RewardBatchAssignee.valueOf(row.get("assignee_level", String.class)))
-                .refundValutaDate(row.get("refund_valuta_date", LocalDate.class))
-                .refundErrorMessage(row.get("refund_error_message", String.class))
-                .deliveryOutcome(fromJson(row.get("delivery_outcome", Json.class)))
+                .id(entity.id())
+                .initiativeId(entity.initiativeId())
+                .merchantId(entity.merchantId())
+                .businessName(entity.businessName())
+                .month(entity.month())
+                .posType(PosType.valueOf(entity.posType()))
+                .status(RewardBatchStatus.valueOf(entity.status()))
+                .partial(entity.partial())
+                .name(entity.name())
+                .startDate(entity.startDate())
+                .endDate(entity.endDate())
+                .creationDate(entity.creationDate())
+                .updateDate(entity.updateDate())
+                .merchantSendDate(entity.merchantSendDate())
+                .approvalDate(entity.approvalDate())
+                .deliveryDateRequest(entity.deliveryDateRequest())
+                .refundOutcomeTimestamp(entity.refundOutcomeTimestamp())
+                .reportPath(entity.reportPath())
+                .filename(entity.filename())
+                .assigneeLevel(RewardBatchAssignee.valueOf(entity.assigneeLevel()))
+                .refundValutaDate(entity.refundValutaDate())
+                .refundErrorMessage(entity.refundErrorMessage())
+                .deliveryOutcome(fromJson(entity.deliveryOutcome()))
                 .build();
     }
 

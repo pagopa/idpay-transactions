@@ -24,7 +24,7 @@ Testcontainers integration tests may apply the repository migration files solely
 
 ## Architecture rules
 
-1. Use Spring Data R2DBC, `DatabaseClient`/custom SQL, and `TransactionalOperator`; do not add JPA, Hibernate, blocking repositories, or `.block()` in application flows.
+1. Use Spring Data R2DBC mapped entities and reactive repositories for ordinary identity CRUD. Reserve `DatabaseClient`/custom SQL for PostgreSQL-specific conflict handling, partial writes, aggregates, virtual statuses, and database-side filtering/pagination. Apply writes through `TransactionalOperator`; do not add JPA, Hibernate, blocking repositories, or `.block()` in application flows.
 2. Preserve controllers, DTOs, error codes, Kafka contracts, Blob paths, and external REST integrations.
 3. Keep storage-specific annotations and query code in persistence adapters behind ports.
 4. Persist one non-null `initiative_id` per transaction. A nullable `reward_batch_id` references a batch of the same initiative through a composite foreign key.
@@ -50,7 +50,7 @@ Testcontainers integration tests may apply the repository migration files solely
 | 11 | Put transaction decisions behind an atomic-mutation port. Keep Mongo behavior and add table-driven tests for every old/new in-batch-state aggregate result. | 09, 10 |
 | 12 | Put invoice update/reversal, suspended reassignment, and postponement behind explicit mutation commands with characterization tests. | 11 |
 | 13 | Remove direct `ReactiveMongoTemplate` use from `RewardBatchServiceImpl`, representing cleanup as a port operation. | 10 |
-| 14 | Implement SQL batch records/mappers and basic SQL batch adapter CRUD, unique create-or-read, identity access, and simple status/metadata writes. Test duplicate-key races. | 02, 05, 06 |
+| 14 | Implement a mapped SQL batch entity/repository and mapper for ordinary identity CRUD. Use custom SQL only for unique create-or-read and simple partial status/metadata writes. Test duplicate-key races. | 02, 05, 06 |
 | 15 | Implement SQL batch lists/counts with database-side aggregate projections, virtual statuses, ordering, delivery/outcome selection, prior-month validation, and empty-batch eligibility. | 14 |
 | 16 | Implement SQL transaction records, JSONB converters, typed accrued reward, and initiative-safe idempotent upsert. Reject changes to an existing transaction's initiative. | 03, 05, 09 |
 | 17 | Implement SQL transaction searches, database paging/sorting, batch lists, invoice lookup, and deterministic sampling. | 16 |
