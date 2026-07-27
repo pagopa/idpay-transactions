@@ -66,7 +66,7 @@ public class SqlRewardBatchAdapter {
     public Mono<RewardBatch> save(RewardBatch batch) {
         RewardBatchEntity entity = mapper.toEntity(batch);
         return transactionalOperator.transactional(repository.existsById(entity.id())
-                        .flatMap(exists -> exists
+                        .flatMap(exists -> exists.booleanValue()
                                 ? repository.save(entity).map(mapper::fromEntity)
                                 : insert(entity).switchIfEmpty(findByGrouping(
                                         entity.initiativeId(),

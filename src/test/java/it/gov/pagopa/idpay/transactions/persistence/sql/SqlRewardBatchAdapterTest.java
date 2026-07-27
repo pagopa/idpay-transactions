@@ -20,6 +20,7 @@ import reactor.test.StepVerifier;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -149,7 +150,7 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                         .flatMap(updated -> {
                             updated.setFilename("approved.csv");
                             updated.setReportPath("initiative/initiative-1/batch/approved.csv");
-                            updated.setMerchantSendDate(LocalDateTime.of(2026, 7, 1, 10, 30));
+                            updated.setMerchantSendDate(LocalDateTime.of(2026, Month.JULY, 1, 10, 30));
                             updated.setDeliveryOutcome(deliveryOutcome);
                             updated.setAssigneeLevel(RewardBatchAssignee.L2);
                             return adapter.updateMetadata(updated);
@@ -178,10 +179,10 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                 .status(RewardBatchStatus.CREATED)
                 .partial(false)
                 .name("Luglio 2026")
-                .startDate(LocalDateTime.of(2026, 7, 1, 0, 0))
-                .endDate(LocalDateTime.of(2026, 7, 31, 23, 59, 59))
-                .creationDate(LocalDateTime.of(2026, 7, 1, 0, 0))
-                .updateDate(LocalDateTime.of(2026, 7, 1, 0, 0))
+                .startDate(LocalDateTime.of(2026, Month.JULY, 1, 0, 0))
+                .endDate(LocalDateTime.of(2026, Month.JULY, 31, 23, 59, 59))
+                .creationDate(LocalDateTime.of(2026, Month.JULY, 1, 0, 0))
+                .updateDate(LocalDateTime.of(2026, Month.JULY, 1, 0, 0))
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .build();
     }

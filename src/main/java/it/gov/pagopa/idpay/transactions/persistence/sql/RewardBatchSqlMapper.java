@@ -74,31 +74,31 @@ public class RewardBatchSqlMapper {
                 .build();
     }
 
-    RewardBatch fromRecord(RewardBatchesRecord record) {
+    RewardBatch fromRecord(RewardBatchesRecord batchRecord) {
         return fromEntity(new RewardBatchEntity(
-                record.getId(),
-                record.getInitiativeId(),
-                record.getMerchantId(),
-                record.getBusinessName(),
-                record.getMonth(),
-                record.getPosType(),
-                record.getStatus(),
-                Boolean.TRUE.equals(record.getPartial()),
-                record.getName(),
-                record.getStartDate(),
-                record.getEndDate(),
-                record.getCreationDate(),
-                record.getUpdateDate(),
-                record.getMerchantSendDate(),
-                record.getApprovalDate(),
-                record.getDeliveryDateRequest(),
-                record.getRefundOutcomeTimestamp(),
-                record.getReportPath(),
-                record.getFilename(),
-                record.getAssigneeLevel(),
-                record.getRefundValutaDate(),
-                record.getRefundErrorMessage(),
-                record.getDeliveryOutcome() == null ? null : Json.of(record.getDeliveryOutcome().data())
+                batchRecord.getId(),
+                batchRecord.getInitiativeId(),
+                batchRecord.getMerchantId(),
+                batchRecord.getBusinessName(),
+                batchRecord.getMonth(),
+                batchRecord.getPosType(),
+                batchRecord.getStatus(),
+                batchRecord.getPartial(),
+                batchRecord.getName(),
+                batchRecord.getStartDate(),
+                batchRecord.getEndDate(),
+                batchRecord.getCreationDate(),
+                batchRecord.getUpdateDate(),
+                batchRecord.getMerchantSendDate(),
+                batchRecord.getApprovalDate(),
+                batchRecord.getDeliveryDateRequest(),
+                batchRecord.getRefundOutcomeTimestamp(),
+                batchRecord.getReportPath(),
+                batchRecord.getFilename(),
+                batchRecord.getAssigneeLevel(),
+                batchRecord.getRefundValutaDate(),
+                batchRecord.getRefundErrorMessage(),
+                batchRecord.getDeliveryOutcome() == null ? null : Json.of(batchRecord.getDeliveryOutcome().data())
         ));
     }
 
