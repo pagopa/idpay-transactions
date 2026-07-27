@@ -86,7 +86,45 @@ class MongoRewardBatchTransactionMutationAdapterTest {
     }
 
     @Test
-    void suspendedReassignmentMovesMembershipAndDerivesCounterDeltas() {
+    void reassignSuspendedTransactions_emptyMovesNoTransactionsAndAppliesZeroCounterDeltas() {
+        MongoRewardBatchTransactionMutationAdapter adapter = adapter();
+        RewardBatch source = batch(SOURCE_BATCH_ID);
+        RewardBatch target = batch(TARGET_BATCH_ID);
+
+        when(rewardTransactionRepository.findByFilter(
+                SOURCE_BATCH_ID,
+                INITIATIVE_ID,
+                List.of(RewardBatchTrxStatus.SUSPENDED)
+        )).thenReturn(Flux.empty());
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(TARGET_BATCH_ID), any()))
+                .thenReturn(Mono.just(target));
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(SOURCE_BATCH_ID), any()))
+                .thenReturn(Mono.just(source));
+
+        StepVerifier.create(adapter.reassignSuspendedTransactions(
+                        source,
+                        target,
+                        INITIATIVE_ID,
+                        "2025-12"
+                ))
+                .verifyComplete();
+
+        verify(rewardTransactionRepository, org.mockito.Mockito.never()).save(any());
+
+        ArgumentCaptor<BatchCountersDTO> targetCounters = ArgumentCaptor.forClass(BatchCountersDTO.class);
+        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(TARGET_BATCH_ID), targetCounters.capture());
+        assertEquals(0L, targetCounters.getValue().getInitialAmountCents());
+        assertEquals(0L, targetCounters.getValue().getNumberOfTransactions());
+        assertEquals(0L, targetCounters.getValue().getTrxSuspended());
+        assertEquals(0L, targetCounters.getValue().getTrxElaborated());
+
+        ArgumentCaptor<BatchCountersDTO> sourceCounters = ArgumentCaptor.forClass(BatchCountersDTO.class);
+        verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(SOURCE_BATCH_ID), sourceCounters.capture());
+        assertEquals(0L, sourceCounters.getValue().getNumberOfTransactions());
+    }
+
+    @Test
+    void reassignSuspendedTransactions_movesAndSumsAndSetsLastMonthWhenAbsent() {
         MongoRewardBatchTransactionMutationAdapter adapter = adapter();
         RewardBatch source = batch(SOURCE_BATCH_ID);
         RewardBatch target = batch(TARGET_BATCH_ID);
