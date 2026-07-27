@@ -33,6 +33,7 @@ import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchListPort;
 import it.gov.pagopa.idpay.transactions.persistence.mongo.MongoMerchantRewardBatchLookupAdapter;
 import it.gov.pagopa.idpay.transactions.persistence.mongo.MongoRewardBatchLifecycleAdapter;
 import it.gov.pagopa.idpay.transactions.persistence.mongo.MongoRewardTransactionAdapter;
+import it.gov.pagopa.idpay.transactions.persistence.mongo.MongoRewardBatchTransactionMutationAdapter;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
@@ -117,6 +118,10 @@ class RewardBatchServiceImplTest {
                 rewardTransactionRepository,
                 new MongoRewardTransactionAdapter(rewardTransactionRepository),
                 new MongoRewardTransactionAdapter(rewardTransactionRepository),
+                new MongoRewardBatchTransactionMutationAdapter(
+                        rewardTransactionRepository,
+                        rewardBatchRepository
+                ),
                 userRestClient,
                 approvedRewardBatchBlobService,
                 reactiveMongoTemplate,
@@ -1324,50 +1329,6 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void updateAndSaveRewardTransactionsSuspended_empty_returnsZero() {
-        when(rewardTransactionRepository.findByFilter(eq(BATCH_ID), eq(INITIATIVE_ID), anyList()))
-                .thenReturn(Flux.empty());
-
-        StepVerifier.create(service.updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, "2025-12"))
-                .expectNext(0L)
-                .verifyComplete();
-    }
-
-    @Test
-    void updateAndSaveRewardTransactionsSuspended_movesAndSums_andSetsLastMonthIfNull() {
-        RewardTransaction t1 = RewardTransaction.builder()
-                .id("T1")
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
-                .rewardBatchId(BATCH_ID)
-                .rewardBatchLastMonthElaborated(null)
-                .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
-                .build();
-
-        RewardTransaction t2 = RewardTransaction.builder()
-                .id("T2")
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
-                .rewardBatchId(BATCH_ID)
-                .rewardBatchLastMonthElaborated("2025-11")
-                .rewards(null)
-                .build();
-
-        when(rewardTransactionRepository.findByFilter(eq(BATCH_ID), eq(INITIATIVE_ID), anyList()))
-                .thenReturn(Flux.just(t1, t2));
-        when(rewardTransactionRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-
-        StepVerifier.create(service.updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, "2025-12"))
-                .expectNext(100L)
-                .verifyComplete();
-
-        assertEquals(BATCH_ID_2, t1.getRewardBatchId());
-        assertEquals(SyncTrxStatus.INVOICED.name(), t1.getStatus());
-        assertEquals("2025-12", t1.getRewardBatchLastMonthElaborated());
-        assertEquals(BATCH_ID_2, t2.getRewardBatchId());
-        assertEquals(SyncTrxStatus.INVOICED.name(), t2.getStatus());
-        assertEquals("2025-11", t2.getRewardBatchLastMonthElaborated());
-    }
-
-    @Test
     void validateRewardBatch_notFound() {
         when(rewardBatchRepository.findById(BATCH_ID)).thenReturn(Mono.empty());
 
@@ -2374,9 +2335,6 @@ class RewardBatchServiceImplTest {
         doReturn(Mono.just(targetBatch)).when(serviceSpy)
                 .findOrCreateBatch(INITIATIVE_ID, MERCHANT_ID, PHYSICAL, targetMonth, BUSINESS_NAME);
 
-        doReturn(Mono.just(300L)).when(serviceSpy)
-                .updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, originalMonth);
-
         when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(targetBatch));
 
@@ -2388,6 +2346,7 @@ class RewardBatchServiceImplTest {
                 INITIATIVE_ID,
                 List.of(RewardBatchTrxStatus.SUSPENDED)
         )).thenReturn(Flux.just(new RewardTransaction()));
+        when(rewardTransactionRepository.save(any())).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
         Mono<RewardBatch> result = ReflectionTestUtils.invokeMethod(
                 serviceSpy,
@@ -2403,7 +2362,6 @@ class RewardBatchServiceImplTest {
                 .verifyComplete();
 
         verify(serviceSpy).findOrCreateBatch(INITIATIVE_ID, MERCHANT_ID, PHYSICAL, targetMonth, BUSINESS_NAME);
-        verify(serviceSpy).updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, originalMonth);
         verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class));
     }
 
@@ -2432,9 +2390,6 @@ class RewardBatchServiceImplTest {
         doReturn(Mono.just(targetBatch)).when(serviceSpy)
                 .findOrCreateBatch(INITIATIVE_ID, MERCHANT_ID, PHYSICAL, originalMonth, BUSINESS_NAME);
 
-        doReturn(Mono.just(100L)).when(serviceSpy)
-                .updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, originalMonth);
-
         when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class)))
                 .thenReturn(Mono.just(targetBatch));
 
@@ -2446,6 +2401,7 @@ class RewardBatchServiceImplTest {
                 INITIATIVE_ID,
                 List.of(RewardBatchTrxStatus.SUSPENDED)
         )).thenReturn(Flux.just(new RewardTransaction()));
+        when(rewardTransactionRepository.save(any())).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
         Mono<RewardBatch> result = ReflectionTestUtils.invokeMethod(
                 serviceSpy,
@@ -2461,7 +2417,6 @@ class RewardBatchServiceImplTest {
                 .verifyComplete();
 
         verify(serviceSpy).findOrCreateBatch(INITIATIVE_ID, MERCHANT_ID, PHYSICAL, originalMonth, BUSINESS_NAME);
-        verify(serviceSpy).updateAndSaveRewardTransactionsSuspended(BATCH_ID, INITIATIVE_ID, BATCH_ID_2, originalMonth);
         verify(rewardBatchRepository).updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID_2), any(BatchCountersDTO.class));
     }
 

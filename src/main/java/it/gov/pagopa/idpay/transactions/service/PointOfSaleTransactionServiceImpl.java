@@ -14,6 +14,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.notifier.TransactionNotifierService;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSearchPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.InvoiceTransactionLookupPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionMutationPort;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.service.invoice_lifecycle.InvoiceLifecyclePolicy;
@@ -55,6 +56,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
     private final RewardTransactionRepository rewardTransactionRepository;
     private final RewardTransactionSearchPort rewardTransactionSearchPort;
     private final InvoiceTransactionLookupPort invoiceTransactionLookupPort;
+    private final RewardBatchTransactionMutationPort rewardBatchTransactionMutationPort;
     private final InvoiceStorageClient invoiceStorageClient;
     private final RewardBatchService rewardBatchService;
     private final RewardBatchRepository rewardBatchRepository;
@@ -65,6 +67,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
             UserRestClient userRestClient, RewardTransactionRepository rewardTransactionRepository,
             RewardTransactionSearchPort rewardTransactionSearchPort,
             InvoiceTransactionLookupPort invoiceTransactionLookupPort,
+            RewardBatchTransactionMutationPort rewardBatchTransactionMutationPort,
             InvoiceStorageClient invoiceStorageClient,
             RewardBatchService rewardBatchService,
             RewardBatchRepository rewardBatchRepository,
@@ -74,6 +77,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
         this.rewardTransactionRepository = rewardTransactionRepository;
         this.rewardTransactionSearchPort = rewardTransactionSearchPort;
         this.invoiceTransactionLookupPort = invoiceTransactionLookupPort;
+        this.rewardBatchTransactionMutationPort = rewardBatchTransactionMutationPort;
         this.invoiceStorageClient = invoiceStorageClient;
         this.rewardBatchService = rewardBatchService;
         this.rewardBatchRepository = rewardBatchRepository;
@@ -228,7 +232,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                             .build());
                     trx.setInvoiceUploadDate(LocalDateTime.now());
                     trx.setUpdateDate(LocalDateTime.now());
-                    return rewardTransactionRepository.save(trx);
+                    return rewardBatchTransactionMutationPort.persistInvoiceUpdate(trx);
                 }));
     }
 
@@ -308,10 +312,13 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                     oldTransaction.setRewardBatchId(newBatch.getId());
                     oldTransaction.setUpdateDate(LocalDateTime.now());
 
-                    return rewardTransactionRepository.save(oldTransaction)
-                            .then(rewardBatchRepository.updateTotals(oldBatch.getInitiativeId(), oldBatch.getId(), oldBatchCounter))
-                            .then(rewardBatchRepository.updateTotals(newBatch.getInitiativeId(), newBatch.getId(), newBatchCounter))
-                            .thenReturn(oldTransaction);
+                    return rewardBatchTransactionMutationPort.moveUpdatedInvoice(
+                            oldTransaction,
+                            oldBatch,
+                            newBatch,
+                            oldBatchCounter,
+                            newBatchCounter
+                    );
                 });
     }
 
@@ -388,18 +395,14 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
 
 
 
-                                    Mono<Void> saveTransactionMono = rewardTransactionRepository.save(rt).then();
-
-                                    Mono<Void> updateBatchTotalsMono =
-                                            oldRewardBatchId != null
-                                                    ? rewardBatchRepository.updateTotals(initiativeId, oldRewardBatchId, counters).then()
-                                                    : Mono.empty();
-
-
                                     Mono<Void> sendToQueueMono = sendReversedInvoicedTransactionNotification(RewardTransactionKafkaMapper.toDto(rt));
 
-                                    return saveTransactionMono
-                                            .then(updateBatchTotalsMono)
+                                    return rewardBatchTransactionMutationPort.reverseInvoice(
+                                                    rt,
+                                                    initiativeId,
+                                                    oldRewardBatchId,
+                                                    counters
+                                            )
                                             .then(sendToQueueMono);
                                 }));
                     });

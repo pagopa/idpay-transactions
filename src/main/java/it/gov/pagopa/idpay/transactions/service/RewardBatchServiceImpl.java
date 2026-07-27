@@ -31,6 +31,7 @@ import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchLifecyclePor
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchListPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionDecisionPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionReadPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionMutationPort;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
@@ -89,6 +90,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private final RewardTransactionRepository rewardTransactionRepository;
     private final RewardBatchTransactionReadPort rewardBatchTransactionReadPort;
     private final RewardBatchTransactionDecisionPort rewardBatchTransactionDecisionPort;
+    private final RewardBatchTransactionMutationPort rewardBatchTransactionMutationPort;
     private final UserRestClient userRestClient;
     private final ReactiveMongoTemplate reactiveMongoTemplate;
     private final ChecksErrorMapper checksErrorMapper;
@@ -137,6 +139,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                   RewardTransactionRepository rewardTransactionRepository,
                                   RewardBatchTransactionReadPort rewardBatchTransactionReadPort,
                                   RewardBatchTransactionDecisionPort rewardBatchTransactionDecisionPort,
+                                  RewardBatchTransactionMutationPort rewardBatchTransactionMutationPort,
                                   UserRestClient userRestClient,
                                   ApprovedRewardBatchBlobService approvedRewardBatchBlobService,
                                   ReactiveMongoTemplate reactiveMongoTemplate,
@@ -154,6 +157,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         this.rewardTransactionRepository = rewardTransactionRepository;
         this.rewardBatchTransactionReadPort = rewardBatchTransactionReadPort;
         this.rewardBatchTransactionDecisionPort = rewardBatchTransactionDecisionPort;
+        this.rewardBatchTransactionMutationPort = rewardBatchTransactionMutationPort;
         this.userRestClient = userRestClient;
         this.approvedRewardBatchBlobService = approvedRewardBatchBlobService;
         this.reactiveMongoTemplate = reactiveMongoTemplate;
@@ -976,39 +980,21 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             return Mono.just(originalBatch);
         }
 
-        return rewardBatchTransactionReadPort
-                .findBatchTransactions(originalBatch.getId(), initiativeId, List.of(RewardBatchTrxStatus.SUSPENDED))
-                .count()
-                .flatMap(countToMove ->
-                        findOrCreateBatch(
-                                originalBatch.getInitiativeId(),
-                                originalBatch.getMerchantId(),
-                                originalBatch.getPosType(),
-                                getTargetMonth(originalBatch.getMonth()),
-                                originalBatch.getBusinessName()
-                        ).flatMap(newBatch ->
-                                updateAndSaveRewardTransactionsSuspended(
-                                        originalBatch.getId(),
-                                        initiativeId,
-                                        newBatch.getId(),
-                                        originalBatch.getMonth()
-                                ).flatMap(totalAccrued -> {
-                                    BatchCountersDTO batchCounters = BatchCountersDTO.newBatch()
-                                            .incrementInitialAmountCents(totalAccrued)
-                                            .incrementTrxElaborated(countToMove)
-                                            .incrementNumberOfTransactions(countToMove)
-                                            .incrementSuspendedAmountCents(totalAccrued)
-                                            .incrementTrxSuspended(countToMove);
-
-                                    return rewardBatchRepository.updateTotals(newBatch.getInitiativeId(), newBatch.getId(), batchCounters)
-                                            .then(rewardBatchRepository.updateTotals(
-                                                    originalBatch.getInitiativeId(),
-                                                    originalBatch.getId(),
-                                                    BatchCountersDTO.newBatch().decrementNumberOfTransactions(countToMove)
-                                            ));
-                                })
+        return findOrCreateBatch(
+                        originalBatch.getInitiativeId(),
+                        originalBatch.getMerchantId(),
+                        originalBatch.getPosType(),
+                        getTargetMonth(originalBatch.getMonth()),
+                        originalBatch.getBusinessName()
+                )
+                .flatMap(newBatch -> rewardBatchTransactionMutationPort
+                        .reassignSuspendedTransactions(
+                                originalBatch,
+                                newBatch,
+                                initiativeId,
+                                originalBatch.getMonth()
                         )
-                );
+                        .thenReturn(originalBatch));
     }
 
     public String addOneMonth(String yearMonthString) {
@@ -1054,34 +1040,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 })
                 .then();
 
-    }
-
-    public Mono<Long> updateAndSaveRewardTransactionsSuspended(String oldBatchId, String initiativeId, String newBatchId, String oldMonth) {
-        List<RewardBatchTrxStatus> statusList = List.of(RewardBatchTrxStatus.SUSPENDED);
-
-        return rewardBatchTransactionReadPort.findBatchTransactions(oldBatchId, initiativeId, statusList)
-                .switchIfEmpty(Flux.defer(() -> {
-                    log.info("No suspended transactions found for the batch {}", Utilities.sanitizeString(oldBatchId));
-                    return Flux.empty();
-                }))
-                .flatMap(rewardTransaction -> {
-                    rewardTransaction.setRewardBatchId(newBatchId);
-                    rewardTransaction.setStatus(SyncTrxStatus.INVOICED.name());
-                    if(rewardTransaction.getRewardBatchLastMonthElaborated() == null) {
-                        rewardTransaction.setRewardBatchLastMonthElaborated(oldMonth);
-                    }
-
-                    Long rewardCents = 0L;
-                    if (rewardTransaction.getRewards() != null &&
-                            rewardTransaction.getRewards().get(initiativeId) != null) {
-                        rewardCents = rewardTransaction.getRewards().get(initiativeId).getAccruedRewardCents();
-                    }
-
-                    return rewardTransactionRepository.save(rewardTransaction)
-                            .thenReturn(rewardCents != null ? rewardCents : 0L);
-                })
-                .reduce(0L, Long::sum)
-                .doOnNext(total -> log.info("Total suspended reward cents from old batch {}: {}", newBatchId, total));
     }
 
     @Override
@@ -1425,9 +1383,13 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         BatchCountersDTO oldBatchCounters = buildOldBatchCounters(trx, accruedRewardCents);
         BatchCountersDTO newBatchCounters = buildNewBatchCounters(trx, accruedRewardCents);
 
-        return rewardBatchRepository.updateTotals(currentBatch.getInitiativeId(), currentBatch.getId(), oldBatchCounters)
-                .then(rewardBatchRepository.updateTotals(nextBatch.getInitiativeId(), nextBatch.getId(), newBatchCounters))
-                .then(Mono.defer(() -> savePostponedTransaction(trx, nextBatch)));
+        return rewardBatchTransactionMutationPort.postponeTransaction(
+                trx,
+                currentBatch,
+                nextBatch,
+                oldBatchCounters,
+                newBatchCounters
+        );
     }
 
     private BatchCountersDTO buildOldBatchCounters(RewardTransaction trx, long accruedRewardCents) {
@@ -1462,14 +1424,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     private boolean isSuspended(RewardTransaction trx) {
         return RewardBatchTrxStatus.SUSPENDED.equals(trx.getRewardBatchTrxStatus());
-    }
-
-    private Mono<RewardTransaction> savePostponedTransaction(RewardTransaction trx, RewardBatch nextBatch) {
-        trx.setRewardBatchId(nextBatch.getId());
-        trx.setRewardBatchInclusionDate(LocalDateTime.now());
-        trx.setUpdateDate(LocalDateTime.now());
-
-        return rewardTransactionRepository.save(trx);
     }
 
     @Data
