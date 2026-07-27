@@ -4,6 +4,8 @@ import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
 import io.r2dbc.spi.ConnectionFactoryOptions;
 import org.springframework.r2dbc.core.DatabaseClient;
+import org.springframework.r2dbc.connection.R2dbcTransactionManager;
+import org.springframework.transaction.reactive.TransactionalOperator;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import reactor.core.publisher.Flux;
@@ -25,6 +27,7 @@ public abstract class PostgresqlMigrationTestSupport {
 
     private static DatabaseClient databaseClient;
     private static ConnectionFactory connectionFactory;
+    private static TransactionalOperator transactionalOperator;
 
     protected static void applyRepositoryMigrations() {
         ConnectionFactoryOptions options = ConnectionFactoryOptions.parse(
@@ -42,6 +45,7 @@ public abstract class PostgresqlMigrationTestSupport {
                         .build()
         );
         databaseClient = DatabaseClient.create(connectionFactory);
+        transactionalOperator = TransactionalOperator.create(new R2dbcTransactionManager(connectionFactory));
 
         Flux.fromIterable(repositoryMigrationStatements())
                 .concatMap(statement -> databaseClient.sql(statement).fetch().rowsUpdated())
@@ -51,6 +55,10 @@ public abstract class PostgresqlMigrationTestSupport {
 
     protected static DatabaseClient databaseClient() {
         return databaseClient;
+    }
+
+    protected static TransactionalOperator transactionalOperator() {
+        return transactionalOperator;
     }
 
     protected static void closeConnectionFactory() {
