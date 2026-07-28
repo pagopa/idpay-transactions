@@ -97,7 +97,7 @@ class PointOfSaleTransactionServiceImplTest {
                 userRestClient,
                 rewardTransactionRepository,
                 rewardTransactionSearchPort,
-                new MongoRewardTransactionAdapter(rewardTransactionRepository),
+                new MongoRewardTransactionAdapter(rewardTransactionRepository, rewardBatchRepository),
                 new MongoRewardBatchTransactionMutationAdapter(
                         rewardTransactionRepository,
                         rewardBatchRepository

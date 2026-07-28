@@ -24,6 +24,7 @@ import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.*;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import it.gov.pagopa.idpay.transactions.model.RewardBatchFactory;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.MerchantRewardBatchLookupPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchLifecyclePort;
@@ -60,7 +61,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
-import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -191,36 +191,13 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     }
 
     private Mono<RewardBatch> createBatch(String merchantId, PosType posType, String month, String businessName, String initiativeId) {
-
-        YearMonth batchYearMonth = YearMonth.parse(month);
-        LocalDateTime startDate = batchYearMonth.atDay(1).atTime(0,0,0);
-        LocalDateTime endDate = batchYearMonth.atEndOfMonth().atTime(23,59,59);
-
-        RewardBatch batch = RewardBatch.builder()
-                .merchantId(merchantId)
-                .businessName(businessName)
-                .month(month)
-                .posType(posType)
-                .status(RewardBatchStatus.CREATED)
-                .partial(false)
-                .name(buildBatchName(batchYearMonth))
-                .startDate(startDate)
-                .endDate(endDate)
-                .approvedAmountCents(0L)
-                .suspendedAmountCents(0L)
-                .initialAmountCents(0L)
-                .numberOfTransactions(0L)
-                .numberOfTransactionsElaborated(0L)
-                .reportPath(null)
-                .assigneeLevel(RewardBatchAssignee.L1)
-                .numberOfTransactionsSuspended(0L)
-                .numberOfTransactionsRejected(0L)
-                .creationDate(LocalDateTime.now())
-                .updateDate(LocalDateTime.now())
-                .initiativeId(initiativeId)
-                .build();
-
-        return rewardBatchRepository.save(batch);
+        return rewardBatchRepository.save(RewardBatchFactory.create(
+                initiativeId,
+                merchantId,
+                posType,
+                month,
+                businessName
+        ));
     }
 
     @Override
@@ -639,14 +616,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 RewardBatchStatus.REFUNDED
         ).contains(status);
     }
-
-    private String buildBatchName(YearMonth month) {
-        String monthName = month.getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN);
-        String year = String.valueOf(month.getYear());
-
-        return String.format("%s %s", monthName, year);
-    }
-
 
     @Override
     public Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId) {

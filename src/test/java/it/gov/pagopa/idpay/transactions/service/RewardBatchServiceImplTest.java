@@ -116,8 +116,8 @@ class RewardBatchServiceImplTest {
                 rewardBatchListPort,
                 new MongoMerchantRewardBatchLookupAdapter(rewardBatchRepository),
                 rewardTransactionRepository,
-                new MongoRewardTransactionAdapter(rewardTransactionRepository),
-                new MongoRewardTransactionAdapter(rewardTransactionRepository),
+                new MongoRewardTransactionAdapter(rewardTransactionRepository, rewardBatchRepository),
+                new MongoRewardTransactionAdapter(rewardTransactionRepository, rewardBatchRepository),
                 new MongoRewardBatchTransactionMutationAdapter(
                         rewardTransactionRepository,
                         rewardBatchRepository

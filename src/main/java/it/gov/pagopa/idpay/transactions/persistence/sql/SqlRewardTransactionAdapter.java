@@ -21,6 +21,10 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
 
     @Override
     public Mono<RewardTransaction> upsert(RewardTransaction transaction) {
+        return transactionalOperator.transactional(upsertWithinTransaction(transaction));
+    }
+
+    Mono<RewardTransaction> upsertWithinTransaction(RewardTransaction transaction) {
         RewardTransactionEntity entity = mapper.toEntity(transaction);
         Mono<RewardTransaction> persisted = Mono.from(insertOrUpdate(mapper.toRecord(entity)))
                 .flatMap(ignored -> repository.findById(entity.id()))
@@ -33,7 +37,7 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
                         .switchIfEmpty(Mono.error(new IllegalStateException(
                                 "Transaction %s was not persisted".formatted(entity.id())
                         )));
-        return transactionalOperator.transactional(persisted.switchIfEmpty(rejected));
+        return persisted.switchIfEmpty(rejected);
     }
 
     private org.jooq.InsertResultStep<?> insertOrUpdate(RewardTransactionsRecord transactionRecord) {
