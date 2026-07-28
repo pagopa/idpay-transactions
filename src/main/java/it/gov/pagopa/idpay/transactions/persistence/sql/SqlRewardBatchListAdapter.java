@@ -20,6 +20,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -83,6 +84,17 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
                     .cast(Long.class);
     private static final Field<Long> APPROVED_AMOUNT_CENTS = APPROVED_AMOUNT_CENTS_VALUE
                     .as("approved_amount_cents");
+    private static final ZoneId ROME_ZONE_ID = ZoneId.of("Europe/Rome");
+    private static final RewardBatchSqlMapper.BatchAggregateProjection BATCH_AGGREGATE_PROJECTION =
+                    new RewardBatchSqlMapper.BatchAggregateProjection(
+                            NUMBER_OF_TRANSACTIONS,
+                            INITIAL_AMOUNT_CENTS,
+                            NUMBER_OF_TRANSACTIONS_ELABORATED,
+                            NUMBER_OF_TRANSACTIONS_SUSPENDED,
+                            NUMBER_OF_TRANSACTIONS_REJECTED,
+                            SUSPENDED_AMOUNT_CENTS,
+                            APPROVED_AMOUNT_CENTS
+                    );
 
     private final DSLContext dslContext;
     private final RewardBatchSqlMapper mapper;
@@ -176,7 +188,7 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
     }
 
     public Flux<RewardBatch> findEmptyBatchesBeforeCurrentMonth() {
-        return Flux.from(projectedBatches(REWARD_BATCHES.MONTH.lt(YearMonth.now().toString())
+        return Flux.from(projectedBatches(REWARD_BATCHES.MONTH.lt(YearMonth.now(ROME_ZONE_ID).toString())
                         .and(notExists(selectOne()
                                 .from(REWARD_TRANSACTIONS)
                                 .where(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(REWARD_BATCHES.ID)))))
@@ -203,17 +215,8 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
                 .groupBy(REWARD_BATCHES.fields());
     }
 
-    private RewardBatch toBatch(Record record) {
-        return mapper.fromAggregateRecord(
-                record,
-                NUMBER_OF_TRANSACTIONS,
-                INITIAL_AMOUNT_CENTS,
-                NUMBER_OF_TRANSACTIONS_ELABORATED,
-                NUMBER_OF_TRANSACTIONS_SUSPENDED,
-                NUMBER_OF_TRANSACTIONS_REJECTED,
-                SUSPENDED_AMOUNT_CENTS,
-                APPROVED_AMOUNT_CENTS
-        );
+    private RewardBatch toBatch(Record result) {
+        return mapper.fromAggregateRecord(result, BATCH_AGGREGATE_PROJECTION);
     }
 
     private static Condition combinedCondition(
@@ -346,7 +349,7 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
     private static RewardBatchAssignee parseAssignee(String assigneeLevel) {
         try {
             return notBlank(assigneeLevel) ? RewardBatchAssignee.valueOf(assigneeLevel) : null;
-        } catch (IllegalArgumentException exception) {
+        } catch (IllegalArgumentException _) {
             return null;
         }
     }

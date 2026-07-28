@@ -104,7 +104,21 @@ public class RewardBatchSqlMapper {
     }
 
     RewardBatch fromAggregateRecord(
-            Record record,
+            Record result,
+            BatchAggregateProjection aggregateProjection
+    ) {
+        RewardBatch batch = fromRecord(result.into(RewardBatchesRecord.class));
+        batch.setNumberOfTransactions(result.get(aggregateProjection.numberOfTransactions()));
+        batch.setInitialAmountCents(result.get(aggregateProjection.initialAmountCents()));
+        batch.setNumberOfTransactionsElaborated(result.get(aggregateProjection.numberOfTransactionsElaborated()));
+        batch.setNumberOfTransactionsSuspended(result.get(aggregateProjection.numberOfTransactionsSuspended()));
+        batch.setNumberOfTransactionsRejected(result.get(aggregateProjection.numberOfTransactionsRejected()));
+        batch.setSuspendedAmountCents(result.get(aggregateProjection.suspendedAmountCents()));
+        batch.setApprovedAmountCents(result.get(aggregateProjection.approvedAmountCents()));
+        return batch;
+    }
+
+    record BatchAggregateProjection(
             org.jooq.Field<Long> numberOfTransactions,
             org.jooq.Field<Long> initialAmountCents,
             org.jooq.Field<Long> numberOfTransactionsElaborated,
@@ -113,15 +127,6 @@ public class RewardBatchSqlMapper {
             org.jooq.Field<Long> suspendedAmountCents,
             org.jooq.Field<Long> approvedAmountCents
     ) {
-        RewardBatch batch = fromRecord(record.into(RewardBatchesRecord.class));
-        batch.setNumberOfTransactions(record.get(numberOfTransactions));
-        batch.setInitialAmountCents(record.get(initialAmountCents));
-        batch.setNumberOfTransactionsElaborated(record.get(numberOfTransactionsElaborated));
-        batch.setNumberOfTransactionsSuspended(record.get(numberOfTransactionsSuspended));
-        batch.setNumberOfTransactionsRejected(record.get(numberOfTransactionsRejected));
-        batch.setSuspendedAmountCents(record.get(suspendedAmountCents));
-        batch.setApprovedAmountCents(record.get(approvedAmountCents));
-        return batch;
     }
 
     private Json toJson(DeliveryOutcomeDTO deliveryOutcome) {
