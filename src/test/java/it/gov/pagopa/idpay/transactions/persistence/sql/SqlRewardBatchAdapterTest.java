@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.r2dbc.repository.support.R2dbcRepositoryFactory;
 import org.springframework.r2dbc.connection.TransactionAwareConnectionFactoryProxy;
 import org.jooq.SQLDialect;
@@ -309,6 +310,145 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                     assertTrue(ids.contains("batch-eligible"));
                     assertTrue(!ids.contains("batch-referenced"));
                 })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldApplyVisibilityVirtualStatusAndSupportedDatabaseSorts() {
+        RewardBatch created = batch("batch-created");
+        RewardBatch toWork = batch("batch-to-work");
+        toWork.setMonth("2026-06");
+        toWork.setStatus(RewardBatchStatus.EVALUATING);
+        RewardBatch toApprove = batch("batch-to-approve-virtual");
+        toApprove.setMonth("2026-05");
+        toApprove.setStatus(RewardBatchStatus.EVALUATING);
+        toApprove.setAssigneeLevel(RewardBatchAssignee.L3);
+        RewardBatch sent = batch("batch-sent");
+        sent.setMonth("2026-04");
+        sent.setStatus(RewardBatchStatus.SENT);
+
+        StepVerifier.create(Flux.concat(
+                        adapter.createOrRead(created),
+                        adapter.createOrRead(toWork),
+                        adapter.createOrRead(toApprove),
+                        adapter.createOrRead(sent)
+                )
+                .thenMany(listAdapter.findRewardBatches(
+                        null, null, null, null, null, true, PageRequest.of(0, 10)
+                ))
+                .map(RewardBatch::getId)
+                .collectList())
+                .assertNext(ids -> {
+                    assertTrue(!ids.contains("batch-created"));
+                    assertEquals(java.util.List.of(
+                            "batch-sent", "batch-to-approve-virtual", "batch-to-work"
+                    ), ids);
+                })
+                .verifyComplete();
+
+        StepVerifier.create(listAdapter.findRewardBatches(
+                        null,
+                        "initiative-1",
+                        RewardBatchStatus.TO_WORK.name(),
+                        RewardBatchAssignee.L1.name(),
+                        null,
+                        true,
+                        null
+                ))
+                .expectNextMatches(result -> result.getId().equals("batch-to-work"))
+                .verifyComplete();
+
+        StepVerifier.create(listAdapter.findRewardBatches(
+                        null,
+                        "initiative-1",
+                        RewardBatchStatus.TO_APPROVE.name(),
+                        RewardBatchAssignee.L3.name(),
+                        null,
+                        true,
+                        PageRequest.of(0, 10)
+                ))
+                .expectNextMatches(result -> result.getId().equals("batch-to-approve-virtual"))
+                .verifyComplete();
+
+        StepVerifier.create(listAdapter.countRewardBatches(
+                        null,
+                        "initiative-1",
+                        RewardBatchStatus.TO_WORK.name(),
+                        RewardBatchAssignee.L3.name(),
+                        null,
+                        true
+                ))
+                .expectNext(0L)
+                .verifyComplete();
+
+        StepVerifier.create(listAdapter.countRewardBatches(
+                        null,
+                        "initiative-1",
+                        RewardBatchStatus.CREATED.name(),
+                        null,
+                        null,
+                        true
+                ))
+                .expectNext(0L)
+                .verifyComplete();
+
+        StepVerifier.create(listAdapter.countRewardBatches(
+                        null,
+                        "initiative-1",
+                        null,
+                        "not-an-assignee",
+                        null,
+                        false
+                ))
+                .expectNext(4L)
+                .verifyComplete();
+
+        StepVerifier.create(listAdapter.findBatchesWithStatus(RewardBatchStatus.SENT, "initiative-1"))
+                .expectNextMatches(result -> result.getId().equals("batch-sent"))
+                .verifyComplete();
+
+        StepVerifier.create(Flux.fromIterable(java.util.List.of(
+                        "id",
+                        "merchantId",
+                        "initiativeId",
+                        "businessName",
+                        "month",
+                        "posType",
+                        "status",
+                        "partial",
+                        "name",
+                        "startDate",
+                        "endDate",
+                        "assigneeLevel",
+                        "creationDate",
+                        "updateDate",
+                        "merchantSendDate",
+                        "approvalDate",
+                        "deliveryDateRequest",
+                        "refundOutcomeTimestamp",
+                        "reportPath",
+                        "filename",
+                        "refundValutaDate",
+                        "refundErrorMessage",
+                        "numberOfTransactions",
+                        "initialAmountCents",
+                        "numberOfTransactionsElaborated",
+                        "numberOfTransactionsSuspended",
+                        "numberOfTransactionsRejected",
+                        "suspendedAmountCents",
+                        "approvedAmountCents",
+                        "unsupported"
+                ))
+                .concatMap(property -> listAdapter.findRewardBatches(
+                        null,
+                        "initiative-1",
+                        null,
+                        null,
+                        null,
+                        false,
+                        PageRequest.of(0, 1, Sort.by(Sort.Direction.DESC, property))
+                ).single()))
+                .expectNextCount(30)
                 .verifyComplete();
     }
 
