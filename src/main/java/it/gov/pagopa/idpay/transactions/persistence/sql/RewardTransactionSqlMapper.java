@@ -128,6 +128,56 @@ public class RewardTransactionSqlMapper {
                 .build();
     }
 
+    RewardTransaction fromRecord(RewardTransactionsRecord transactionRecord) {
+        return fromEntity(new RewardTransactionEntity(
+                transactionRecord.getTransactionId(),
+                transactionRecord.getInitiativeId(),
+                transactionRecord.getRewardBatchId(),
+                transactionRecord.getIdTrxAcquirer(),
+                transactionRecord.getAcquirerCode(),
+                transactionRecord.getTrxDate(),
+                transactionRecord.getOperationType(),
+                transactionRecord.getCircuitType(),
+                transactionRecord.getIdTrxIssuer(),
+                transactionRecord.getCorrelationId(),
+                transactionRecord.getAmountCents(),
+                transactionRecord.getAmountCurrency(),
+                transactionRecord.getAcquirerId(),
+                transactionRecord.getMerchantId(),
+                transactionRecord.getPointOfSaleId(),
+                transactionRecord.getPosType(),
+                transactionRecord.getStatus(),
+                r2dbcJson(transactionRecord.getRejectionReasons()),
+                r2dbcJson(transactionRecord.getInitiativeRejectionReasons()),
+                r2dbcJson(transactionRecord.getRewards()),
+                transactionRecord.getUserId(),
+                transactionRecord.getOperationTypeTranscoded(),
+                transactionRecord.getEffectiveAmountCents(),
+                transactionRecord.getTrxChargeDate(),
+                r2dbcJson(transactionRecord.getRefundInfo()),
+                transactionRecord.getElaborationDateTime(),
+                transactionRecord.getChannel(),
+                r2dbcJson(transactionRecord.getAdditionalProperties()),
+                r2dbcJson(transactionRecord.getInvoiceData()),
+                r2dbcJson(transactionRecord.getCreditNoteData()),
+                transactionRecord.getTrxCode(),
+                transactionRecord.getRewardBatchTrxStatus(),
+                r2dbcJson(transactionRecord.getRewardBatchRejectionReasons()),
+                transactionRecord.getRewardBatchInclusionDate(),
+                transactionRecord.getFranchiseName(),
+                transactionRecord.getPointOfSaleType(),
+                transactionRecord.getBusinessName(),
+                transactionRecord.getInvoiceUploadDate(),
+                transactionRecord.getSamplingKey(),
+                transactionRecord.getUpdateDate(),
+                transactionRecord.getExtendedAuthorization(),
+                transactionRecord.getVoucherAmountCents(),
+                transactionRecord.getRewardBatchLastMonthElaborated(),
+                r2dbcJson(transactionRecord.getChecksError()),
+                transactionRecord.getAccruedRewardCents()
+        ));
+    }
+
     RewardTransactionsRecord toRecord(RewardTransactionEntity entity) {
         return new RewardTransactionsRecord(
                 entity.id(),
@@ -233,6 +283,10 @@ public class RewardTransactionSqlMapper {
 
     private JSONB jsonb(Json value) {
         return value == null ? null : JSONB.jsonb(value.asString());
+    }
+
+    private Json r2dbcJson(JSONB value) {
+        return value == null ? null : Json.of(value.data());
     }
 
     private <T extends Enum<T>> T enumValue(String value, java.util.function.Function<String, T> factory) {
