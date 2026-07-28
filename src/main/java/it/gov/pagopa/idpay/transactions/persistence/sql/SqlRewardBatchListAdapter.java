@@ -121,7 +121,7 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
                         .where(combinedCondition(
                                 merchantId, initiativeId, status, assigneeLevel, month, isOperator
                         )))
-                .map(record -> record.value1().longValue());
+                .map(result -> result.value1().longValue());
     }
 
     @Override
