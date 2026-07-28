@@ -10,6 +10,7 @@ import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.Map;
 import org.jooq.SQLDialect;
@@ -137,7 +138,7 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
                 .initiatives(List.of(initiativeId))
                 .idTrxAcquirer("acquirer-transaction")
                 .acquirerCode("acquirer-code")
-                .trxDate(LocalDateTime.of(2026, 7, 1, 10, 30))
+                .trxDate(LocalDateTime.of(2026, Month.JULY, 1, 10, 30))
                 .operationType("PAYMENT")
                 .circuitType("VISA")
                 .idTrxIssuer("issuer-transaction")

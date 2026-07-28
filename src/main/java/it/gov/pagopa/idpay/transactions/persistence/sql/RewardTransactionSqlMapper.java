@@ -9,9 +9,11 @@ import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RefundInfo;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardTransactionsRecord;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.jooq.JSONB;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
@@ -126,6 +128,56 @@ public class RewardTransactionSqlMapper {
                 .build();
     }
 
+    RewardTransactionsRecord toRecord(RewardTransactionEntity entity) {
+        return new RewardTransactionsRecord(
+                entity.id(),
+                entity.initiativeId(),
+                entity.rewardBatchId(),
+                entity.idTrxAcquirer(),
+                entity.acquirerCode(),
+                entity.trxDate(),
+                entity.operationType(),
+                entity.circuitType(),
+                entity.idTrxIssuer(),
+                entity.correlationId(),
+                entity.amountCents(),
+                entity.amountCurrency(),
+                entity.acquirerId(),
+                entity.merchantId(),
+                entity.pointOfSaleId(),
+                entity.posType(),
+                entity.status(),
+                jsonb(entity.rejectionReasons()),
+                jsonb(entity.initiativeRejectionReasons()),
+                jsonb(entity.rewards()),
+                entity.userId(),
+                entity.operationTypeTranscoded(),
+                entity.effectiveAmountCents(),
+                entity.trxChargeDate(),
+                jsonb(entity.refundInfo()),
+                entity.elaborationDateTime(),
+                entity.channel(),
+                jsonb(entity.additionalProperties()),
+                jsonb(entity.invoiceData()),
+                jsonb(entity.creditNoteData()),
+                entity.trxCode(),
+                entity.rewardBatchTrxStatus(),
+                jsonb(entity.rewardBatchRejectionReasons()),
+                entity.rewardBatchInclusionDate(),
+                entity.franchiseName(),
+                entity.pointOfSaleType(),
+                entity.businessName(),
+                entity.invoiceUploadDate(),
+                entity.samplingKey(),
+                entity.updateDate(),
+                entity.extendedAuthorization(),
+                entity.voucherAmountCents(),
+                entity.rewardBatchLastMonthElaborated(),
+                jsonb(entity.checksError()),
+                entity.accruedRewardCents()
+        );
+    }
+
     private String initiativeId(RewardTransaction transaction) {
         List<String> initiatives = transaction.getInitiatives();
         if (initiatives == null || initiatives.size() != 1 || initiatives.getFirst().isBlank()) {
@@ -177,6 +229,10 @@ public class RewardTransactionSqlMapper {
 
     private String enumName(Enum<?> value) {
         return value == null ? null : value.name();
+    }
+
+    private JSONB jsonb(Json value) {
+        return value == null ? null : JSONB.jsonb(value.asString());
     }
 
     private <T extends Enum<T>> T enumValue(String value, java.util.function.Function<String, T> factory) {
