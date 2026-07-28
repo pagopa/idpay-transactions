@@ -23,6 +23,8 @@ import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches.REWARD_BATCHES;
 import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions.REWARD_TRANSACTIONS;
@@ -95,6 +97,37 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
                             SUSPENDED_AMOUNT_CENTS,
                             APPROVED_AMOUNT_CENTS
                     );
+    private static final Map<String, Field<?>> SORTABLE_FIELDS = Map.ofEntries(
+                    Map.entry("id", REWARD_BATCHES.ID),
+                    Map.entry("merchantId", REWARD_BATCHES.MERCHANT_ID),
+                    Map.entry("initiativeId", REWARD_BATCHES.INITIATIVE_ID),
+                    Map.entry("businessName", REWARD_BATCHES.BUSINESS_NAME),
+                    Map.entry("month", REWARD_BATCHES.MONTH),
+                    Map.entry("posType", REWARD_BATCHES.POS_TYPE),
+                    Map.entry("status", REWARD_BATCHES.STATUS),
+                    Map.entry("partial", REWARD_BATCHES.PARTIAL),
+                    Map.entry("name", REWARD_BATCHES.NAME),
+                    Map.entry("startDate", REWARD_BATCHES.START_DATE),
+                    Map.entry("endDate", REWARD_BATCHES.END_DATE),
+                    Map.entry("assigneeLevel", REWARD_BATCHES.ASSIGNEE_LEVEL),
+                    Map.entry("creationDate", REWARD_BATCHES.CREATION_DATE),
+                    Map.entry("updateDate", REWARD_BATCHES.UPDATE_DATE),
+                    Map.entry("merchantSendDate", REWARD_BATCHES.MERCHANT_SEND_DATE),
+                    Map.entry("approvalDate", REWARD_BATCHES.APPROVAL_DATE),
+                    Map.entry("deliveryDateRequest", REWARD_BATCHES.DELIVERY_DATE_REQUEST),
+                    Map.entry("refundOutcomeTimestamp", REWARD_BATCHES.REFUND_OUTCOME_TIMESTAMP),
+                    Map.entry("reportPath", REWARD_BATCHES.REPORT_PATH),
+                    Map.entry("filename", REWARD_BATCHES.FILENAME),
+                    Map.entry("refundValutaDate", REWARD_BATCHES.REFUND_VALUTA_DATE),
+                    Map.entry("refundErrorMessage", REWARD_BATCHES.REFUND_ERROR_MESSAGE),
+                    Map.entry("numberOfTransactions", NUMBER_OF_TRANSACTIONS),
+                    Map.entry("initialAmountCents", INITIAL_AMOUNT_CENTS),
+                    Map.entry("numberOfTransactionsElaborated", NUMBER_OF_TRANSACTIONS_ELABORATED),
+                    Map.entry("numberOfTransactionsSuspended", NUMBER_OF_TRANSACTIONS_SUSPENDED),
+                    Map.entry("numberOfTransactionsRejected", NUMBER_OF_TRANSACTIONS_REJECTED),
+                    Map.entry("suspendedAmountCents", SUSPENDED_AMOUNT_CENTS),
+                    Map.entry("approvedAmountCents", APPROVED_AMOUNT_CENTS_VALUE)
+    );
 
     private final DSLContext dslContext;
     private final RewardBatchSqlMapper mapper;
@@ -311,39 +344,12 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
     }
 
     private static SortField<?> sortableField(String property, Sort.Direction direction) {
-        Field<?> field = switch (property) {
-            case "id" -> REWARD_BATCHES.ID;
-            case "merchantId" -> REWARD_BATCHES.MERCHANT_ID;
-            case "initiativeId" -> REWARD_BATCHES.INITIATIVE_ID;
-            case "businessName" -> REWARD_BATCHES.BUSINESS_NAME;
-            case "month" -> REWARD_BATCHES.MONTH;
-            case "posType" -> REWARD_BATCHES.POS_TYPE;
-            case "status" -> REWARD_BATCHES.STATUS;
-            case "partial" -> REWARD_BATCHES.PARTIAL;
-            case "name" -> REWARD_BATCHES.NAME;
-            case "startDate" -> REWARD_BATCHES.START_DATE;
-            case "endDate" -> REWARD_BATCHES.END_DATE;
-            case "assigneeLevel" -> REWARD_BATCHES.ASSIGNEE_LEVEL;
-            case "creationDate" -> REWARD_BATCHES.CREATION_DATE;
-            case "updateDate" -> REWARD_BATCHES.UPDATE_DATE;
-            case "merchantSendDate" -> REWARD_BATCHES.MERCHANT_SEND_DATE;
-            case "approvalDate" -> REWARD_BATCHES.APPROVAL_DATE;
-            case "deliveryDateRequest" -> REWARD_BATCHES.DELIVERY_DATE_REQUEST;
-            case "refundOutcomeTimestamp" -> REWARD_BATCHES.REFUND_OUTCOME_TIMESTAMP;
-            case "reportPath" -> REWARD_BATCHES.REPORT_PATH;
-            case "filename" -> REWARD_BATCHES.FILENAME;
-            case "refundValutaDate" -> REWARD_BATCHES.REFUND_VALUTA_DATE;
-            case "refundErrorMessage" -> REWARD_BATCHES.REFUND_ERROR_MESSAGE;
-            case "numberOfTransactions" -> NUMBER_OF_TRANSACTIONS;
-            case "initialAmountCents" -> INITIAL_AMOUNT_CENTS;
-            case "numberOfTransactionsElaborated" -> NUMBER_OF_TRANSACTIONS_ELABORATED;
-            case "numberOfTransactionsSuspended" -> NUMBER_OF_TRANSACTIONS_SUSPENDED;
-            case "numberOfTransactionsRejected" -> NUMBER_OF_TRANSACTIONS_REJECTED;
-            case "suspendedAmountCents" -> SUSPENDED_AMOUNT_CENTS;
-            case "approvedAmountCents" -> APPROVED_AMOUNT_CENTS_VALUE;
-            default -> REWARD_BATCHES.MONTH;
-        };
+        Field<?> field = SORTABLE_FIELDS.getOrDefault(property, REWARD_BATCHES.MONTH);
         return direction.isAscending() ? field.asc() : field.desc();
+    }
+
+    static Set<String> supportedSortProperties() {
+        return SORTABLE_FIELDS.keySet();
     }
 
     private static RewardBatchAssignee parseAssignee(String assigneeLevel) {

@@ -407,38 +407,10 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                 .expectNextMatches(result -> result.getId().equals("batch-sent"))
                 .verifyComplete();
 
-        StepVerifier.create(Flux.fromIterable(java.util.List.of(
-                        "id",
-                        "merchantId",
-                        "initiativeId",
-                        "businessName",
-                        "month",
-                        "posType",
-                        "status",
-                        "partial",
-                        "name",
-                        "startDate",
-                        "endDate",
-                        "assigneeLevel",
-                        "creationDate",
-                        "updateDate",
-                        "merchantSendDate",
-                        "approvalDate",
-                        "deliveryDateRequest",
-                        "refundOutcomeTimestamp",
-                        "reportPath",
-                        "filename",
-                        "refundValutaDate",
-                        "refundErrorMessage",
-                        "numberOfTransactions",
-                        "initialAmountCents",
-                        "numberOfTransactionsElaborated",
-                        "numberOfTransactionsSuspended",
-                        "numberOfTransactionsRejected",
-                        "suspendedAmountCents",
-                        "approvedAmountCents",
-                        "unsupported"
-                ))
+        StepVerifier.create(Flux.concat(
+                        Flux.fromIterable(SqlRewardBatchListAdapter.supportedSortProperties()),
+                        Flux.just("unsupported")
+                )
                 .concatMap(property -> listAdapter.findRewardBatches(
                         null,
                         "initiative-1",
@@ -448,7 +420,7 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                         false,
                         PageRequest.of(0, 1, Sort.by(Sort.Direction.DESC, property))
                 ).single()))
-                .expectNextCount(30)
+                .expectNextCount(SqlRewardBatchListAdapter.supportedSortProperties().size() + 1)
                 .verifyComplete();
     }
 
