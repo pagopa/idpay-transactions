@@ -1,0 +1,343 @@
+package it.gov.pagopa.idpay.transactions.persistence.sql;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.Reward;
+import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import org.jooq.SQLDialect;
+import org.jooq.impl.DSL;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.r2dbc.repository.support.R2dbcRepositoryFactory;
+import org.springframework.r2dbc.connection.TransactionAwareConnectionFactoryProxy;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
+import tools.jackson.databind.json.JsonMapper;
+
+@Testcontainers(disabledWithoutDocker = true)
+class SqlRewardTransactionSearchAdapterTest extends PostgresqlMigrationTestSupport {
+
+    private static final String INITIATIVE_ID = "initiative-1";
+    private static final String MERCHANT_ID = "merchant-1";
+    private static final String POINT_OF_SALE_ID = "pos-1";
+    private static final String USER_ID = "user-1";
+    private static final String BATCH_ID = "batch-1";
+
+    private static SqlRewardTransactionAdapter transactionWriter;
+    private static SqlRewardTransactionSearchAdapter adapter;
+
+    @BeforeAll
+    static void setUpDatabase() {
+        applyRepositoryMigrations();
+        var dslContext = DSL.using(
+                new TransactionAwareConnectionFactoryProxy(connectionFactory()),
+                SQLDialect.POSTGRES
+        );
+        RewardTransactionSqlMapper mapper = new RewardTransactionSqlMapper(JsonMapper.builder().build());
+        transactionWriter = new SqlRewardTransactionAdapter(
+                transactionalOperator(),
+                dslContext,
+                new R2dbcRepositoryFactory(r2dbcEntityTemplate())
+                        .getRepository(RewardTransactionSqlRepository.class),
+                mapper
+        );
+        adapter = new SqlRewardTransactionSearchAdapter(dslContext, mapper);
+    }
+
+    @AfterAll
+    static void closeDatabase() {
+        closeConnectionFactory();
+    }
+
+    @BeforeEach
+    void clearDatabase() {
+        databaseClient()
+                .sql("DELETE FROM reward_transactions")
+                .fetch()
+                .rowsUpdated()
+                .then(databaseClient()
+                        .sql("DELETE FROM reward_batches")
+                        .fetch()
+                        .rowsUpdated())
+                .block();
+    }
+
+    @Test
+    void shouldSearchAndCountMerchantTransactionsWithConsultableVisibility() {
+        RewardTransaction consultable = transaction(
+                "merchant-consultable",
+                SyncTrxStatus.INVOICED,
+                RewardBatchTrxStatus.CONSULTABLE,
+                2
+        );
+        consultable.setRewardBatchId(BATCH_ID);
+        consultable.setTrxCode("merchant-code-a");
+
+        RewardTransaction toCheck = transaction(
+                "merchant-to-check",
+                SyncTrxStatus.INVOICED,
+                RewardBatchTrxStatus.TO_CHECK,
+                1
+        );
+        toCheck.setRewardBatchId(BATCH_ID);
+        toCheck.setTrxCode("merchant-code-b");
+
+        RewardTransaction differentUser = transaction(
+                "merchant-other-user",
+                SyncTrxStatus.INVOICED,
+                RewardBatchTrxStatus.CONSULTABLE,
+                3
+        );
+        differentUser.setRewardBatchId(BATCH_ID);
+        differentUser.setTrxCode("merchant-code-c");
+        differentUser.setUserId("other-user");
+
+        TrxFiltersDTO filters = TrxFiltersDTO.builder()
+                .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
+                .pointOfSaleId(POINT_OF_SALE_ID)
+                .rewardBatchId(BATCH_ID)
+                .trxCode("MERCHANT-CODE")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE)
+                .build();
+
+        StepVerifier.create(createBatch()
+                        .then(seed(consultable, toCheck, differentUser))
+                        .thenMany(adapter.findMerchantTransactions(
+                                filters,
+                                USER_ID,
+                                true,
+                                PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "trxCode"))
+                        )))
+                .assertNext(transaction -> assertEquals("merchant-consultable", transaction.getId()))
+                .assertNext(transaction -> assertEquals("merchant-to-check", transaction.getId()))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.countMerchantTransactions(filters, USER_ID, true))
+                .expectNext(2L)
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldPagePointOfSaleTransactionsByBusinessStatusAndProductGtin() {
+        RewardTransaction cancelled = transaction(
+                "point-of-sale-cancelled",
+                SyncTrxStatus.CANCELLED,
+                RewardBatchTrxStatus.CONSULTABLE,
+                1
+        );
+        RewardTransaction invoiced = transaction(
+                "point-of-sale-invoiced",
+                SyncTrxStatus.INVOICED,
+                RewardBatchTrxStatus.CONSULTABLE,
+                2
+        );
+        RewardTransaction rewarded = transaction(
+                "point-of-sale-rewarded",
+                SyncTrxStatus.REWARDED,
+                RewardBatchTrxStatus.CONSULTABLE,
+                3
+        );
+        RewardTransaction refunded = transaction(
+                "point-of-sale-refunded",
+                SyncTrxStatus.REFUNDED,
+                RewardBatchTrxStatus.CONSULTABLE,
+                4
+        );
+        RewardTransaction unsupportedStatus = transaction(
+                "point-of-sale-authorized",
+                SyncTrxStatus.AUTHORIZED,
+                RewardBatchTrxStatus.CONSULTABLE,
+                5
+        );
+        RewardTransaction differentProduct = transaction(
+                "point-of-sale-different-product",
+                SyncTrxStatus.CANCELLED,
+                RewardBatchTrxStatus.CONSULTABLE,
+                6
+        );
+        differentProduct.setAdditionalProperties(Map.of("productName", "Other", "productGtin", "different"));
+
+        TrxFiltersDTO filters = TrxFiltersDTO.builder()
+                .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
+                .build();
+        PageRequest firstPage = PageRequest.of(0, 2, Sort.by(Sort.Direction.ASC, "status"));
+        PageRequest secondPage = PageRequest.of(1, 2, Sort.by(Sort.Direction.ASC, "status"));
+
+        StepVerifier.create(seed(
+                        refunded,
+                        rewarded,
+                        invoiced,
+                        cancelled,
+                        unsupportedStatus,
+                        differentProduct
+                ).thenMany(adapter.findPointOfSaleTransactions(
+                        filters,
+                        POINT_OF_SALE_ID,
+                        USER_ID,
+                        "ABC",
+                        false,
+                        firstPage
+                )))
+                .assertNext(transaction -> assertEquals("point-of-sale-cancelled", transaction.getId()))
+                .assertNext(transaction -> assertEquals("point-of-sale-invoiced", transaction.getId()))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findPointOfSaleTransactions(
+                        filters,
+                        POINT_OF_SALE_ID,
+                        USER_ID,
+                        "ABC",
+                        false,
+                        secondPage
+                ))
+                .assertNext(transaction -> assertEquals("point-of-sale-rewarded", transaction.getId()))
+                .assertNext(transaction -> assertEquals("point-of-sale-refunded", transaction.getId()))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.countPointOfSaleTransactions(
+                        filters,
+                        POINT_OF_SALE_ID,
+                        "ABC",
+                        USER_ID,
+                        false
+                ))
+                .expectNext(4L)
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldReadBatchTransactionsInDeterministicSamplingOrder() {
+        RewardTransaction first = transaction(
+                "batch-sample-a",
+                SyncTrxStatus.INVOICED,
+                RewardBatchTrxStatus.CONSULTABLE,
+                1
+        );
+        first.setRewardBatchId(BATCH_ID);
+        RewardTransaction second = transaction(
+                "batch-sample-b",
+                SyncTrxStatus.INVOICED,
+                RewardBatchTrxStatus.TO_CHECK,
+                1
+        );
+        second.setRewardBatchId(BATCH_ID);
+        RewardTransaction third = transaction(
+                "batch-sample-c",
+                SyncTrxStatus.INVOICED,
+                RewardBatchTrxStatus.CONSULTABLE,
+                2
+        );
+        third.setRewardBatchId(BATCH_ID);
+        RewardTransaction rejected = transaction(
+                "batch-rejected",
+                SyncTrxStatus.INVOICED,
+                RewardBatchTrxStatus.REJECTED,
+                0
+        );
+        rejected.setRewardBatchId(BATCH_ID);
+
+        StepVerifier.create(createBatch()
+                        .then(seed(third, second, rejected, first))
+                        .thenMany(adapter.findBatchTransactions(
+                                BATCH_ID,
+                                INITIATIVE_ID,
+                                List.of(RewardBatchTrxStatus.CONSULTABLE, RewardBatchTrxStatus.TO_CHECK)
+                        )))
+                .assertNext(transaction -> assertEquals("batch-sample-a", transaction.getId()))
+                .assertNext(transaction -> assertEquals("batch-sample-b", transaction.getId()))
+                .assertNext(transaction -> assertEquals("batch-sample-c", transaction.getId()))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findTransactionInBatch(
+                        INITIATIVE_ID,
+                        MERCHANT_ID,
+                        BATCH_ID,
+                        "batch-sample-b"
+                ))
+                .assertNext(transaction -> assertEquals("batch-sample-b", transaction.getId()))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldOnlyFindInvoiceEligibleTransactionsForTheMerchant() {
+        RewardTransaction eligible = transaction(
+                "invoice-eligible",
+                SyncTrxStatus.REWARDED,
+                RewardBatchTrxStatus.CONSULTABLE,
+                1
+        );
+        RewardTransaction ineligible = transaction(
+                "invoice-ineligible",
+                SyncTrxStatus.CANCELLED,
+                RewardBatchTrxStatus.CONSULTABLE,
+                2
+        );
+
+        StepVerifier.create(seed(eligible, ineligible)
+                        .then(adapter.findInvoiceTransaction(MERCHANT_ID, "invoice-eligible")))
+                .assertNext(transaction -> assertEquals("invoice-eligible", transaction.getId()))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findInvoiceTransaction(MERCHANT_ID, "invoice-ineligible"))
+                .verifyComplete();
+    }
+
+    private Mono<Void> createBatch() {
+        return databaseClient()
+                .sql("""
+                        INSERT INTO reward_batches (
+                            id, initiative_id, merchant_id, month, pos_type, status, name, assignee_level
+                        )
+                        VALUES (:id, :initiativeId, :merchantId, '2026-07', 'PHYSICAL', 'CREATED', 'July', 'L1')
+                        """)
+                .bind("id", BATCH_ID)
+                .bind("initiativeId", INITIATIVE_ID)
+                .bind("merchantId", MERCHANT_ID)
+                .fetch()
+                .rowsUpdated()
+                .then();
+    }
+
+    private static Mono<Void> seed(RewardTransaction... transactions) {
+        return Flux.fromArray(transactions)
+                .concatMap(transactionWriter::upsert)
+                .then();
+    }
+
+    private static RewardTransaction transaction(
+            String id,
+            SyncTrxStatus status,
+            RewardBatchTrxStatus rewardBatchTrxStatus,
+            int samplingKey
+    ) {
+        return RewardTransaction.builder()
+                .id(id)
+                .initiatives(List.of(INITIATIVE_ID))
+                .merchantId(MERCHANT_ID)
+                .pointOfSaleId(POINT_OF_SALE_ID)
+                .userId(USER_ID)
+                .status(status.name())
+                .trxCode(id)
+                .trxChargeDate(LocalDateTime.of(2026, 7, 1, 10, samplingKey))
+                .rewardBatchTrxStatus(rewardBatchTrxStatus)
+                .samplingKey(samplingKey)
+                .additionalProperties(Map.of("productName", "Coffee", "productGtin", "AbC-123"))
+                .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
+                .build();
+    }
+}
