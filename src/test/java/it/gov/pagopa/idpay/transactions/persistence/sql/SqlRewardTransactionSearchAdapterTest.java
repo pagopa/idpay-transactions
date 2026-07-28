@@ -9,6 +9,7 @@ import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 import java.util.Map;
 import org.jooq.SQLDialect;
@@ -467,7 +468,7 @@ class SqlRewardTransactionSearchAdapterTest extends PostgresqlMigrationTestSuppo
                 .userId(USER_ID)
                 .status(status.name())
                 .trxCode(id)
-                .trxChargeDate(LocalDateTime.of(2026, 7, 1, 10, samplingKey))
+                .trxChargeDate(LocalDateTime.of(2026, Month.JULY, 1, 10, samplingKey))
                 .rewardBatchTrxStatus(rewardBatchTrxStatus)
                 .samplingKey(samplingKey)
                 .additionalProperties(Map.of("productName", "Coffee", "productGtin", "AbC-123"))

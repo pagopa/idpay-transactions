@@ -5,7 +5,6 @@ import static org.jooq.impl.DSL.case_;
 import static org.jooq.impl.DSL.count;
 import static org.jooq.impl.DSL.falseCondition;
 import static org.jooq.impl.DSL.jsonbGetAttributeAsText;
-import static org.jooq.impl.DSL.trueCondition;
 
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
