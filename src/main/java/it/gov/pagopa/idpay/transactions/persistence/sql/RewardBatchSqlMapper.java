@@ -9,6 +9,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import lombok.RequiredArgsConstructor;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardBatchesRecord;
 import org.springframework.stereotype.Component;
+import org.jooq.Record;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
@@ -100,6 +101,32 @@ public class RewardBatchSqlMapper {
                 batchRecord.getRefundErrorMessage(),
                 batchRecord.getDeliveryOutcome() == null ? null : Json.of(batchRecord.getDeliveryOutcome().data())
         ));
+    }
+
+    RewardBatch fromAggregateRecord(
+            Record result,
+            BatchAggregateProjection aggregateProjection
+    ) {
+        RewardBatch batch = fromRecord(result.into(RewardBatchesRecord.class));
+        batch.setNumberOfTransactions(result.get(aggregateProjection.numberOfTransactions()));
+        batch.setInitialAmountCents(result.get(aggregateProjection.initialAmountCents()));
+        batch.setNumberOfTransactionsElaborated(result.get(aggregateProjection.numberOfTransactionsElaborated()));
+        batch.setNumberOfTransactionsSuspended(result.get(aggregateProjection.numberOfTransactionsSuspended()));
+        batch.setNumberOfTransactionsRejected(result.get(aggregateProjection.numberOfTransactionsRejected()));
+        batch.setSuspendedAmountCents(result.get(aggregateProjection.suspendedAmountCents()));
+        batch.setApprovedAmountCents(result.get(aggregateProjection.approvedAmountCents()));
+        return batch;
+    }
+
+    record BatchAggregateProjection(
+            org.jooq.Field<Long> numberOfTransactions,
+            org.jooq.Field<Long> initialAmountCents,
+            org.jooq.Field<Long> numberOfTransactionsElaborated,
+            org.jooq.Field<Long> numberOfTransactionsSuspended,
+            org.jooq.Field<Long> numberOfTransactionsRejected,
+            org.jooq.Field<Long> suspendedAmountCents,
+            org.jooq.Field<Long> approvedAmountCents
+    ) {
     }
 
     private Json toJson(DeliveryOutcomeDTO deliveryOutcome) {
