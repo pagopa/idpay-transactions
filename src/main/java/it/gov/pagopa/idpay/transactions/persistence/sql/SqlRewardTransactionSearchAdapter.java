@@ -323,9 +323,6 @@ public class SqlRewardTransactionSearchAdapter implements
         List<SortField<?>> sortFields = sort.stream()
                 .<SortField<?>>map(order -> sortableField(order.getProperty(), order.getDirection()))
                 .toList();
-        if (sortFields.isEmpty()) {
-            return List.of(REWARD_TRANSACTIONS.TRANSACTION_ID.asc());
-        }
         boolean hasTransactionId = sort.stream()
                 .anyMatch(order -> order.getProperty().equalsIgnoreCase("id")
                         || order.getProperty().equalsIgnoreCase("transactionId"));

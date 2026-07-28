@@ -18,6 +18,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.r2dbc.repository.support.R2dbcRepositoryFactory;
 import org.springframework.r2dbc.connection.TransactionAwareConnectionFactoryProxy;
@@ -105,6 +106,15 @@ class SqlRewardTransactionSearchAdapterTest extends PostgresqlMigrationTestSuppo
         differentUser.setTrxCode("merchant-code-c");
         differentUser.setUserId("other-user");
 
+        RewardTransaction approved = transaction(
+                "merchant-approved",
+                SyncTrxStatus.INVOICED,
+                RewardBatchTrxStatus.APPROVED,
+                4
+        );
+        approved.setRewardBatchId(BATCH_ID);
+        approved.setTrxCode("merchant-code-d");
+
         TrxFiltersDTO filters = TrxFiltersDTO.builder()
                 .merchantId(MERCHANT_ID)
                 .initiativeId(INITIATIVE_ID)
@@ -115,7 +125,7 @@ class SqlRewardTransactionSearchAdapterTest extends PostgresqlMigrationTestSuppo
                 .build();
 
         StepVerifier.create(createBatch()
-                        .then(seed(consultable, toCheck, differentUser))
+                        .then(seed(consultable, toCheck, differentUser, approved))
                         .thenMany(adapter.findMerchantTransactions(
                                 filters,
                                 USER_ID,
@@ -128,6 +138,43 @@ class SqlRewardTransactionSearchAdapterTest extends PostgresqlMigrationTestSuppo
 
         StepVerifier.create(adapter.countMerchantTransactions(filters, USER_ID, true))
                 .expectNext(2L)
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findMerchantTransactions(
+                        filters,
+                        USER_ID,
+                        true,
+                        PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "id"))
+                ))
+                .expectNextCount(2)
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findMerchantTransactions(
+                        filters,
+                        USER_ID,
+                        true,
+                        PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "transactionId"))
+                ))
+                .expectNextCount(2)
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findMerchantTransactions(
+                        filters,
+                        USER_ID,
+                        false,
+                        PageRequest.of(0, 10)
+                ))
+                .expectNextCount(1)
+                .verifyComplete();
+
+        filters.setRewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED);
+        StepVerifier.create(adapter.findMerchantTransactions(
+                        filters,
+                        USER_ID,
+                        true,
+                        PageRequest.of(0, 10)
+                ))
+                .assertNext(transaction -> assertEquals("merchant-approved", transaction.getId()))
                 .verifyComplete();
     }
 
@@ -209,6 +256,18 @@ class SqlRewardTransactionSearchAdapterTest extends PostgresqlMigrationTestSuppo
                 .assertNext(transaction -> assertEquals("point-of-sale-refunded", transaction.getId()))
                 .verifyComplete();
 
+        StepVerifier.create(adapter.findPointOfSaleTransactions(
+                        filters,
+                        POINT_OF_SALE_ID,
+                        USER_ID,
+                        "ABC",
+                        false,
+                        PageRequest.of(0, 2, Sort.by(Sort.Direction.DESC, "status"))
+                ))
+                .assertNext(transaction -> assertEquals("point-of-sale-refunded", transaction.getId()))
+                .assertNext(transaction -> assertEquals("point-of-sale-rewarded", transaction.getId()))
+                .verifyComplete();
+
         StepVerifier.create(adapter.countPointOfSaleTransactions(
                         filters,
                         POINT_OF_SALE_ID,
@@ -217,6 +276,68 @@ class SqlRewardTransactionSearchAdapterTest extends PostgresqlMigrationTestSuppo
                         false
                 ))
                 .expectNext(4L)
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldUseFallbacksForNullableFiltersAndPageables() {
+        RewardTransaction fallback = transaction(
+                "fallback",
+                SyncTrxStatus.INVOICED,
+                RewardBatchTrxStatus.CONSULTABLE,
+                1
+        );
+        TrxFiltersDTO filters = TrxFiltersDTO.builder()
+                .merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID)
+                .status(SyncTrxStatus.INVOICED.name())
+                .build();
+
+        StepVerifier.create(seed(fallback)
+                        .thenMany(adapter.findMerchantTransactions(filters, null, false, null)))
+                .assertNext(transaction -> assertEquals("fallback", transaction.getId()))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findMerchantTransactions(
+                        filters,
+                        null,
+                        false,
+                        Pageable.unpaged()
+                ))
+                .assertNext(transaction -> assertEquals("fallback", transaction.getId()))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findPointOfSaleTransactions(
+                        filters,
+                        POINT_OF_SALE_ID,
+                        USER_ID,
+                        " ",
+                        false,
+                        null
+                ))
+                .assertNext(transaction -> assertEquals("fallback", transaction.getId()))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findPointOfSaleTransactions(
+                        filters,
+                        POINT_OF_SALE_ID,
+                        USER_ID,
+                        " ",
+                        false,
+                        Pageable.unpaged()
+                ))
+                .assertNext(transaction -> assertEquals("fallback", transaction.getId()))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findPointOfSaleTransactions(
+                        filters,
+                        POINT_OF_SALE_ID,
+                        USER_ID,
+                        " ",
+                        false,
+                        PageRequest.of(0, 10)
+                ))
+                .assertNext(transaction -> assertEquals("fallback", transaction.getId()))
                 .verifyComplete();
     }
 
@@ -270,6 +391,19 @@ class SqlRewardTransactionSearchAdapterTest extends PostgresqlMigrationTestSuppo
                         "batch-sample-b"
                 ))
                 .assertNext(transaction -> assertEquals("batch-sample-b", transaction.getId()))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldReturnNoBatchTransactionsForNullOrEmptyStatuses() {
+        StepVerifier.create(adapter.findBatchTransactions(BATCH_ID, INITIATIVE_ID, null))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findBatchTransactions(
+                        BATCH_ID,
+                        INITIATIVE_ID,
+                        List.<RewardBatchTrxStatus>of()
+                ))
                 .verifyComplete();
     }
 
