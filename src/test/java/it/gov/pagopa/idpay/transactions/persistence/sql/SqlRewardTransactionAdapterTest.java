@@ -19,7 +19,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.r2dbc.repository.support.R2dbcRepositoryFactory;
 import org.springframework.r2dbc.connection.TransactionAwareConnectionFactoryProxy;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.test.StepVerifier;
@@ -39,8 +38,6 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
                         new TransactionAwareConnectionFactoryProxy(connectionFactory()),
                         SQLDialect.POSTGRES
                 ),
-                new R2dbcRepositoryFactory(r2dbcEntityTemplate())
-                        .getRepository(RewardTransactionSqlRepository.class),
                 new RewardTransactionSqlMapper(JsonMapper.builder().build())
         );
     }

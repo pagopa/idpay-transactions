@@ -64,6 +64,7 @@ import reactor.test.StepVerifier;
 import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.time.YearMonth;
 import java.util.Collections;
 import java.util.HashMap;
@@ -1474,7 +1475,7 @@ class RewardBatchServiceImplTest {
 
         RewardTransaction trxWithCF = RewardTransaction.builder()
                 .id("T1")
-                .trxChargeDate(LocalDateTime.of(2025, 12, 10, 10, 30))
+                .trxChargeDate(LocalDateTime.of(2025, Month.DECEMBER, 10, 10, 30))
                 .fiscalCode("CF1")
                 .trxCode("CODE")
                 .effectiveAmountCents(1000L)
@@ -1712,7 +1713,7 @@ class RewardBatchServiceImplTest {
                 .status(RewardBatchStatus.CREATED)
                 .build();
 
-        LocalDate initiativeEnd = LocalDate.of(2026, 1, 6);
+        LocalDate initiativeEnd = LocalDate.of(2026, Month.JANUARY, 6);
         InitiativeDetailDTO detail = new InitiativeDetailDTO();
         detail.setFruitionEndDate(initiativeEnd);
 
@@ -1829,7 +1830,7 @@ class RewardBatchServiceImplTest {
                 .build();
 
         InitiativeDetailDTO detail = new InitiativeDetailDTO();
-        detail.setFruitionEndDate(LocalDate.of(2027, 1, 1));
+        detail.setFruitionEndDate(LocalDate.of(2027, Month.JANUARY, 1));
 
         when(rewardTransactionRepository.findTransactionInBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "T1"))
                 .thenReturn(Mono.just(trx));
@@ -1878,7 +1879,7 @@ class RewardBatchServiceImplTest {
                 .build();
         
         InitiativeDetailDTO detail = new InitiativeDetailDTO();
-        detail.setFruitionEndDate(LocalDate.of(2027,1,1));
+        detail.setFruitionEndDate(LocalDate.of(2027, Month.JANUARY, 1));
         
         when(rewardTransactionRepository.findTransactionInBatch(INITIATIVE_ID, MERCHANT_ID, BATCH_ID, "T1"))
                 .thenReturn(Mono.just(trx));
@@ -2013,7 +2014,7 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Mono.just(trx));
 
         InitiativeDetailDTO detail = new InitiativeDetailDTO();
-        detail.setFruitionEndDate(LocalDate.of(2027,1,1));
+        detail.setFruitionEndDate(LocalDate.of(2027, Month.JANUARY, 1));
         when(initiativeDataService.getInitiativeData(eq(INITIATIVE_ID)))
                 .thenReturn(Mono.just(detail));
 

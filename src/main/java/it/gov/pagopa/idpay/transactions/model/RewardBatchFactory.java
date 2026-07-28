@@ -1,5 +1,7 @@
 package it.gov.pagopa.idpay.transactions.model;
 
+import static it.gov.pagopa.common.utils.CommonConstants.ZONEID;
+
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -21,7 +23,7 @@ public final class RewardBatchFactory {
             String businessName
     ) {
         YearMonth batchYearMonth = YearMonth.parse(month);
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZONEID);
 
         return RewardBatch.builder()
                 .merchantId(merchantId)

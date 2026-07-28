@@ -16,23 +16,24 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
 
     private final TransactionalOperator transactionalOperator;
     private final DSLContext dslContext;
-    private final RewardTransactionSqlRepository repository;
     private final RewardTransactionSqlMapper mapper;
 
     @Override
     public Mono<RewardTransaction> upsert(RewardTransaction transaction) {
-        return transactionalOperator.transactional(upsertWithinTransaction(transaction));
+        return transactionalOperator.transactional(upsertWithinTransaction(transaction, dslContext));
     }
 
-    Mono<RewardTransaction> upsertWithinTransaction(RewardTransaction transaction) {
+    Mono<RewardTransaction> upsertWithinTransaction(
+            RewardTransaction transaction,
+            DSLContext transactionDslContext
+    ) {
         RewardTransactionEntity entity = mapper.toEntity(transaction);
-        Mono<RewardTransaction> persisted = Mono.from(insertOrUpdate(mapper.toRecord(entity)))
-                .flatMap(ignored -> repository.findById(entity.id()))
-                .map(mapper::fromEntity);
-        Mono<RewardTransaction> rejected = repository.findById(entity.id())
+        Mono<RewardTransaction> persisted = Mono.from(insertOrUpdate(transactionDslContext, mapper.toRecord(entity)))
+                .flatMap(ignored -> findById(transactionDslContext, entity.id()));
+        Mono<RewardTransaction> rejected = findById(transactionDslContext, entity.id())
                         .flatMap(existing -> Mono.<RewardTransaction>error(new IllegalStateException(
                                 "Transaction %s already belongs to initiative %s"
-                                        .formatted(entity.id(), existing.initiativeId())
+                                        .formatted(entity.id(), existing.getInitiatives().getFirst())
                         )))
                         .switchIfEmpty(Mono.error(new IllegalStateException(
                                 "Transaction %s was not persisted".formatted(entity.id())
@@ -40,8 +41,17 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
         return persisted.switchIfEmpty(rejected);
     }
 
-    private org.jooq.InsertResultStep<?> insertOrUpdate(RewardTransactionsRecord transactionRecord) {
-        return dslContext.insertInto(REWARD_TRANSACTIONS)
+    private Mono<RewardTransaction> findById(DSLContext transactionDslContext, String transactionId) {
+        return Mono.from(transactionDslContext.selectFrom(REWARD_TRANSACTIONS)
+                        .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId)))
+                .map(mapper::fromRecord);
+    }
+
+    private org.jooq.InsertResultStep<?> insertOrUpdate(
+            DSLContext transactionDslContext,
+            RewardTransactionsRecord transactionRecord
+    ) {
+        return transactionDslContext.insertInto(REWARD_TRANSACTIONS)
                 .set(transactionRecord)
                 .onConflict(REWARD_TRANSACTIONS.TRANSACTION_ID)
                 .doUpdate()

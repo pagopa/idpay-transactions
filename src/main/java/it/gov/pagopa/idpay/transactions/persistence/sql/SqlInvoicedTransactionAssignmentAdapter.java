@@ -5,6 +5,7 @@ import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH;
 import static org.jooq.impl.DSL.currentLocalDateTime;
 
+import io.r2dbc.spi.ConnectionFactory;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
@@ -17,7 +18,10 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.JSONB;
+import org.jooq.SQLDialect;
+import org.jooq.impl.DSL;
 import org.springframework.http.HttpStatus;
+import org.springframework.r2dbc.connection.ConnectionFactoryUtils;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -27,6 +31,7 @@ public class SqlInvoicedTransactionAssignmentAdapter implements InvoicedTransact
 
     private final TransactionalOperator transactionalOperator;
     private final DSLContext dslContext;
+    private final ConnectionFactory connectionFactory;
     private final SqlRewardBatchAdapter batchAdapter;
     private final SqlRewardTransactionAdapter transactionAdapter;
     private final RewardBatchSqlMapper batchMapper;
@@ -64,33 +69,52 @@ public class SqlInvoicedTransactionAssignmentAdapter implements InvoicedTransact
             ));
         }
 
-        return transactionalOperator.transactional(transactionAdapter.upsertWithinTransaction(transaction)
+        return transactionalOperator.transactional(ConnectionFactoryUtils.getConnection(connectionFactory)
+                        .flatMap(connection -> assignWithinTransaction(
+                                DSL.using(connection, SQLDialect.POSTGRES),
+                                transaction,
+                                batch,
+                                samplingKey,
+                                initiativeId
+                        )))
+                .onErrorMap(
+                        BatchStatusMismatchException.class,
+                        exception -> new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_STATUS_MISMATCH)
+                );
+    }
+
+    private Mono<RewardTransaction> assignWithinTransaction(
+            DSLContext transactionDslContext,
+            RewardTransaction transaction,
+            RewardBatch batch,
+            int samplingKey,
+            String initiativeId
+    ) {
+        return transactionAdapter.upsertWithinTransaction(transaction, transactionDslContext)
                 .flatMap(persisted -> persisted.getRewardBatchId() == null
-                        ? lockOrCreateBatch(batch)
+                        ? lockOrCreateBatch(transactionDslContext, batch)
                                 .flatMap(lockedBatch -> {
                                     if (lockedBatch.getStatus() != RewardBatchStatus.CREATED) {
-                                        return Mono.error(new ClientExceptionNoBody(
-                                                HttpStatus.BAD_REQUEST,
-                                                REWARD_BATCH_STATUS_MISMATCH
-                                        ));
+                                        return Mono.error(new BatchStatusMismatchException());
                                     }
                                     return claimTransaction(
+                                            transactionDslContext,
                                             persisted.getId(),
                                             initiativeId,
                                             lockedBatch.getId(),
                                             samplingKey
                                     );
                                 })
-                        : Mono.just(persisted)));
+                        : Mono.just(persisted));
     }
 
-    private Mono<RewardBatch> lockOrCreateBatch(RewardBatch batch) {
+    private Mono<RewardBatch> lockOrCreateBatch(DSLContext transactionDslContext, RewardBatch batch) {
         if (batch.getId() == null) {
             batch.setId(UUID.randomUUID().toString());
         }
 
-        return batchAdapter.createOrRead(batch)
-                .flatMap(created -> Mono.from(dslContext.selectFrom(REWARD_BATCHES)
+        return batchAdapter.createOrReadWithinTransaction(batch, transactionDslContext)
+                .flatMap(created -> Mono.from(transactionDslContext.selectFrom(REWARD_BATCHES)
                                 .where(REWARD_BATCHES.ID.eq(created.getId())
                                         .and(REWARD_BATCHES.INITIATIVE_ID.eq(created.getInitiativeId())))
                                 .forUpdate())
@@ -98,12 +122,13 @@ public class SqlInvoicedTransactionAssignmentAdapter implements InvoicedTransact
     }
 
     private Mono<RewardTransaction> claimTransaction(
+            DSLContext transactionDslContext,
             String transactionId,
             String initiativeId,
             String rewardBatchId,
             int samplingKey
     ) {
-        return Mono.from(dslContext.update(REWARD_TRANSACTIONS)
+        return Mono.from(transactionDslContext.update(REWARD_TRANSACTIONS)
                         .set(REWARD_TRANSACTIONS.REWARD_BATCH_ID, rewardBatchId)
                         .set(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS,
                                 RewardBatchTrxStatus.CONSULTABLE.name())
@@ -117,11 +142,15 @@ public class SqlInvoicedTransactionAssignmentAdapter implements InvoicedTransact
                                 .and(REWARD_TRANSACTIONS.REWARD_BATCH_ID.isNull()))
                         .returning())
                 .map(transactionMapper::fromRecord)
-                .switchIfEmpty(findPersistedTransaction(transactionId, initiativeId));
+                .switchIfEmpty(findPersistedTransaction(transactionDslContext, transactionId, initiativeId));
     }
 
-    private Mono<RewardTransaction> findPersistedTransaction(String transactionId, String initiativeId) {
-        return Mono.from(dslContext.selectFrom(REWARD_TRANSACTIONS)
+    private Mono<RewardTransaction> findPersistedTransaction(
+            DSLContext transactionDslContext,
+            String transactionId,
+            String initiativeId
+    ) {
+        return Mono.from(transactionDslContext.selectFrom(REWARD_TRANSACTIONS)
                         .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId)
                                 .and(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(initiativeId))))
                 .map(transactionMapper::fromRecord)
@@ -136,5 +165,9 @@ public class SqlInvoicedTransactionAssignmentAdapter implements InvoicedTransact
             throw new IllegalArgumentException("A reward transaction must have exactly one initiative");
         }
         return initiatives.getFirst();
+    }
+
+    private static final class BatchStatusMismatchException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
     }
 }

@@ -53,14 +53,18 @@ public class SqlRewardBatchAdapter {
     }
 
     public Mono<RewardBatch> createOrRead(RewardBatch batch) {
+        return transactionalOperator.transactional(createOrReadWithinTransaction(batch, dslContext));
+    }
+
+    Mono<RewardBatch> createOrReadWithinTransaction(RewardBatch batch, DSLContext transactionDslContext) {
         RewardBatchEntity entity = mapper.toEntity(batch);
-        return transactionalOperator.transactional(insert(entity)
-                .switchIfEmpty(findByGrouping(
+        return insert(transactionDslContext, entity)
+                .switchIfEmpty(findByGrouping(transactionDslContext,
                         entity.initiativeId(),
                         entity.merchantId(),
                         PosType.valueOf(entity.posType()),
                         entity.month()
-                )));
+                ));
     }
 
     public Mono<RewardBatch> save(RewardBatch batch) {
@@ -68,7 +72,7 @@ public class SqlRewardBatchAdapter {
         return transactionalOperator.transactional(repository.existsById(entity.id())
                         .flatMap(exists -> exists.booleanValue()
                                 ? repository.save(entity).map(mapper::fromEntity)
-                                : insert(entity).switchIfEmpty(findByGrouping(
+                                : insert(dslContext, entity).switchIfEmpty(findByGrouping(
                                         entity.initiativeId(),
                                         entity.merchantId(),
                                         PosType.valueOf(entity.posType()),
@@ -113,8 +117,23 @@ public class SqlRewardBatchAdapter {
                 .map(mapper::fromRecord));
     }
 
-    private Mono<RewardBatch> insert(RewardBatchEntity entity) {
-        return Mono.from(dslContext.insertInto(REWARD_BATCHES)
+    private Mono<RewardBatch> findByGrouping(
+            DSLContext transactionDslContext,
+            String initiativeId,
+            String merchantId,
+            PosType posType,
+            String month
+    ) {
+        return Mono.from(transactionDslContext.selectFrom(REWARD_BATCHES)
+                        .where(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId))
+                        .and(REWARD_BATCHES.MERCHANT_ID.eq(merchantId))
+                        .and(REWARD_BATCHES.POS_TYPE.eq(posType.name()))
+                        .and(REWARD_BATCHES.MONTH.eq(month)))
+                .map(mapper::fromRecord);
+    }
+
+    private Mono<RewardBatch> insert(DSLContext transactionDslContext, RewardBatchEntity entity) {
+        return Mono.from(transactionDslContext.insertInto(REWARD_BATCHES)
                         .set(REWARD_BATCHES.ID, entity.id())
                         .set(REWARD_BATCHES.INITIATIVE_ID, entity.initiativeId())
                         .set(REWARD_BATCHES.MERCHANT_ID, entity.merchantId())

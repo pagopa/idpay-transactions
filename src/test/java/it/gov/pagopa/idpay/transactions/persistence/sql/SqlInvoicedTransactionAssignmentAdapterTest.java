@@ -5,9 +5,12 @@ import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.Reward;
@@ -27,6 +30,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.r2dbc.repository.support.R2dbcRepositoryFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.r2dbc.connection.TransactionAwareConnectionFactoryProxy;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Flux;
@@ -62,13 +66,12 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
         SqlRewardTransactionAdapter transactionAdapter = new SqlRewardTransactionAdapter(
                 transactionalOperator(),
                 dslContext,
-                new R2dbcRepositoryFactory(r2dbcEntityTemplate())
-                        .getRepository(RewardTransactionSqlRepository.class),
                 transactionMapper
         );
         adapter = new SqlInvoicedTransactionAssignmentAdapter(
                 transactionalOperator(),
                 dslContext,
+                connectionFactory(),
                 batchAdapter,
                 transactionAdapter,
                 batchMapper,
@@ -120,6 +123,32 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
     }
 
     @Test
+    void shouldFindOnlyOrderedInvoicedTransactionsWithoutABatch() {
+        StepVerifier.create(databaseClient()
+                        .sql("""
+                                INSERT INTO reward_transactions (
+                                    transaction_id, initiative_id, status, accrued_reward_cents
+                                )
+                                VALUES
+                                    ('candidate-b', 'initiative-1', 'INVOICED', 0),
+                                    ('candidate-a', 'initiative-1', 'INVOICED', 0),
+                                    ('not-a-candidate', 'initiative-1', 'CANCELLED', 0)
+                                """)
+                        .fetch()
+                        .rowsUpdated()
+                        .thenMany(adapter.findInvoicedTransactionsWithoutBatch(2)))
+                .assertNext(transaction -> assertEquals("candidate-a", transaction.getId()))
+                .assertNext(transaction -> assertEquals("candidate-b", transaction.getId()))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findInvoicedTransactionWithoutBatch("candidate-a"))
+                .assertNext(transaction -> assertEquals("candidate-a", transaction.getId()))
+                .verifyComplete();
+        StepVerifier.create(adapter.findInvoicedTransactionWithoutBatch("not-a-candidate"))
+                .verifyComplete();
+    }
+
+    @Test
     void shouldRejectABatchFromAnotherInitiativeBeforePersistingTheTransaction() {
         RewardBatch batch = batch();
         batch.setInitiativeId("other-initiative");
@@ -135,6 +164,71 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
 
         StepVerifier.create(Mono.from(dslContext.selectCount().from(REWARD_TRANSACTIONS)))
                 .expectNextMatches(result -> result.value1() == 0)
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldRejectTransactionsWithoutExactlyOneNonBlankInitiative() {
+        RewardTransaction withoutInitiative = transaction("transaction-without-initiative", 750L);
+        withoutInitiative.setInitiatives(null);
+        RewardTransaction withMultipleInitiatives = transaction("transaction-multiple-initiatives", 750L);
+        withMultipleInitiatives.setInitiatives(List.of(INITIATIVE_ID, "initiative-2"));
+        RewardTransaction withBlankInitiative = transaction("transaction-blank-initiative", 750L);
+        withBlankInitiative.setInitiatives(List.of(" "));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> adapter.assignInvoicedTransaction(withoutInitiative, batch(), 123)
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> adapter.assignInvoicedTransaction(withMultipleInitiatives, batch(), 123)
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> adapter.assignInvoicedTransaction(withBlankInitiative, batch(), 123)
+        );
+    }
+
+    @Test
+    void shouldRejectAnAssignmentToANonCreatedBatchWithoutPersistingChanges() {
+        RewardBatch batch = batch();
+        batch.setId("sent-batch");
+        batch.setStatus(RewardBatchStatus.SENT);
+
+        StepVerifier.create(adapter.assignInvoicedTransaction(
+                        transaction("transaction-sent-batch", 750L),
+                        batch,
+                        123
+                ))
+                .expectErrorMatches(error -> error instanceof ClientExceptionNoBody exception
+                        && exception.getHttpStatus() == HttpStatus.BAD_REQUEST)
+                .verify();
+
+        StepVerifier.create(Mono.zip(
+                        Mono.from(dslContext.selectCount().from(REWARD_TRANSACTIONS))
+                                .map(result -> result.value1()),
+                        Mono.from(dslContext.selectCount().from(REWARD_BATCHES))
+                                .map(result -> result.value1())
+                ))
+                .assertNext(counts -> {
+                    assertEquals(0, counts.getT1());
+                    assertEquals(0, counts.getT2());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldAssignUsingTheProvidedBatchIdentifier() {
+        RewardBatch batch = batch();
+        batch.setId("provided-batch-id");
+
+        StepVerifier.create(adapter.assignInvoicedTransaction(
+                        transaction("transaction-provided-batch", 750L),
+                        batch,
+                        123
+                ))
+                .assertNext(assigned -> assertEquals("provided-batch-id", assigned.getRewardBatchId()))
                 .verifyComplete();
     }
 

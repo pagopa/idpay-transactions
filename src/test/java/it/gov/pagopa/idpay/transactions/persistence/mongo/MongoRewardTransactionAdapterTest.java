@@ -1,26 +1,34 @@
 package it.gov.pagopa.idpay.transactions.persistence.mongo;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
+import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DuplicateKeyException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -115,6 +123,129 @@ class MongoRewardTransactionAdapterTest {
     }
 
     @Test
+    void assignmentPersistsMembershipAndDerivedMongoCounters() {
+        MongoRewardTransactionAdapter adapter = new MongoRewardTransactionAdapter(
+                rewardTransactionRepository,
+                rewardBatchRepository
+        );
+        RewardTransaction transaction = transaction();
+        transaction.setPointOfSaleType(PosType.PHYSICAL);
+        transaction.setRewards(Map.of(
+                INITIATIVE_ID,
+                Reward.builder().accruedRewardCents(250L).build()
+        ));
+        RewardBatch batch = createdBatch();
+
+        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
+                INITIATIVE_ID,
+                MERCHANT_ID,
+                PosType.PHYSICAL,
+                "2026-07"
+        )).thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.updateTotals(
+                eq(INITIATIVE_ID),
+                eq(BATCH_ID),
+                argThat(counters -> counters.getInitialAmountCents().equals(250L)
+                        && counters.getNumberOfTransactions().equals(1L))
+        )).thenReturn(Mono.just(batch));
+        when(rewardTransactionRepository.save(transaction)).thenReturn(Mono.just(transaction));
+
+        StepVerifier.create(adapter.assignInvoicedTransaction(transaction, batch, 42))
+                .assertNext(assigned -> {
+                    assertEquals(BATCH_ID, assigned.getRewardBatchId());
+                    assertEquals(RewardBatchTrxStatus.CONSULTABLE, assigned.getRewardBatchTrxStatus());
+                    assertEquals(42, assigned.getSamplingKey());
+                    assertNotNull(assigned.getRewardBatchInclusionDate());
+                })
+                .verifyComplete();
+
+        verify(rewardTransactionRepository).save(transaction);
+    }
+
+    @Test
+    void assignmentCreatesAMissingBatchBeforePersistingTheTransaction() {
+        MongoRewardTransactionAdapter adapter = new MongoRewardTransactionAdapter(
+                rewardTransactionRepository,
+                rewardBatchRepository
+        );
+        RewardTransaction transaction = transaction();
+        transaction.setPointOfSaleType(PosType.PHYSICAL);
+        RewardBatch batch = createdBatch();
+
+        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
+                INITIATIVE_ID,
+                MERCHANT_ID,
+                PosType.PHYSICAL,
+                "2026-07"
+        )).thenReturn(Mono.empty());
+        when(rewardBatchRepository.save(batch)).thenReturn(Mono.just(batch));
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID), any()))
+                .thenReturn(Mono.just(batch));
+        when(rewardTransactionRepository.save(transaction)).thenReturn(Mono.just(transaction));
+
+        StepVerifier.create(adapter.assignInvoicedTransaction(transaction, batch, 42))
+                .expectNext(transaction)
+                .verifyComplete();
+
+        verify(rewardBatchRepository).save(batch);
+    }
+
+    @Test
+    void assignmentReadsTheBatchAfterADuplicateKeyRace() {
+        MongoRewardTransactionAdapter adapter = new MongoRewardTransactionAdapter(
+                rewardTransactionRepository,
+                rewardBatchRepository
+        );
+        RewardTransaction transaction = transaction();
+        transaction.setPointOfSaleType(PosType.PHYSICAL);
+        RewardBatch batch = createdBatch();
+
+        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
+                INITIATIVE_ID,
+                MERCHANT_ID,
+                PosType.PHYSICAL,
+                "2026-07"
+        )).thenReturn(Mono.empty(), Mono.just(batch));
+        when(rewardBatchRepository.save(batch)).thenReturn(Mono.error(new DuplicateKeyException("duplicate")));
+        when(rewardBatchRepository.updateTotals(eq(INITIATIVE_ID), eq(BATCH_ID), any()))
+                .thenReturn(Mono.just(batch));
+        when(rewardTransactionRepository.save(transaction)).thenReturn(Mono.just(transaction));
+
+        StepVerifier.create(adapter.assignInvoicedTransaction(transaction, batch, 42))
+                .expectNext(transaction)
+                .verifyComplete();
+
+        verify(rewardBatchRepository).save(batch);
+    }
+
+    @Test
+    void assignmentRejectsABatchThatIsNoLongerCreated() {
+        MongoRewardTransactionAdapter adapter = new MongoRewardTransactionAdapter(
+                rewardTransactionRepository,
+                rewardBatchRepository
+        );
+        RewardTransaction transaction = transaction();
+        transaction.setPointOfSaleType(PosType.PHYSICAL);
+        RewardBatch batch = createdBatch();
+        batch.setStatus(RewardBatchStatus.SENT);
+
+        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
+                INITIATIVE_ID,
+                MERCHANT_ID,
+                PosType.PHYSICAL,
+                "2026-07"
+        )).thenReturn(Mono.just(batch));
+
+        StepVerifier.create(adapter.assignInvoicedTransaction(transaction, batch, 42))
+                .expectErrorMatches(error -> error instanceof ClientExceptionNoBody exception
+                        && exception.getHttpStatus().is4xxClientError())
+                .verify();
+
+        verify(rewardBatchRepository, never()).updateTotals(any(), any(), any());
+        verify(rewardTransactionRepository, never()).save(transaction);
+    }
+
+    @Test
     void assignmentRejectsABatchFromAnotherInitiative() {
         MongoRewardTransactionAdapter adapter = new MongoRewardTransactionAdapter(
                 rewardTransactionRepository,
@@ -138,6 +269,33 @@ class MongoRewardTransactionAdapterTest {
                 any(),
                 any(),
                 any()
+        );
+    }
+
+    @Test
+    void assignmentRejectsTransactionsWithoutExactlyOneNonBlankInitiative() {
+        MongoRewardTransactionAdapter adapter = new MongoRewardTransactionAdapter(
+                rewardTransactionRepository,
+                rewardBatchRepository
+        );
+        RewardTransaction withoutInitiative = transaction();
+        withoutInitiative.setInitiatives(null);
+        RewardTransaction withMultipleInitiatives = transaction();
+        withMultipleInitiatives.setInitiatives(List.of(INITIATIVE_ID, "initiative-2"));
+        RewardTransaction withBlankInitiative = transaction();
+        withBlankInitiative.setInitiatives(List.of(" "));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> adapter.assignInvoicedTransaction(withoutInitiative, createdBatch(), 42)
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> adapter.assignInvoicedTransaction(withMultipleInitiatives, createdBatch(), 42)
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> adapter.assignInvoicedTransaction(withBlankInitiative, createdBatch(), 42)
         );
     }
 
@@ -232,6 +390,17 @@ class MongoRewardTransactionAdapterTest {
                 .id(TRANSACTION_ID)
                 .merchantId(MERCHANT_ID)
                 .initiatives(List.of(INITIATIVE_ID))
+                .build();
+    }
+
+    private RewardBatch createdBatch() {
+        return RewardBatch.builder()
+                .id(BATCH_ID)
+                .initiativeId(INITIATIVE_ID)
+                .merchantId(MERCHANT_ID)
+                .posType(PosType.PHYSICAL)
+                .month("2026-07")
+                .status(RewardBatchStatus.CREATED)
                 .build();
     }
 }

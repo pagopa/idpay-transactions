@@ -25,6 +25,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import static it.gov.pagopa.common.utils.CommonConstants.ZONEID;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH;
 
 @Component
@@ -93,10 +94,10 @@ public class MongoRewardTransactionAdapter implements
                             .flatMap(updatedBatch -> {
                                 transaction.setRewardBatchId(updatedBatch.getId());
                                 transaction.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-                                transaction.setRewardBatchInclusionDate(LocalDateTime.now());
+                                transaction.setRewardBatchInclusionDate(LocalDateTime.now(ZONEID));
                                 transaction.setRewardBatchRejectionReason(null);
                                 transaction.setSamplingKey(samplingKey);
-                                transaction.setUpdateDate(LocalDateTime.now());
+                                transaction.setUpdateDate(LocalDateTime.now(ZONEID));
                                 return rewardTransactionRepository.save(transaction);
                             });
                 });
