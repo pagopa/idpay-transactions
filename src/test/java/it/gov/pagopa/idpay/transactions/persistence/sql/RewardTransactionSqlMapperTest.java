@@ -51,10 +51,11 @@ class RewardTransactionSqlMapperTest {
         when(objectMapper.writeValueAsString(any())).thenThrow(failure);
         RewardTransaction transaction = transaction();
         transaction.setRejectionReasons(List.of("reason"));
+        RewardTransactionSqlMapper mapper = new RewardTransactionSqlMapper(objectMapper);
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> new RewardTransactionSqlMapper(objectMapper).toEntity(transaction)
+                () -> mapper.toEntity(transaction)
         );
 
         assertEquals("Unable to serialize reward transaction JSON", exception.getMessage());
@@ -69,10 +70,11 @@ class RewardTransactionSqlMapperTest {
         ObjectMapper objectMapper = mock(ObjectMapper.class);
         DatabindException failure = jacksonFailure("type reference deserialization failure");
         when(objectMapper.readValue(anyString(), any(TypeReference.class))).thenThrow(failure);
+        RewardTransactionSqlMapper mapper = new RewardTransactionSqlMapper(objectMapper);
 
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class,
-                () -> new RewardTransactionSqlMapper(objectMapper).fromEntity(entity)
+                () -> mapper.fromEntity(entity)
         );
 
         assertEquals("Unable to deserialize reward transaction JSON", exception.getMessage());
@@ -87,10 +89,11 @@ class RewardTransactionSqlMapperTest {
         ObjectMapper objectMapper = mock(ObjectMapper.class);
         DatabindException failure = jacksonFailure("class deserialization failure");
         when(objectMapper.readValue(anyString(), eq(RefundInfo.class))).thenThrow(failure);
+        RewardTransactionSqlMapper mapper = new RewardTransactionSqlMapper(objectMapper);
 
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class,
-                () -> new RewardTransactionSqlMapper(objectMapper).fromEntity(entity)
+                () -> mapper.fromEntity(entity)
         );
 
         assertEquals("Unable to deserialize reward transaction JSON", exception.getMessage());
@@ -102,8 +105,9 @@ class RewardTransactionSqlMapperTest {
         RewardTransactionEntity entity = mock(RewardTransactionEntity.class);
         when(entity.initiativeId()).thenReturn(INITIATIVE_ID);
         when(entity.rewardBatchTrxStatus()).thenReturn("UNKNOWN");
+        RewardTransactionSqlMapper mapper = mapper();
 
-        assertThrows(IllegalArgumentException.class, () -> mapper().fromEntity(entity));
+        assertThrows(IllegalArgumentException.class, () -> mapper.fromEntity(entity));
     }
 
     @Test
@@ -111,8 +115,9 @@ class RewardTransactionSqlMapperTest {
         RewardTransactionEntity entity = mock(RewardTransactionEntity.class);
         when(entity.initiativeId()).thenReturn(INITIATIVE_ID);
         when(entity.pointOfSaleType()).thenReturn("UNKNOWN");
+        RewardTransactionSqlMapper mapper = mapper();
 
-        assertThrows(IllegalArgumentException.class, () -> mapper().fromEntity(entity));
+        assertThrows(IllegalArgumentException.class, () -> mapper.fromEntity(entity));
     }
 
     private static RewardTransactionSqlMapper mapper() {

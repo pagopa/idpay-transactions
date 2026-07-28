@@ -36,9 +36,9 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
         return transactionalOperator.transactional(persisted.switchIfEmpty(rejected));
     }
 
-    private org.jooq.InsertResultStep<?> insertOrUpdate(RewardTransactionsRecord record) {
+    private org.jooq.InsertResultStep<?> insertOrUpdate(RewardTransactionsRecord transactionRecord) {
         return dslContext.insertInto(REWARD_TRANSACTIONS)
-                .set(record)
+                .set(transactionRecord)
                 .onConflict(REWARD_TRANSACTIONS.TRANSACTION_ID)
                 .doUpdate()
                 .set(REWARD_TRANSACTIONS.ID_TRX_ACQUIRER, excluded(REWARD_TRANSACTIONS.ID_TRX_ACQUIRER))
@@ -82,7 +82,7 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
                 .set(REWARD_TRANSACTIONS.CHECKS_ERROR, excluded(REWARD_TRANSACTIONS.CHECKS_ERROR))
                 .set(REWARD_TRANSACTIONS.ACCRUED_REWARD_CENTS,
                         excluded(REWARD_TRANSACTIONS.ACCRUED_REWARD_CENTS))
-                .where(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(record.getInitiativeId()))
+                .where(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(transactionRecord.getInitiativeId()))
                 .returning(REWARD_TRANSACTIONS.TRANSACTION_ID);
     }
 }
