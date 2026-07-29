@@ -21,7 +21,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.r2dbc.repository.support.R2dbcRepositoryFactory;
 import org.springframework.r2dbc.connection.TransactionAwareConnectionFactoryProxy;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Flux;
@@ -52,8 +51,6 @@ class SqlRewardTransactionSearchAdapterTest extends PostgresqlMigrationTestSuppo
         transactionWriter = new SqlRewardTransactionAdapter(
                 transactionalOperator(),
                 dslContext,
-                new R2dbcRepositoryFactory(r2dbcEntityTemplate())
-                        .getRepository(RewardTransactionSqlRepository.class),
                 mapper
         );
         adapter = new SqlRewardTransactionSearchAdapter(dslContext, mapper);
