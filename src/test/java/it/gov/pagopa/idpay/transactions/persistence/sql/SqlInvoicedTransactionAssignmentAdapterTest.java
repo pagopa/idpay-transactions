@@ -23,6 +23,7 @@ import java.time.Month;
 import java.util.List;
 import java.util.Map;
 import org.jooq.DSLContext;
+import org.jooq.Record1;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 import org.junit.jupiter.api.AfterAll;
@@ -175,18 +176,19 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
         withMultipleInitiatives.setInitiatives(List.of(INITIATIVE_ID, "initiative-2"));
         RewardTransaction withBlankInitiative = transaction("transaction-blank-initiative", 750L);
         withBlankInitiative.setInitiatives(List.of(" "));
+        RewardBatch invalidBatch = batch();
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> adapter.assignInvoicedTransaction(withoutInitiative, batch(), 123)
+                () -> adapter.assignInvoicedTransaction(withoutInitiative, invalidBatch, 123)
         );
         assertThrows(
                 IllegalArgumentException.class,
-                () -> adapter.assignInvoicedTransaction(withMultipleInitiatives, batch(), 123)
+                () -> adapter.assignInvoicedTransaction(withMultipleInitiatives, invalidBatch, 123)
         );
         assertThrows(
                 IllegalArgumentException.class,
-                () -> adapter.assignInvoicedTransaction(withBlankInitiative, batch(), 123)
+                () -> adapter.assignInvoicedTransaction(withBlankInitiative, invalidBatch, 123)
         );
     }
 
@@ -207,9 +209,9 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
 
         StepVerifier.create(Mono.zip(
                         Mono.from(dslContext.selectCount().from(REWARD_TRANSACTIONS))
-                                .map(result -> result.value1()),
+                                .map(Record1::value1),
                         Mono.from(dslContext.selectCount().from(REWARD_BATCHES))
-                                .map(result -> result.value1())
+                                .map(Record1::value1)
                 ))
                 .assertNext(counts -> {
                     assertEquals(0, counts.getT1());
@@ -290,7 +292,7 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
                         ))))
                 .expectNextMatches(result -> result.value1() == 2)
                 .verifyComplete();
-        StepVerifier.create(Mono.from(dslContext.select(REWARD_TRANSACTIONS.ACCRUED_REWARD_CENTS.sum())
+        StepVerifier.create(Mono.from(dslContext.select(DSL.sum(REWARD_TRANSACTIONS.ACCRUED_REWARD_CENTS))
                         .from(REWARD_TRANSACTIONS)
                         .where(REWARD_TRANSACTIONS.REWARD_BATCH_ID.isNotNull())))
                 .expectNextMatches(result -> result.value1().longValue() == 750L)

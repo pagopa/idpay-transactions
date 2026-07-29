@@ -284,18 +284,19 @@ class MongoRewardTransactionAdapterTest {
         withMultipleInitiatives.setInitiatives(List.of(INITIATIVE_ID, "initiative-2"));
         RewardTransaction withBlankInitiative = transaction();
         withBlankInitiative.setInitiatives(List.of(" "));
+        RewardBatch invalidBatch = createdBatch();
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> adapter.assignInvoicedTransaction(withoutInitiative, createdBatch(), 42)
+                () -> adapter.assignInvoicedTransaction(withoutInitiative, invalidBatch, 42)
         );
         assertThrows(
                 IllegalArgumentException.class,
-                () -> adapter.assignInvoicedTransaction(withMultipleInitiatives, createdBatch(), 42)
+                () -> adapter.assignInvoicedTransaction(withMultipleInitiatives, invalidBatch, 42)
         );
         assertThrows(
                 IllegalArgumentException.class,
-                () -> adapter.assignInvoicedTransaction(withBlankInitiative, createdBatch(), 42)
+                () -> adapter.assignInvoicedTransaction(withBlankInitiative, invalidBatch, 42)
         );
     }
 

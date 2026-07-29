@@ -1,5 +1,9 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.PointOfSaleDTO;
@@ -151,7 +155,7 @@ class RewardTransactionServiceImplTest {
         batch.setInitiativeId(INITIATIVE_ID);
         batch.setStatus(RewardBatchStatus.CREATED);
 
-        Mockito.when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
+        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
                 rt.getInitiatives().getFirst(),
                 rt.getMerchantId(),
                 rt.getPointOfSaleType(),
@@ -280,7 +284,7 @@ class RewardTransactionServiceImplTest {
         batch.setId("BATCH_ID");
         batch.setStatus(RewardBatchStatus.CREATED);
 
-        Mockito.when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
+        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
                 rt.getInitiatives().getFirst(),
                 rt.getMerchantId(),
                 rt.getPointOfSaleType(),
@@ -302,7 +306,7 @@ class RewardTransactionServiceImplTest {
         RewardTransaction result = rewardTransactionService.save(rt).block();
         Assertions.assertNotNull(result);
 
-        Mockito.verify(rewardBatchRepository).findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
+        verify(rewardBatchRepository).findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
                 rt.getInitiatives().getFirst(),
                 rt.getMerchantId(),
                 rt.getPointOfSaleType(),
@@ -358,7 +362,7 @@ class RewardTransactionServiceImplTest {
                         .businessName("BusinessName")
                         .build()));
 
-        Mockito.when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
+        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
                         Mockito.anyString(),
                         Mockito.any(),
                         Mockito.any(),
@@ -379,7 +383,7 @@ class RewardTransactionServiceImplTest {
         Mockito.verify(merchantRestClient, Mockito.times(2))
                 .getPointOfSale(Mockito.anyString(), Mockito.anyString());
 
-        Mockito.verify(rewardBatchRepository, Mockito.times(2))
+        verify(rewardBatchRepository, times(2))
                 .findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
                         Mockito.anyString(),
                         Mockito.anyString(),
@@ -442,7 +446,7 @@ class RewardTransactionServiceImplTest {
                         .businessName("BusinessName")
                         .build()));
 
-        Mockito.when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
+        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
                         Mockito.anyString(),
                         Mockito.any(),
                         Mockito.any(),
@@ -463,7 +467,7 @@ class RewardTransactionServiceImplTest {
         Mockito.verify(merchantRestClient, Mockito.times(2))
                 .getPointOfSale(Mockito.anyString(), Mockito.anyString());
 
-        Mockito.verify(rewardBatchRepository, Mockito.times(2))
+        verify(rewardBatchRepository, times(2))
                 .findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
                         Mockito.anyString(),
                         Mockito.anyString(),
@@ -531,7 +535,7 @@ class RewardTransactionServiceImplTest {
                         .businessName("BusinessName")
                         .build()));
 
-        Mockito.when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
+        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
                         Mockito.anyString(),
                         Mockito.any(),
                         Mockito.any(),
@@ -588,7 +592,7 @@ class RewardTransactionServiceImplTest {
                         .businessName("BusinessName")
                         .build()));
 
-        Mockito.when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
+        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
                         Mockito.anyString(),
                         Mockito.any(),
                         Mockito.any(),
@@ -645,7 +649,7 @@ class RewardTransactionServiceImplTest {
                         .businessName("BusinessName")
                         .build()));
 
-        Mockito.when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
+        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
                         Mockito.anyString(),
                         Mockito.any(),
                         Mockito.any(),
@@ -689,7 +693,7 @@ class RewardTransactionServiceImplTest {
         batch.setId("BATCH_ERR");
         batch.setStatus(RewardBatchStatus.SENT);
 
-        Mockito.when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
+        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
                         Mockito.anyString(),
                         Mockito.anyString(),
                         Mockito.any(),
@@ -704,7 +708,7 @@ class RewardTransactionServiceImplTest {
                 })
                 .verify();
 
-        Mockito.verify(rewardBatchRepository).findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
+        verify(rewardBatchRepository).findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
                 Mockito.anyString(),
                 Mockito.anyString(),
                 Mockito.any(),
@@ -750,7 +754,7 @@ class RewardTransactionServiceImplTest {
                         .businessName("BusinessName")
                         .build()));
 
-        Mockito.when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
+        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
                         Mockito.anyString(),
                         Mockito.anyString(),
                         Mockito.any(),
