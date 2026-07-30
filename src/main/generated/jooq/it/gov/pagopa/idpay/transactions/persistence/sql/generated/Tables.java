@@ -4,7 +4,6 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql.generated;
 
 
-import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatchImpactInbox;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions;
 
@@ -14,11 +13,6 @@ import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardT
  */
 @SuppressWarnings({ "all", "unchecked", "rawtypes", "this-escape" })
 public class Tables {
-
-    /**
-     * The table <code>public.reward_batch_impact_inbox</code>.
-     */
-    public static final RewardBatchImpactInbox REWARD_BATCH_IMPACT_INBOX = RewardBatchImpactInbox.REWARD_BATCH_IMPACT_INBOX;
 
     /**
      * The table <code>public.reward_batches</code>.

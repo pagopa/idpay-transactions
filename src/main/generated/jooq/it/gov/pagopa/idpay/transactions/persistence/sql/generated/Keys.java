@@ -4,10 +4,8 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql.generated;
 
 
-import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatchImpactInbox;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions;
-import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardBatchImpactInboxRecord;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardBatchesRecord;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardTransactionsRecord;
 
@@ -29,8 +27,6 @@ public class Keys {
     // UNIQUE and PRIMARY KEY definitions
     // -------------------------------------------------------------------------
 
-    public static final UniqueKey<RewardBatchImpactInboxRecord> REWARD_BATCH_IMPACT_INBOX_PKEY = Internal.createUniqueKey(RewardBatchImpactInbox.REWARD_BATCH_IMPACT_INBOX, DSL.name("reward_batch_impact_inbox_pkey"), new TableField[] { RewardBatchImpactInbox.REWARD_BATCH_IMPACT_INBOX.EVENT_ID }, true);
-    public static final UniqueKey<RewardBatchImpactInboxRecord> UK_REWARD_BATCH_IMPACT_INBOX_TRANSACTION_REVISION = Internal.createUniqueKey(RewardBatchImpactInbox.REWARD_BATCH_IMPACT_INBOX, DSL.name("uk_reward_batch_impact_inbox_transaction_revision"), new TableField[] { RewardBatchImpactInbox.REWARD_BATCH_IMPACT_INBOX.TRANSACTION_ID, RewardBatchImpactInbox.REWARD_BATCH_IMPACT_INBOX.TRANSACTION_REVISION }, true);
     public static final UniqueKey<RewardBatchesRecord> REWARD_BATCHES_PKEY = Internal.createUniqueKey(RewardBatches.REWARD_BATCHES, DSL.name("reward_batches_pkey"), new TableField[] { RewardBatches.REWARD_BATCHES.ID }, true);
     public static final UniqueKey<RewardBatchesRecord> UK_REWARD_BATCHES_ID_INITIATIVE = Internal.createUniqueKey(RewardBatches.REWARD_BATCHES, DSL.name("uk_reward_batches_id_initiative"), new TableField[] { RewardBatches.REWARD_BATCHES.ID, RewardBatches.REWARD_BATCHES.INITIATIVE_ID }, true);
     public static final UniqueKey<RewardBatchesRecord> UK_REWARD_BATCHES_INITIATIVE_MERCHANT_POS_MONTH = Internal.createUniqueKey(RewardBatches.REWARD_BATCHES, DSL.name("uk_reward_batches_initiative_merchant_pos_month"), new TableField[] { RewardBatches.REWARD_BATCHES.INITIATIVE_ID, RewardBatches.REWARD_BATCHES.MERCHANT_ID, RewardBatches.REWARD_BATCHES.POS_TYPE, RewardBatches.REWARD_BATCHES.MONTH }, true);

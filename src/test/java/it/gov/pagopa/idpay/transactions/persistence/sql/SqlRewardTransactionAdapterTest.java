@@ -50,13 +50,9 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
     @BeforeEach
     void clearDatabase() {
         databaseClient()
-                .sql("DELETE FROM reward_batch_impact_inbox")
+                .sql("DELETE FROM reward_transactions")
                 .fetch()
                 .rowsUpdated()
-                .then(databaseClient()
-                        .sql("DELETE FROM reward_transactions")
-                        .fetch()
-                        .rowsUpdated())
                 .then(databaseClient()
                         .sql("DELETE FROM reward_batches")
                         .fetch()

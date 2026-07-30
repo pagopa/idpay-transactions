@@ -4,7 +4,6 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql.generated;
 
 
-import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatchImpactInbox;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions;
 
@@ -28,11 +27,6 @@ public class Public extends SchemaImpl {
      * The reference instance of <code>public</code>
      */
     public static final Public PUBLIC = new Public();
-
-    /**
-     * The table <code>public.reward_batch_impact_inbox</code>.
-     */
-    public final RewardBatchImpactInbox REWARD_BATCH_IMPACT_INBOX = RewardBatchImpactInbox.REWARD_BATCH_IMPACT_INBOX;
 
     /**
      * The table <code>public.reward_batches</code>.
@@ -60,7 +54,6 @@ public class Public extends SchemaImpl {
     @Override
     public final List<Table<?>> getTables() {
         return Arrays.asList(
-            RewardBatchImpactInbox.REWARD_BATCH_IMPACT_INBOX,
             RewardBatches.REWARD_BATCHES,
             RewardTransactions.REWARD_TRANSACTIONS
         );

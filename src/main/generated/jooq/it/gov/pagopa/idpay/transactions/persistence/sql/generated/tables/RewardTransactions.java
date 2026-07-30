@@ -300,6 +300,12 @@ public class RewardTransactions extends TableImpl<RewardTransactionsRecord> {
      */
     public final TableField<RewardTransactionsRecord, Long> TRANSACTION_REVISION = createField(DSL.name("transaction_revision"), SQLDataType.BIGINT.nullable(false).defaultValue(DSL.field(DSL.raw("0"), SQLDataType.BIGINT)), this, "");
 
+    /**
+     * The column
+     * <code>public.reward_transactions.latest_applied_payment_impact_revision</code>.
+     */
+    public final TableField<RewardTransactionsRecord, Long> LATEST_APPLIED_PAYMENT_IMPACT_REVISION = createField(DSL.name("latest_applied_payment_impact_revision"), SQLDataType.BIGINT.nullable(false).defaultValue(DSL.field(DSL.raw("0"), SQLDataType.BIGINT)), this, "");
+
     private RewardTransactions(Name alias, Table<RewardTransactionsRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);
     }
@@ -399,6 +405,7 @@ public class RewardTransactions extends TableImpl<RewardTransactionsRecord> {
     public List<Check<RewardTransactionsRecord>> getChecks() {
         return Arrays.asList(
             Internal.createCheck(this, DSL.name("ck_reward_transactions_accrued_reward_non_negative"), "((accrued_reward_cents >= 0))", true),
+            Internal.createCheck(this, DSL.name("ck_reward_transactions_latest_impact_revision_non_negative"), "((latest_applied_payment_impact_revision >= 0))", true),
             Internal.createCheck(this, DSL.name("ck_reward_transactions_revision_non_negative"), "((transaction_revision >= 0))", true)
         );
     }

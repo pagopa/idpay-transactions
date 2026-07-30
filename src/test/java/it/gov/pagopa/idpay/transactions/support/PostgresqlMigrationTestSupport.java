@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.Predicate;
 
 public abstract class PostgresqlMigrationTestSupport {
 
@@ -36,6 +37,42 @@ public abstract class PostgresqlMigrationTestSupport {
     private static R2dbcEntityTemplate r2dbcEntityTemplate;
 
     protected static void applyRepositoryMigrations() {
+        initializeConnections();
+        Flux.fromIterable(repositoryMigrationStatements(filename -> true))
+                .concatMap(statement -> databaseClient.sql(statement).fetch().rowsUpdated())
+                .then()
+                .block();
+    }
+
+    /**
+     * Applies only the repository migrations whose filename sorts at or before the given one
+     * (same lexicographic ordering used to run the full migration set), leaving any later
+     * migration file unapplied. Intended for tests that need to exercise an upgrade path
+     * (e.g. seeding data under an older schema version before applying a specific, later
+     * migration on top of it via {@link #applyRepositoryMigration(String)}).
+     */
+    protected static void applyRepositoryMigrationsUpToAndIncluding(String lastMigrationFilename) {
+        initializeConnections();
+        Flux.fromIterable(repositoryMigrationStatements(
+                        filename -> filename.compareTo(lastMigrationFilename) <= 0))
+                .concatMap(statement -> databaseClient.sql(statement).fetch().rowsUpdated())
+                .then()
+                .block();
+    }
+
+    /**
+     * Applies exactly one repository migration file's SQL statements, assuming the connections
+     * have already been established (e.g. via {@link #applyRepositoryMigrationsUpToAndIncluding}).
+     */
+    protected static void applyRepositoryMigration(String migrationFilename) {
+        Path migration = Path.of("src", "main", "resources", "db", "migration", migrationFilename);
+        Flux.fromIterable(sqlStatements(migration))
+                .concatMap(statement -> databaseClient.sql(statement).fetch().rowsUpdated())
+                .then()
+                .block();
+    }
+
+    private static void initializeConnections() {
         ConnectionFactoryOptions options = ConnectionFactoryOptions.parse(
                 "r2dbc:postgresql://%s:%d/%s".formatted(
                         postgresql.getHost(),
@@ -57,9 +94,6 @@ public abstract class PostgresqlMigrationTestSupport {
         Mono.from(connectionFactory.create())
                 .flatMap(connection -> Mono.from(connection.close()))
                 .retryWhen(Retry.backoff(20, Duration.ofMillis(250)))
-                .thenMany(Flux.fromIterable(repositoryMigrationStatements())
-                        .concatMap(statement -> databaseClient.sql(statement).fetch().rowsUpdated()))
-                .then()
                 .block();
     }
 
@@ -89,11 +123,12 @@ public abstract class PostgresqlMigrationTestSupport {
         }
     }
 
-    private static List<String> repositoryMigrationStatements() {
+    private static List<String> repositoryMigrationStatements(Predicate<String> filenameFilter) {
         Path migrationsDirectory = Path.of("src", "main", "resources", "db", "migration");
         try (var migrations = Files.list(migrationsDirectory)) {
             return migrations
                     .filter(path -> path.getFileName().toString().endsWith(".sql"))
+                    .filter(path -> filenameFilter.test(path.getFileName().toString()))
                     .sorted(Comparator.comparing(path -> path.getFileName().toString()))
                     .flatMap(path -> sqlStatements(path).stream())
                     .toList();

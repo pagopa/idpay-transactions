@@ -16,7 +16,7 @@ in-batch evaluation state. Payment must not write reward-batch data directly.
 
 | Item | Status |
 | --- | --- |
-| Local SQL projection, revision storage, and durable impact inbox | Implemented in `idpay-transactions` PR 20 (`a3a6f73`) |
+| Local SQL projection, revision storage, and transaction-local impact watermark | Implemented on the `idpay-transactions` PR 20 branch |
 | Revision in `idpay-payment` transaction storage/model | Not implemented |
 | Revision in generic transaction snapshots | Not implemented |
 | Dedicated payment-to-reward-batch-impact producer | Not implemented |
@@ -48,9 +48,9 @@ event sequence, a Kafka offset, an update timestamp, or `counterVersion`.
 
 `idpay-transactions` stores the revision on `reward_transactions`. Generic
 snapshots update the local canonical projection only when their revision is
-strictly newer. An impact is allowed to apply at an equal revision so that its
-canonical post-operation projection wins regardless of whether it arrives
-before or after the matching generic snapshot.
+strictly newer. It separately stores the latest payment-impact revision whose
+handling committed. Generic snapshots never change that impact watermark, so
+an impact at the same revision as a generic snapshot still applies once.
 
 ### 2. Extend the generic transaction snapshot
 
@@ -100,10 +100,10 @@ The event must not carry local reward-batch fields. In particular,
 last elaborated month, sampling key, and checks error must be absent/default.
 The receiver rejects impacts that contain them.
 
-`eventId` is the retry identity. A previously used ID may be delivered again
-only with the same transaction ID, revision, and impact type. A transaction
-revision can identify only one impact; payment must never emit two different
-impacts at the same revision.
+`eventId` is retained for outbox correlation and tracing. Consumer
+idempotency is based on the transaction revision: a transaction revision can
+identify only one impact, and payment must never emit two different impacts at
+the same revision.
 
 ### 4. Call the read-only eligibility query before the payment commit
 
@@ -156,7 +156,9 @@ counters.
 - Generic snapshots and the dedicated impact may arrive in either order. They
   must carry the same revision for the same payment outcome.
 - A stale generic snapshot cannot overwrite a newer impact projection.
-- An impact with a stale revision does not undo a newer local projection.
+- The handler compares an impact revision only with its local impact
+  watermark. An equal or lower revision is ignored; a greater revision is
+  handled once, even when a newer generic canonical snapshot has arrived.
 - Payment must publish the impact only after its authoritative transaction
   update commits.
 - Do not enable the impact flow until both services have deployed their
@@ -182,3 +184,4 @@ For every related PR, update the status table and this checklist:
 | PR | Change |
 | --- | --- |
 | `idpay-transactions` PR 20 (`a3a6f73`) | Added the local SQL projection, revision-aware generic synchronization, impact inbox, eligibility port, and contract model. It does not add a payment producer or a runtime consumer binding. |
+| `idpay-transactions` PR 20 watermark follow-up | Replaced inbox-based deduplication with the transaction-local impact watermark and backfilled existing processed revisions before removing the inbox. |

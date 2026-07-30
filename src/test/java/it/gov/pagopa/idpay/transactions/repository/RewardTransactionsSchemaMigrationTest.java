@@ -37,7 +37,7 @@ class RewardTransactionsSchemaMigrationTest extends PostgresqlMigrationTestSuppo
     }
 
     @Test
-    void shouldAddTransactionRevisionAndPaymentImpactInbox() {
+    void shouldAddTransactionRevisionAndLatestAppliedPaymentImpactRevisionMetadata() {
         StepVerifier.create(databaseClient()
                         .sql("""
                                 SELECT is_nullable, column_default
@@ -50,31 +50,47 @@ class RewardTransactionsSchemaMigrationTest extends PostgresqlMigrationTestSuppo
                         .one()
                         .zipWith(databaseClient()
                                 .sql("""
-                                        SELECT constraint_type
-                                        FROM information_schema.table_constraints
-                                        WHERE table_name = 'reward_batch_impact_inbox'
-                                          AND constraint_type = 'PRIMARY KEY'
+                                        SELECT is_nullable, column_default
+                                        FROM information_schema.columns
+                                        WHERE table_name = 'reward_transactions'
+                                          AND column_name = 'latest_applied_payment_impact_revision'
                                         """)
-                                .map((row, metadata) -> row.get("constraint_type", String.class))
+                                .map((row, metadata) -> row.get("is_nullable", String.class)
+                                        + ":" + row.get("column_default", String.class))
                                 .one())
                         .map(result -> new PaymentImpactSchema(result.getT1(), result.getT2())))
-                .expectNext(new PaymentImpactSchema("NO:0", "PRIMARY KEY"))
+                .expectNext(new PaymentImpactSchema("NO:0", "NO:0"))
                 .verifyComplete();
     }
 
     @Test
-    void shouldPreventMultipleImpactEventsForTheSameTransactionRevision() {
+    void shouldEnforceNonNegativeLatestAppliedPaymentImpactRevision() {
         StepVerifier.create(databaseClient()
                         .sql("""
                                 SELECT constraint_name
                                 FROM information_schema.table_constraints
-                                WHERE table_name = 'reward_batch_impact_inbox'
+                                WHERE table_name = 'reward_transactions'
                                   AND constraint_name =
-                                      'uk_reward_batch_impact_inbox_transaction_revision'
+                                      'ck_reward_transactions_latest_impact_revision_non_negative'
+                                  AND constraint_type = 'CHECK'
                                 """)
                         .map((row, metadata) -> row.get("constraint_name", String.class))
                         .one())
-                .expectNext("uk_reward_batch_impact_inbox_transaction_revision")
+                .expectNext("ck_reward_transactions_latest_impact_revision_non_negative")
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldRemoveTheRewardBatchImpactInboxTable() {
+        StepVerifier.create(databaseClient()
+                        .sql("""
+                                SELECT COUNT(*) AS count
+                                FROM information_schema.tables
+                                WHERE table_name = 'reward_batch_impact_inbox'
+                                """)
+                        .map((row, metadata) -> row.get("count", Long.class))
+                        .one())
+                .expectNext(0L)
                 .verifyComplete();
     }
 
@@ -150,6 +166,6 @@ class RewardTransactionsSchemaMigrationTest extends PostgresqlMigrationTestSuppo
     ) {
     }
 
-    private record PaymentImpactSchema(String revisionColumn, String inboxPrimaryKey) {
+    private record PaymentImpactSchema(String revisionColumn, String latestAppliedImpactRevisionColumn) {
     }
 }

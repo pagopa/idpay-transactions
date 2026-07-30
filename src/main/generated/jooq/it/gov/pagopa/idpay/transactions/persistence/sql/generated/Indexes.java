@@ -4,7 +4,6 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql.generated;
 
 
-import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatchImpactInbox;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions;
 
@@ -24,7 +23,6 @@ public class Indexes {
     // INDEX definitions
     // -------------------------------------------------------------------------
 
-    public static final Index IDX_REWARD_BATCH_IMPACT_INBOX_TRANSACTION_REVISION = Internal.createIndex(DSL.name("idx_reward_batch_impact_inbox_transaction_revision"), RewardBatchImpactInbox.REWARD_BATCH_IMPACT_INBOX, new OrderField[] { RewardBatchImpactInbox.REWARD_BATCH_IMPACT_INBOX.TRANSACTION_ID, RewardBatchImpactInbox.REWARD_BATCH_IMPACT_INBOX.TRANSACTION_REVISION }, false);
     public static final Index IDX_REWARD_BATCHES_INITIATIVE_ASSIGNEE_STATUS_MONTH = Internal.createIndex(DSL.name("idx_reward_batches_initiative_assignee_status_month"), RewardBatches.REWARD_BATCHES, new OrderField[] { RewardBatches.REWARD_BATCHES.INITIATIVE_ID, RewardBatches.REWARD_BATCHES.ASSIGNEE_LEVEL, RewardBatches.REWARD_BATCHES.STATUS, RewardBatches.REWARD_BATCHES.MONTH.desc() }, false);
     public static final Index IDX_REWARD_BATCHES_INITIATIVE_STATUS_MONTH = Internal.createIndex(DSL.name("idx_reward_batches_initiative_status_month"), RewardBatches.REWARD_BATCHES, new OrderField[] { RewardBatches.REWARD_BATCHES.INITIATIVE_ID, RewardBatches.REWARD_BATCHES.STATUS, RewardBatches.REWARD_BATCHES.MONTH.desc() }, false);
     public static final Index IDX_REWARD_BATCHES_MERCHANT_INITIATIVE_MONTH = Internal.createIndex(DSL.name("idx_reward_batches_merchant_initiative_month"), RewardBatches.REWARD_BATCHES, new OrderField[] { RewardBatches.REWARD_BATCHES.MERCHANT_ID, RewardBatches.REWARD_BATCHES.INITIATIVE_ID, RewardBatches.REWARD_BATCHES.MONTH.desc() }, false);
