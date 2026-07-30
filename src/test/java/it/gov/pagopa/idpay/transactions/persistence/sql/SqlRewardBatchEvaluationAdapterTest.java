@@ -14,6 +14,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
     private static final String INITIATIVE_ID = "initiative-1";
     private static final String MERCHANT_ID = "merchant-1";
     private static final String BATCH_ID = "batch-1";
+    private static final String OTHER_BATCH_ID = "batch-2";
     private static final String BATCH_MONTH = "2026-07";
 
     private static SqlRewardBatchEvaluationAdapter adapter;
@@ -131,6 +133,24 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
     }
 
     @Test
+    void shouldPrepareEmptySentBatchWithoutSamplingRows() {
+        StepVerifier.create(insertBatch(BATCH_ID, RewardBatchStatus.SENT)
+                        .then(adapter.prepareEvaluation(BATCH_ID, INITIATIVE_ID)))
+                .assertNext(batch -> assertEquals(RewardBatchStatus.EVALUATING, batch.getStatus()))
+                .verifyComplete();
+
+        StepVerifier.create(Mono.zip(
+                        projectedBatch(BATCH_ID),
+                        batchTransactionStates(BATCH_ID)
+                ))
+                .assertNext(result -> {
+                    assertEquals(RewardBatchStatus.EVALUATING, result.getT1().getStatus());
+                    assertTrue(result.getT2().isEmpty());
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void shouldPrepareABatchAtMostOnceAcrossConcurrentRequests() {
         StepVerifier.create(Flux.concat(
                         insertBatch(BATCH_ID, RewardBatchStatus.SENT),
@@ -203,10 +223,45 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
     }
 
     @Test
+    void shouldUpdateTransactionWithNullInBatchStatus() {
+        StepVerifier.create(Flux.concat(
+                        insertBatch(BATCH_ID, RewardBatchStatus.EVALUATING),
+                        insertTransactionWithoutBatchStatus("null-decision-status", 1)
+                ).then(adapter.updateStatusAndReturnOld(
+                        INITIATIVE_ID,
+                        BATCH_ID,
+                        "null-decision-status",
+                        RewardBatchTrxStatus.APPROVED,
+                        null,
+                        BATCH_MONTH,
+                        null
+                )))
+                .assertNext(previous -> {
+                    assertEquals("null-decision-status", previous.getId());
+                    assertNull(previous.getRewardBatchTrxStatus());
+                })
+                .verifyComplete();
+
+        StepVerifier.create(Mono.zip(
+                        projectedBatch(BATCH_ID),
+                        readTransaction("null-decision-status")
+                ))
+                .assertNext(result -> {
+                    assertEquals(RewardBatchTrxStatus.APPROVED, result.getT2().getRewardBatchTrxStatus());
+                    assertEquals(BATCH_MONTH, result.getT2().getRewardBatchLastMonthElaborated());
+                    assertProjection(result.getT1(), RewardBatchTrxStatus.APPROVED);
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void shouldPreserveReasonHistoryAndOptionalChecksError() {
-        ReasonDTO firstReason = new ReasonDTO(LocalDateTime.of(2026, 7, 1, 9, 0), "first");
-        ReasonDTO secondReason = new ReasonDTO(LocalDateTime.of(2026, 7, 1, 10, 0), "second");
-        ReasonDTO replacementReason = new ReasonDTO(LocalDateTime.of(2026, 7, 1, 11, 0), "replacement");
+        ReasonDTO firstReason = new ReasonDTO(LocalDateTime.of(2026, Month.JULY, 1, 9, 0), "first");
+        ReasonDTO secondReason = new ReasonDTO(LocalDateTime.of(2026, Month.JULY, 1, 10, 0), "second");
+        ReasonDTO replacementReason = new ReasonDTO(
+                LocalDateTime.of(2026, Month.JULY, 1, 11, 0),
+                "replacement"
+        );
         ChecksError checksError = new ChecksError(true, false, false, false, false, false, false, false);
 
         StepVerifier.create(Flux.concat(
@@ -275,6 +330,31 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                 .verifyComplete();
 
         StepVerifier.create(readTransaction("sent-transaction"))
+                .assertNext(transaction -> {
+                    assertEquals(RewardBatchTrxStatus.CONSULTABLE, transaction.getRewardBatchTrxStatus());
+                    assertNull(transaction.getRewardBatchLastMonthElaborated());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldLeaveTransactionUntouchedOutsideDecisionBatchScope() {
+        StepVerifier.create(Flux.concat(
+                        insertBatch(BATCH_ID, RewardBatchStatus.EVALUATING),
+                        insertBatch(OTHER_BATCH_ID, RewardBatchStatus.EVALUATING, "2026-08"),
+                        insertTransaction("outside-scope-transaction", RewardBatchTrxStatus.CONSULTABLE, 1)
+                ).then(adapter.updateStatusAndReturnOld(
+                        INITIATIVE_ID,
+                        OTHER_BATCH_ID,
+                        "outside-scope-transaction",
+                        RewardBatchTrxStatus.APPROVED,
+                        null,
+                        BATCH_MONTH,
+                        null
+                )))
+                .verifyComplete();
+
+        StepVerifier.create(readTransaction("outside-scope-transaction"))
                 .assertNext(transaction -> {
                     assertEquals(RewardBatchTrxStatus.CONSULTABLE, transaction.getRewardBatchTrxStatus());
                     assertNull(transaction.getRewardBatchLastMonthElaborated());
@@ -366,6 +446,10 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
     }
 
     private static Mono<Void> insertBatch(String batchId, RewardBatchStatus status) {
+        return insertBatch(batchId, status, BATCH_MONTH);
+    }
+
+    private static Mono<Void> insertBatch(String batchId, RewardBatchStatus status, String month) {
         return databaseClient()
                 .sql("""
                         INSERT INTO reward_batches (
@@ -378,7 +462,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                 .bind("id", batchId)
                 .bind("initiativeId", INITIATIVE_ID)
                 .bind("merchantId", MERCHANT_ID)
-                .bind("month", BATCH_MONTH)
+                .bind("month", month)
                 .bind("status", status.name())
                 .fetch()
                 .rowsUpdated()
@@ -441,15 +525,15 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                         .from(REWARD_TRANSACTIONS)
                         .where(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(batchId)))
                 .collectMap(
-                        record -> record.get(REWARD_TRANSACTIONS.TRANSACTION_ID),
+                        row -> row.get(REWARD_TRANSACTIONS.TRANSACTION_ID),
                         SqlRewardBatchEvaluationAdapterTest::transactionState
                 );
     }
 
-    private static TransactionState transactionState(Record3<String, String, String> record) {
+    private static TransactionState transactionState(Record3<String, String, String> row) {
         return new TransactionState(
-                record.get(REWARD_TRANSACTIONS.STATUS),
-                record.get(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS)
+                row.get(REWARD_TRANSACTIONS.STATUS),
+                row.get(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS)
         );
     }
 

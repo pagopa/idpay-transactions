@@ -62,16 +62,19 @@ public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDe
             String batchMonth,
             ChecksError checksError
     ) {
+        DecisionMutation mutation = new DecisionMutation(
+                initiativeId,
+                rewardBatchId,
+                transactionId,
+                newStatus,
+                reason,
+                batchMonth,
+                checksError
+        );
         return transactionalOperator.transactional(ConnectionFactoryUtils.getConnection(connectionFactory)
                 .flatMap(connection -> updateStatusWithinTransaction(
                         DSL.using(connection, SQLDialect.POSTGRES),
-                        initiativeId,
-                        rewardBatchId,
-                        transactionId,
-                        newStatus,
-                        reason,
-                        batchMonth,
-                        checksError
+                        mutation
                 )));
     }
 
@@ -111,34 +114,23 @@ public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDe
 
     private Mono<RewardTransaction> updateStatusWithinTransaction(
             DSLContext transactionDslContext,
-            String initiativeId,
-            String rewardBatchId,
-            String transactionId,
-            RewardBatchTrxStatus newStatus,
-            ReasonDTO reason,
-            String batchMonth,
-            ChecksError checksError
+            DecisionMutation mutation
     ) {
         return lockBatch(
                         transactionDslContext,
-                        rewardBatchId,
-                        initiativeId,
+                        mutation.rewardBatchId(),
+                        mutation.initiativeId(),
                         RewardBatchStatus.EVALUATING
                 )
                 .flatMap(ignored -> lockTransaction(
                         transactionDslContext,
-                        initiativeId,
-                        rewardBatchId,
-                        transactionId
+                        mutation.initiativeId(),
+                        mutation.rewardBatchId(),
+                        mutation.transactionId()
                 ))
                 .flatMap(current -> updateTransactionConditionally(
                         transactionDslContext,
-                        initiativeId,
-                        rewardBatchId,
-                        newStatus,
-                        reason,
-                        batchMonth,
-                        checksError,
+                        mutation,
                         current
                 ));
     }
@@ -243,30 +235,27 @@ public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDe
 
     private Mono<RewardTransaction> updateTransactionConditionally(
             DSLContext transactionDslContext,
-            String initiativeId,
-            String rewardBatchId,
-            RewardBatchTrxStatus newStatus,
-            ReasonDTO reason,
-            String batchMonth,
-            ChecksError checksError,
+            DecisionMutation mutation,
             RewardTransactionsRecord current
     ) {
         RewardTransaction oldTransaction = transactionMapper.fromRecord(current);
-        JSONB rejectionReasons = transactionMapper.toJsonb(updatedRejectionReasons(
-                oldTransaction,
-                newStatus,
-                reason
-        ));
-        JSONB checksErrorJson = transactionMapper.toJsonb(checksError);
+        JSONB rejectionReasons = mutation.reason() == null
+                ? null
+                : transactionMapper.toJsonb(updatedRejectionReasons(
+                        oldTransaction,
+                        mutation.newStatus(),
+                        mutation.reason()
+                ));
+        JSONB checksErrorJson = transactionMapper.toJsonb(mutation.checksError());
 
         return Mono.from(transactionDslContext.update(REWARD_TRANSACTIONS)
-                        .set(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS, newStatus.name())
-                        .set(REWARD_TRANSACTIONS.REWARD_BATCH_LAST_MONTH_ELABORATED, batchMonth)
+                        .set(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS, mutation.newStatus().name())
+                        .set(REWARD_TRANSACTIONS.REWARD_BATCH_LAST_MONTH_ELABORATED, mutation.batchMonth())
                         .set(REWARD_TRANSACTIONS.REWARD_BATCH_REJECTION_REASONS, rejectionReasons)
                         .set(REWARD_TRANSACTIONS.CHECKS_ERROR, checksErrorJson)
                         .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(current.getTransactionId())
-                                .and(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(rewardBatchId))
-                                .and(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(initiativeId))
+                                .and(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(mutation.rewardBatchId()))
+                                .and(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(mutation.initiativeId()))
                                 .and(currentStatusCondition(current.getRewardBatchTrxStatus())))
                         .returning())
                 .map(ignored -> oldTransaction);
@@ -288,9 +277,6 @@ public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDe
             RewardBatchTrxStatus newStatus,
             ReasonDTO reason
     ) {
-        if (reason == null) {
-            return null;
-        }
         if (oldTransaction.getRewardBatchTrxStatus() != newStatus) {
             return List.of(reason);
         }
@@ -310,5 +296,16 @@ public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDe
                 + (remainder * SAMPLE_PERCENT_NUMERATOR + SAMPLE_PERCENT_DENOMINATOR - 1)
                 / SAMPLE_PERCENT_DENOMINATOR;
         return Math.toIntExact(sampleSize);
+    }
+
+    private record DecisionMutation(
+            String initiativeId,
+            String rewardBatchId,
+            String transactionId,
+            RewardBatchTrxStatus newStatus,
+            ReasonDTO reason,
+            String batchMonth,
+            ChecksError checksError
+    ) {
     }
 }
