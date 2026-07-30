@@ -81,7 +81,41 @@ class RewardTransactionsSchemaMigrationTest extends PostgresqlMigrationTestSuppo
     }
 
     @Test
-    void shouldRemoveTheRewardBatchImpactInboxTable() {
+    void shouldRejectNegativeTransactionRevisionOnInsert() {
+        StepVerifier.create(databaseClient()
+                        .sql("""
+                                INSERT INTO reward_transactions (
+                                    transaction_id, initiative_id, accrued_reward_cents,
+                                    transaction_revision
+                                )
+                                VALUES ('transaction-negative-revision', 'initiative-1', 0, -1)
+                                """)
+                        .fetch()
+                        .rowsUpdated())
+                .expectErrorMatches(throwable -> throwable.getMessage()
+                        .contains("ck_reward_transactions_revision_non_negative"))
+                .verify();
+    }
+
+    @Test
+    void shouldRejectNegativeLatestAppliedPaymentImpactRevisionOnInsert() {
+        StepVerifier.create(databaseClient()
+                        .sql("""
+                                INSERT INTO reward_transactions (
+                                    transaction_id, initiative_id, accrued_reward_cents,
+                                    latest_applied_payment_impact_revision
+                                )
+                                VALUES ('transaction-negative-impact', 'initiative-1', 0, -1)
+                                """)
+                        .fetch()
+                        .rowsUpdated())
+                .expectErrorMatches(throwable -> throwable.getMessage()
+                        .contains("ck_reward_transactions_latest_impact_revision_non_negative"))
+                .verify();
+    }
+
+    @Test
+    void shouldNotCreateTheRewardBatchImpactInboxTable() {
         StepVerifier.create(databaseClient()
                         .sql("""
                                 SELECT COUNT(*) AS count

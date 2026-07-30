@@ -183,5 +183,5 @@ For every related PR, update the status table and this checklist:
 
 | PR | Change |
 | --- | --- |
-| `idpay-transactions` PR 20 (`a3a6f73`) | Added the local SQL projection, revision-aware generic synchronization, impact inbox, eligibility port, and contract model. It does not add a payment producer or a runtime consumer binding. |
-| `idpay-transactions` PR 20 watermark follow-up | Replaced inbox-based deduplication with the transaction-local impact watermark and backfilled existing processed revisions before removing the inbox. |
+| `idpay-transactions` PR 20 (`a3a6f73`) | Added the local SQL projection, revision-aware generic synchronization, eligibility port, and contract model. It does not add a payment producer or a runtime consumer binding. |
+| `idpay-transactions` PR 20 watermark follow-up | Consolidated the never-deployed migration into the final transaction-local impact watermark schema; no inbox table is created. |

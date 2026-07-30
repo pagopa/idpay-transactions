@@ -14,6 +14,11 @@ Versioned, ordered SQL migration files remain in `src/main/resources/db/migratio
 
 Testcontainers integration tests may apply the repository migration files solely to provision isolated test databases; this is not application startup behavior and must not create a schema-history table.
 
+No deployment applies these files before PR 25. Until then, superseded
+intermediate migration steps may be consolidated into the final cutover schema;
+once an environment applies them, the files become ordered, forward-only
+artifacts.
+
 ## Current state
 
 - Spring Boot 4.0.2 / Java 25, WebFlux, and reactive MongoDB.
@@ -68,7 +73,7 @@ Testcontainers integration tests may apply the repository migration files solely
 | 17 | Implement SQL transaction searches with jOOQ database paging/sorting, batch lists, invoice lookup, and deterministic sampling. | 16 |
 | 18 | Implement atomic batch assignment: lock/find-or-create batch, claim one eligible transaction, and set assignment fields exactly once. Test retry and concurrency. | 14, 16, 17 |
 | 19 | Implement evaluation preparation and decision mutations with jOOQ conditional transaction updates, idempotency, batch locks, and aggregate-projection tests. | 11, 14, 16 |
-| 20 | Add the payment-to-reward-batch-impact contract model and forward migrations for shared transaction revisions and a transaction-local latest-applied-impact revision. Implement the idempotent SQL local projection handler: `INVOICE_REPLACED` leaves a `CREATED` source membership intact, otherwise moves it to the outcome-month grouping (creating the batch when absent) as `SUSPENDED`; `INVOICED_REVERSED` detaches its current membership. Apply impacts to current local membership, derive aggregates from rows, and add the narrow read-only eligibility query used by payment before it commits the command. Do not add payment endpoints, invoice lifecycle policies, blob operations, or payment calls. | 12, 16, 19 |
+| 20 | Add the payment-to-reward-batch-impact contract model and a forward migration for shared transaction revisions and a transaction-local latest-applied-impact revision. Implement the idempotent SQL local projection handler: `INVOICE_REPLACED` leaves a `CREATED` source membership intact, otherwise moves it to the outcome-month grouping (creating the batch when absent) as `SUSPENDED`; `INVOICED_REVERSED` detaches its current membership. Apply impacts to current local membership, derive aggregates from rows, and add the narrow read-only eligibility query used by payment before it commits the command. Do not add payment endpoints, invoice lifecycle policies, blob operations, or payment calls. | 12, 16, 19 |
 | 21 | Implement final-approval suspended reassignment: stable source/target locks, target creation, last-elaborated-month preservation, `INVOICED`/`SUSPENDED` state, and full invariant tests. | 12, 19 |
 | 22 | Implement constrained merchant postponement: `CREATED` source only, initiative end-date validation, and `CREATED` target. | 12, 19 |
 | 23 | Route approval worker, assignee promotion, CSV source queries, delivery amount snapshot/outcome updates, and empty-batch cleanup through SQL-capable ports. | 15, 17, 19, 21, 22 |
@@ -85,7 +90,10 @@ Testcontainers integration tests may apply the repository migration files solely
 - Use `StepVerifier` for reactive unit tests and focused Testcontainers PostgreSQL integration tests for SQL adapter/mutation work.
 - Apply SQL mutations only through `TransactionalOperator`; never add blocking bridges.
 - Before merging a mutation PR, assert the transaction, all affected batch aggregate projections, and idempotent retry/concurrent behavior where applicable.
-- Treat `src/main/resources/db/migration/` as ordered, forward-only artifacts. The application must neither execute nor track them.
+- Before PR 25, consolidate superseded migration steps into the final schema
+  because no environment applies them. Once migration application begins, treat
+  `src/main/resources/db/migration/` as ordered, forward-only artifacts. The
+  application must neither execute nor track them.
 - Keep data backfill, production reconciliation execution, and rollback of migrated data outside this work.
 
 ## Cutover hand-off conditions
