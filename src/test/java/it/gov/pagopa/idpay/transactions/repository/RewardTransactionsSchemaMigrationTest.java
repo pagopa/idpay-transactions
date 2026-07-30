@@ -37,6 +37,98 @@ class RewardTransactionsSchemaMigrationTest extends PostgresqlMigrationTestSuppo
     }
 
     @Test
+    void shouldAddTransactionRevisionAndLatestAppliedPaymentImpactRevisionMetadata() {
+        StepVerifier.create(databaseClient()
+                        .sql("""
+                                SELECT is_nullable, column_default
+                                FROM information_schema.columns
+                                WHERE table_name = 'reward_transactions'
+                                  AND column_name = 'transaction_revision'
+                                """)
+                        .map((row, metadata) -> row.get("is_nullable", String.class)
+                                + ":" + row.get("column_default", String.class))
+                        .one()
+                        .zipWith(databaseClient()
+                                .sql("""
+                                        SELECT is_nullable, column_default
+                                        FROM information_schema.columns
+                                        WHERE table_name = 'reward_transactions'
+                                          AND column_name = 'latest_applied_payment_impact_revision'
+                                        """)
+                                .map((row, metadata) -> row.get("is_nullable", String.class)
+                                        + ":" + row.get("column_default", String.class))
+                                .one())
+                        .map(result -> new PaymentImpactSchema(result.getT1(), result.getT2())))
+                .expectNext(new PaymentImpactSchema("NO:0", "NO:0"))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldEnforceNonNegativeLatestAppliedPaymentImpactRevision() {
+        StepVerifier.create(databaseClient()
+                        .sql("""
+                                SELECT constraint_name
+                                FROM information_schema.table_constraints
+                                WHERE table_name = 'reward_transactions'
+                                  AND constraint_name =
+                                      'ck_reward_transactions_latest_impact_revision_non_negative'
+                                  AND constraint_type = 'CHECK'
+                                """)
+                        .map((row, metadata) -> row.get("constraint_name", String.class))
+                        .one())
+                .expectNext("ck_reward_transactions_latest_impact_revision_non_negative")
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldRejectNegativeTransactionRevisionOnInsert() {
+        StepVerifier.create(databaseClient()
+                        .sql("""
+                                INSERT INTO reward_transactions (
+                                    transaction_id, initiative_id, accrued_reward_cents,
+                                    transaction_revision
+                                )
+                                VALUES ('transaction-negative-revision', 'initiative-1', 0, -1)
+                                """)
+                        .fetch()
+                        .rowsUpdated())
+                .expectErrorMatches(throwable -> throwable.getMessage()
+                        .contains("ck_reward_transactions_revision_non_negative"))
+                .verify();
+    }
+
+    @Test
+    void shouldRejectNegativeLatestAppliedPaymentImpactRevisionOnInsert() {
+        StepVerifier.create(databaseClient()
+                        .sql("""
+                                INSERT INTO reward_transactions (
+                                    transaction_id, initiative_id, accrued_reward_cents,
+                                    latest_applied_payment_impact_revision
+                                )
+                                VALUES ('transaction-negative-impact', 'initiative-1', 0, -1)
+                                """)
+                        .fetch()
+                        .rowsUpdated())
+                .expectErrorMatches(throwable -> throwable.getMessage()
+                        .contains("ck_reward_transactions_latest_impact_revision_non_negative"))
+                .verify();
+    }
+
+    @Test
+    void shouldNotCreateTheRewardBatchImpactInboxTable() {
+        StepVerifier.create(databaseClient()
+                        .sql("""
+                                SELECT COUNT(*) AS count
+                                FROM information_schema.tables
+                                WHERE table_name = 'reward_batch_impact_inbox'
+                                """)
+                        .map((row, metadata) -> row.get("count", Long.class))
+                        .one())
+                .expectNext(0L)
+                .verifyComplete();
+    }
+
+    @Test
     void shouldRoundTripJsonbDeferredStructuresThroughR2dbcCodec() {
         String additionalProperties = """
                 {"productName":"Coffee machine","productGtin":"1234567890123"}
@@ -106,5 +198,8 @@ class RewardTransactionsSchemaMigrationTest extends PostgresqlMigrationTestSuppo
             String rejectionCode,
             String productEligibilityError
     ) {
+    }
+
+    private record PaymentImpactSchema(String revisionColumn, String latestAppliedImpactRevisionColumn) {
     }
 }

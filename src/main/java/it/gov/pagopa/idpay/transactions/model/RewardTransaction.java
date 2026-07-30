@@ -24,6 +24,7 @@ public class RewardTransaction {
 
     @Id
     private String id;
+    private long transactionRevision;
     private String idTrxAcquirer;
     private String acquirerCode;
     private LocalDateTime trxDate;

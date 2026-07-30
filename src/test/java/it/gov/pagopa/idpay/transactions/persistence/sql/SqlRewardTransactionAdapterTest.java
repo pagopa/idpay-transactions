@@ -53,6 +53,10 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
                 .sql("DELETE FROM reward_transactions")
                 .fetch()
                 .rowsUpdated()
+                .then(databaseClient()
+                        .sql("DELETE FROM reward_batches")
+                        .fetch()
+                        .rowsUpdated())
                 .block();
     }
 
@@ -82,7 +86,9 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
     @Test
     void shouldIdempotentlyUpdateTransactionWithinItsInitiative() {
         RewardTransaction first = transaction("transaction-upsert", "initiative-1");
+        first.setTransactionRevision(1L);
         RewardTransaction retry = transaction("transaction-upsert", "initiative-1");
+        retry.setTransactionRevision(2L);
         retry.setStatus("INVOICED");
         retry.setAmountCents(2_000L);
         retry.setRewards(Map.of("initiative-1", Reward.builder().accruedRewardCents(1_100L).build()));
@@ -93,6 +99,7 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
                     assertEquals("INVOICED", saved.getStatus());
                     assertEquals(2_000L, saved.getAmountCents());
                     assertEquals(1_100L, saved.getRewards().get("initiative-1").getAccruedRewardCents());
+                    assertEquals(2L, saved.getTransactionRevision());
                 })
                 .verifyComplete();
 
@@ -105,9 +112,64 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
     }
 
     @Test
+    void shouldApplyOnlyNewerGenericRevisionsWithoutOverwritingLocalMembership() {
+        RewardTransaction original = transaction("transaction-revision", "initiative-1");
+        original.setTransactionRevision(1L);
+        RewardTransaction newer = transaction("transaction-revision", "initiative-1");
+        newer.setTransactionRevision(2L);
+        newer.setStatus("INVOICED");
+        newer.setAmountCents(2_000L);
+        RewardTransaction sameRevision = transaction("transaction-revision", "initiative-1");
+        sameRevision.setTransactionRevision(2L);
+        sameRevision.setStatus("REFUNDED");
+        RewardTransaction older = transaction("transaction-revision", "initiative-1");
+        older.setTransactionRevision(1L);
+        older.setStatus("CANCELLED");
+
+        StepVerifier.create(adapter.upsert(original)
+                        .then(databaseClient()
+                                .sql("""
+                                        INSERT INTO reward_batches (
+                                            id, initiative_id, merchant_id, month, pos_type,
+                                            status, name, assignee_level
+                                        )
+                                        VALUES (
+                                            'revision-batch', 'initiative-1', 'merchant', '2026-07',
+                                            'PHYSICAL', 'CREATED', 'July', 'L1'
+                                        )
+                                        """)
+                                .fetch()
+                                .rowsUpdated())
+                        .then(databaseClient()
+                                .sql("""
+                                        UPDATE reward_transactions
+                                        SET reward_batch_id = 'revision-batch',
+                                            reward_batch_trx_status = 'CONSULTABLE',
+                                            reward_batch_inclusion_date = TIMESTAMP '2026-07-01 10:00:00',
+                                            sampling_key = 77
+                                        WHERE transaction_id = 'transaction-revision'
+                                        """)
+                                .fetch()
+                                .rowsUpdated())
+                        .then(adapter.upsert(newer))
+                        .then(adapter.upsert(sameRevision))
+                        .then(adapter.upsert(older)))
+                .assertNext(saved -> {
+                    assertEquals("INVOICED", saved.getStatus());
+                    assertEquals(2L, saved.getTransactionRevision());
+                    assertEquals("revision-batch", saved.getRewardBatchId());
+                    assertEquals(RewardBatchTrxStatus.CONSULTABLE, saved.getRewardBatchTrxStatus());
+                    assertEquals(77, saved.getSamplingKey());
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void shouldRejectAnUpsertThatChangesTheExistingTransactionInitiative() {
         RewardTransaction original = transaction("transaction-initiative", "initiative-1");
+        original.setTransactionRevision(1L);
         RewardTransaction conflicting = transaction("transaction-initiative", "initiative-2");
+        conflicting.setTransactionRevision(2L);
         conflicting.setStatus("INVOICED");
 
         StepVerifier.create(adapter.upsert(original)

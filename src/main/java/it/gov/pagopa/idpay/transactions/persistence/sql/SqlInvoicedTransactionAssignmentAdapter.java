@@ -91,7 +91,8 @@ public class SqlInvoicedTransactionAssignmentAdapter implements InvoicedTransact
             String initiativeId
     ) {
         return transactionAdapter.upsertWithinTransaction(transaction, transactionDslContext)
-                .flatMap(persisted -> persisted.getRewardBatchId() == null
+                .flatMap(persisted -> SyncTrxStatus.INVOICED.name().equals(persisted.getStatus())
+                        && persisted.getRewardBatchId() == null
                         ? lockOrCreateBatch(transactionDslContext, batch)
                                 .flatMap(lockedBatch -> {
                                     if (lockedBatch.getStatus() != RewardBatchStatus.CREATED) {

@@ -36,6 +36,14 @@ public abstract class PostgresqlMigrationTestSupport {
     private static R2dbcEntityTemplate r2dbcEntityTemplate;
 
     protected static void applyRepositoryMigrations() {
+        initializeConnections();
+        Flux.fromIterable(repositoryMigrationStatements())
+                .concatMap(statement -> databaseClient.sql(statement).fetch().rowsUpdated())
+                .then()
+                .block();
+    }
+
+    private static void initializeConnections() {
         ConnectionFactoryOptions options = ConnectionFactoryOptions.parse(
                 "r2dbc:postgresql://%s:%d/%s".formatted(
                         postgresql.getHost(),
@@ -57,9 +65,6 @@ public abstract class PostgresqlMigrationTestSupport {
         Mono.from(connectionFactory.create())
                 .flatMap(connection -> Mono.from(connection.close()))
                 .retryWhen(Retry.backoff(20, Duration.ofMillis(250)))
-                .thenMany(Flux.fromIterable(repositoryMigrationStatements())
-                        .concatMap(statement -> databaseClient.sql(statement).fetch().rowsUpdated()))
-                .then()
                 .block();
     }
 

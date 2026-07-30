@@ -4,6 +4,13 @@ Date: 2026-03-04
 
 Author: AI Agent (for implementer)
 
+## Status
+
+Superseded by the payment-to-reward-batch-impact boundary in
+`docs/DR-rework-reward-batches-in-sql.md`. The historical instructions below
+must not be used to add invoice/reversal endpoints, blob operations, mutable
+batch counters, or payment-state ownership to this service.
+
 ## Summary
 - The existing endpoint `PUT /idpay/transactions/{transactionId}/invoice/update` (controller: `PointOfSaleTransactionController#updateInvoiceFile`) must be extended so merchants / points of sale can replace invoice documents for transactions in `REJECTED` (aka EXCLUDED) state, including when the transaction's batch is in `APPROVED` state. Behavior must match the portal "weak-credentials" flow: accept PDF or XML, same validations and audit fields.
 
