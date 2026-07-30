@@ -667,6 +667,20 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
         return (Long) get(44);
     }
 
+    /**
+     * Setter for <code>public.reward_transactions.transaction_revision</code>.
+     */
+    public void setTransactionRevision(Long value) {
+        set(45, value);
+    }
+
+    /**
+     * Getter for <code>public.reward_transactions.transaction_revision</code>.
+     */
+    public Long getTransactionRevision() {
+        return (Long) get(45);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -690,7 +704,7 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
     /**
      * Create a detached, initialised RewardTransactionsRecord
      */
-    public RewardTransactionsRecord(String transactionId, String initiativeId, String rewardBatchId, String idTrxAcquirer, String acquirerCode, LocalDateTime trxDate, String operationType, String circuitType, String idTrxIssuer, String correlationId, Long amountCents, String amountCurrency, String acquirerId, String merchantId, String pointOfSaleId, String posType, String status, JSONB rejectionReasons, JSONB initiativeRejectionReasons, JSONB rewards, String userId, String operationTypeTranscoded, Long effectiveAmountCents, LocalDateTime trxChargeDate, JSONB refundInfo, LocalDateTime elaborationDateTime, String channel, JSONB additionalProperties, JSONB invoiceData, JSONB creditNoteData, String trxCode, String rewardBatchTrxStatus, JSONB rewardBatchRejectionReasons, LocalDateTime rewardBatchInclusionDate, String franchiseName, String pointOfSaleType, String businessName, LocalDateTime invoiceUploadDate, Integer samplingKey, LocalDateTime updateDate, Boolean extendedAuthorization, Long voucherAmountCents, String rewardBatchLastMonthElaborated, JSONB checksError, Long accruedRewardCents) {
+    public RewardTransactionsRecord(String transactionId, String initiativeId, String rewardBatchId, String idTrxAcquirer, String acquirerCode, LocalDateTime trxDate, String operationType, String circuitType, String idTrxIssuer, String correlationId, Long amountCents, String amountCurrency, String acquirerId, String merchantId, String pointOfSaleId, String posType, String status, JSONB rejectionReasons, JSONB initiativeRejectionReasons, JSONB rewards, String userId, String operationTypeTranscoded, Long effectiveAmountCents, LocalDateTime trxChargeDate, JSONB refundInfo, LocalDateTime elaborationDateTime, String channel, JSONB additionalProperties, JSONB invoiceData, JSONB creditNoteData, String trxCode, String rewardBatchTrxStatus, JSONB rewardBatchRejectionReasons, LocalDateTime rewardBatchInclusionDate, String franchiseName, String pointOfSaleType, String businessName, LocalDateTime invoiceUploadDate, Integer samplingKey, LocalDateTime updateDate, Boolean extendedAuthorization, Long voucherAmountCents, String rewardBatchLastMonthElaborated, JSONB checksError, Long accruedRewardCents, Long transactionRevision) {
         super(RewardTransactions.REWARD_TRANSACTIONS);
 
         setTransactionId(transactionId);
@@ -738,6 +752,7 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
         setRewardBatchLastMonthElaborated(rewardBatchLastMonthElaborated);
         setChecksError(checksError);
         setAccruedRewardCents(accruedRewardCents);
+        setTransactionRevision(transactionRevision);
         resetChangedOnNotNull();
     }
 }

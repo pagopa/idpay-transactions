@@ -52,6 +52,7 @@ public record RewardTransactionEntity(
         @Column("voucher_amount_cents") Long voucherAmountCents,
         @Column("reward_batch_last_month_elaborated") String rewardBatchLastMonthElaborated,
         @Column("checks_error") Json checksError,
-        @Column("accrued_reward_cents") long accruedRewardCents
+        @Column("accrued_reward_cents") long accruedRewardCents,
+        @Column("transaction_revision") long transactionRevision
 ) {
 }

@@ -27,18 +27,40 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
             RewardTransaction transaction,
             DSLContext transactionDslContext
     ) {
+        return upsertWithinTransaction(transaction, transactionDslContext, false);
+    }
+
+    Mono<RewardTransaction> upsertImpactWithinTransaction(
+            RewardTransaction transaction,
+            DSLContext transactionDslContext
+    ) {
+        return upsertWithinTransaction(transaction, transactionDslContext, true);
+    }
+
+    private Mono<RewardTransaction> upsertWithinTransaction(
+            RewardTransaction transaction,
+            DSLContext transactionDslContext,
+            boolean allowEqualRevision
+    ) {
         RewardTransactionEntity entity = mapper.toEntity(transaction);
-        Mono<RewardTransaction> persisted = Mono.from(insertOrUpdate(transactionDslContext, mapper.toRecord(entity)))
-                .flatMap(ignored -> findById(transactionDslContext, entity.id()));
-        Mono<RewardTransaction> rejected = findById(transactionDslContext, entity.id())
-                        .flatMap(existing -> Mono.<RewardTransaction>error(new IllegalStateException(
+        return Mono.from(insertOrUpdate(
+                        transactionDslContext,
+                        mapper.toRecord(entity),
+                        allowEqualRevision
+                ))
+                .then(findById(transactionDslContext, entity.id()))
+                .switchIfEmpty(Mono.error(new IllegalStateException(
+                        "Transaction %s was not persisted".formatted(entity.id())
+                )))
+                .flatMap(existing -> {
+                    if (!entity.initiativeId().equals(existing.getInitiatives().getFirst())) {
+                        return Mono.error(new IllegalStateException(
                                 "Transaction %s already belongs to initiative %s"
                                         .formatted(entity.id(), existing.getInitiatives().getFirst())
-                        )))
-                        .switchIfEmpty(Mono.error(new IllegalStateException(
-                                "Transaction %s was not persisted".formatted(entity.id())
-                        )));
-        return persisted.switchIfEmpty(rejected);
+                        ));
+                    }
+                    return Mono.just(existing);
+                });
     }
 
     private Mono<RewardTransaction> findById(DSLContext transactionDslContext, String transactionId) {
@@ -49,7 +71,8 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
 
     private org.jooq.InsertResultStep<?> insertOrUpdate(
             DSLContext transactionDslContext,
-            RewardTransactionsRecord transactionRecord
+            RewardTransactionsRecord transactionRecord,
+            boolean allowEqualRevision
     ) {
         return transactionDslContext.insertInto(REWARD_TRANSACTIONS)
                 .set(transactionRecord)
@@ -88,6 +111,12 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
                 .set(REWARD_TRANSACTIONS.INVOICE_DATA, excluded(REWARD_TRANSACTIONS.INVOICE_DATA))
                 .set(REWARD_TRANSACTIONS.CREDIT_NOTE_DATA, excluded(REWARD_TRANSACTIONS.CREDIT_NOTE_DATA))
                 .set(REWARD_TRANSACTIONS.TRX_CODE, excluded(REWARD_TRANSACTIONS.TRX_CODE))
+                .set(REWARD_TRANSACTIONS.FRANCHISE_NAME, excluded(REWARD_TRANSACTIONS.FRANCHISE_NAME))
+                .set(REWARD_TRANSACTIONS.POINT_OF_SALE_TYPE,
+                        excluded(REWARD_TRANSACTIONS.POINT_OF_SALE_TYPE))
+                .set(REWARD_TRANSACTIONS.BUSINESS_NAME, excluded(REWARD_TRANSACTIONS.BUSINESS_NAME))
+                .set(REWARD_TRANSACTIONS.INVOICE_UPLOAD_DATE,
+                        excluded(REWARD_TRANSACTIONS.INVOICE_UPLOAD_DATE))
                 .set(REWARD_TRANSACTIONS.UPDATE_DATE, excluded(REWARD_TRANSACTIONS.UPDATE_DATE))
                 .set(REWARD_TRANSACTIONS.EXTENDED_AUTHORIZATION,
                         excluded(REWARD_TRANSACTIONS.EXTENDED_AUTHORIZATION))
@@ -96,7 +125,16 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
                 .set(REWARD_TRANSACTIONS.CHECKS_ERROR, excluded(REWARD_TRANSACTIONS.CHECKS_ERROR))
                 .set(REWARD_TRANSACTIONS.ACCRUED_REWARD_CENTS,
                         excluded(REWARD_TRANSACTIONS.ACCRUED_REWARD_CENTS))
-                .where(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(transactionRecord.getInitiativeId()))
+                .set(REWARD_TRANSACTIONS.TRANSACTION_REVISION,
+                        excluded(REWARD_TRANSACTIONS.TRANSACTION_REVISION))
+                .where(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(transactionRecord.getInitiativeId())
+                        .and(allowEqualRevision
+                                ? REWARD_TRANSACTIONS.TRANSACTION_REVISION.le(
+                                        excluded(REWARD_TRANSACTIONS.TRANSACTION_REVISION)
+                                )
+                                : REWARD_TRANSACTIONS.TRANSACTION_REVISION.lt(
+                                        excluded(REWARD_TRANSACTIONS.TRANSACTION_REVISION)
+                                )))
                 .returning(REWARD_TRANSACTIONS.TRANSACTION_ID);
     }
 }

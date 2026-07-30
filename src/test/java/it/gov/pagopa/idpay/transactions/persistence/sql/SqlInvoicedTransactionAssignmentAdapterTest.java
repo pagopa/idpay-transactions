@@ -88,9 +88,13 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
     @BeforeEach
     void clearDatabase() {
         databaseClient()
-                .sql("DELETE FROM reward_transactions")
+                .sql("DELETE FROM reward_batch_impact_inbox")
                 .fetch()
                 .rowsUpdated()
+                .then(databaseClient()
+                        .sql("DELETE FROM reward_transactions")
+                        .fetch()
+                        .rowsUpdated())
                 .then(databaseClient()
                         .sql("DELETE FROM reward_batches")
                         .fetch()
@@ -120,6 +124,36 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
                         .from(REWARD_BATCHES)
                         .where(REWARD_BATCHES.INITIATIVE_ID.eq(INITIATIVE_ID))))
                 .expectNextMatches(result -> result.value1() == 1)
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldNotCreateABatchWhenStaleInvoicedInputResolvesToRefundedTransaction() {
+        RewardTransaction staleInvoiced = transaction("transaction-stale-refunded", 750L);
+        staleInvoiced.setTransactionRevision(1L);
+
+        StepVerifier.create(databaseClient()
+                        .sql("""
+                                INSERT INTO reward_transactions (
+                                    transaction_id, initiative_id, status, accrued_reward_cents, transaction_revision
+                                )
+                                VALUES (
+                                    'transaction-stale-refunded', 'initiative-1', 'REFUNDED', 750, 2
+                                )
+                                """)
+                        .fetch()
+                        .rowsUpdated()
+                        .then(adapter.assignInvoicedTransaction(staleInvoiced, batch(), 123)))
+                .assertNext(persisted -> {
+                    assertEquals(SyncTrxStatus.REFUNDED.name(), persisted.getStatus());
+                    assertEquals(2L, persisted.getTransactionRevision());
+                    assertNull(persisted.getRewardBatchId());
+                    assertNull(persisted.getRewardBatchTrxStatus());
+                })
+                .verifyComplete();
+
+        StepVerifier.create(Mono.from(dslContext.selectCount().from(REWARD_BATCHES)))
+                .expectNextMatches(result -> result.value1() == 0)
                 .verifyComplete();
     }
 

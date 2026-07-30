@@ -37,6 +37,48 @@ class RewardTransactionsSchemaMigrationTest extends PostgresqlMigrationTestSuppo
     }
 
     @Test
+    void shouldAddTransactionRevisionAndPaymentImpactInbox() {
+        StepVerifier.create(databaseClient()
+                        .sql("""
+                                SELECT is_nullable, column_default
+                                FROM information_schema.columns
+                                WHERE table_name = 'reward_transactions'
+                                  AND column_name = 'transaction_revision'
+                                """)
+                        .map((row, metadata) -> row.get("is_nullable", String.class)
+                                + ":" + row.get("column_default", String.class))
+                        .one()
+                        .zipWith(databaseClient()
+                                .sql("""
+                                        SELECT constraint_type
+                                        FROM information_schema.table_constraints
+                                        WHERE table_name = 'reward_batch_impact_inbox'
+                                          AND constraint_type = 'PRIMARY KEY'
+                                        """)
+                                .map((row, metadata) -> row.get("constraint_type", String.class))
+                                .one())
+                        .map(result -> new PaymentImpactSchema(result.getT1(), result.getT2())))
+                .expectNext(new PaymentImpactSchema("NO:0", "PRIMARY KEY"))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldPreventMultipleImpactEventsForTheSameTransactionRevision() {
+        StepVerifier.create(databaseClient()
+                        .sql("""
+                                SELECT constraint_name
+                                FROM information_schema.table_constraints
+                                WHERE table_name = 'reward_batch_impact_inbox'
+                                  AND constraint_name =
+                                      'uk_reward_batch_impact_inbox_transaction_revision'
+                                """)
+                        .map((row, metadata) -> row.get("constraint_name", String.class))
+                        .one())
+                .expectNext("uk_reward_batch_impact_inbox_transaction_revision")
+                .verifyComplete();
+    }
+
+    @Test
     void shouldRoundTripJsonbDeferredStructuresThroughR2dbcCodec() {
         String additionalProperties = """
                 {"productName":"Coffee machine","productGtin":"1234567890123"}
@@ -106,5 +148,8 @@ class RewardTransactionsSchemaMigrationTest extends PostgresqlMigrationTestSuppo
             String rejectionCode,
             String productEligibilityError
     ) {
+    }
+
+    private record PaymentImpactSchema(String revisionColumn, String inboxPrimaryKey) {
     }
 }

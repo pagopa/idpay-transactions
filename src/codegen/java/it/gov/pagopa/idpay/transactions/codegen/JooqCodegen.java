@@ -75,7 +75,7 @@ public final class JooqCodegen {
                         .withDatabase(new Database()
                                 .withName("org.jooq.meta.postgres.PostgresDatabase")
                                 .withInputSchema("public")
-                                .withIncludes("reward_batches|reward_transactions"))
+                                .withIncludes("reward_batches|reward_transactions|reward_batch_impact_inbox"))
                         .withTarget(new Target()
                                 .withPackageName("it.gov.pagopa.idpay.transactions.persistence.sql.generated")
                                 .withDirectory(outputDirectory)));

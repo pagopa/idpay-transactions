@@ -72,7 +72,8 @@ public class RewardTransactionSqlMapper {
                 transaction.getVoucherAmountCents(),
                 transaction.getRewardBatchLastMonthElaborated(),
                 toJson(transaction.getChecksError()),
-                accruedRewardCents(transaction.getRewards(), initiativeId)
+                accruedRewardCents(transaction.getRewards(), initiativeId),
+                transaction.getTransactionRevision()
         );
     }
 
@@ -125,6 +126,7 @@ public class RewardTransactionSqlMapper {
                 .voucherAmountCents(entity.voucherAmountCents())
                 .rewardBatchLastMonthElaborated(entity.rewardBatchLastMonthElaborated())
                 .checksError(fromJson(entity.checksError(), ChecksError.class))
+                .transactionRevision(entity.transactionRevision())
                 .build();
     }
 
@@ -174,7 +176,8 @@ public class RewardTransactionSqlMapper {
                 transactionRecord.getVoucherAmountCents(),
                 transactionRecord.getRewardBatchLastMonthElaborated(),
                 r2dbcJson(transactionRecord.getChecksError()),
-                transactionRecord.getAccruedRewardCents()
+                transactionRecord.getAccruedRewardCents(),
+                transactionRecord.getTransactionRevision()
         ));
     }
 
@@ -224,7 +227,8 @@ public class RewardTransactionSqlMapper {
                 entity.voucherAmountCents(),
                 entity.rewardBatchLastMonthElaborated(),
                 jsonb(entity.checksError()),
-                entity.accruedRewardCents()
+                entity.accruedRewardCents(),
+                entity.transactionRevision()
         );
     }
 
