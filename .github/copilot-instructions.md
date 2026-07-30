@@ -141,3 +141,12 @@ Constraints and indexes:
 - This decision does not move transaction ownership to another service. Any future change to `idpay-payment` ownership or its Kafka events requires a separate cross-repository decision record and contract.
 - This decision does not create the draft's generic `GET /batches/{batchId}/transactions`, `PUT /batches/{batchId}/approve`, or unrestricted move endpoint. Existing endpoints and authorization rules remain authoritative.
 - The relational normalization of `rewards`, invoice structures, rejection reasons, checks errors, and additional properties is deferred. Their required query patterns must be decided before converting JSON/JSONB fields into child tables.
+
+## Quality gate
+For every production-code change:
+- Identify affected behavior and existing tests before editing.
+- Add or update focused unit/integration tests for changed branches and error paths.
+- Run the repository's targeted test, full test, coverage, and Sonar commands when available.
+- Run /review on the final diff and address high-confidence findings.
+- Do not commit or claim completion if new Sonar issues, coverage regressions, or failing tests remain.
+- If Sonar cannot run locally, state that explicitly; CI remains mandatory.
