@@ -150,4 +150,4 @@ For every production-code change:
 - Run /review on the final diff and address high-confidence findings.
 - Do not commit or claim completion if new Sonar issues, coverage regressions, or failing tests remain.
 - If Sonar cannot run locally, state that explicitly; CI remains mandatory.
-- For Java, SQL, Maven, or workflow changes, use the `/java-quality-gate` skill before completion. Use the `java-test-specialist` agent to close test gaps and the `sonar-quality-reviewer` agent for the final read-only quality review.
+- For Java, SQL, Maven, or workflow changes, use the `/java-quality-gate` skill before completion. The skill autonomously invokes `java-test-specialist` to close test gaps and `sonar-quality-reviewer` for the final read-only quality review; do not ask the user to run them separately.

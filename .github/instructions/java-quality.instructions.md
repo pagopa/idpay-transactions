@@ -8,6 +8,6 @@ For a production behavior change, identify the affected branches, error paths, a
 
 Use `StepVerifier` for reactive unit tests. For R2DBC, jOOQ, schema, or transaction behavior, add focused PostgreSQL Testcontainers integration coverage that verifies persisted rows and derived projections. Cover retry, idempotency, locking, or concurrency when the behavior can be invoked more than once or by concurrent callers.
 
-Treat `.github/workflows/code-review.yml` as the canonical source for the Maven, JaCoCo, generated-jOOQ, and SonarCloud checks. Run the `/java-quality-gate` skill before completing work. Use `java-test-specialist` when the test matrix is incomplete, then use `sonar-quality-reviewer` after the final diff.
+Treat `.github/workflows/code-review.yml` as the canonical source for the Maven, JaCoCo, generated-jOOQ, and SonarCloud checks. Run the `/java-quality-gate` skill before completing work. The skill automatically invokes `java-test-specialist` and `sonar-quality-reviewer`; do not ask the user to run those agents separately.
 
 Never edit `src/main/generated/jooq` by hand. When a migration changes the schema, regenerate the sources using the repository build and verify that the generated source diff is intentional.

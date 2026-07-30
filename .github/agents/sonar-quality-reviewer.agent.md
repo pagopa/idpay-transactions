@@ -1,9 +1,8 @@
 ---
 name: sonar-quality-reviewer
-description: Performs a read-only preflight review for likely SonarCloud findings and missing test coverage in idpay-transactions. Use explicitly after implementation and before committing or opening a pull request.
+description: Performs a read-only preflight review for likely SonarCloud findings and missing test coverage in idpay-transactions. Use automatically from the java-quality-gate workflow after implementation and before committing or opening a pull request.
 target: github-copilot
 tools: ["read", "search", "execute"]
-disable-model-invocation: true
 user-invocable: true
 ---
 
