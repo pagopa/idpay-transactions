@@ -20,6 +20,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -610,12 +611,12 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
         older.setFranchiseName("Old franchise");
         older.setPointOfSaleType(PosType.ONLINE);
         older.setBusinessName("Old business");
-        older.setInvoiceUploadDate(LocalDateTime.of(2026, 7, 1, 9, 15));
+        older.setInvoiceUploadDate(LocalDateTime.of(2026, Month.JULY, 1, 9, 15));
         RewardTransaction canonical = generic(transactionId, SyncTrxStatus.INVOICED, 6L);
         canonical.setFranchiseName("Updated franchise");
         canonical.setPointOfSaleType(PosType.PHYSICAL);
         canonical.setBusinessName("Updated business");
-        canonical.setInvoiceUploadDate(LocalDateTime.of(2026, 8, 1, 9, 15));
+        canonical.setInvoiceUploadDate(LocalDateTime.of(2026, Month.AUGUST, 1, 9, 15));
 
         StepVerifier.create(transactionAdapter.upsert(older)
                         .then(adapter.applyImpact(new PaymentRewardBatchImpact(
@@ -630,7 +631,10 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                     assertEquals("Updated franchise", transaction.getFranchiseName());
                     assertEquals(PosType.PHYSICAL, transaction.getPointOfSaleType());
                     assertEquals("Updated business", transaction.getBusinessName());
-                    assertEquals(LocalDateTime.of(2026, 8, 1, 9, 15), transaction.getInvoiceUploadDate());
+                    assertEquals(
+                            LocalDateTime.of(2026, Month.AUGUST, 1, 9, 15),
+                            transaction.getInvoiceUploadDate()
+                    );
                 })
                 .verifyComplete();
     }
@@ -1270,11 +1274,17 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
     }
 
     private static OffsetDateTime eventTime() {
-        return OffsetDateTime.of(2026, 7, 31, 22, 30, 0, 0, ZoneOffset.UTC);
+        return OffsetDateTime.of(
+                LocalDateTime.of(2026, Month.JULY, 31, 22, 30),
+                ZoneOffset.UTC
+        );
     }
 
     private static OffsetDateTime julyEventTime() {
-        return OffsetDateTime.of(2026, 7, 1, 10, 30, 0, 0, ZoneOffset.UTC);
+        return OffsetDateTime.of(
+                LocalDateTime.of(2026, Month.JULY, 1, 10, 30),
+                ZoneOffset.UTC
+        );
     }
 
     private static Stream<Arguments> localOnlyImpactFields() {
@@ -1548,7 +1558,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                 .posType(PosType.PHYSICAL.name())
                 .businessName("Business")
                 .status(status.name())
-                .trxChargeDate(LocalDateTime.of(2026, 7, 1, 10, 30))
+                .trxChargeDate(LocalDateTime.of(2026, Month.JULY, 1, 10, 30))
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(125L).build()))
                 .build();
     }

@@ -55,14 +55,16 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
                         .and(REWARD_BATCHES.INITIATIVE_ID.eq(REWARD_TRANSACTIONS.INITIATIVE_ID)))
                 .where(REWARD_TRANSACTIONS.MERCHANT_ID.eq(merchantId)
                         .and(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId))))
-                .map(record -> new PaymentBatchEligibility(
-                        record.get(REWARD_TRANSACTIONS.TRANSACTION_ID),
-                        record.get(REWARD_TRANSACTIONS.INITIATIVE_ID),
-                        record.get(REWARD_TRANSACTIONS.MERCHANT_ID),
-                        record.get(REWARD_TRANSACTIONS.REWARD_BATCH_ID),
-                        record.get(REWARD_TRANSACTIONS.STATUS),
-                        RewardBatchStatus.valueOf(record.get(REWARD_BATCHES.STATUS)),
-                        rewardBatchTrxStatus(record.get(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS))
+                .map(queryResult -> new PaymentBatchEligibility(
+                        queryResult.get(REWARD_TRANSACTIONS.TRANSACTION_ID),
+                        queryResult.get(REWARD_TRANSACTIONS.INITIATIVE_ID),
+                        queryResult.get(REWARD_TRANSACTIONS.MERCHANT_ID),
+                        queryResult.get(REWARD_TRANSACTIONS.REWARD_BATCH_ID),
+                        queryResult.get(REWARD_TRANSACTIONS.STATUS),
+                        RewardBatchStatus.valueOf(queryResult.get(REWARD_BATCHES.STATUS)),
+                        rewardBatchTrxStatus(
+                                queryResult.get(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS)
+                        )
                 ));
     }
 
@@ -100,23 +102,27 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
             PaymentRewardBatchImpact impact,
             RewardTransaction observed
     ) {
-        return observed.getRewardBatchId() == null
-                ? lockTransaction(transactionDslContext, observed.getId())
-                        .flatMap(locked -> locked.transaction().getRewardBatchId() == null
-                                ? applyIfNewerImpact(
-                                        transactionDslContext,
-                                        impact,
-                                        locked,
-                                        null
-                                )
-                                : Mono.error(new MembershipChangedException()))
-                : lockCurrentMembership(transactionDslContext, observed)
-                        .flatMap(locked -> applyIfNewerImpact(
-                                transactionDslContext,
-                                impact,
-                                locked.transaction(),
-                                locked.source()
-                        ));
+        if (observed.getRewardBatchId() != null) {
+            return lockCurrentMembership(transactionDslContext, observed)
+                    .flatMap(locked -> applyIfNewerImpact(
+                            transactionDslContext,
+                            impact,
+                            locked.transaction(),
+                            locked.source()
+                    ));
+        }
+        return lockTransaction(transactionDslContext, observed.getId())
+                .flatMap(locked -> {
+                    if (locked.transaction().getRewardBatchId() != null) {
+                        return Mono.error(new MembershipChangedException());
+                    }
+                    return applyIfNewerImpact(
+                            transactionDslContext,
+                            impact,
+                            locked,
+                            null
+                    );
+                });
     }
 
     private Mono<RewardTransaction> insertAndApplyImpact(
@@ -311,9 +317,9 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
         return Mono.from(transactionDslContext.selectFrom(REWARD_TRANSACTIONS)
                         .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId))
                         .forUpdate())
-                .map(record -> new LockedTransaction(
-                        transactionMapper.fromRecord(record),
-                        record.getLatestAppliedPaymentImpactRevision()
+                .map(transactionRecord -> new LockedTransaction(
+                        transactionMapper.fromRecord(transactionRecord),
+                        transactionRecord.getLatestAppliedPaymentImpactRevision()
                 ))
                 .switchIfEmpty(Mono.error(new IllegalStateException(
                         "Transaction %s was not persisted".formatted(transactionId)
