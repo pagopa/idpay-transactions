@@ -33,6 +33,9 @@ Testcontainers integration tests may apply the repository migration files solely
 7. Persist `accrued_reward_cents` as a typed transaction column for aggregate queries. Persist an Erogazioni amount only as an immutable delivery-request snapshot or outbox payload.
 8. Intermediate PRs are human-reviewed and fully validated refactoring checkpoints; they are not deployed. Retain Mongo behavior through adapters while moving one behavior at a time. Introduce a port only with the caller behavior it expresses; do not add speculative generic CRUD or one-to-one repository-wrapper ports. The final PR selects SQL and removes Mongo; no runtime dual-write/read exists.
 9. Payment publishes a dedicated, versioned, post-commit reward-batch-impact event for `INVOICE_REPLACED` and `INVOICED_REVERSED`, keyed by transaction ID and carrying an event ID, shared monotonic transaction revision, outcome timestamp, impact type, and canonical post-operation transaction projection. This service applies the event through a local inbox and one SQL transaction; it does not call payment, manage invoice blobs, or reauthorize the payment operation.
+   Keep the cross-service implementation status and contract requirements current in
+   [idpay-payment-reward-batch-impact.md](idpay-payment-reward-batch-impact.md)
+   with every related PR.
 
 ## SQL construction and validation
 
