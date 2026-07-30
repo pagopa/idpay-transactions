@@ -255,6 +255,10 @@ public class RewardTransactionSqlMapper {
         }
     }
 
+    JSONB toJsonb(Object value) {
+        return jsonb(toJson(value));
+    }
+
     private <T> T fromJson(Json value, Class<T> type) {
         if (value == null) {
             return null;
