@@ -44,7 +44,8 @@ import static org.jooq.impl.DSL.val;
 @RequiredArgsConstructor
 public class SqlRewardBatchListAdapter implements RewardBatchListPort {
 
-    private static final Field<Long> NUMBER_OF_TRANSACTIONS = count().cast(Long.class)
+    private static final Field<Long> NUMBER_OF_TRANSACTIONS = count(REWARD_TRANSACTIONS.TRANSACTION_ID)
+            .cast(Long.class)
             .as("number_of_transactions");
     private static final Field<Long> INITIAL_AMOUNT_CENTS = coalesce(
             sum(REWARD_TRANSACTIONS.ACCRUED_REWARD_CENTS), val(0L)

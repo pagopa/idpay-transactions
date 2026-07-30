@@ -5,7 +5,6 @@ import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.
 import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions.REWARD_TRANSACTIONS;
 
 import io.r2dbc.spi.ConnectionFactory;
-import io.r2dbc.spi.R2dbcException;
 import it.gov.pagopa.idpay.transactions.enums.PaymentRewardBatchImpactType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
@@ -81,7 +80,7 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
                 })
                 .retryWhen(Retry.max(3)
                         .filter(error -> error instanceof MembershipChangedException
-                                || isRetryableDatabaseConcurrencyFailure(error)));
+                                || SqlTransactionRetrySupport.isRetryableConcurrencyFailure(error)));
     }
 
     private Mono<RewardTransaction> applyWithinTransaction(
@@ -397,17 +396,6 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
                     "An invoice replacement impact requires a point of sale type"
             );
         }
-    }
-
-    private static boolean isRetryableDatabaseConcurrencyFailure(Throwable error) {
-        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
-            if (cause instanceof R2dbcException exception
-                    && ("40001".equals(exception.getSqlState())
-                    || "40P01".equals(exception.getSqlState()))) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static final class MembershipChangedException extends RuntimeException {
