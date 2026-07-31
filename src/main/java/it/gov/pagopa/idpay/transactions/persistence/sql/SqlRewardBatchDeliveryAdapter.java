@@ -19,11 +19,13 @@ import org.jooq.DSLContext;
 import org.jooq.Field;
 import org.jooq.SQLDialect;
 import org.springframework.r2dbc.connection.ConnectionFactoryUtils;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
 @RequiredArgsConstructor
+@Component
 public class SqlRewardBatchDeliveryAdapter implements RewardBatchDeliveryPort {
 
     private static final Field<Long> DERIVED_APPROVED_AMOUNT = coalesce(

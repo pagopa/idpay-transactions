@@ -4,6 +4,7 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql.generated;
 
 
+import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.Reports;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions;
 
@@ -13,6 +14,11 @@ import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardT
  */
 @SuppressWarnings({ "all", "unchecked", "rawtypes", "this-escape" })
 public class Tables {
+
+    /**
+     * The table <code>public.reports</code>.
+     */
+    public static final Reports REPORTS = Reports.REPORTS;
 
     /**
      * The table <code>public.reward_batches</code>.

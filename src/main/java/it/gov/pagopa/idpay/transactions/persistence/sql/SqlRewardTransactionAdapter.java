@@ -8,10 +8,12 @@ import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSynchr
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardTransactionsRecord;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Mono;
 
 @RequiredArgsConstructor
+@Component
 public class SqlRewardTransactionAdapter implements RewardTransactionSynchronizationPort {
 
     private final TransactionalOperator transactionalOperator;

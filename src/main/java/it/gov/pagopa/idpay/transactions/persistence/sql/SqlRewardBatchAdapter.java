@@ -6,6 +6,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.JSONB;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Mono;
 
@@ -13,6 +14,7 @@ import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.
 import static org.jooq.impl.DSL.currentLocalDateTime;
 
 @RequiredArgsConstructor
+@Component
 public class SqlRewardBatchAdapter {
 
     private final TransactionalOperator transactionalOperator;

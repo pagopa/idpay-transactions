@@ -40,9 +40,17 @@ remediation; this service must not select a value or batch membership
 arbitrarily.
 
 After the audit is clean, the external process provisions the final target
-database through migration `004`. It must load `accrued_reward_cents` for every
-transaction as a non-negative typed value. Migration `004` removes the
-temporary views and mutable counter columns, so it must not be applied to the
-populated audit database. Thereafter, batch amounts and counts are read from
-SQL aggregates over assigned transactions; the application neither runs this
-audit nor persists counters.
+database by applying the ordered migrations `001` through `007` to an empty
+database. It must then backfill batches, transactions, and reports before the
+cutover application starts.
+
+The transaction backfill must load `accrued_reward_cents` for every transaction
+as a non-negative typed value. Migration `004` removes the temporary views and
+mutable counter columns, so it must not be applied to the populated audit
+database. The report backfill must preserve each report ID, initiative, scope
+(`merchant_id` or `operator_level`), period, status, filename, and request and
+elaboration dates so report list, download, retry, and force-generation APIs
+remain available after cutover.
+
+Thereafter, batch amounts and counts are read from SQL aggregates over assigned
+transactions; the application neither runs this audit nor persists counters.

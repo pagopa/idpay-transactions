@@ -25,6 +25,7 @@ import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
 import org.springframework.http.HttpStatus;
 import org.springframework.r2dbc.connection.ConnectionFactoryUtils;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
@@ -34,6 +35,7 @@ import reactor.util.retry.Retry;
  * Batch totals remain projections of the current transaction membership.
  */
 @RequiredArgsConstructor
+@Component
 public class SqlMerchantTransactionPostponementAdapter implements MerchantTransactionPostponementPort {
 
     private final TransactionalOperator transactionalOperator;

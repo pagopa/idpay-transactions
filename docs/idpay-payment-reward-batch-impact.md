@@ -29,6 +29,11 @@ The current payment `TransactionInProgress` model has `counterVersion`, but it
 is the reward-calculator counter ETag. It is not a transaction lifecycle
 revision and must not be reused for this integration.
 
+The direct SQL cutover removes the legacy local invoice replacement and
+invoiced-reversal routes from `idpay-transactions`. Until the payment contract
+and runtime consumer binding are implemented, deployment must not rely on a
+local substitute for those payment-owned commands.
+
 ## Required payment changes
 
 ### 1. Persist a transaction lifecycle revision

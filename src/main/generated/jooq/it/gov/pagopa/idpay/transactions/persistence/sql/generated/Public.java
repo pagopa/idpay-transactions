@@ -4,6 +4,7 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql.generated;
 
 
+import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.Reports;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions;
 
@@ -27,6 +28,11 @@ public class Public extends SchemaImpl {
      * The reference instance of <code>public</code>
      */
     public static final Public PUBLIC = new Public();
+
+    /**
+     * The table <code>public.reports</code>.
+     */
+    public final Reports REPORTS = Reports.REPORTS;
 
     /**
      * The table <code>public.reward_batches</code>.
@@ -54,6 +60,7 @@ public class Public extends SchemaImpl {
     @Override
     public final List<Table<?>> getTables() {
         return Arrays.asList(
+            Reports.REPORTS,
             RewardBatches.REWARD_BATCHES,
             RewardTransactions.REWARD_TRANSACTIONS
         );

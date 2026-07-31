@@ -14,11 +14,13 @@ import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
 import org.springframework.r2dbc.connection.ConnectionFactoryUtils;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
 @RequiredArgsConstructor
+@Component
 public class SqlRewardBatchFinalApprovalAdapter implements RewardBatchFinalApprovalPort {
 
     private final TransactionalOperator transactionalOperator;
