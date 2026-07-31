@@ -16,14 +16,14 @@ The previous draft was inaccurate in the following ways:
 - It modelled only a thin batch transaction projection, while current batch operations need local invoice, reward, merchant/POS, CSV, and evaluation data.
 - It used states, endpoints, and money types that do not exist here.
 - It prescribed JPA/Hibernate and blocking `PagingAndSortingRepository`, which conflict with the reactive service architecture.
-- It prohibited all calls to `idpay-payment`, even though the existing Kafka consumer calls it to cancel an invoiced transaction in progress. Only calls intentionally removed by the agreed boundary may be prohibited.
+- It retained the current post-invoice cancellation/deletion path, which transfers payment ownership away from `idpay-payment`. The target boundary keeps payment ownership in `idpay-payment`: an `INVOICED` snapshot updates only the local projection and must not cancel or delete the payment transaction.
 
 ## Decision
 
 Migrate the batch domain and its local transaction data from reactive MongoDB to PostgreSQL through a reactive SQL stack:
 
 - Use R2DBC and reactive repositories/custom SQL (`Mono`/`Flux`), not JPA, Hibernate, or blocking repositories.
-- Keep `idpay-transactions` as the physical owner of batches and of the local transaction projection needed to execute batch, reporting, and delivery flows. Payment owns invoice update/reversal commands, their authorization, blob operations, and authoritative transaction-state transitions; this service owns the resulting local reward-batch membership effect.
+- Keep `idpay-transactions` as the physical owner of batches and of the local transaction projection needed to execute batch, reporting, and delivery flows. Payment owns invoice update/reversal commands, their authorization, blob operations, and authoritative transaction-state transitions; this service owns the resulting local reward-batch membership effect. An `INVOICED` snapshot only updates that local projection and must not trigger a cancellation or deletion request to payment.
 - Store current batch membership and evaluation state on the local transaction row. The migration must not reduce the local data to a batch-only projection until the consumers of invoice, CSV, POS, and transaction search data have been migrated or replaced.
 - Enforce single-initiative ownership: a transaction belongs to exactly one initiative for its whole local lifecycle. It may be assigned to zero or one reward batch at a time; moving or postponing it updates that single assignment and never creates another one.
 - Do not persist mutable batch counters. Derive batch amounts and transaction counts in database-side aggregate queries over assigned transactions, and retain their current API response fields as aggregate projections.
@@ -115,7 +115,7 @@ Constraints and indexes:
 
 | Flow | Required behaviour |
 | --- | --- |
-| Kafka transaction synchronization | `rewardTrxConsumer` consumes versioned `RewardTransactionDTO` snapshots and conditionally upserts the local projection, preserving existing handling of `REFUNDED` messages. An event may not change an existing transaction's initiative; the conflict is rejected/quarantined. An `INVOICED` transaction still triggers the existing payment cancellation call unless its contract is independently changed. |
+| Kafka transaction synchronization | `rewardTrxConsumer` consumes versioned `RewardTransactionDTO` snapshots and conditionally upserts the local projection, preserving existing handling of `REFUNDED` messages. An event may not change an existing transaction's initiative; the conflict is rejected/quarantined. An `INVOICED` snapshot is a local projection update only: it must not cancel or delete the payment transaction, whose ownership remains with `idpay-payment`. |
 | Batch assignment | The existing chunked/manual `assignInvoicedTransactionsToBatches` flow finds invoiced, unassigned transactions; enriches missing POS data; finds or creates the `(initiative, merchant, pos type, month)` batch; assigns `CONSULTABLE`; sets inclusion date and deterministic sampling key; and clears prior batch rejection reason. Assignment is idempotent and the transaction's initiative must equal the batch initiative. |
 | Batch and processed-transaction reads | Preserve paginated batch list/detail, merchant processed-transaction list/statuses, POS processed-transaction list, batch/status/merchant/POS/fiscal-code/product/trx-code filters, and role-based exposure of `TO_CHECK` as `CONSULTABLE` for non-operators. SQL queries must paginate and sort in the database. |
 | Merchant sends a batch | Allow `CREATED -> SENT` only for the owning merchant, only after the batch month, and only when no earlier non-empty `CREATED` batch exists for the same initiative, merchant, and POS type. |
@@ -143,6 +143,6 @@ Constraints and indexes:
 
 ## Non-goals and open decisions
 
-- This decision does not move batch ownership to another service. Payment remains the owner of invoice update/reversal commands and publishes the approved dedicated impact event; this service owns only the local batch effect.
+- This decision does not move batch ownership to another service. Payment remains the owner of the payment transaction and of invoice update/reversal commands, and publishes the approved dedicated impact event; this service owns only the local batch effect.
 - This decision does not create the draft's generic `GET /batches/{batchId}/transactions`, `PUT /batches/{batchId}/approve`, or unrestricted move endpoint. Existing endpoints and authorization rules remain authoritative.
 - The relational normalization of `rewards`, invoice structures, rejection reasons, checks errors, and additional properties is deferred. Their required query patterns must be decided before converting JSON/JSONB fields into child tables.

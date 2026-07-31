@@ -6,6 +6,10 @@ Replace MongoDB persistence of `RewardBatch` and `RewardTransaction` with Postgr
 
 Excluded: Mongo-to-PostgreSQL extraction/backfill, reconciliation execution, dual reads/writes, feature flags, data cutover operations, and payment-domain invoice update/reversal commands. Payment owns their endpoints, authorization, blob operations, and authoritative transaction-state transition. This service remains responsible for the resulting local reward-batch membership projection through the approved payment-to-reward-batch-impact event contract.
 
+An `INVOICED` transaction snapshot updates only this local projection. It must
+not cancel or delete the payment transaction, whose ownership remains with
+`idpay-payment`.
+
 ## Schema-management decision
 
 The application must **not** include Flyway, a JDBC migration driver, or any other in-service schema migration mechanism.
@@ -14,7 +18,7 @@ Versioned, ordered SQL migration files remain in `src/main/resources/db/migratio
 
 Testcontainers integration tests may apply the repository migration files solely to provision isolated test databases; this is not application startup behavior and must not create a schema-history table.
 
-No deployment applies these files before PR 25. Until then, superseded
+No deployment applies these files before PR 26. Until then, superseded
 intermediate migration steps may be consolidated into the final cutover schema;
 once an environment applies them, the files become ordered, forward-only
 artifacts.
@@ -75,11 +79,12 @@ artifacts.
 | 19 | Implement evaluation preparation and decision mutations with jOOQ conditional transaction updates, idempotency, batch locks, and aggregate-projection tests. | 11, 14, 16 |
 | 20 | Add the payment-to-reward-batch-impact contract model and a forward migration for shared transaction revisions and a transaction-local latest-applied-impact revision. Implement the idempotent SQL local projection handler: `INVOICE_REPLACED` leaves a `CREATED` source membership intact, otherwise moves it to the outcome-month grouping (creating the batch when absent) as `SUSPENDED`; `INVOICED_REVERSED` detaches its current membership. Apply impacts to current local membership, derive aggregates from rows, and add the narrow read-only eligibility query used by payment before it commits the command. Do not add payment endpoints, invoice lifecycle policies, blob operations, or payment calls. | 12, 16, 19 |
 | 21 | Implement final-approval suspended reassignment: stable source/target locks, target creation, last-elaborated-month preservation, `INVOICED`/`SUSPENDED` state, and full invariant tests. | 12, 19 |
-| 22 | Implement constrained merchant postponement: `CREATED` source only, initiative end-date validation, and `CREATED` target. | 12, 19 |
-| 23 | Route approval worker, assignee promotion, CSV source queries, delivery amount snapshot/outcome updates, and empty-batch cleanup through SQL-capable ports. | 15, 17, 19, 21, 22 |
-| 24 | Add PostgreSQL integration coverage for consumer idempotency, revision ordering, payment batch impacts, assignment, lifecycle transitions, aggregate projections, moves, CSV selection, delivery amount snapshots/outcomes, and external reconciliation input queries. | 18–23 |
-| 25 | Direct cutover: select SQL adapters; remove Mongo repositories/models/configuration/health/dependencies/embedded-Mongo tests; update deployment configuration. Do not add data transfer, feature flags, or dual writes. | 23, 24 |
-| 26 | Run regression and prove ordered repository migration files provision an empty PostgreSQL database through the test fixture, contracts remain compatible, Kafka behavior is unchanged, and no Mongo runtime dependency remains. Update the decision record and external schema-management hand-off checklist. | 25 |
+| 22 | Remove the legacy `INVOICED` payment cancellation/deletion path from Kafka synchronization. Keep the local projection and batch-assignment behavior, remove the now-unused payment cancellation client and its configuration/tests when no other call site remains, and add consumer tests proving no payment deletion request is made. | 09, 20 |
+| 23 | Implement constrained merchant postponement: `CREATED` source only, initiative end-date validation, and `CREATED` target. | 12, 19 |
+| 24 | Route approval worker, assignee promotion, CSV source queries, delivery amount snapshot/outcome updates, and empty-batch cleanup through SQL-capable ports. | 15, 17, 19, 21, 22, 23 |
+| 25 | Add PostgreSQL integration coverage for consumer idempotency, revision ordering, payment batch impacts, assignment, lifecycle transitions, aggregate projections, moves, CSV selection, delivery amount snapshots/outcomes, and external reconciliation input queries. | 18–24 |
+| 26 | Direct cutover: select SQL adapters; remove Mongo repositories/models/configuration/health/dependencies/embedded-Mongo tests; update deployment configuration. Do not add data transfer, feature flags, or dual writes. | 24, 25 |
+| 27 | Run regression and prove ordered repository migration files provision an empty PostgreSQL database through the test fixture, contracts remain compatible, Kafka behavior is unchanged, and no Mongo runtime dependency remains. Update the decision record and external schema-management hand-off checklist. | 26 |
 
 ## PR execution rules
 
@@ -90,7 +95,7 @@ artifacts.
 - Use `StepVerifier` for reactive unit tests and focused Testcontainers PostgreSQL integration tests for SQL adapter/mutation work.
 - Apply SQL mutations only through `TransactionalOperator`; never add blocking bridges.
 - Before merging a mutation PR, assert the transaction, all affected batch aggregate projections, and idempotent retry/concurrent behavior where applicable.
-- Before PR 25, consolidate superseded migration steps into the final schema
+- Before PR 26, consolidate superseded migration steps into the final schema
   because no environment applies them. Once migration application begins, treat
   `src/main/resources/db/migration/` as ordered, forward-only artifacts. The
   application must neither execute nor track them.
@@ -98,7 +103,7 @@ artifacts.
 
 ## Cutover hand-off conditions
 
-- Before PR 25 deploys, the external process must populate PostgreSQL and produce a clean external comparison of legacy Mongo counters against SQL transaction aggregates.
+- Before PR 26 deploys, the external process must populate PostgreSQL and produce a clean external comparison of legacy Mongo counters against SQL transaction aggregates.
 - It must retain string IDs and JSON payload fidelity, satisfy foreign keys, populate typed accrued reward, and populate all fields used by lists, invoices, CSV, delivery, and refunds.
 - Transactions with multiple Mongo initiatives must be quarantined/remediated externally; SQL must not choose an initiative arbitrarily.
 - Payment must publish the approved dedicated impact event and include the same monotonic transaction revision on generic transaction snapshots before cutover enables the SQL impact consumer.

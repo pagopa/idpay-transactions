@@ -11,6 +11,8 @@ The payment service remains the owner of invoice/reversal commands,
 authorization, blob operations, and authoritative transaction state.
 `idpay-transactions` remains the owner of reward-batch membership and
 in-batch evaluation state. Payment must not write reward-batch data directly.
+An `INVOICED` generic snapshot updates only the local projection:
+`idpay-transactions` must not cancel or delete payment's transaction.
 
 ## Current integration status
 

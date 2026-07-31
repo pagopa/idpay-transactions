@@ -16,7 +16,7 @@ The previous draft was inaccurate in the following ways:
 - It modelled only a thin batch transaction projection, while current batch operations need local invoice, reward, merchant/POS, CSV, and evaluation data.
 - It used states, endpoints, and money types that do not exist here.
 - It prescribed JPA/Hibernate and blocking `PagingAndSortingRepository`, which conflict with the reactive service architecture.
-- It prohibited all calls to `idpay-payment`, even though the existing Kafka consumer calls it to cancel an invoiced transaction in progress. Only calls intentionally removed by the agreed boundary may be prohibited.
+- It retained the current post-invoice cancellation/deletion path, which transfers payment ownership away from `idpay-payment`. The target boundary keeps payment ownership in `idpay-payment`: an `INVOICED` snapshot updates only the local projection and must not cancel or delete the payment transaction.
 
 ## Decision
 
@@ -110,7 +110,7 @@ Constraints and indexes:
 
 | Flow | Required behaviour |
 | --- | --- |
-| Kafka transaction synchronization | `rewardTrxConsumer` consumes `RewardTransactionDTO`, upserts the local transaction idempotently, and preserves existing handling of `REFUNDED` messages. An event may not change an existing transaction's initiative; the conflict is rejected/quarantined. An `INVOICED` transaction still triggers the existing payment cancellation call unless its contract is independently changed. |
+| Kafka transaction synchronization | `rewardTrxConsumer` consumes `RewardTransactionDTO`, upserts the local transaction idempotently, and preserves existing handling of `REFUNDED` messages. An event may not change an existing transaction's initiative; the conflict is rejected/quarantined. An `INVOICED` snapshot is a local projection update only: it must not cancel or delete the payment transaction, whose ownership remains with `idpay-payment`. |
 | Batch assignment | The existing chunked/manual `assignInvoicedTransactionsToBatches` flow finds invoiced, unassigned transactions; enriches missing POS data; finds or creates the `(initiative, merchant, pos type, month)` batch; assigns `CONSULTABLE`; sets inclusion date and deterministic sampling key; clears prior batch rejection reason; and increments initial amount and transaction count. Assignment is idempotent and the transaction's initiative must equal the batch initiative. |
 | Batch and processed-transaction reads | Preserve paginated batch list/detail, merchant processed-transaction list/statuses, POS processed-transaction list, batch/status/merchant/POS/fiscal-code/product/trx-code filters, and role-based exposure of `TO_CHECK` as `CONSULTABLE` for non-operators. SQL queries must paginate and sort in the database. |
 | Merchant sends a batch | Allow `CREATED -> SENT` only for the owning merchant, only after the batch month, and only when no earlier non-empty `CREATED` batch exists for the same initiative, merchant, and POS type. |
