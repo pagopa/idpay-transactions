@@ -393,6 +393,59 @@ class SqlRewardTransactionSearchAdapterTest extends PostgresqlMigrationTestSuppo
     }
 
     @Test
+    void shouldSelectOnlyCsvEligibleRowsFromTheRequestedBatchAndRetainCsvSourceData() {
+        RewardTransaction approved = transaction(
+                "csv-approved",
+                SyncTrxStatus.REWARDED,
+                RewardBatchTrxStatus.APPROVED,
+                2
+        );
+        approved.setRewardBatchId(BATCH_ID);
+
+        RewardTransaction rejected = transaction(
+                "csv-rejected",
+                SyncTrxStatus.REWARDED,
+                RewardBatchTrxStatus.REJECTED,
+                1
+        );
+        rejected.setRewardBatchId(BATCH_ID);
+
+        RewardTransaction pending = transaction(
+                "csv-pending",
+                SyncTrxStatus.REWARDED,
+                RewardBatchTrxStatus.CONSULTABLE,
+                0
+        );
+        pending.setRewardBatchId(BATCH_ID);
+
+        RewardTransaction otherBatch = transaction(
+                "csv-other-batch",
+                SyncTrxStatus.REWARDED,
+                RewardBatchTrxStatus.APPROVED,
+                0
+        );
+        otherBatch.setRewardBatchId("batch-2");
+
+        StepVerifier.create(createBatch()
+                        .then(createBatch("batch-2", "2026-08"))
+                        .then(seed(approved, rejected, pending, otherBatch))
+                        .thenMany(adapter.findBatchTransactions(
+                                BATCH_ID,
+                                INITIATIVE_ID,
+                                List.of(RewardBatchTrxStatus.APPROVED, RewardBatchTrxStatus.REJECTED)
+                        ))
+                        .collectList())
+                .assertNext(transactions -> {
+                    assertEquals(List.of("csv-rejected", "csv-approved"),
+                            transactions.stream().map(RewardTransaction::getId).toList());
+                    assertEquals("csv-rejected", transactions.getFirst().getTrxCode());
+                    assertEquals("Coffee", transactions.getLast().getAdditionalProperties().get("productName"));
+                    assertEquals("AbC-123", transactions.getLast().getAdditionalProperties().get("productGtin"));
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void shouldReturnNoBatchTransactionsForNullOrEmptyStatuses() {
         StepVerifier.create(adapter.findBatchTransactions(BATCH_ID, INITIATIVE_ID, null))
                 .verifyComplete();
@@ -430,16 +483,25 @@ class SqlRewardTransactionSearchAdapterTest extends PostgresqlMigrationTestSuppo
     }
 
     private Mono<Void> createBatch() {
+        return createBatch(BATCH_ID);
+    }
+
+    private Mono<Void> createBatch(String batchId) {
+        return createBatch(batchId, "2026-07");
+    }
+
+    private Mono<Void> createBatch(String batchId, String month) {
         return databaseClient()
                 .sql("""
                         INSERT INTO reward_batches (
                             id, initiative_id, merchant_id, month, pos_type, status, name, assignee_level
                         )
-                        VALUES (:id, :initiativeId, :merchantId, '2026-07', 'PHYSICAL', 'CREATED', 'July', 'L1')
+                        VALUES (:id, :initiativeId, :merchantId, :month, 'PHYSICAL', 'CREATED', 'July', 'L1')
                         """)
-                .bind("id", BATCH_ID)
+                .bind("id", batchId)
                 .bind("initiativeId", INITIATIVE_ID)
                 .bind("merchantId", MERCHANT_ID)
+                .bind("month", month)
                 .fetch()
                 .rowsUpdated()
                 .then();

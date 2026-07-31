@@ -53,6 +53,7 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
                 .on(REWARD_BATCHES.ID.eq(REWARD_TRANSACTIONS.REWARD_BATCH_ID)
                         .and(REWARD_BATCHES.INITIATIVE_ID.eq(REWARD_TRANSACTIONS.INITIATIVE_ID)))
                 .where(REWARD_TRANSACTIONS.MERCHANT_ID.eq(merchantId)
+                        .and(REWARD_BATCHES.MERCHANT_ID.eq(merchantId))
                         .and(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId))))
                 .map(queryResult -> new PaymentBatchEligibility(
                         queryResult.get(REWARD_TRANSACTIONS.TRANSACTION_ID),

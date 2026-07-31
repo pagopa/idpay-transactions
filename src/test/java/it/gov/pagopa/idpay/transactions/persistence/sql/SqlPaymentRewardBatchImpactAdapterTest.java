@@ -1273,6 +1273,41 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                 .verifyComplete();
     }
 
+    @Test
+    void shouldExcludeUnassignedAndBatchMerchantMismatchedRowsFromPaymentEligibility() {
+        String unassignedTransactionId = "unassigned-eligibility";
+        String mismatchedTransactionId = "mismatched-eligibility";
+
+        StepVerifier.create(Flux.concat(
+                        transactionAdapter.upsert(generic(
+                                unassignedTransactionId,
+                                SyncTrxStatus.INVOICED,
+                                5L
+                        )),
+                        insertBatch(
+                                "merchant-mismatched-batch",
+                                RewardBatchStatus.EVALUATING,
+                                "2026-09",
+                                "other-batch-merchant"
+                        ),
+                        insertMembership(
+                                mismatchedTransactionId,
+                                "merchant-mismatched-batch",
+                                RewardBatchTrxStatus.CONSULTABLE,
+                                SyncTrxStatus.INVOICED,
+                                5L,
+                                5
+                        )
+                ).then())
+                .verifyComplete();
+
+        StepVerifier.create(Flux.concat(
+                        adapter.findEligibility(MERCHANT_ID, unassignedTransactionId),
+                        adapter.findEligibility(MERCHANT_ID, mismatchedTransactionId)
+                ))
+                .verifyComplete();
+    }
+
     private static OffsetDateTime eventTime() {
         return OffsetDateTime.of(
                 LocalDateTime.of(2026, Month.JULY, 31, 22, 30),
@@ -1564,6 +1599,15 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
     }
 
     private static Mono<Void> insertBatch(String batchId, RewardBatchStatus status, String month) {
+        return insertBatch(batchId, status, month, MERCHANT_ID);
+    }
+
+    private static Mono<Void> insertBatch(
+            String batchId,
+            RewardBatchStatus status,
+            String month,
+            String merchantId
+    ) {
         return databaseClient()
                 .sql("""
                         INSERT INTO reward_batches (
@@ -1575,7 +1619,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                         """)
                 .bind("id", batchId)
                 .bind("initiativeId", INITIATIVE_ID)
-                .bind("merchantId", MERCHANT_ID)
+                .bind("merchantId", merchantId)
                 .bind("month", month)
                 .bind("status", status.name())
                 .fetch()
