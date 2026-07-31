@@ -69,6 +69,7 @@ public class RewardBatch {
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime deliveryDateRequest;
+    private Long deliveryAmountCents;
     private DeliveryOutcomeDTO deliveryOutcome;
 
 

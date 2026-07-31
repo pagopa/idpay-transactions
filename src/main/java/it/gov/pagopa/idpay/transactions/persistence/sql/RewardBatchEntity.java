@@ -26,6 +26,7 @@ public record RewardBatchEntity(
         @Column("merchant_send_date") LocalDateTime merchantSendDate,
         @Column("approval_date") LocalDateTime approvalDate,
         @Column("delivery_date_request") LocalDateTime deliveryDateRequest,
+        @Column("delivery_amount_cents") Long deliveryAmountCents,
         @Column("refund_outcome_timestamp") LocalDateTime refundOutcomeTimestamp,
         @Column("report_path") String reportPath,
         String filename,

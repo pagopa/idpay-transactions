@@ -19,8 +19,6 @@ import org.springframework.data.domain.Sort;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.YearMonth;
-import java.time.ZoneId;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -31,8 +29,6 @@ import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.
 import static org.jooq.impl.DSL.coalesce;
 import static org.jooq.impl.DSL.count;
 import static org.jooq.impl.DSL.falseCondition;
-import static org.jooq.impl.DSL.notExists;
-import static org.jooq.impl.DSL.selectOne;
 import static org.jooq.impl.DSL.sum;
 import static org.jooq.impl.DSL.trueCondition;
 import static org.jooq.impl.DSL.val;
@@ -87,7 +83,6 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
                     .cast(Long.class);
     private static final Field<Long> APPROVED_AMOUNT_CENTS = APPROVED_AMOUNT_CENTS_VALUE
                     .as("approved_amount_cents");
-    private static final ZoneId ROME_ZONE_ID = ZoneId.of("Europe/Rome");
     private static final RewardBatchSqlMapper.BatchAggregateProjection BATCH_AGGREGATE_PROJECTION =
                     new RewardBatchSqlMapper.BatchAggregateProjection(
                             NUMBER_OF_TRANSACTIONS,
@@ -219,15 +214,6 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
 
     public Flux<RewardBatch> findOutcomeBatches(String initiativeId, Pageable pageable) {
         return findBatchesWithStatus(RewardBatchStatus.PENDING_REFUND, initiativeId, pageable);
-    }
-
-    public Flux<RewardBatch> findEmptyBatchesBeforeCurrentMonth() {
-        return Flux.from(projectedBatches(REWARD_BATCHES.MONTH.lt(YearMonth.now(ROME_ZONE_ID).toString())
-                        .and(notExists(selectOne()
-                                .from(REWARD_TRANSACTIONS)
-                                .where(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(REWARD_BATCHES.ID)))))
-                .orderBy(REWARD_BATCHES.MONTH.asc()))
-                .map(this::toBatch);
     }
 
     private SelectHavingStep<Record> projectedBatches(Condition condition) {

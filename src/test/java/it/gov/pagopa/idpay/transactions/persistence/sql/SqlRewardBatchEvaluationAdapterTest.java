@@ -145,6 +145,13 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                 ))
                 .assertNext(result -> {
                     assertEquals(RewardBatchStatus.EVALUATING, result.getT1().getStatus());
+                    assertEquals(0L, result.getT1().getNumberOfTransactions());
+                    assertEquals(0L, result.getT1().getInitialAmountCents());
+                    assertEquals(0L, result.getT1().getNumberOfTransactionsElaborated());
+                    assertEquals(0L, result.getT1().getNumberOfTransactionsSuspended());
+                    assertEquals(0L, result.getT1().getNumberOfTransactionsRejected());
+                    assertEquals(0L, result.getT1().getSuspendedAmountCents());
+                    assertEquals(0L, result.getT1().getApprovedAmountCents());
                     assertTrue(result.getT2().isEmpty());
                 })
                 .verifyComplete();
