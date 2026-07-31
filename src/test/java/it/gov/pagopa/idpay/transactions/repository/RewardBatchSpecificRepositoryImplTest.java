@@ -316,23 +316,6 @@ class RewardBatchSpecificRepositoryImplTest {
   }
 
   @Test
-  void findPreviousEmptyBatches_shouldCallMongoTemplate() {
-    RewardBatch batch = new RewardBatch();
-    batch.setId("old");
-
-    when(mongoTemplate.find(any(Query.class), eq(RewardBatch.class)))
-            .thenReturn(Flux.just(batch));
-
-    Flux<RewardBatch> result = repository.findPreviousEmptyBatches();
-
-    StepVerifier.create(result)
-            .expectNext(batch)
-            .verifyComplete();
-
-    verify(mongoTemplate).find(any(Query.class), eq(RewardBatch.class));
-  }
-
-  @Test
   void findRewardBatchesCombined_withInvalidAssignee_shouldNotCrash() {
     when(mongoTemplate.find(any(Query.class), eq(RewardBatch.class)))
             .thenReturn(Flux.empty());

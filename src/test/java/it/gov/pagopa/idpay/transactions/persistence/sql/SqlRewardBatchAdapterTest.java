@@ -272,44 +272,19 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
     }
 
     @Test
-    void shouldFindPriorBatchesAndOnlyReferenceFreeEmptyBatches() {
+    void shouldFindPriorBatchesForMerchantChronology() {
         RewardBatch prior = batch("batch-prior");
         prior.setMonth("2026-05");
-        RewardBatch referencedEmpty = batch("batch-referenced");
-        referencedEmpty.setMonth("2026-06");
-        RewardBatch eligibleEmpty = batch("batch-eligible");
-        eligibleEmpty.setMonth("2026-04");
+        RewardBatch current = batch("batch-current");
+        current.setMonth("2026-07");
 
         StepVerifier.create(Flux.concat(
                         adapter.createOrRead(prior),
-                        adapter.createOrRead(referencedEmpty),
-                        adapter.createOrRead(eligibleEmpty)
-                ).then(databaseClient()
-                        .sql("""
-                                INSERT INTO reward_transactions (
-                                    transaction_id, initiative_id, reward_batch_id, accrued_reward_cents
-                                )
-                                VALUES ('referenced-transaction', 'initiative-1', 'batch-referenced', 0)
-                                """)
-                        .fetch()
-                        .rowsUpdated())
-                        .thenMany(listAdapter.findBatchesBeforeMonth(
+                        adapter.createOrRead(current)
+                ).thenMany(listAdapter.findBatchesBeforeMonth(
                                 "merchant-1", "initiative-1", PosType.PHYSICAL, "2026-07"
                         ).map(RewardBatch::getId).collectList()))
-                .assertNext(ids -> assertEquals(
-                        java.util.List.of("batch-eligible", "batch-prior", "batch-referenced"),
-                        ids
-                ))
-                .verifyComplete();
-
-        StepVerifier.create(listAdapter.findEmptyBatchesBeforeCurrentMonth()
-                        .map(RewardBatch::getId)
-                        .collectList())
-                .assertNext(ids -> {
-                    assertTrue(ids.contains("batch-prior"));
-                    assertTrue(ids.contains("batch-eligible"));
-                    assertTrue(!ids.contains("batch-referenced"));
-                })
+                .assertNext(ids -> assertEquals(java.util.List.of("batch-prior"), ids))
                 .verifyComplete();
     }
 

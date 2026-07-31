@@ -2,7 +2,6 @@ package it.gov.pagopa.idpay.transactions.service;
 
 import com.azure.core.http.rest.Response;
 import com.azure.storage.blob.models.BlockBlobItem;
-import com.mongodb.client.result.DeleteResult;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.config.InitiativeNotFoundException;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
@@ -41,7 +40,6 @@ import it.gov.pagopa.idpay.transactions.persistence.mongo.MongoRewardBatchTransa
 import it.gov.pagopa.idpay.transactions.persistence.mongo.MongoSuspendedTransactionReassignmentAdapter;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchAssigneePromotionPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchDeliveryPort;
-import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchEmptyCleanupPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchFinalApprovalPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.SuspendedTransactionReassignmentPort;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
@@ -63,8 +61,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
-import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Flux;
@@ -97,7 +93,6 @@ class RewardBatchServiceImplTest {
     @Mock private RewardTransactionRepository rewardTransactionRepository;
     @Mock private UserRestClient userRestClient;
     @Mock private ApprovedRewardBatchBlobService approvedRewardBatchBlobService;
-    @Mock private ReactiveMongoTemplate reactiveMongoTemplate;
     @Mock private ChecksErrorMapper checksErrorMapper;
     @Mock private AuditUtilities auditUtilities;
 
@@ -108,7 +103,6 @@ class RewardBatchServiceImplTest {
     @Mock private RewardBatchFinalApprovalPort rewardBatchFinalApprovalPort;
     @Mock private RewardBatchAssigneePromotionPort rewardBatchAssigneePromotionPort;
     @Mock private RewardBatchDeliveryPort rewardBatchDeliveryPort;
-    @Mock private RewardBatchEmptyCleanupPort rewardBatchEmptyCleanupPort;
     @Mock private SuspendedTransactionReassignmentPort suspendedTransactionReassignmentPort;
 
     private RewardBatchServiceImpl service;
@@ -128,7 +122,7 @@ class RewardBatchServiceImplTest {
     void setup() {
         service = new RewardBatchServiceImpl(
                 rewardBatchRepository,
-                new MongoRewardBatchLifecycleAdapter(rewardBatchRepository, reactiveMongoTemplate),
+                new MongoRewardBatchLifecycleAdapter(rewardBatchRepository),
                 rewardBatchListPort,
                 new MongoMerchantRewardBatchLookupAdapter(rewardBatchRepository),
                 rewardTransactionRepository,
@@ -141,7 +135,6 @@ class RewardBatchServiceImplTest {
                 new MongoRewardBatchFinalApprovalAdapter(rewardBatchRepository, rewardTransactionRepository),
                 new MongoRewardBatchAssigneePromotionAdapter(rewardBatchRepository, rewardTransactionRepository),
                 new MongoRewardBatchDeliveryAdapter(rewardBatchRepository),
-                new MongoRewardBatchLifecycleAdapter(rewardBatchRepository, reactiveMongoTemplate),
                 new MongoSuspendedTransactionReassignmentAdapter(
                         rewardBatchRepository,
                         new MongoRewardBatchTransactionMutationAdapter(
@@ -166,7 +159,7 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void workerPorts_shouldDelegateApprovalPromotionAndCleanupAndPropagateCleanupFailure() {
+    void workerPorts_shouldDelegateApprovalAndPromotion() {
         RewardBatchServiceImpl delegatedService = serviceWithWorkerPorts();
         RewardBatch approving = RewardBatch.builder().id(BATCH_ID).assigneeLevel(RewardBatchAssignee.L3).build();
         RewardBatch l1 = RewardBatch.builder().id(BATCH_ID).assigneeLevel(RewardBatchAssignee.L1).build();
@@ -178,23 +171,16 @@ class RewardBatchServiceImplTest {
         when(rewardBatchAssigneePromotionPort.promote(
                 BATCH_ID, INITIATIVE_ID, RewardBatchAssignee.L1, RewardBatchAssignee.L2
         )).thenReturn(Mono.just(l2));
-        when(rewardBatchEmptyCleanupPort.deleteEmptyBatches()).thenReturn(Mono.error(new IllegalStateException("cleanup")));
-
         StepVerifier.create(delegatedService.updateAndSaveRewardTransactionsToApprove(BATCH_ID, INITIATIVE_ID))
                 .verifyComplete();
         StepVerifier.create(delegatedService.validateRewardBatch(OP1, INITIATIVE_ID, BATCH_ID))
                 .expectNext(l2)
                 .verifyComplete();
-        StepVerifier.create(delegatedService.deleteEmptyRewardBatches())
-                .expectErrorMatches(error -> error instanceof IllegalStateException
-                        && "cleanup".equals(error.getMessage()))
-                .verify();
 
         verify(rewardBatchFinalApprovalPort).prepareFinalApproval(BATCH_ID, INITIATIVE_ID);
         verify(rewardBatchAssigneePromotionPort).promote(
                 BATCH_ID, INITIATIVE_ID, RewardBatchAssignee.L1, RewardBatchAssignee.L2
         );
-        verify(rewardBatchEmptyCleanupPort).deleteEmptyBatches();
     }
 
     @Test
@@ -492,13 +478,14 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void sendRewardBatch_previousNotSentEmpty() {
+    void sendRewardBatch_emptyCreatedAfterMonth_persistsSentWhenChronologyAllows() {
         YearMonth batchMonth = YearMonth.now().minusMonths(1);
 
         RewardBatch current = RewardBatch.builder()
                 .id(BATCH_ID)
                 .merchantId(MERCHANT_ID)
                 .status(RewardBatchStatus.CREATED)
+                .numberOfTransactions(0L)
                 .month(batchMonth.toString())
                 .posType(PHYSICAL)
                 .build();
@@ -1274,9 +1261,11 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void rewardBatchConfirmation_success() {
-        RewardBatch rb = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.EVALUATING).assigneeLevel(RewardBatchAssignee.L3)
-                .merchantId(MERCHANT_ID).initiativeId(INITIATIVE_ID).posType(PHYSICAL).month("2025-12").build();
+    void rewardBatchConfirmation_emptyEvaluatingL3Batch_movesToApproving() {
+        RewardBatch rb = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.EVALUATING)
+                .assigneeLevel(RewardBatchAssignee.L3).numberOfTransactions(0L).initialAmountCents(0L)
+                .approvedAmountCents(0L).suspendedAmountCents(0L).merchantId(MERCHANT_ID)
+                .initiativeId(INITIATIVE_ID).posType(PHYSICAL).month("2025-12").build();
 
         RewardBatch prevApproved = RewardBatch.builder().id("P1").status(RewardBatchStatus.APPROVED).build();
 
@@ -2071,54 +2060,6 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void deleteEmptyRewardBatches_deletesMatching() {
-        RewardBatch b1 = RewardBatch.builder().id("D1").month("2025-10").numberOfTransactions(0L).build();
-        RewardBatch b2 = RewardBatch.builder().id("D2").month("2025-09").numberOfTransactions(0L).build();
-
-        com.mongodb.reactivestreams.client.MongoDatabase db = mock(com.mongodb.reactivestreams.client.MongoDatabase.class);
-        when(db.getName()).thenReturn("db");
-
-        when(reactiveMongoTemplate.getMongoDatabase()).thenReturn(Mono.just(db));
-        when(reactiveMongoTemplate.getCollectionName(RewardBatch.class)).thenReturn("rewardBatch");
-
-        when(reactiveMongoTemplate.count(any(Query.class), eq(RewardBatch.class)))
-                .thenReturn(Mono.just(10L))
-                .thenReturn(Mono.just(2L));
-
-        when(reactiveMongoTemplate.find(any(Query.class), eq(RewardBatch.class)))
-                .thenReturn(Flux.just(b1, b2));
-
-        when(reactiveMongoTemplate.remove(any(Query.class), eq(RewardBatch.class)))
-                .thenReturn(Mono.just(DeleteResult.acknowledged(1L)));
-
-        StepVerifier.create(service.deleteEmptyRewardBatches())
-                .verifyComplete();
-
-        verify(reactiveMongoTemplate, times(2)).remove(any(Query.class), eq(RewardBatch.class));
-    }
-
-    @Test
-    void deleteEmptyRewardBatches_noMatches() {
-        com.mongodb.reactivestreams.client.MongoDatabase db = mock(com.mongodb.reactivestreams.client.MongoDatabase.class);
-        when(db.getName()).thenReturn("db");
-
-        when(reactiveMongoTemplate.getMongoDatabase()).thenReturn(Mono.just(db));
-        when(reactiveMongoTemplate.getCollectionName(RewardBatch.class)).thenReturn("rewardBatch");
-
-        when(reactiveMongoTemplate.count(any(Query.class), eq(RewardBatch.class)))
-                .thenReturn(Mono.just(10L))
-                .thenReturn(Mono.just(0L));
-
-        when(reactiveMongoTemplate.find(any(Query.class), eq(RewardBatch.class)))
-                .thenReturn(Flux.empty());
-
-        StepVerifier.create(service.deleteEmptyRewardBatches())
-                .verifyComplete();
-
-        verify(reactiveMongoTemplate, never()).remove(any(Query.class), eq(RewardBatch.class));
-    }
-
-    @Test
     void postponeTransaction_whenTransactionIsSuspended_shouldUpdateSuspendedCounters() {
 
         String merchantId = MERCHANT_ID;
@@ -2617,7 +2558,7 @@ class RewardBatchServiceImplTest {
     private RewardBatchServiceImpl serviceWithWorkerPorts() {
         return new RewardBatchServiceImpl(
                 rewardBatchRepository,
-                new MongoRewardBatchLifecycleAdapter(rewardBatchRepository, reactiveMongoTemplate),
+                new MongoRewardBatchLifecycleAdapter(rewardBatchRepository),
                 rewardBatchListPort,
                 new MongoMerchantRewardBatchLookupAdapter(rewardBatchRepository),
                 rewardTransactionRepository,
@@ -2627,7 +2568,6 @@ class RewardBatchServiceImplTest {
                 rewardBatchFinalApprovalPort,
                 rewardBatchAssigneePromotionPort,
                 rewardBatchDeliveryPort,
-                rewardBatchEmptyCleanupPort,
                 suspendedTransactionReassignmentPort,
                 userRestClient,
                 approvedRewardBatchBlobService,

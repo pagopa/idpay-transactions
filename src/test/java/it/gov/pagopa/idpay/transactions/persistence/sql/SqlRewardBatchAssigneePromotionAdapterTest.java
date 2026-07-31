@@ -67,7 +67,7 @@ class SqlRewardBatchAssigneePromotionAdapterTest extends PostgresqlMigrationTest
     }
 
     @Test
-    void shouldRejectBelowThresholdButAllowZeroRowsAndEnforceIdentityAndExpectedAssignee() {
+    void shouldRejectBelowThresholdButPromoteAnEmptyBatchThroughL1ToL3() {
         StepVerifier.create(insertBatch(BATCH, INITIATIVE, RewardBatchAssignee.L1)
                         .thenMany(Flux.concat(
                                 Flux.range(1, 2).concatMap(index -> insertTransaction(
@@ -80,8 +80,11 @@ class SqlRewardBatchAssigneePromotionAdapterTest extends PostgresqlMigrationTest
                 .verify();
 
         StepVerifier.create(insertBatch("empty", INITIATIVE, RewardBatchAssignee.L1)
-                        .then(adapter.promote("empty", INITIATIVE, RewardBatchAssignee.L1, RewardBatchAssignee.L2)))
-                .assertNext(batch -> assertEquals(RewardBatchAssignee.L2, batch.getAssigneeLevel()))
+                        .then(adapter.promote("empty", INITIATIVE, RewardBatchAssignee.L1, RewardBatchAssignee.L2))
+                        .flatMap(ignored -> adapter.promote(
+                                "empty", INITIATIVE, RewardBatchAssignee.L2, RewardBatchAssignee.L3
+                        )))
+                .assertNext(batch -> assertEquals(RewardBatchAssignee.L3, batch.getAssigneeLevel()))
                 .verifyComplete();
 
         StepVerifier.create(adapter.findBatchForPromotion(BATCH, "other-initiative"))

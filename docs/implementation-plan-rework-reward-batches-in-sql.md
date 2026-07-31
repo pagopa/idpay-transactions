@@ -10,6 +10,10 @@ An `INVOICED` transaction snapshot updates only this local projection. It must
 not cancel or delete the payment transaction, whose ownership remains with
 `idpay-payment`.
 
+Empty reward batches remain in their normal lifecycle and must be sent and
+approved under the ordinary state and chronology rules. No endpoint, worker,
+or persistence adapter deletes them.
+
 ## Schema-management decision
 
 The application must **not** include Flyway, a JDBC migration driver, or any other in-service schema migration mechanism.
@@ -70,9 +74,9 @@ artifacts.
 | 10 | Put batch lifecycle reads and simple status/metadata updates behind ports without changing state rules. | 07 |
 | 11 | Put transaction decisions behind an atomic-mutation port. Keep Mongo behavior and add table-driven tests for every old/new in-batch-state aggregate result. | 09, 10 |
 | 12 | Put suspended reassignment and postponement behind explicit mutation commands with characterization tests. Payment invoice/reversal commands remain outside this service scope. | 11 |
-| 13 | Remove direct `ReactiveMongoTemplate` use from `RewardBatchServiceImpl`, representing cleanup as a port operation. | 10 |
+| 13 | Remove direct `ReactiveMongoTemplate` use from `RewardBatchServiceImpl`. Empty batches remain in their normal lifecycle and are never cleaned up or deleted. | 10 |
 | 14 | Implement a mapped SQL batch entity/repository and mapper for ordinary identity CRUD. Use custom SQL only for unique create-or-read and simple partial status/metadata writes. Add jOOQ code generation from a temporary PostgreSQL schema provisioned by the ordered repository migration files, compile generated sources in CI, and keep the generator/build-only JDBC access outside the running application. Test duplicate-key races. | 02, 05, 06 |
-| 15 | Implement SQL batch lists/counts with jOOQ database-side aggregate projections, virtual statuses, ordering, delivery/outcome selection, prior-month validation, and empty-batch eligibility. | 14 |
+| 15 | Implement SQL batch lists/counts with jOOQ database-side aggregate projections, virtual statuses, ordering, delivery/outcome selection, prior-month validation, and retained empty-batch lifecycle behavior. | 14 |
 | 16 | Implement SQL transaction records, JSONB converters, typed accrued reward, and initiative-safe idempotent upsert. Reject changes to an existing transaction's initiative. | 03, 05, 09 |
 | 17 | Implement SQL transaction searches with jOOQ database paging/sorting, batch lists, invoice lookup, and deterministic sampling. | 16 |
 | 18 | Implement atomic batch assignment: lock/find-or-create batch, claim one eligible transaction, and set assignment fields exactly once. Test retry and concurrency. | 14, 16, 17 |
@@ -81,7 +85,7 @@ artifacts.
 | 21 | Implement final-approval suspended reassignment: stable source/target locks, target creation, last-elaborated-month preservation, `INVOICED`/`SUSPENDED` state, and full invariant tests. | 12, 19 |
 | 22 | Remove the legacy `INVOICED` payment cancellation/deletion path from Kafka synchronization. Keep the local projection and batch-assignment behavior, remove the now-unused payment cancellation client and its configuration/tests when no other call site remains, and add consumer tests proving no payment deletion request is made. | 09, 20 |
 | 23 | Implement constrained merchant postponement: `CREATED` source only, initiative end-date validation, and `CREATED` target. | 12, 19 |
-| 24 | Route approval worker, assignee promotion, CSV source queries, delivery amount snapshot/outcome updates, and empty-batch cleanup through SQL-capable ports. | 15, 17, 19, 21, 22, 23 |
+| 24 | Route approval worker, assignee promotion, CSV source queries, and delivery amount snapshot/outcome updates through SQL-capable ports. | 15, 17, 19, 21, 22, 23 |
 | 25 | Add PostgreSQL integration coverage for consumer idempotency, revision ordering, payment batch impacts, assignment, lifecycle transitions, aggregate projections, moves, CSV selection, delivery amount snapshots/outcomes, and external reconciliation input queries. | 18–24 |
 | 26 | Direct cutover: select SQL adapters; remove Mongo repositories/models/configuration/health/dependencies/embedded-Mongo tests; update deployment configuration. Do not add data transfer, feature flags, or dual writes. | 24, 25 |
 | 27 | Run regression and prove ordered repository migration files provision an empty PostgreSQL database through the test fixture, contracts remain compatible, Kafka behavior is unchanged, and no Mongo runtime dependency remains. Update the decision record and external schema-management hand-off checklist. | 26 |

@@ -29,7 +29,6 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.MerchantRewardBatchLookupPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchAssigneePromotionPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchDeliveryPort;
-import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchEmptyCleanupPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchFinalApprovalPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchLifecyclePort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchListPort;
@@ -96,7 +95,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private final RewardBatchFinalApprovalPort rewardBatchFinalApprovalPort;
     private final RewardBatchAssigneePromotionPort rewardBatchAssigneePromotionPort;
     private final RewardBatchDeliveryPort rewardBatchDeliveryPort;
-    private final RewardBatchEmptyCleanupPort rewardBatchEmptyCleanupPort;
     private final SuspendedTransactionReassignmentPort suspendedTransactionReassignmentPort;
     private final UserRestClient userRestClient;
     private final ChecksErrorMapper checksErrorMapper;
@@ -149,7 +147,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                   RewardBatchFinalApprovalPort rewardBatchFinalApprovalPort,
                                   RewardBatchAssigneePromotionPort rewardBatchAssigneePromotionPort,
                                   RewardBatchDeliveryPort rewardBatchDeliveryPort,
-                                  RewardBatchEmptyCleanupPort rewardBatchEmptyCleanupPort,
                                   SuspendedTransactionReassignmentPort suspendedTransactionReassignmentPort,
                                   UserRestClient userRestClient,
                                   ApprovedRewardBatchBlobService approvedRewardBatchBlobService,
@@ -171,7 +168,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         this.rewardBatchFinalApprovalPort = rewardBatchFinalApprovalPort;
         this.rewardBatchAssigneePromotionPort = rewardBatchAssigneePromotionPort;
         this.rewardBatchDeliveryPort = rewardBatchDeliveryPort;
-        this.rewardBatchEmptyCleanupPort = rewardBatchEmptyCleanupPort;
         this.suspendedTransactionReassignmentPort = suspendedTransactionReassignmentPort;
         this.userRestClient = userRestClient;
         this.approvedRewardBatchBlobService = approvedRewardBatchBlobService;
@@ -1430,11 +1426,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     @Data
     public static class TotalAmount {
         private long total;
-    }
-
-    @Override
-    public Mono<Void> deleteEmptyRewardBatches() {
-        return rewardBatchEmptyCleanupPort.deleteEmptyBatches();
     }
 
 }

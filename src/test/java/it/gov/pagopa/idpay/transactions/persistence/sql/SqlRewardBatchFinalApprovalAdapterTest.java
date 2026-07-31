@@ -100,7 +100,7 @@ class SqlRewardBatchFinalApprovalAdapterTest extends PostgresqlMigrationTestSupp
     }
 
     @Test
-    void shouldCompleteOnlyApprovingL3BatchAndAllowApprovedRetry() {
+    void shouldCompleteEmptyApprovingL3BatchAndAllowApprovedRetry() {
         StepVerifier.create(insertBatch(BATCH, INITIATIVE, RewardBatchStatus.APPROVING, RewardBatchAssignee.L3)
                         .thenMany(Flux.concat(
                                 adapter.completeFinalApproval(BATCH, INITIATIVE),
@@ -108,6 +108,16 @@ class SqlRewardBatchFinalApprovalAdapterTest extends PostgresqlMigrationTestSupp
                         )))
                 .assertNext(batch -> assertEquals(RewardBatchStatus.APPROVED, batch.getStatus()))
                 .assertNext(batch -> assertEquals(RewardBatchStatus.APPROVED, batch.getStatus()))
+                .verifyComplete();
+
+        StepVerifier.create(listAdapter.findBatchesWithStatus(RewardBatchStatus.APPROVED, INITIATIVE)
+                        .filter(batch -> BATCH.equals(batch.getId()))
+                        .single())
+                .assertNext(batch -> {
+                    assertEquals(0L, batch.getNumberOfTransactions());
+                    assertEquals(0L, batch.getInitialAmountCents());
+                    assertEquals(0L, batch.getApprovedAmountCents());
+                })
                 .verifyComplete();
 
         StepVerifier.create(insertBatch("wrong-assignee", INITIATIVE, RewardBatchStatus.APPROVING,
