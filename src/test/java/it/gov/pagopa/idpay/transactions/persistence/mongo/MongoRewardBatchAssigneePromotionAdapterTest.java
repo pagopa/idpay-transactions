@@ -1,9 +1,11 @@
 package it.gov.pagopa.idpay.transactions.persistence.mongo;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import it.gov.pagopa.common.web.exception.BatchNotElaborated15PercentException;
@@ -100,6 +102,28 @@ class MongoRewardBatchAssigneePromotionAdapterTest {
         verify(rewardTransactionRepository, never())
                 .findByRewardBatchIdAndInitiativeId(any(), any());
         verify(rewardBatchRepository, never()).save(any(RewardBatch.class));
+    }
+
+    @Test
+    void promote_rejectsUnsupportedAssigneeTransitionWithoutQueryingOrSaving() {
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> adapter().promote(BATCH_ID, INITIATIVE_ID, RewardBatchAssignee.L1, RewardBatchAssignee.L3)
+        );
+
+        assertEquals("Unsupported reward batch assignee promotion", error.getMessage());
+        verifyNoInteractions(rewardBatchRepository, rewardTransactionRepository);
+    }
+
+    @Test
+    void promote_rejectsL2ToL1TransitionWithoutQueryingOrSaving() {
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> adapter().promote(BATCH_ID, INITIATIVE_ID, RewardBatchAssignee.L2, RewardBatchAssignee.L1)
+        );
+
+        assertEquals("Unsupported reward batch assignee promotion", error.getMessage());
+        verifyNoInteractions(rewardBatchRepository, rewardTransactionRepository);
     }
 
     private MongoRewardBatchAssigneePromotionAdapter adapter() {

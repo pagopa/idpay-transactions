@@ -124,6 +124,35 @@ class SqlRewardBatchFinalApprovalAdapterTest extends PostgresqlMigrationTestSupp
                         RewardBatchAssignee.L2)
                 .then(adapter.completeFinalApproval("wrong-assignee", INITIATIVE)))
                 .verifyComplete();
+
+        StepVerifier.create(insertBatch("wrong-status", INITIATIVE, RewardBatchStatus.SENT, RewardBatchAssignee.L3)
+                        .then(adapter.completeFinalApproval("wrong-status", INITIATIVE)))
+                .verifyComplete();
+        StepVerifier.create(listAdapter.findBatchesWithStatus(RewardBatchStatus.SENT, INITIATIVE)
+                        .filter(batch -> "wrong-status".equals(batch.getId()))
+                        .single())
+                .assertNext(batch -> assertEquals(RewardBatchStatus.SENT, batch.getStatus()))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldRejectBlankIdentityBeforeFinalApprovalTransaction() {
+        StepVerifier.create(adapter.prepareFinalApproval(" ", INITIATIVE))
+                .expectErrorMatches(error -> error instanceof IllegalArgumentException
+                        && "Reward batch and initiative identifiers are required".equals(error.getMessage()))
+                .verify();
+        StepVerifier.create(adapter.completeFinalApproval(BATCH, " "))
+                .expectErrorMatches(error -> error instanceof IllegalArgumentException
+                        && "Reward batch and initiative identifiers are required".equals(error.getMessage()))
+                .verify();
+        StepVerifier.create(adapter.prepareFinalApproval(null, INITIATIVE))
+                .expectErrorMatches(error -> error instanceof IllegalArgumentException
+                        && "Reward batch and initiative identifiers are required".equals(error.getMessage()))
+                .verify();
+        StepVerifier.create(adapter.completeFinalApproval(BATCH, null))
+                .expectErrorMatches(error -> error instanceof IllegalArgumentException
+                        && "Reward batch and initiative identifiers are required".equals(error.getMessage()))
+                .verify();
     }
 
     private static Mono<Void> insertBatch(

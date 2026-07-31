@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.persistence.sql;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import it.gov.pagopa.idpay.transactions.dto.DeliveryOutcomeDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
@@ -139,6 +140,58 @@ class SqlRewardBatchDeliveryAdapterTest extends PostgresqlMigrationTestSupport {
         )).verifyComplete();
     }
 
+    @Test
+    void shouldRejectInvalidDeliveryInputsAndPreserveUnprocessableBatchState() {
+        StepVerifier.create(adapter.recordDeliveryOutcome(BATCH, INITIATIVE, null))
+                .expectErrorMatches(error -> error instanceof IllegalArgumentException
+                        && "Delivery outcome is required".equals(error.getMessage()))
+                .verify();
+        StepVerifier.create(adapter.snapshotDeliveryAmount(" ", INITIATIVE))
+                .expectErrorMatches(error -> error instanceof IllegalArgumentException
+                        && "Reward batch and initiative identifiers are required".equals(error.getMessage()))
+                .verify();
+
+        IllegalArgumentException refundStatusError = assertThrows(
+                IllegalArgumentException.class,
+                () -> adapter.recordRefundOutcome(BATCH, INITIATIVE, RewardBatchStatus.PENDING_REFUND, null, null)
+        );
+        assertEquals("Unsupported refund outcome status", refundStatusError.getMessage());
+
+        StepVerifier.create(adapter.recordRefundOutcome(BATCH, " ", RewardBatchStatus.REFUNDED, null, null))
+                .expectErrorMatches(error -> error instanceof IllegalArgumentException
+                        && "Reward batch and initiative identifiers are required".equals(error.getMessage()))
+                .verify();
+        StepVerifier.create(adapter.recordRefundOutcome(BATCH, null, RewardBatchStatus.NOT_REFUNDED, null, null))
+                .expectErrorMatches(error -> error instanceof IllegalArgumentException
+                        && "Reward batch and initiative identifiers are required".equals(error.getMessage()))
+                .verify();
+
+        StepVerifier.create(insertBatch("zero", RewardBatchStatus.APPROVED)
+                .then(adapter.snapshotDeliveryAmount("zero", INITIATIVE)))
+                .verifyComplete();
+        StepVerifier.create(deliveryAmountIsNull("zero"))
+                .expectNext(true)
+                .verifyComplete();
+
+        StepVerifier.create(insertBatch("missing-snapshot", RewardBatchStatus.APPROVED)
+                .then(adapter.recordDeliveryOutcome(
+                        "missing-snapshot", INITIATIVE, outcome(true, "accepted")
+                )))
+                .expectErrorMatches(error -> error instanceof IllegalStateException
+                        && error.getMessage().contains("not snapshotted"))
+                .verify();
+        StepVerifier.create(batchStatus("missing-snapshot"))
+                .expectNext(RewardBatchStatus.APPROVED.name())
+                .verifyComplete();
+
+        StepVerifier.create(insertBatch("sent", RewardBatchStatus.SENT)
+                .then(adapter.recordDeliveryOutcome("sent", INITIATIVE, outcome(false, "rejected"))))
+                .verifyComplete();
+        StepVerifier.create(batchStatus("sent"))
+                .expectNext(RewardBatchStatus.SENT.name())
+                .verifyComplete();
+    }
+
     private static Mono<Void> insertBatch(String id, RewardBatchStatus status) {
         return databaseClient().sql("""
                         INSERT INTO reward_batches (id, initiative_id, merchant_id, month, pos_type, status, name, assignee_level)
@@ -172,6 +225,20 @@ class SqlRewardBatchDeliveryAdapterTest extends PostgresqlMigrationTestSupport {
         return databaseClient().sql("SELECT delivery_amount_cents FROM reward_batches WHERE id = :id")
                 .bind("id", id)
                 .map((row, metadata) -> row.get("delivery_amount_cents", Long.class))
+                .one();
+    }
+
+    private static Mono<Boolean> deliveryAmountIsNull(String id) {
+        return databaseClient().sql("SELECT delivery_amount_cents IS NULL AS amount_is_null FROM reward_batches WHERE id = :id")
+                .bind("id", id)
+                .map((row, metadata) -> row.get("amount_is_null", Boolean.class))
+                .one();
+    }
+
+    private static Mono<String> batchStatus(String id) {
+        return databaseClient().sql("SELECT status FROM reward_batches WHERE id = :id")
+                .bind("id", id)
+                .map((row, metadata) -> row.get("status", String.class))
                 .one();
     }
 

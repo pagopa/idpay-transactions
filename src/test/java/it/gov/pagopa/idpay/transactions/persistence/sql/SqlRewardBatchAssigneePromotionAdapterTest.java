@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import it.gov.pagopa.common.web.exception.BatchNotElaborated15PercentException;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
@@ -90,6 +91,39 @@ class SqlRewardBatchAssigneePromotionAdapterTest extends PostgresqlMigrationTest
                 .verifyComplete();
         StepVerifier.create(adapter.promote(BATCH, INITIATIVE, RewardBatchAssignee.L2, RewardBatchAssignee.L3))
                 .verifyComplete();
+    }
+
+    @Test
+    void shouldRejectUnsupportedPromotionAndBlankIdentityBeforeQuerying() {
+        IllegalArgumentException transitionError = assertThrows(
+                IllegalArgumentException.class,
+                () -> adapter.promote(BATCH, INITIATIVE, RewardBatchAssignee.L1, RewardBatchAssignee.L3)
+        );
+        assertEquals("Unsupported reward batch assignee promotion", transitionError.getMessage());
+
+        IllegalArgumentException complementaryTransitionError = assertThrows(
+                IllegalArgumentException.class,
+                () -> adapter.promote(BATCH, INITIATIVE, RewardBatchAssignee.L2, RewardBatchAssignee.L1)
+        );
+        assertEquals("Unsupported reward batch assignee promotion", complementaryTransitionError.getMessage());
+
+        IllegalArgumentException blankIdentityError = assertThrows(
+                IllegalArgumentException.class,
+                () -> adapter.findBatchForPromotion(" ", INITIATIVE)
+        );
+        assertEquals("Reward batch and initiative identifiers are required", blankIdentityError.getMessage());
+
+        IllegalArgumentException blankInitiativeError = assertThrows(
+                IllegalArgumentException.class,
+                () -> adapter.promote(BATCH, " ", RewardBatchAssignee.L1, RewardBatchAssignee.L2)
+        );
+        assertEquals("Reward batch and initiative identifiers are required", blankInitiativeError.getMessage());
+
+        IllegalArgumentException nullInitiativeError = assertThrows(
+                IllegalArgumentException.class,
+                () -> adapter.findBatchForPromotion(BATCH, null)
+        );
+        assertEquals("Reward batch and initiative identifiers are required", nullInitiativeError.getMessage());
     }
 
     private static Mono<Void> insertBatch(String id, String initiative, RewardBatchAssignee assignee) {

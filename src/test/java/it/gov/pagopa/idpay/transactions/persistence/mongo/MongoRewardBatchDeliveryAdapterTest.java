@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.persistence.mongo;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.never;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.verify;
@@ -11,6 +12,8 @@ import it.gov.pagopa.idpay.transactions.dto.DeliveryOutcomeDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
+import java.time.LocalDate;
+import java.time.Month;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -52,15 +55,18 @@ class MongoRewardBatchDeliveryAdapterTest {
     }
 
     @Test
-    void snapshotDeliveryAmount_ignoresNonPositiveAmount() {
+    void snapshotDeliveryAmount_ignoresNonPositiveOrMissingAmount() {
         RewardBatch zeroAmount = batch(RewardBatchStatus.APPROVED, 0L, null);
+        RewardBatch missingAmount = batch(RewardBatchStatus.APPROVED, null, null);
         when(rewardBatchRepository.findByIdAndInitiativeIdAndStatus(
                 BATCH_ID, INITIATIVE_ID, RewardBatchStatus.APPROVED
-        )).thenReturn(Mono.just(zeroAmount));
+        )).thenReturn(Mono.just(zeroAmount), Mono.just(missingAmount));
 
+        StepVerifier.create(adapter().snapshotDeliveryAmount(BATCH_ID, INITIATIVE_ID)).verifyComplete();
         StepVerifier.create(adapter().snapshotDeliveryAmount(BATCH_ID, INITIATIVE_ID)).verifyComplete();
 
         verify(rewardBatchRepository, never()).save(same(zeroAmount));
+        verify(rewardBatchRepository, never()).save(same(missingAmount));
     }
 
     @Test
@@ -124,6 +130,72 @@ class MongoRewardBatchDeliveryAdapterTest {
                 .verifyComplete();
 
         verify(rewardBatchRepository).save(approved);
+    }
+
+    @Test
+    void recordDeliveryOutcome_ignoresNonApprovedBatchWithoutSaving() {
+        RewardBatch sent = batch(RewardBatchStatus.SENT, 250L, 250L);
+        when(rewardBatchRepository.findRewardBatchByIdAndInitiativeId(BATCH_ID, INITIATIVE_ID))
+                .thenReturn(Mono.just(sent));
+
+        StepVerifier.create(adapter().recordDeliveryOutcome(BATCH_ID, INITIATIVE_ID, outcome(false)))
+                .verifyComplete();
+
+        verify(rewardBatchRepository, never()).save(sent);
+    }
+
+    @Test
+    void recordRefundOutcome_rejectsUnsupportedStatusWithoutSaving() {
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> adapter().recordRefundOutcome(
+                        BATCH_ID, INITIATIVE_ID, RewardBatchStatus.APPROVED, null, null
+                )
+        );
+
+        assertEquals("Unsupported refund outcome status", error.getMessage());
+        verify(rewardBatchRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void recordRefundOutcome_movesPendingRefundToRefundedAndPersistsTerminalDetails() {
+        RewardBatch pendingRefund = batch(RewardBatchStatus.PENDING_REFUND, 250L, 250L);
+        when(rewardBatchRepository.findRewardBatchByIdAndInitiativeId(BATCH_ID, INITIATIVE_ID))
+                .thenReturn(Mono.just(pendingRefund));
+        when(rewardBatchRepository.save(pendingRefund)).thenReturn(Mono.just(pendingRefund));
+
+        StepVerifier.create(adapter().recordRefundOutcome(
+                        BATCH_ID, INITIATIVE_ID, RewardBatchStatus.REFUNDED, LocalDate.of(2026, Month.JULY, 10), null
+                ))
+                .assertNext(result -> {
+                    assertEquals(RewardBatchStatus.REFUNDED, result.getStatus());
+                    assertEquals(LocalDate.of(2026, Month.JULY, 10), result.getRefundValutaDate());
+                    assertNotNull(result.getRefundOutcomeTimestamp());
+                })
+                .verifyComplete();
+
+        verify(rewardBatchRepository).save(pendingRefund);
+    }
+
+    @Test
+    void recordRefundOutcome_isIdempotentForTerminalStateAndIgnoresOtherLifecycleStates() {
+        RewardBatch refunded = batch(RewardBatchStatus.REFUNDED, 250L, 250L);
+        RewardBatch approved = batch(RewardBatchStatus.APPROVED, 250L, 250L);
+        when(rewardBatchRepository.findRewardBatchByIdAndInitiativeId(BATCH_ID, INITIATIVE_ID))
+                .thenReturn(Mono.just(refunded), Mono.just(approved));
+
+        StepVerifier.create(adapter().recordRefundOutcome(
+                        BATCH_ID, INITIATIVE_ID, RewardBatchStatus.REFUNDED, null, null
+                ))
+                .expectNext(refunded)
+                .verifyComplete();
+        StepVerifier.create(adapter().recordRefundOutcome(
+                        BATCH_ID, INITIATIVE_ID, RewardBatchStatus.REFUNDED, null, null
+                ))
+                .verifyComplete();
+
+        verify(rewardBatchRepository, never()).save(same(refunded));
+        verify(rewardBatchRepository, never()).save(same(approved));
     }
 
     private MongoRewardBatchDeliveryAdapter adapter() {
