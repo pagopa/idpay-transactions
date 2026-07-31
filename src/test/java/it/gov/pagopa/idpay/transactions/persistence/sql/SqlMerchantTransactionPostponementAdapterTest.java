@@ -17,6 +17,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.stream.Stream;
 import org.jooq.DSLContext;
 import org.jooq.Record;
@@ -117,7 +118,7 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
                         INITIATIVE_ID,
                         SOURCE_BATCH_ID,
                         "moved",
-                        LocalDate.of(2026, 12, 31)
+                        LocalDate.of(2026, Month.DECEMBER, 31)
                 )))
                 .assertNext(moved -> {
                     assertEquals("moved", moved.getId());
@@ -158,7 +159,7 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
                         INITIATIVE_ID,
                         SOURCE_BATCH_ID,
                         "moved",
-                        LocalDate.of(2026, 12, 31)
+                        LocalDate.of(2026, Month.DECEMBER, 31)
                 )))
                 .assertNext(moved -> assertEquals("moved", moved.getId()))
                 .verifyComplete();
@@ -224,7 +225,7 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
                 INITIATIVE_ID,
                 SOURCE_BATCH_ID,
                 "protected",
-                LocalDate.of(2026, 12, 31)
+                LocalDate.of(2026, Month.DECEMBER, 31)
         ));
 
         StepVerifier.create(Mono.zip(
@@ -255,7 +256,7 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
                         INITIATIVE_ID,
                         SOURCE_BATCH_ID,
                         "protected",
-                        LocalDate.of(2026, 5, 31)
+                        LocalDate.of(2026, Month.MAY, 31)
                 ))
                 .expectErrorSatisfies(error -> {
                     assertEquals(ClientExceptionWithBody.class, error.getClass());
@@ -298,21 +299,21 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
                 INITIATIVE_ID,
                 SOURCE_BATCH_ID,
                 "other-merchant",
-                LocalDate.of(2026, 12, 31)
+                LocalDate.of(2026, Month.DECEMBER, 31)
         ));
         assertTransactionNotFound(adapter.postponeTransaction(
                 OTHER_MERCHANT_ID,
                 INITIATIVE_ID,
                 SOURCE_BATCH_ID,
                 "other-initiative",
-                LocalDate.of(2026, 12, 31)
+                LocalDate.of(2026, Month.DECEMBER, 31)
         ));
         assertTransactionNotFound(adapter.postponeTransaction(
                 MERCHANT_ID,
                 INITIATIVE_ID,
                 "source-with-other-merchant",
                 "source-merchant-mismatch",
-                LocalDate.of(2026, 12, 31)
+                LocalDate.of(2026, Month.DECEMBER, 31)
         ));
 
         StepVerifier.create(Mono.zip(
@@ -342,7 +343,7 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
                         INITIATIVE_ID,
                         SOURCE_BATCH_ID,
                         "moved",
-                        LocalDate.of(2026, 12, 31)
+                        LocalDate.of(2026, Month.DECEMBER, 31)
                 ).then()))
                 .verifyComplete();
 
@@ -351,7 +352,7 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
                 INITIATIVE_ID,
                 SOURCE_BATCH_ID,
                 "moved",
-                LocalDate.of(2026, 12, 31)
+                LocalDate.of(2026, Month.DECEMBER, 31)
         ));
 
         StepVerifier.create(retrySnapshot())
@@ -373,7 +374,7 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
                                         INITIATIVE_ID,
                                         "concurrent-source",
                                         "concurrent",
-                                        LocalDate.of(2026, 12, 31)
+                                        LocalDate.of(2026, Month.DECEMBER, 31)
                                 )
                                 .materialize(),
                         adapter.postponeTransaction(
@@ -381,7 +382,7 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
                                         INITIATIVE_ID,
                                         "concurrent-source",
                                         "concurrent",
-                                        LocalDate.of(2026, 12, 31)
+                                        LocalDate.of(2026, Month.DECEMBER, 31)
                                 )
                                 .materialize()
                 )))
@@ -415,7 +416,7 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
                         INITIATIVE_ID,
                         SOURCE_BATCH_ID,
                         "transaction",
-                        LocalDate.of(2026, 12, 31)
+                        LocalDate.of(2026, Month.DECEMBER, 31)
                 ),
                 Arguments.of(
                         "initiative is blank",
@@ -423,7 +424,7 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
                         " ",
                         SOURCE_BATCH_ID,
                         "transaction",
-                        LocalDate.of(2026, 12, 31)
+                        LocalDate.of(2026, Month.DECEMBER, 31)
                 ),
                 Arguments.of(
                         "source batch is missing",
@@ -431,7 +432,7 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
                         INITIATIVE_ID,
                         null,
                         "transaction",
-                        LocalDate.of(2026, 12, 31)
+                        LocalDate.of(2026, Month.DECEMBER, 31)
                 ),
                 Arguments.of(
                         "transaction is blank",
@@ -439,7 +440,7 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
                         INITIATIVE_ID,
                         SOURCE_BATCH_ID,
                         " ",
-                        LocalDate.of(2026, 12, 31)
+                        LocalDate.of(2026, Month.DECEMBER, 31)
                 ),
                 Arguments.of(
                         "fruition end date is missing",
