@@ -3,11 +3,11 @@ package it.gov.pagopa.idpay.transactions.persistence.mongo;
 import static it.gov.pagopa.common.utils.CommonConstants.ZONEID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -119,7 +119,7 @@ class MongoSuspendedTransactionReassignmentAdapterTest {
         StepVerifier.create(adapter().reassignSuspendedTransactions(SOURCE_BATCH_ID, INITIATIVE_ID))
                 .verifyComplete();
 
-        verify(rewardBatchRepository, org.mockito.Mockito.times(2))
+        verify(rewardBatchRepository, times(2))
                 .findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
                         INITIATIVE_ID, MERCHANT_ID, PosType.PHYSICAL, sourceMonth
                 );

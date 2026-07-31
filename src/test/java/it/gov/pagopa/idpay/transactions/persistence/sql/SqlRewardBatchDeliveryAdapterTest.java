@@ -9,13 +9,11 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
 import java.time.LocalDate;
-import org.jooq.SQLDialect;
-import org.jooq.impl.DSL;
+import java.time.Month;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.r2dbc.connection.TransactionAwareConnectionFactoryProxy;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -113,14 +111,14 @@ class SqlRewardBatchDeliveryAdapterTest extends PostgresqlMigrationTestSupport {
 
         StepVerifier.create(insertBatch("refund", RewardBatchStatus.PENDING_REFUND)
                         .then(adapter.recordRefundOutcome(
-                                "refund", INITIATIVE, RewardBatchStatus.REFUNDED, LocalDate.of(2026, 7, 10), null
+                                "refund", INITIATIVE, RewardBatchStatus.REFUNDED, LocalDate.of(2026, Month.JULY, 10), null
                         ))
                         .flatMap(first -> adapter.recordRefundOutcome(
-                                "refund", INITIATIVE, RewardBatchStatus.REFUNDED, LocalDate.of(2026, 7, 11), "ignored"
+                                "refund", INITIATIVE, RewardBatchStatus.REFUNDED, LocalDate.of(2026, Month.JULY, 11), "ignored"
                         )))
                 .assertNext(batch -> {
                     assertEquals(RewardBatchStatus.REFUNDED, batch.getStatus());
-                    assertEquals(LocalDate.of(2026, 7, 10), batch.getRefundValutaDate());
+                    assertEquals(LocalDate.of(2026, Month.JULY, 10), batch.getRefundValutaDate());
                     assertNotNull(batch.getRefundOutcomeTimestamp());
                 })
                 .verifyComplete();

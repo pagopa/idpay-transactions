@@ -219,7 +219,7 @@ class RewardBatchServiceImplTest {
                 .initiativeId(INITIATIVE_ID).status(RewardBatchStatus.APPROVED).build();
         RewardBatch snapshotted = RewardBatch.builder().id(BATCH_ID).merchantId(MERCHANT_ID)
                 .initiativeId(INITIATIVE_ID).status(RewardBatchStatus.APPROVED)
-                .approvedAmountCents(999L).deliveryAmountCents(123L).approvalDate(LocalDateTime.of(2026, 7, 1, 9, 0))
+                .approvedAmountCents(999L).deliveryAmountCents(123L).approvalDate(LocalDateTime.of(2026, Month.JULY, 1, 9, 0))
                 .build();
         DeliveryOutcomeDTO outcome = DeliveryOutcomeDTO.builder().succeded(true).message("accepted").build();
         RewardBatch delivered = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.PENDING_REFUND).build();
@@ -253,17 +253,17 @@ class RewardBatchServiceImplTest {
                 .status(RewardBatchStatus.PENDING_REFUND).build();
         RewardBatch refunded = RewardBatch.builder().id(BATCH_ID).status(RewardBatchStatus.REFUNDED).build();
         InvitaliaOutcomeResponseDTO completed = InvitaliaOutcomeResponseDTO.builder()
-                .erogazione(ErogazioneOutcomeDTO.builder().status("COMPLETATA").dateValue(LocalDate.of(2026, 7, 2)).build())
+                .erogazione(ErogazioneOutcomeDTO.builder().status("COMPLETATA").dateValue(LocalDate.of(2026, Month.JULY, 2)).build())
                 .build();
         when(rewardBatchDeliveryPort.recordRefundOutcome(
-                BATCH_ID, INITIATIVE_ID, RewardBatchStatus.REFUNDED, LocalDate.of(2026, 7, 2), null
+                BATCH_ID, INITIATIVE_ID, RewardBatchStatus.REFUNDED, LocalDate.of(2026, Month.JULY, 2), null
         )).thenReturn(Mono.just(refunded));
 
         StepVerifier.create(delegatedService.updateBatch(pending, completed))
                 .expectNext(refunded)
                 .verifyComplete();
         verify(rewardBatchDeliveryPort).recordRefundOutcome(
-                BATCH_ID, INITIATIVE_ID, RewardBatchStatus.REFUNDED, LocalDate.of(2026, 7, 2), null
+                BATCH_ID, INITIATIVE_ID, RewardBatchStatus.REFUNDED, LocalDate.of(2026, Month.JULY, 2), null
         );
     }
 
@@ -273,10 +273,10 @@ class RewardBatchServiceImplTest {
         RewardBatch pending = RewardBatch.builder().id(BATCH_ID).initiativeId(INITIATIVE_ID)
                 .status(RewardBatchStatus.PENDING_REFUND).build();
         InvitaliaOutcomeResponseDTO completed = InvitaliaOutcomeResponseDTO.builder()
-                .erogazione(ErogazioneOutcomeDTO.builder().status("COMPLETATA").dateValue(LocalDate.of(2026, 7, 2)).build())
+                .erogazione(ErogazioneOutcomeDTO.builder().status("COMPLETATA").dateValue(LocalDate.of(2026, Month.JULY, 2)).build())
                 .build();
         when(rewardBatchDeliveryPort.recordRefundOutcome(
-                BATCH_ID, INITIATIVE_ID, RewardBatchStatus.REFUNDED, LocalDate.of(2026, 7, 2), null
+                BATCH_ID, INITIATIVE_ID, RewardBatchStatus.REFUNDED, LocalDate.of(2026, Month.JULY, 2), null
         )).thenReturn(Mono.empty());
 
         StepVerifier.create(delegatedService.updateBatch(pending, completed))

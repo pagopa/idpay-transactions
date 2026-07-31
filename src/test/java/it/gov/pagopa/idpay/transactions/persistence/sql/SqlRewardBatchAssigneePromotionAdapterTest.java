@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import it.gov.pagopa.common.web.exception.BatchNotElaborated15PercentException;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
-import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
