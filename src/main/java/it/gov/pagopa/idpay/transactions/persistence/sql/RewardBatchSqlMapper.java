@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardBatchesRecord;
 import org.springframework.stereotype.Component;
 import org.jooq.Record;
+import org.jooq.JSONB;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
@@ -37,6 +38,7 @@ public class RewardBatchSqlMapper {
                 batch.getMerchantSendDate(),
                 batch.getApprovalDate(),
                 batch.getDeliveryDateRequest(),
+                batch.getDeliveryAmountCents(),
                 batch.getRefundOutcomeTimestamp(),
                 batch.getReportPath(),
                 batch.getFilename(),
@@ -65,6 +67,7 @@ public class RewardBatchSqlMapper {
                 .merchantSendDate(entity.merchantSendDate())
                 .approvalDate(entity.approvalDate())
                 .deliveryDateRequest(entity.deliveryDateRequest())
+                .deliveryAmountCents(entity.deliveryAmountCents())
                 .refundOutcomeTimestamp(entity.refundOutcomeTimestamp())
                 .reportPath(entity.reportPath())
                 .filename(entity.filename())
@@ -93,6 +96,7 @@ public class RewardBatchSqlMapper {
                 batchRecord.getMerchantSendDate(),
                 batchRecord.getApprovalDate(),
                 batchRecord.getDeliveryDateRequest(),
+                batchRecord.getDeliveryAmountCents(),
                 batchRecord.getRefundOutcomeTimestamp(),
                 batchRecord.getReportPath(),
                 batchRecord.getFilename(),
@@ -138,6 +142,11 @@ public class RewardBatchSqlMapper {
         } catch (JacksonException exception) {
             throw new IllegalArgumentException("Unable to serialize delivery outcome", exception);
         }
+    }
+
+    JSONB toJooqJsonb(DeliveryOutcomeDTO deliveryOutcome) {
+        Json json = toJson(deliveryOutcome);
+        return json == null ? null : JSONB.jsonb(json.asString());
     }
 
     private DeliveryOutcomeDTO fromJson(Json deliveryOutcome) {

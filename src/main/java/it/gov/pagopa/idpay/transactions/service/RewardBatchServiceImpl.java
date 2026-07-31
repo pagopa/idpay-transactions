@@ -27,11 +27,16 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardBatchFactory;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.MerchantRewardBatchLookupPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchAssigneePromotionPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchDeliveryPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchEmptyCleanupPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchFinalApprovalPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchLifecyclePort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchListPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionDecisionPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionReadPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionMutationPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.SuspendedTransactionReassignmentPort;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
@@ -88,6 +93,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private final RewardBatchTransactionReadPort rewardBatchTransactionReadPort;
     private final RewardBatchTransactionDecisionPort rewardBatchTransactionDecisionPort;
     private final RewardBatchTransactionMutationPort rewardBatchTransactionMutationPort;
+    private final RewardBatchFinalApprovalPort rewardBatchFinalApprovalPort;
+    private final RewardBatchAssigneePromotionPort rewardBatchAssigneePromotionPort;
+    private final RewardBatchDeliveryPort rewardBatchDeliveryPort;
+    private final RewardBatchEmptyCleanupPort rewardBatchEmptyCleanupPort;
+    private final SuspendedTransactionReassignmentPort suspendedTransactionReassignmentPort;
     private final UserRestClient userRestClient;
     private final ChecksErrorMapper checksErrorMapper;
 
@@ -136,6 +146,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                   RewardBatchTransactionReadPort rewardBatchTransactionReadPort,
                                   RewardBatchTransactionDecisionPort rewardBatchTransactionDecisionPort,
                                   RewardBatchTransactionMutationPort rewardBatchTransactionMutationPort,
+                                  RewardBatchFinalApprovalPort rewardBatchFinalApprovalPort,
+                                  RewardBatchAssigneePromotionPort rewardBatchAssigneePromotionPort,
+                                  RewardBatchDeliveryPort rewardBatchDeliveryPort,
+                                  RewardBatchEmptyCleanupPort rewardBatchEmptyCleanupPort,
+                                  SuspendedTransactionReassignmentPort suspendedTransactionReassignmentPort,
                                   UserRestClient userRestClient,
                                   ApprovedRewardBatchBlobService approvedRewardBatchBlobService,
                                   ChecksErrorMapper checksErrorMapper,
@@ -153,6 +168,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         this.rewardBatchTransactionReadPort = rewardBatchTransactionReadPort;
         this.rewardBatchTransactionDecisionPort = rewardBatchTransactionDecisionPort;
         this.rewardBatchTransactionMutationPort = rewardBatchTransactionMutationPort;
+        this.rewardBatchFinalApprovalPort = rewardBatchFinalApprovalPort;
+        this.rewardBatchAssigneePromotionPort = rewardBatchAssigneePromotionPort;
+        this.rewardBatchDeliveryPort = rewardBatchDeliveryPort;
+        this.rewardBatchEmptyCleanupPort = rewardBatchEmptyCleanupPort;
+        this.suspendedTransactionReassignmentPort = suspendedTransactionReassignmentPort;
         this.userRestClient = userRestClient;
         this.approvedRewardBatchBlobService = approvedRewardBatchBlobService;
         this.checksErrorMapper = checksErrorMapper;
@@ -687,41 +707,60 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     @Override
     public Mono<RewardBatch> updateBatch(RewardBatch batch, InvitaliaOutcomeResponseDTO response) {
-
-        batch.setRefundOutcomeTimestamp(LocalDateTime.now(ZONEID));
-
         String status = response.getErogazione().getStatus();
 
         if (InvitaliaOutcomeStatus.COMPLETATA.name().equalsIgnoreCase(status)) {
-            batch.setStatus(RewardBatchStatus.REFUNDED);
-            batch.setRefundValutaDate(response.getErogazione().getDateValue());
+            return rewardBatchDeliveryPort.recordRefundOutcome(
+                            batch.getId(),
+                            batch.getInitiativeId(),
+                            RewardBatchStatus.REFUNDED,
+                            response.getErogazione().getDateValue(),
+                            null
+                    )
+                    .switchIfEmpty(outcomePersistenceStateMismatch(batch.getId(), "refund completion"))
+                    .doOnNext(this::logOutcomeTransition);
 
-        } else if (InvitaliaOutcomeStatus.RIFIUTATA.name().equalsIgnoreCase(status)) {
+        }
+        if (InvitaliaOutcomeStatus.RIFIUTATA.name().equalsIgnoreCase(status)) {
+            String errorMessage = response.getErrors() == null || response.getErrors().isEmpty()
+                    ? null
+                    : response.getErrors().stream()
+                    .map(error -> error.getCode() + " - " + error.getMessage())
+                    .reduce((first, second) -> first + "; " + second)
+                    .orElse(null);
 
-            batch.setStatus(RewardBatchStatus.NOT_REFUNDED);
-
-            if (response.getErrors() != null && !response.getErrors().isEmpty()) {
-                String errorMessage = response.getErrors().stream()
-                        .map(error -> error.getCode() + " - " + error.getMessage())
-                        .reduce((a, b) -> a + "; " + b)
-                        .orElse(null);
-
-                batch.setRefundErrorMessage(errorMessage);
-
-            }
-
-        } else if (InvitaliaOutcomeStatus.IN_LAVORAZIONE.name().equalsIgnoreCase(status) || InvitaliaOutcomeStatus.ERRORE.name().equalsIgnoreCase(status)) {
+            return rewardBatchDeliveryPort.recordRefundOutcome(
+                            batch.getId(),
+                            batch.getInitiativeId(),
+                            RewardBatchStatus.NOT_REFUNDED,
+                            null,
+                            errorMessage
+                    )
+                    .switchIfEmpty(outcomePersistenceStateMismatch(batch.getId(), "refund rejection"))
+                    .doOnNext(this::logOutcomeTransition);
+        }
+        if (InvitaliaOutcomeStatus.IN_LAVORAZIONE.name().equalsIgnoreCase(status)
+                || InvitaliaOutcomeStatus.ERRORE.name().equalsIgnoreCase(status)) {
             log.info("Batch {} has not been processed with status {}, the external status is {}", batch.getId(), batch.getStatus(), status);
             return Mono.just(batch);
         }
 
-        logOutcomeTransition(batch);
-
-        return rewardBatchLifecyclePort.saveBatch(batch);
+        return Mono.just(batch);
     }
 
     private void logOutcomeTransition(RewardBatch batch) {
         log.info("Batch {} outcome processed, setting status {}", batch.getId(), batch.getStatus());
+    }
+
+    private Mono<RewardBatch> outcomePersistenceStateMismatch(String rewardBatchId, String outcomeType) {
+        log.warn("Unable to persist {} for batch {} because its lifecycle state changed",
+                outcomeType,
+                Utilities.sanitizeString(rewardBatchId));
+        return Mono.error(new ClientExceptionWithBody(
+                BAD_REQUEST,
+                REWARD_BATCH_INVALID_REQUEST,
+                ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
+        ));
     }
 
     @Override
@@ -844,14 +883,14 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         REWARD_BATCH_INVALID_REQUEST,
                         ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
                 )))
-                .flatMap(originalBatch -> updateAndSaveRewardTransactionsToApprove(rewardBatchId, initiativeId)
-                        .thenReturn(originalBatch))
-                .flatMap(originalBatch -> handleSuspendedTransactions(originalBatch, initiativeId))
-                .flatMap(originalBatch -> {
-                    originalBatch.setStatus(RewardBatchStatus.APPROVED);
-                    originalBatch.setUpdateDate(LocalDateTime.now(ZONEID));
-                    return rewardBatchLifecyclePort.saveBatch(originalBatch);
-                })
+                .flatMap(ignored -> prepareFinalApproval(rewardBatchId, initiativeId))
+                .flatMap(preparedBatch -> handleSuspendedTransactions(preparedBatch, initiativeId))
+                .flatMap(ignored -> rewardBatchFinalApprovalPort.completeFinalApproval(rewardBatchId, initiativeId)
+                        .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                                BAD_REQUEST,
+                                REWARD_BATCH_INVALID_REQUEST,
+                                ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
+                        ))))
                 .flatMap(savedBatch ->
                         this.generateAndSaveCsv(rewardBatchId, initiativeId, savedBatch.getMerchantId())
                                 .onErrorResume(e -> {
@@ -870,7 +909,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         NOT_FOUND,
                         REWARD_BATCH_NOT_FOUND,
                         ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
-                .filter(rewardBatch -> RewardBatchStatus.APPROVED.equals(rewardBatch.getStatus()) && rewardBatch.getApprovedAmountCents()>0)
+                .then(rewardBatchDeliveryPort.snapshotDeliveryAmount(rewardBatchId, initiativeId))
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
                         BAD_REQUEST,
                         REWARD_BATCH_INVALID_REQUEST,
@@ -911,30 +950,38 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                                     .build())
                                             .erogazione(ErogazioneDTO.builder()
                                                     .idPratica(rewardBatchId)
-                                                    .dataAmmissione(batch.getApprovalDate())
+                                                            .dataAmmissione(rewardBatch.getApprovalDate())
                                                     .ibanBeneficiario(merchantDetail.getIban())
-                                                    .importo(batch.getApprovedAmountCents() / 100.0)
+                                                            .importo(rewardBatch.getDeliveryAmountCents() / 100.0)
                                                     .intestatarioContoCorrente(merchantDetail.getIbanHolder())
                                                     .build())
                                             .build();
 
                                     return erogazioniRestClient.postErogazione(deliveryRequest)
-                                            .flatMap(outcome -> {
-                                                batch.setDeliveryOutcome(outcome);
-                                                if (outcome.isSucceded()) {
-                                                    batch.setStatus(RewardBatchStatus.PENDING_REFUND);
-                                                    batch.setDeliveryDateRequest(LocalDateTime.now(ZONEID));
-                                                    log.info("[PROCESS_BATCH] Batch {} delivery succeeded. Status moved to PENDING_REFUND", rewardBatchId);
-                                                } else {
-                                                    log.warn("[PROCESS_BATCH] Batch {} delivery rejected by server: {}", rewardBatchId, outcome.getMessage());
-                                                }
-
-                                                return rewardBatchLifecyclePort.saveBatch(batch);
-                                            });
+                                                    .flatMap(outcome -> rewardBatchDeliveryPort.recordDeliveryOutcome(
+                                                            rewardBatchId,
+                                                            initiativeId,
+                                                            outcome
+                                                            )
+                                                            .switchIfEmpty(outcomePersistenceStateMismatch(
+                                                                    rewardBatchId,
+                                                                    "delivery outcome"
+                                                            )))
+                                                    .doOnNext(updated -> {
+                                                        if (updated.getStatus() == RewardBatchStatus.PENDING_REFUND) {
+                                                            log.info("[PROCESS_BATCH] Batch {} delivery succeeded. Status moved to PENDING_REFUND", rewardBatchId);
+                                                        } else {
+                                                            log.warn("[PROCESS_BATCH] Batch {} delivery rejected by server: {}",
+                                                                    rewardBatchId,
+                                                                    outcomeMessage(updated));
+                                                        }
+                                                    });
                                 })));
     }
 
-
+    private static String outcomeMessage(RewardBatch batch) {
+        return batch.getDeliveryOutcome() == null ? null : batch.getDeliveryOutcome().getMessage();
+    }
 
     private Mono<RewardBatch> handleSuspendedTransactions(RewardBatch originalBatch, String initiativeId) {
         if (originalBatch.getNumberOfTransactionsSuspended() == null
@@ -943,21 +990,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             return Mono.just(originalBatch);
         }
 
-        return findOrCreateBatch(
-                        originalBatch.getInitiativeId(),
-                        originalBatch.getMerchantId(),
-                        originalBatch.getPosType(),
-                        getTargetMonth(originalBatch.getMonth()),
-                        originalBatch.getBusinessName()
+        return suspendedTransactionReassignmentPort.reassignSuspendedTransactions(
+                        originalBatch.getId(),
+                        initiativeId
                 )
-                .flatMap(newBatch -> rewardBatchTransactionMutationPort
-                        .reassignSuspendedTransactions(
-                                originalBatch,
-                                newBatch,
-                                initiativeId,
-                                originalBatch.getMonth()
-                        )
-                        .thenReturn(originalBatch));
+                .thenReturn(originalBatch);
     }
 
     public String addOneMonth(String yearMonthString) {
@@ -984,30 +1021,25 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     }
 
     public  Mono<Void> updateAndSaveRewardTransactionsToApprove(String oldBatchId, String initiativeId) {
-        List<RewardBatchTrxStatus>  statusList = new ArrayList<>();
-        statusList.add(RewardBatchTrxStatus.TO_CHECK);
-        statusList.add(RewardBatchTrxStatus.CONSULTABLE);
-
-
-        return rewardBatchTransactionReadPort.findBatchTransactions(oldBatchId, initiativeId, statusList)
-                .collectList()
-                .doOnNext(list ->
-                        log.info("Found {} transactions to approve for batch {}",
-                                list.size(),
-                                Utilities.sanitizeString(oldBatchId))
-                )
-                .flatMapMany(Flux::fromIterable)
-                .flatMap(rewardTransaction -> {
-                    rewardTransaction.setRewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED);
-                    return rewardTransactionRepository.save(rewardTransaction);
-                })
+        return prepareFinalApproval(oldBatchId, initiativeId)
+                .doOnNext(ignored -> log.info("Approved pending transactions for batch {}",
+                        Utilities.sanitizeString(oldBatchId)))
                 .then();
 
     }
 
+    private Mono<RewardBatch> prepareFinalApproval(String rewardBatchId, String initiativeId) {
+        return rewardBatchFinalApprovalPort.prepareFinalApproval(rewardBatchId, initiativeId)
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        BAD_REQUEST,
+                        REWARD_BATCH_INVALID_REQUEST,
+                        ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
+                )));
+    }
+
     @Override
     public Mono<RewardBatch> validateRewardBatch(String organizationRole, String initiativeId, String rewardBatchId) {
-        return rewardBatchLifecyclePort.findBatch(rewardBatchId)
+        return rewardBatchAssigneePromotionPort.findBatchForPromotion(rewardBatchId, initiativeId)
                 .switchIfEmpty(Mono.error(new RewardBatchNotFound(
                         REWARD_BATCH_NOT_FOUND,
                         ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId)
@@ -1025,18 +1057,16 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             ));
                         }
 
-                        long total = batch.getNumberOfTransactions();
-                        long elaborated = batch.getNumberOfTransactionsElaborated();
-
-                        if (total > 0 && elaborated < Math.ceil(total * 0.15)) {
-                            return Mono.error(new BatchNotElaborated15PercentException(
-                                    BATCH_NOT_ELABORATED_15_PERCENT,
-                                    ERROR_MESSAGE_BATCH_NOT_ELABORATED_15_PERCENT
-                            ));
-                        }
-
-                        batch.setAssigneeLevel(RewardBatchAssignee.L2);
-                        return rewardBatchLifecyclePort.saveBatch(batch);
+                        return rewardBatchAssigneePromotionPort.promote(
+                                        rewardBatchId,
+                                        initiativeId,
+                                        RewardBatchAssignee.L1,
+                                        RewardBatchAssignee.L2
+                                )
+                                .switchIfEmpty(Mono.error(new InvalidBatchStateForPromotionException(
+                                        INVALID_BATCH_STATE_FOR_PROMOTION,
+                                        ERROR_MESSAGE_INVALID_BATCH_STATE_FOR_PROMOTION
+                                )));
                     }
 
                     if (assignee == RewardBatchAssignee.L2) {
@@ -1048,8 +1078,16 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             ));
                         }
 
-                        batch.setAssigneeLevel(RewardBatchAssignee.L3);
-                        return rewardBatchRepository.save(batch);
+                        return rewardBatchAssigneePromotionPort.promote(
+                                        rewardBatchId,
+                                        initiativeId,
+                                        RewardBatchAssignee.L2,
+                                        RewardBatchAssignee.L3
+                                )
+                                .switchIfEmpty(Mono.error(new InvalidBatchStateForPromotionException(
+                                        INVALID_BATCH_STATE_FOR_PROMOTION,
+                                        ERROR_MESSAGE_INVALID_BATCH_STATE_FOR_PROMOTION
+                                )));
                     }
 
                     return Mono.error((new InvalidBatchStateForPromotionException(
@@ -1396,7 +1434,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     @Override
     public Mono<Void> deleteEmptyRewardBatches() {
-        return rewardBatchLifecyclePort.deleteEmptyBatches();
+        return rewardBatchEmptyCleanupPort.deleteEmptyBatches();
     }
 
 }

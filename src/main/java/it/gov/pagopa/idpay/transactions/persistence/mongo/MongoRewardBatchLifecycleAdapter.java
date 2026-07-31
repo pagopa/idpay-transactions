@@ -4,6 +4,7 @@ import com.mongodb.client.result.DeleteResult;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchEmptyCleanupPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchLifecyclePort;
 import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +22,7 @@ import java.time.LocalDate;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class MongoRewardBatchLifecycleAdapter implements RewardBatchLifecyclePort {
+public class MongoRewardBatchLifecycleAdapter implements RewardBatchLifecyclePort, RewardBatchEmptyCleanupPort {
 
     private final RewardBatchRepository rewardBatchRepository;
     private final ReactiveMongoTemplate reactiveMongoTemplate;

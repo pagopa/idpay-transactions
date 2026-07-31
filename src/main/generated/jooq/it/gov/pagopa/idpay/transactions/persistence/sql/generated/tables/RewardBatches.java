@@ -16,6 +16,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
+import org.jooq.Check;
 import org.jooq.Condition;
 import org.jooq.Field;
 import org.jooq.ForeignKey;
@@ -36,6 +37,7 @@ import org.jooq.TableField;
 import org.jooq.TableOptions;
 import org.jooq.UniqueKey;
 import org.jooq.impl.DSL;
+import org.jooq.impl.Internal;
 import org.jooq.impl.SQLDataType;
 import org.jooq.impl.TableImpl;
 
@@ -176,6 +178,11 @@ public class RewardBatches extends TableImpl<RewardBatchesRecord> {
      */
     public final TableField<RewardBatchesRecord, JSONB> DELIVERY_OUTCOME = createField(DSL.name("delivery_outcome"), SQLDataType.JSONB, this, "");
 
+    /**
+     * The column <code>public.reward_batches.delivery_amount_cents</code>.
+     */
+    public final TableField<RewardBatchesRecord, Long> DELIVERY_AMOUNT_CENTS = createField(DSL.name("delivery_amount_cents"), SQLDataType.BIGINT, this, "");
+
     private RewardBatches(Name alias, Table<RewardBatchesRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);
     }
@@ -269,6 +276,13 @@ public class RewardBatches extends TableImpl<RewardBatchesRecord> {
             _rewardTransactions = new RewardTransactionsPath(this, null, Keys.REWARD_TRANSACTIONS__FK_REWARD_TRANSACTIONS_BATCH_INITIATIVE.getInverseKey());
 
         return _rewardTransactions;
+    }
+
+    @Override
+    public List<Check<RewardBatchesRecord>> getChecks() {
+        return Arrays.asList(
+            Internal.createCheck(this, DSL.name("ck_reward_batches_delivery_amount_non_negative"), "(((delivery_amount_cents IS NULL) OR (delivery_amount_cents > 0)))", true)
+        );
     }
 
     @Override

@@ -344,6 +344,20 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
         return (JSONB) get(22);
     }
 
+    /**
+     * Setter for <code>public.reward_batches.delivery_amount_cents</code>.
+     */
+    public void setDeliveryAmountCents(Long value) {
+        set(23, value);
+    }
+
+    /**
+     * Getter for <code>public.reward_batches.delivery_amount_cents</code>.
+     */
+    public Long getDeliveryAmountCents() {
+        return (Long) get(23);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -367,7 +381,7 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
     /**
      * Create a detached, initialised RewardBatchesRecord
      */
-    public RewardBatchesRecord(String id, String initiativeId, String merchantId, String businessName, String month, String posType, String status, Boolean partial, String name, LocalDateTime startDate, LocalDateTime endDate, LocalDateTime creationDate, LocalDateTime updateDate, LocalDateTime merchantSendDate, LocalDateTime approvalDate, LocalDateTime deliveryDateRequest, LocalDateTime refundOutcomeTimestamp, String reportPath, String filename, String assigneeLevel, LocalDate refundValutaDate, String refundErrorMessage, JSONB deliveryOutcome) {
+    public RewardBatchesRecord(String id, String initiativeId, String merchantId, String businessName, String month, String posType, String status, Boolean partial, String name, LocalDateTime startDate, LocalDateTime endDate, LocalDateTime creationDate, LocalDateTime updateDate, LocalDateTime merchantSendDate, LocalDateTime approvalDate, LocalDateTime deliveryDateRequest, LocalDateTime refundOutcomeTimestamp, String reportPath, String filename, String assigneeLevel, LocalDate refundValutaDate, String refundErrorMessage, JSONB deliveryOutcome, Long deliveryAmountCents) {
         super(RewardBatches.REWARD_BATCHES);
 
         setId(id);
@@ -393,6 +407,7 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
         setRefundValutaDate(refundValutaDate);
         setRefundErrorMessage(refundErrorMessage);
         setDeliveryOutcome(deliveryOutcome);
+        setDeliveryAmountCents(deliveryAmountCents);
         resetChangedOnNotNull();
     }
 }
