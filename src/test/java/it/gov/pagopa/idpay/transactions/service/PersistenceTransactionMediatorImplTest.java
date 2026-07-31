@@ -1,5 +1,8 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import it.gov.pagopa.common.kafka.utils.KafkaConstants;
 import it.gov.pagopa.common.utils.TestUtils;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
@@ -98,8 +101,8 @@ class PersistenceTransactionMediatorImplTest {
         RewardTransaction rt = RewardTransactionFaker.mockInstance(1);
         rt.setStatus(SyncTrxStatus.INVOICED.name());
 
-        Mockito.when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
-        Mockito.when(rewardTransactionService.save(rt)).thenReturn(Mono.just(rt));
+        when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
+        when(rewardTransactionService.save(rt)).thenReturn(Mono.just(rt));
 
         StepVerifier.create(persistenceTransactionMediator.execute(
                         rtDTO,
@@ -108,8 +111,8 @@ class PersistenceTransactionMediatorImplTest {
                 .expectNext(rt)
                 .verifyComplete();
 
-        Mockito.verify(rewardTransactionMapper).mapFromDTO(rtDTO);
-        Mockito.verify(rewardTransactionService).save(rt);
+        verify(rewardTransactionMapper).mapFromDTO(rtDTO);
+        verify(rewardTransactionService).save(rt);
     }
 
     @Test
@@ -118,8 +121,8 @@ class PersistenceTransactionMediatorImplTest {
         RewardTransaction rt = RewardTransactionFaker.mockInstance(1);
         rt.setStatus(SyncTrxStatus.AUTHORIZED.name());
 
-        Mockito.when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
-        Mockito.when(rewardTransactionService.save(rt)).thenReturn(Mono.just(rt));
+        when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
+        when(rewardTransactionService.save(rt)).thenReturn(Mono.just(rt));
 
         StepVerifier.create(persistenceTransactionMediator.execute(
                         rtDTO,
@@ -128,8 +131,8 @@ class PersistenceTransactionMediatorImplTest {
                 .expectNext(rt)
                 .verifyComplete();
 
-        Mockito.verify(rewardTransactionMapper).mapFromDTO(rtDTO);
-        Mockito.verify(rewardTransactionService).save(rt);
+        verify(rewardTransactionMapper).mapFromDTO(rtDTO);
+        verify(rewardTransactionService).save(rt);
     }
     @Test
     void executeErrorDeserializer() {
