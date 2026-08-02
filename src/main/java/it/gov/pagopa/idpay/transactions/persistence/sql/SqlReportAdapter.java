@@ -102,7 +102,7 @@ public class SqlReportAdapter implements ReportPersistencePort {
         }
         ReportEntity entity = mapper.toEntity(report);
         return transactionalOperator.transactional(repository.existsById(entity.id())
-                        .flatMap(exists -> exists
+                        .flatMap(exists -> Boolean.TRUE.equals(exists)
                                 ? repository.save(entity)
                                 : r2dbcEntityTemplate.insert(entity)))
                 .map(mapper::fromEntity);

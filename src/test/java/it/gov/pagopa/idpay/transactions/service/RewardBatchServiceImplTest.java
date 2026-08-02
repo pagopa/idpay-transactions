@@ -1,6 +1,16 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -189,7 +199,7 @@ class RewardBatchServiceImplTest {
         ChecksErrorDTO emptyChecks = new ChecksErrorDTO();
         TransactionsRequest invalid = TransactionsRequest.builder()
                 .transactionIds(List.of("transaction")).checksError(emptyChecks).build();
-        org.junit.jupiter.api.Assertions.assertThrows(
+        assertThrows(
                 RuntimeException.class, () -> service.rejectTransactions("batch", "initiative", invalid));
 
         TransactionsRequest request = TransactionsRequest.builder().transactionIds(List.of("transaction")).build();
@@ -278,12 +288,12 @@ class RewardBatchServiceImplTest {
         RewardBatch prepared = batch("batch", RewardBatchStatus.APPROVING);
         prepared.setNumberOfTransactionsSuspended(1L);
         RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
-        RewardBatchServiceImpl worker = org.mockito.Mockito.spy(service);
+        RewardBatchServiceImpl worker = spy(service);
         when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(approving));
         when(finalApprovalPort.prepareFinalApproval("batch", "initiative")).thenReturn(Mono.just(prepared));
         when(reassignmentPort.reassignSuspendedTransactions("batch", "initiative")).thenReturn(Mono.empty());
         when(finalApprovalPort.completeFinalApproval("batch", "initiative")).thenReturn(Mono.just(approved));
-        org.mockito.Mockito.doReturn(Mono.just("approved.csv")).when(worker)
+        doReturn(Mono.just("approved.csv")).when(worker)
                 .generateAndSaveCsv("batch", "initiative", "merchant");
 
         StepVerifier.create(worker.processSingleBatchConfirmation(approving, "initiative"))
@@ -369,7 +379,7 @@ class RewardBatchServiceImplTest {
         when(deliveryPort.snapshotDeliveryAmount("batch", "initiative")).thenReturn(Mono.just(snapshotted));
         when(merchantRestClient.getMerchantDetail("merchant", "initiative")).thenReturn(Mono.just(merchant));
         when(selfcareClient.getInstitutions("fiscal")).thenReturn(Mono.just(new InstitutionList(List.of(institution))));
-        when(erogazioniClient.postErogazione(org.mockito.ArgumentMatchers.any())).thenReturn(Mono.just(outcome));
+        when(erogazioniClient.postErogazione(any())).thenReturn(Mono.just(outcome));
         when(deliveryPort.recordDeliveryOutcome("batch", "initiative", outcome)).thenReturn(Mono.just(delivered));
 
         StepVerifier.create(service.processSingleBatchDelivery(requested, "initiative"))
@@ -397,15 +407,15 @@ class RewardBatchServiceImplTest {
         RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
         @SuppressWarnings("unchecked")
         com.azure.core.http.rest.Response<com.azure.storage.blob.models.BlockBlobItem> response =
-                org.mockito.Mockito.mock(com.azure.core.http.rest.Response.class);
+                mock(com.azure.core.http.rest.Response.class);
         when(response.getStatusCode()).thenReturn(201);
         when(lifecyclePort.findBatch("batch")).thenReturn(Mono.just(approved));
         when(transactionReadPort.findBatchTransactions(
                 "batch", "initiative", List.of(RewardBatchTrxStatus.APPROVED, RewardBatchTrxStatus.REJECTED)))
                 .thenReturn(Flux.empty());
         when(batchBlobService.upload(
-                org.mockito.ArgumentMatchers.any(InputStream.class), org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyString())).thenReturn(response);
+                any(InputStream.class), anyString(),
+                anyString())).thenReturn(response);
         when(lifecyclePort.saveBatch(approved)).thenReturn(Mono.just(approved));
 
         StepVerifier.create(service.generateAndSaveCsv("batch", "initiative", "merchant"))
@@ -413,9 +423,9 @@ class RewardBatchServiceImplTest {
 
         assertEquals("business_name_FISICO.csv", approved.getFilename());
         verify(batchBlobService).upload(
-                org.mockito.ArgumentMatchers.any(InputStream.class),
-                org.mockito.ArgumentMatchers.contains("initiative/initiative/merchant/merchant/batch/batch/"),
-                org.mockito.ArgumentMatchers.eq("text/csv; charset=UTF-8"));
+                any(InputStream.class),
+                contains("initiative/initiative/merchant/merchant/batch/batch/"),
+                eq("text/csv; charset=UTF-8"));
     }
 
     @Test
@@ -427,15 +437,15 @@ class RewardBatchServiceImplTest {
         RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
         @SuppressWarnings("unchecked")
         com.azure.core.http.rest.Response<com.azure.storage.blob.models.BlockBlobItem> failedResponse =
-                org.mockito.Mockito.mock(com.azure.core.http.rest.Response.class);
+                mock(com.azure.core.http.rest.Response.class);
         when(failedResponse.getStatusCode()).thenReturn(500);
         when(lifecyclePort.findBatch("batch")).thenReturn(Mono.just(approved));
         when(transactionReadPort.findBatchTransactions(
                 "batch", "initiative", List.of(RewardBatchTrxStatus.APPROVED, RewardBatchTrxStatus.REJECTED)))
                 .thenReturn(Flux.empty());
         when(batchBlobService.upload(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyString())).thenReturn(failedResponse);
+                any(), anyString(),
+                anyString())).thenReturn(failedResponse);
         StepVerifier.create(service.generateAndSaveCsv("batch", "initiative", "merchant"))
                 .expectError().verify();
     }
@@ -449,10 +459,10 @@ class RewardBatchServiceImplTest {
         when(lifecyclePort.findBatchWithStatus("batch", "initiative", RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.just(evaluating), Mono.just(evaluating));
         when(decisionPort.updateStatusAndReturnOld(
-                org.mockito.ArgumentMatchers.eq("initiative"), org.mockito.ArgumentMatchers.eq("batch"),
-                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(evaluating.getMonth()),
-                org.mockito.ArgumentMatchers.isNull())).thenReturn(Mono.just(new RewardTransaction()));
+                eq("initiative"), eq("batch"),
+                anyString(), any(),
+                any(), eq(evaluating.getMonth()),
+                isNull())).thenReturn(Mono.just(new RewardTransaction()));
         when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(refreshed));
 
         StepVerifier.create(service.suspendTransactions("batch", "initiative", request))
@@ -461,9 +471,9 @@ class RewardBatchServiceImplTest {
                 .expectNext(refreshed).verifyComplete();
 
         verify(auditUtilities).logTransactionsStatusChanged(
-                org.mockito.ArgumentMatchers.eq(RewardBatchTrxStatus.SUSPENDED.name()),
-                org.mockito.ArgumentMatchers.eq("initiative"), org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.isNull());
+                eq(RewardBatchTrxStatus.SUSPENDED.name()),
+                eq("initiative"), anyString(),
+                isNull());
     }
 
     @Test
@@ -482,19 +492,19 @@ class RewardBatchServiceImplTest {
     @Test
     void batchOrchestratorsUsePaginatedPortsAndIsolatePerBatchFailures() {
         RewardBatch approving = batch("batch", RewardBatchStatus.APPROVING);
-        RewardBatchServiceImpl worker = org.mockito.Mockito.spy(service);
-        org.mockito.Mockito.doReturn(Mono.just(approving)).when(worker)
+        RewardBatchServiceImpl worker = spy(service);
+        doReturn(Mono.just(approving)).when(worker)
                 .processSingleBatchConfirmation(approving, "initiative");
         when(lifecyclePort.findBatchesWithStatus(
-                org.mockito.ArgumentMatchers.eq(RewardBatchStatus.APPROVING),
-                org.mockito.ArgumentMatchers.eq("initiative"), org.mockito.ArgumentMatchers.any()))
+                eq(RewardBatchStatus.APPROVING),
+                eq("initiative"), any()))
                 .thenReturn(Flux.just(approving), Flux.empty());
 
         StepVerifier.create(worker.rewardBatchConfirmationBatch("initiative", List.of()))
                 .verifyComplete();
-        verify(lifecyclePort, org.mockito.Mockito.atLeastOnce()).findBatchesWithStatus(
-                org.mockito.ArgumentMatchers.eq(RewardBatchStatus.APPROVING),
-                org.mockito.ArgumentMatchers.eq("initiative"), org.mockito.ArgumentMatchers.any());
+        verify(lifecyclePort, atLeastOnce()).findBatchesWithStatus(
+                eq(RewardBatchStatus.APPROVING),
+                eq("initiative"), any());
     }
 
     @Test
@@ -512,7 +522,7 @@ class RewardBatchServiceImplTest {
                 .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED).build();
         @SuppressWarnings("unchecked")
         com.azure.core.http.rest.Response<com.azure.storage.blob.models.BlockBlobItem> response =
-                org.mockito.Mockito.mock(com.azure.core.http.rest.Response.class);
+                mock(com.azure.core.http.rest.Response.class);
         when(response.getStatusCode()).thenReturn(201);
         when(lifecyclePort.findBatch("batch")).thenReturn(Mono.just(approved));
         when(transactionReadPort.findBatchTransactions(
@@ -521,8 +531,8 @@ class RewardBatchServiceImplTest {
         when(userRestClient.retrieveUserInfo("user")).thenReturn(Mono.just(
                 it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV.builder().pii("fiscal-code").build()));
         when(batchBlobService.upload(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyString())).thenReturn(response);
+                any(), anyString(),
+                anyString())).thenReturn(response);
         when(lifecyclePort.saveBatch(approved)).thenReturn(Mono.just(approved));
 
         StepVerifier.create(service.generateAndSaveCsv("batch", "initiative", "merchant"))
@@ -649,15 +659,15 @@ class RewardBatchServiceImplTest {
     @Test
     void deliveryBatchOrchestratorsUseExplicitAndPaginatedSelections() {
         RewardBatch batch = batch("batch", RewardBatchStatus.APPROVED);
-        RewardBatchServiceImpl worker = org.mockito.Mockito.spy(service);
-        org.mockito.Mockito.doReturn(Mono.just(batch)).when(worker)
+        RewardBatchServiceImpl worker = spy(service);
+        doReturn(Mono.just(batch)).when(worker)
                 .processSingleBatchDelivery(batch, "initiative");
         when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(batch));
         StepVerifier.create(worker.rewardBatchDeliveryBatch("initiative", List.of("batch")))
                 .verifyComplete();
 
         when(lifecyclePort.findDeliverableBatches(
-                org.mockito.ArgumentMatchers.eq("initiative"), org.mockito.ArgumentMatchers.any()))
+                eq("initiative"), any()))
                 .thenReturn(Flux.just(batch), Flux.empty());
         StepVerifier.create(worker.rewardBatchDeliveryBatch("initiative", List.of()))
                 .verifyComplete();
@@ -670,11 +680,11 @@ class RewardBatchServiceImplTest {
         RewardBatch prepared = batch("batch", RewardBatchStatus.APPROVING);
         prepared.setNumberOfTransactionsSuspended(0L);
         RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
-        RewardBatchServiceImpl worker = org.mockito.Mockito.spy(service);
+        RewardBatchServiceImpl worker = spy(service);
         when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(approving));
         when(finalApprovalPort.prepareFinalApproval("batch", "initiative")).thenReturn(Mono.just(prepared));
         when(finalApprovalPort.completeFinalApproval("batch", "initiative")).thenReturn(Mono.just(approved));
-        org.mockito.Mockito.doReturn(Mono.error(new IllegalStateException("storage"))).when(worker)
+        doReturn(Mono.error(new IllegalStateException("storage"))).when(worker)
                 .generateAndSaveCsv("batch", "initiative", "merchant");
 
         StepVerifier.create(worker.processSingleBatchConfirmation(approving, "initiative"))

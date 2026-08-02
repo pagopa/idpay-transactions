@@ -2,7 +2,11 @@ package it.gov.pagopa.idpay.transactions.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -26,7 +30,6 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
@@ -60,8 +63,8 @@ class ReportServiceImplTest {
         Pageable requested = PageRequest.of(1, 2);
         Pageable expected = PageRequest.of(1, 2, Sort.by(Sort.Direction.DESC, "requestDate"));
         when(reportPort.findReports(
-                eq("merchant"), eq(null), eq("initiative"),
-                eq(ReportType.MERCHANT_TRANSACTIONS), eq(expected))).thenReturn(Flux.just(report));
+                "merchant", null, "initiative",
+                ReportType.MERCHANT_TRANSACTIONS, expected)).thenReturn(Flux.just(report));
         when(reportPort.countReports(
                 "merchant", null, "initiative", ReportType.MERCHANT_TRANSACTIONS))
                 .thenReturn(Mono.just(3L));
@@ -111,20 +114,22 @@ class ReportServiceImplTest {
 
     @Test
     void invalidReportQueriesFailBeforePersistenceAccess() {
+        Pageable pageable = PageRequest.of(0, 10);
         assertThrows(ClientExceptionWithBody.class,
-                () -> service.getReports(null, null, "initiative", null, PageRequest.of(0, 10)));
+                () -> service.getReports(null, null, "initiative", null, pageable));
         assertThrows(ClientExceptionWithBody.class,
-                () -> service.getTransactionsReports(null, null, "initiative", PageRequest.of(0, 10)));
+                () -> service.getTransactionsReports(null, null, "initiative", pageable));
     }
 
     @Test
     void reportListValidationRejectsConflictingAndInvalidOperatorScopes() {
+        Pageable pageable = PageRequest.of(0, 10);
         assertThrows(ClientExceptionWithBody.class, () -> service.getTransactionsReports(
-                "merchant", "operator1", "initiative", PageRequest.of(0, 10)));
+                "merchant", "operator1", "initiative", pageable));
         assertThrows(ClientExceptionWithBody.class, () -> service.getTransactionsReports(
-                null, "admin", "initiative", PageRequest.of(0, 10)));
+                null, "admin", "initiative", pageable));
         assertThrows(ClientExceptionWithBody.class, () -> service.getUserDetailsReports(
-                " ", "initiative", PageRequest.of(0, 10)));
+                " ", "initiative", pageable));
     }
 
     @Test
@@ -135,7 +140,7 @@ class ReportServiceImplTest {
         Report saved = report("report", ReportType.MERCHANT_TRANSACTIONS);
         ReportDTO dto = ReportDTO.builder().id("report").build();
         when(merchantRestClient.getMerchantDetail("merchant", "initiative")).thenReturn(Mono.just(merchant));
-        when(reportPort.save(org.mockito.ArgumentMatchers.any())).thenReturn(Mono.just(saved));
+        when(reportPort.save(any())).thenReturn(Mono.just(saved));
         when(dataFactoryService.triggerTransactionReportPipeline(saved)).thenReturn(Mono.just("run"));
         when(reportMapper.toDTO(saved)).thenReturn(dto);
 
@@ -143,7 +148,7 @@ class ReportServiceImplTest {
                         "merchant", "operator1", "initiative", request))
                 .expectNext(dto).verifyComplete();
 
-        verify(reportPort).save(org.mockito.ArgumentMatchers.argThat(created ->
+        verify(reportPort).save(argThat(created ->
                 created.getMerchantId().equals("merchant")
                         && created.getReportStatus() == ReportStatus.INSERTED
                         && created.getReportType() == ReportType.MERCHANT_TRANSACTIONS));
@@ -158,7 +163,7 @@ class ReportServiceImplTest {
         Report saved = report("report", ReportType.MERCHANT_TRANSACTIONS);
         ReportDTO dto = ReportDTO.builder().id("report").build();
         when(merchantRestClient.getMerchantDetail("merchant", "initiative")).thenReturn(Mono.just(merchant));
-        when(reportPort.save(org.mockito.ArgumentMatchers.any())).thenReturn(Mono.just(saved));
+        when(reportPort.save(any())).thenReturn(Mono.just(saved));
         when(dataFactoryService.triggerTransactionReportPipeline(saved)).thenReturn(Mono.error(
                 new it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException("storage", new RuntimeException())));
         when(reportMapper.toDTO(saved)).thenReturn(dto);
@@ -167,8 +172,8 @@ class ReportServiceImplTest {
                         "merchant", "operator1", "initiative", request))
                 .expectNext(dto).verifyComplete();
 
-        org.junit.jupiter.api.Assertions.assertEquals(ReportStatus.FAILED, saved.getReportStatus());
-        verify(reportPort, org.mockito.Mockito.times(2)).save(org.mockito.ArgumentMatchers.any());
+        assertEquals(ReportStatus.FAILED, saved.getReportStatus());
+        verify(reportPort, times(2)).save(any());
     }
 
     @Test
@@ -194,7 +199,7 @@ class ReportServiceImplTest {
         ReportRequest request = validRequest(ReportType.USER_DETAILS);
         Report saved = report("report", ReportType.USER_DETAILS);
         ReportDTO dto = ReportDTO.builder().id("report").build();
-        when(reportPort.save(org.mockito.ArgumentMatchers.any())).thenReturn(Mono.just(saved));
+        when(reportPort.save(any())).thenReturn(Mono.just(saved));
         when(dataFactoryService.triggerUserDetailsReportPipeline(saved)).thenReturn(Mono.just("run"));
         when(reportMapper.toDTO(saved)).thenReturn(dto);
 
@@ -278,7 +283,7 @@ class ReportServiceImplTest {
     void userDetailsPipelineFailureIsPersistedAsFailed() {
         Report saved = report("report", ReportType.USER_DETAILS);
         ReportDTO dto = ReportDTO.builder().id("report").build();
-        when(reportPort.save(org.mockito.ArgumentMatchers.any())).thenReturn(Mono.just(saved));
+        when(reportPort.save(any())).thenReturn(Mono.just(saved));
         when(dataFactoryService.triggerUserDetailsReportPipeline(saved)).thenReturn(Mono.error(
                 new it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException("storage", new RuntimeException())));
         when(reportMapper.toDTO(saved)).thenReturn(dto);
@@ -288,7 +293,7 @@ class ReportServiceImplTest {
                 .expectNext(dto).verifyComplete();
 
         assertEquals(ReportStatus.FAILED, saved.getReportStatus());
-        verify(reportPort, org.mockito.Mockito.times(2)).save(org.mockito.ArgumentMatchers.any());
+        verify(reportPort, times(2)).save(any());
     }
 
     @Test
@@ -326,13 +331,13 @@ class ReportServiceImplTest {
 
     @Test
     void reportEntryPointDispatchesBothTypesAndValidatesMerchantRequirement() {
-        ReportServiceImpl dispatcher = org.mockito.Mockito.spy(service);
+        ReportServiceImpl dispatcher = spy(service);
         ReportDTO dto = ReportDTO.builder().id("report").build();
         ReportRequest merchantRequest = validRequest(ReportType.MERCHANT_TRANSACTIONS);
         ReportRequest userRequest = validRequest(ReportType.USER_DETAILS);
-        org.mockito.Mockito.doReturn(Mono.just(dto)).when(dispatcher)
+        doReturn(Mono.just(dto)).when(dispatcher)
                 .generateMerchantTransactionsReport("merchant", "operator1", "initiative", merchantRequest);
-        org.mockito.Mockito.doReturn(Mono.just(dto)).when(dispatcher)
+        doReturn(Mono.just(dto)).when(dispatcher)
                 .generateUserDetailsReport("operator1", "initiative", userRequest);
 
         StepVerifier.create(dispatcher.generateReport("merchant", "operator1", "initiative", merchantRequest))
@@ -359,8 +364,9 @@ class ReportServiceImplTest {
 
     @Test
     void invalidUserDetailsRoleAndPeriodAreRejected() {
+        Pageable pageable = PageRequest.of(0, 10);
         assertThrows(ClientExceptionWithBody.class,
-                () -> service.getUserDetailsReports("admin", "initiative", PageRequest.of(0, 10)));
+                () -> service.getUserDetailsReports("admin", "initiative", pageable));
         ReportRequest invalid = validRequest(ReportType.USER_DETAILS);
         invalid.setEndPeriod(LocalDateTime.now());
         StepVerifier.create(service.generateUserDetailsReport("operator1", "initiative", invalid))

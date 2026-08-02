@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.test.StepVerifier;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -222,8 +223,8 @@ class DataFactoryServiceImplTest {
 
     @Test
     void triggerUserDetailsReportPipelineShouldUseUserDetailsPipelineAndReportParameters() {
-        LocalDateTime start = LocalDateTime.of(2026, 8, 1, 9, 0);
-        LocalDateTime end = LocalDateTime.of(2026, 8, 2, 18, 0);
+        LocalDateTime start = LocalDateTime.of(2026, Month.AUGUST, 1, 9, 0);
+        LocalDateTime end = LocalDateTime.of(2026, Month.AUGUST, 2, 18, 0);
         Report report = Report.builder()
                 .id("REPORT_ID")
                 .merchantId("MERCHANT")

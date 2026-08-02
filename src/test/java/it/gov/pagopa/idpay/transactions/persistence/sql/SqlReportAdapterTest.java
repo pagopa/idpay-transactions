@@ -9,6 +9,9 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
 import java.time.LocalDateTime;
+import java.time.Month;
+import java.util.List;
+import java.util.Set;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 import org.junit.jupiter.api.AfterAll;
@@ -111,6 +114,63 @@ class SqlReportAdapterTest extends PostgresqlMigrationTestSupport {
                 .verifyComplete();
     }
 
+    @Test
+    void readsUnpagedReportsWithDefaultAndExplicitOrderingAndScopedLookups() {
+        Report oldest = report("oldest", "initiative", "merchant", null, "oldest", 1);
+        Report sameTimeLaterId = report("z-last", "initiative", "merchant", null, "z-last", 2);
+        Report sameTimeFirstId = report("a-first", "initiative", "merchant", null, "a-first", 2);
+
+        StepVerifier.create(Flux.concat(
+                        adapter.save(oldest),
+                        adapter.save(sameTimeLaterId),
+                        adapter.save(sameTimeFirstId)
+                ).thenMany(adapter.findReports(
+                        "merchant",
+                        null,
+                        "initiative",
+                        ReportType.MERCHANT_TRANSACTIONS,
+                        null
+                )))
+                .assertNext(loaded -> assertEquals("a-first", loaded.getId()))
+                .assertNext(loaded -> assertEquals("z-last", loaded.getId()))
+                .assertNext(loaded -> assertEquals("oldest", loaded.getId()))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findReports(
+                        "merchant",
+                        null,
+                        "initiative",
+                        ReportType.MERCHANT_TRANSACTIONS,
+                        PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "fileName"))
+                ))
+                .assertNext(loaded -> assertEquals("z-last", loaded.getId()))
+                .assertNext(loaded -> assertEquals("oldest", loaded.getId()))
+                .assertNext(loaded -> assertEquals("a-first", loaded.getId()))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findReports(
+                        "merchant",
+                        null,
+                        "initiative",
+                        ReportType.MERCHANT_TRANSACTIONS,
+                        PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "id"))
+                ))
+                .assertNext(loaded -> assertEquals("a-first", loaded.getId()))
+                .assertNext(loaded -> assertEquals("oldest", loaded.getId()))
+                .assertNext(loaded -> assertEquals("z-last", loaded.getId()))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findByIdAndInitiativeIdAndMerchantId(
+                        "a-first", "initiative", "merchant"))
+                .assertNext(loaded -> assertEquals("a-first", loaded.getId()))
+                .verifyComplete();
+        StepVerifier.create(adapter.findAllById(List.of("oldest", "a-first", "missing"))
+                        .map(Report::getId)
+                        .collectList())
+                .assertNext(ids -> assertEquals(Set.of("oldest", "a-first"), Set.copyOf(ids)))
+                .verifyComplete();
+    }
+
     private static Report report(
             String id,
             String initiativeId,
@@ -119,7 +179,7 @@ class SqlReportAdapterTest extends PostgresqlMigrationTestSupport {
             String filename,
             int hour
     ) {
-        LocalDateTime time = LocalDateTime.of(2026, 1, 1, hour, 0);
+        LocalDateTime time = LocalDateTime.of(2026, Month.JANUARY, 1, hour, 0);
         return Report.builder()
                 .id(id)
                 .initiativeId(initiativeId)

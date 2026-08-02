@@ -113,7 +113,7 @@ public class SqlRewardTransactionSearchAdapter implements
                         null,
                         includeToCheckWithConsultable
                 ),
-                merchantSortFields(pageable),
+                transactionSortFields(pageable),
                 pageable
         );
     }
@@ -233,9 +233,9 @@ public class SqlRewardTransactionSearchAdapter implements
                         REWARD_TRANSACTIONS.FRANCHISE_NAME.asc(),
                         REWARD_TRANSACTIONS.POINT_OF_SALE_ID.asc()
                 ))
-                .map(record -> FranchisePointOfSaleDTO.builder()
-                        .franchiseName(record.get(REWARD_TRANSACTIONS.FRANCHISE_NAME))
-                        .pointOfSaleId(record.get(REWARD_TRANSACTIONS.POINT_OF_SALE_ID))
+                .map(result -> FranchisePointOfSaleDTO.builder()
+                        .franchiseName(result.get(REWARD_TRANSACTIONS.FRANCHISE_NAME))
+                        .pointOfSaleId(result.get(REWARD_TRANSACTIONS.POINT_OF_SALE_ID))
                         .build());
     }
 
@@ -256,7 +256,7 @@ public class SqlRewardTransactionSearchAdapter implements
             condition = condition.and(REWARD_TRANSACTIONS.AMOUNT_CENTS.eq(amountCents));
         }
         condition = dateCondition(condition, trxDateStart, trxDateEnd);
-        return selectTransactions(condition, historySortFields(pageable), pageable);
+        return selectTransactions(condition, transactionSortFields(pageable), pageable);
     }
 
     @Override
@@ -272,7 +272,7 @@ public class SqlRewardTransactionSearchAdapter implements
             condition = condition.and(REWARD_TRANSACTIONS.AMOUNT_CENTS.eq(amountCents));
         }
         condition = dateCondition(condition, trxDateStart, trxDateEnd);
-        return selectTransactions(condition, historySortFields(pageable), pageable);
+        return selectTransactions(condition, transactionSortFields(pageable), pageable);
     }
 
     @Override
@@ -368,14 +368,7 @@ public class SqlRewardTransactionSearchAdapter implements
         return pageable;
     }
 
-    private static List<? extends SortField<?>> merchantSortFields(Pageable pageable) {
-        if (pageable == null || pageable.getSort().isUnsorted()) {
-            return List.of(REWARD_TRANSACTIONS.TRANSACTION_ID.asc());
-        }
-        return sortFields(pageable.getSort());
-    }
-
-    private static List<? extends SortField<?>> historySortFields(Pageable pageable) {
+    private static List<? extends SortField<?>> transactionSortFields(Pageable pageable) {
         if (pageable == null || pageable.getSort().isUnsorted()) {
             return List.of(REWARD_TRANSACTIONS.TRANSACTION_ID.asc());
         }

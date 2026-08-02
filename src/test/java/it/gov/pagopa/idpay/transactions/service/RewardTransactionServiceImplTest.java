@@ -1,5 +1,12 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -14,6 +21,7 @@ import it.gov.pagopa.idpay.transactions.persistence.port.InvoicedTransactionAssi
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSearchPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSynchronizationPort;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.time.YearMonth;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,20 +90,20 @@ class RewardTransactionServiceImplTest {
     void invoicedSaveAssignsTheTransactionToItsSqlBatch() {
         RewardTransaction transaction = invoicedTransaction("transaction");
         when(assignmentPort.assignInvoicedTransaction(
-                org.mockito.ArgumentMatchers.eq(transaction), org.mockito.ArgumentMatchers.any(RewardBatch.class),
-                org.mockito.ArgumentMatchers.anyInt())).thenReturn(Mono.just(transaction));
+                eq(transaction), any(RewardBatch.class),
+                anyInt())).thenReturn(Mono.just(transaction));
 
         StepVerifier.create(service.save(transaction))
                 .expectNext(transaction)
                 .verifyComplete();
 
         verify(assignmentPort).assignInvoicedTransaction(
-                org.mockito.ArgumentMatchers.eq(transaction), org.mockito.ArgumentMatchers.argThat(batch ->
+                eq(transaction), argThat(batch ->
                         batch.getInitiativeId().equals("initiative")
                                 && batch.getMerchantId().equals("merchant")
                                 && batch.getPosType() == PosType.PHYSICAL
                                 && batch.getMonth().equals("2026-02")),
-                org.mockito.ArgumentMatchers.eq(service.computeSamplingKey("transaction")));
+                eq(service.computeSamplingKey("transaction")));
     }
 
     @Test
@@ -111,19 +119,19 @@ class RewardTransactionServiceImplTest {
                 PointOfSaleDTO.builder().type(PointOfSaleTypeEnum.PHYSICAL)
                         .franchiseName("franchise").businessName("business").build()));
         when(assignmentPort.assignInvoicedTransaction(
-                org.mockito.ArgumentMatchers.eq(transaction), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyInt())).thenReturn(Mono.just(transaction));
+                eq(transaction), any(),
+                anyInt())).thenReturn(Mono.just(transaction));
 
         StepVerifier.create(service.assignInvoicedTransactionsToBatches(10, 1, false, "transaction"))
                 .verifyComplete();
 
-        org.junit.jupiter.api.Assertions.assertEquals(
+        assertEquals(
                 transaction.getTrxChargeDate(), transaction.getInvoiceUploadDate());
-        org.junit.jupiter.api.Assertions.assertEquals("franchise", transaction.getFranchiseName());
-        org.junit.jupiter.api.Assertions.assertEquals(PosType.PHYSICAL, transaction.getPointOfSaleType());
+        assertEquals("franchise", transaction.getFranchiseName());
+        assertEquals(PosType.PHYSICAL, transaction.getPointOfSaleType());
         verify(assignmentPort).assignInvoicedTransaction(
-                org.mockito.ArgumentMatchers.eq(transaction), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyInt());
+                eq(transaction), any(),
+                anyInt());
     }
 
     @Test
@@ -145,18 +153,18 @@ class RewardTransactionServiceImplTest {
                 PointOfSaleDTO.builder().type(PointOfSaleTypeEnum.PHYSICAL)
                         .franchiseName("franchise").businessName("business").build()));
         when(assignmentPort.assignInvoicedTransaction(
-                org.mockito.ArgumentMatchers.eq(failing), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyInt())).thenReturn(Mono.error(new IllegalStateException("failure")));
+                eq(failing), any(),
+                anyInt())).thenReturn(Mono.error(new IllegalStateException("failure")));
         when(assignmentPort.assignInvoicedTransaction(
-                org.mockito.ArgumentMatchers.eq(succeeding), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyInt())).thenReturn(Mono.just(succeeding));
+                eq(succeeding), any(),
+                anyInt())).thenReturn(Mono.just(succeeding));
 
         StepVerifier.create(service.assignInvoicedTransactionsToBatches(10, 1, true, null))
                 .verifyComplete();
 
         verify(assignmentPort).assignInvoicedTransaction(
-                org.mockito.ArgumentMatchers.eq(succeeding), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyInt());
+                eq(succeeding), any(),
+                anyInt());
     }
 
     @Test
@@ -164,9 +172,9 @@ class RewardTransactionServiceImplTest {
         RewardTransactionServiceImpl otherSeed = new RewardTransactionServiceImpl(
                 searchPort, synchronizationPort, assignmentPort, merchantRestClient, 456);
 
-        org.junit.jupiter.api.Assertions.assertEquals(
+        assertEquals(
                 service.computeSamplingKey("id"), service.computeSamplingKey("id"));
-        org.junit.jupiter.api.Assertions.assertNotEquals(
+        assertNotEquals(
                 service.computeSamplingKey("id"), otherSeed.computeSamplingKey("id"));
     }
 
@@ -178,7 +186,7 @@ class RewardTransactionServiceImplTest {
         StepVerifier.create(service.assignInvoicedTransactionsToBatches(10, 2, false, null))
                 .verifyComplete();
 
-        verify(assignmentPort, org.mockito.Mockito.times(2)).findInvoicedTransactionsWithoutBatch(10);
+        verify(assignmentPort, times(2)).findInvoicedTransactionsWithoutBatch(10);
     }
 
     @Test
@@ -190,15 +198,15 @@ class RewardTransactionServiceImplTest {
                 PointOfSaleDTO.builder().type(PointOfSaleTypeEnum.ONLINE)
                         .franchiseName("different").businessName("different").build()));
         when(assignmentPort.assignInvoicedTransaction(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyInt())).thenReturn(Mono.just(transaction));
+                any(), any(),
+                anyInt())).thenReturn(Mono.just(transaction));
 
         StepVerifier.create(service.assignInvoicedTransactionsToBatches(10, 1, false, "transaction"))
                 .verifyComplete();
 
-        org.junit.jupiter.api.Assertions.assertEquals("franchise", transaction.getFranchiseName());
-        org.junit.jupiter.api.Assertions.assertEquals(PosType.PHYSICAL, transaction.getPointOfSaleType());
-        org.junit.jupiter.api.Assertions.assertEquals("business", transaction.getBusinessName());
+        assertEquals("franchise", transaction.getFranchiseName());
+        assertEquals(PosType.PHYSICAL, transaction.getPointOfSaleType());
+        assertEquals("business", transaction.getBusinessName());
     }
 
     @Test
@@ -224,18 +232,18 @@ class RewardTransactionServiceImplTest {
                 PointOfSaleDTO.builder().type(PointOfSaleTypeEnum.PHYSICAL)
                         .franchiseName("franchise").businessName("business").build()));
         when(assignmentPort.assignInvoicedTransaction(
-                org.mockito.ArgumentMatchers.eq(failing), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyInt())).thenReturn(Mono.error(new IllegalStateException("failure")));
+                eq(failing), any(),
+                anyInt())).thenReturn(Mono.error(new IllegalStateException("failure")));
         when(assignmentPort.assignInvoicedTransaction(
-                org.mockito.ArgumentMatchers.eq(succeeding), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyInt())).thenReturn(Mono.just(succeeding));
+                eq(succeeding), any(),
+                anyInt())).thenReturn(Mono.just(succeeding));
 
         StepVerifier.create(service.assignInvoicedTransactionsToBatches(10, 1, false, null))
                 .verifyComplete();
 
         verify(assignmentPort).assignInvoicedTransaction(
-                org.mockito.ArgumentMatchers.eq(succeeding), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyInt());
+                eq(succeeding), any(),
+                anyInt());
     }
 
     private static RewardTransaction invoicedTransaction(String id) {
@@ -248,8 +256,8 @@ class RewardTransactionServiceImplTest {
                 .pointOfSaleType(PosType.PHYSICAL)
                 .businessName("business")
                 .franchiseName("franchise")
-                .trxChargeDate(YearMonth.of(2026, 2).atDay(10).atStartOfDay())
-                .invoiceUploadDate(YearMonth.of(2026, 2).atDay(11).atStartOfDay())
+                .trxChargeDate(YearMonth.of(2026, Month.FEBRUARY).atDay(10).atStartOfDay())
+                .invoiceUploadDate(YearMonth.of(2026, Month.FEBRUARY).atDay(11).atStartOfDay())
                 .build();
     }
 }

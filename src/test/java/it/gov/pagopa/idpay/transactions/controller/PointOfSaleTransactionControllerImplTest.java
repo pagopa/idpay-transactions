@@ -1,7 +1,9 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf;
@@ -14,6 +16,7 @@ import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
 import java.util.List;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
@@ -36,9 +39,9 @@ class PointOfSaleTransactionControllerImplTest {
     void retainedPointOfSaleSearchRouteDelegatesToService() {
         RewardTransaction transaction = RewardTransaction.builder().id("transaction").build();
         when(service.getPointOfSaleTransactions(
-                eq("merchant"), eq("initiative"), eq("pos"), eq(null), any(TrxFiltersDTO.class), any()))
+                anyString(), anyString(), anyString(), isNull(), any(TrxFiltersDTO.class), any()))
                 .thenReturn(Mono.just(new PageImpl<>(List.of(transaction), PageRequest.of(0, 20), 1)));
-        when(mapper.toDTO(eq(transaction), eq("initiative"), eq(null))).thenReturn(Mono.empty());
+        when(mapper.toDTO(any(RewardTransaction.class), anyString(), isNull())).thenReturn(Mono.empty());
 
         webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri("/idpay/initiatives/initiative/point-of-sales/pos/transactions/processed")
@@ -47,8 +50,20 @@ class PointOfSaleTransactionControllerImplTest {
                 .exchange()
                 .expectStatus().isOk();
 
+        ArgumentCaptor<String> merchantId = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> initiativeId = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> pointOfSaleId = ArgumentCaptor.forClass(String.class);
         verify(service).getPointOfSaleTransactions(
-                eq("merchant"), eq("initiative"), eq("pos"), eq(null), any(TrxFiltersDTO.class), any());
+                merchantId.capture(),
+                initiativeId.capture(),
+                pointOfSaleId.capture(),
+                isNull(),
+                any(TrxFiltersDTO.class),
+                any()
+        );
+        assertEquals("merchant", merchantId.getValue());
+        assertEquals("initiative", initiativeId.getValue());
+        assertEquals("pos", pointOfSaleId.getValue());
     }
 
     @Test

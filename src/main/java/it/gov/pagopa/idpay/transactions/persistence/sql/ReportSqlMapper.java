@@ -44,20 +44,20 @@ public class ReportSqlMapper {
                 .build();
     }
 
-    Report fromRecord(ReportsRecord record) {
+    Report fromRecord(ReportsRecord reportsRecord) {
         return fromEntity(new ReportEntity(
-                record.getId(),
-                record.getInitiativeId(),
-                record.getReportStatus(),
-                record.getStartPeriod(),
-                record.getEndPeriod(),
-                record.getMerchantId(),
-                record.getBusinessName(),
-                record.getRequestDate(),
-                record.getElaborationDate(),
-                record.getOperatorLevel(),
-                record.getFileName(),
-                record.getReportType()
+                reportsRecord.getId(),
+                reportsRecord.getInitiativeId(),
+                reportsRecord.getReportStatus(),
+                reportsRecord.getStartPeriod(),
+                reportsRecord.getEndPeriod(),
+                reportsRecord.getMerchantId(),
+                reportsRecord.getBusinessName(),
+                reportsRecord.getRequestDate(),
+                reportsRecord.getElaborationDate(),
+                reportsRecord.getOperatorLevel(),
+                reportsRecord.getFileName(),
+                reportsRecord.getReportType()
         ));
     }
 

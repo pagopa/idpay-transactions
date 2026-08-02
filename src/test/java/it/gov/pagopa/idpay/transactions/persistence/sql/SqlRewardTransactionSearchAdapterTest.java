@@ -578,6 +578,27 @@ class SqlRewardTransactionSearchAdapterTest extends PostgresqlMigrationTestSuppo
                 .verifyComplete();
     }
 
+    @Test
+    void shouldUseDeterministicHistoryFallbackOrderingForNullAndUnpagedPageables() {
+        RewardTransaction first = historyTransaction(
+                "history-a", "issuer", USER_ID, LocalDateTime.of(2026, Month.JULY, 10, 10, 0), 100L);
+        RewardTransaction second = historyTransaction(
+                "history-b", "issuer", USER_ID, LocalDateTime.of(2026, Month.JULY, 11, 10, 0), 200L);
+
+        StepVerifier.create(seed(second, first)
+                        .thenMany(adapter.findByIdTrxIssuer(
+                                "issuer", null, null, null, null, null)))
+                .assertNext(transaction -> assertEquals("history-a", transaction.getId()))
+                .assertNext(transaction -> assertEquals("history-b", transaction.getId()))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findByRange(
+                        USER_ID, null, null, null, Pageable.unpaged()))
+                .assertNext(transaction -> assertEquals("history-a", transaction.getId()))
+                .assertNext(transaction -> assertEquals("history-b", transaction.getId()))
+                .verifyComplete();
+    }
+
     private Mono<Void> createBatch() {
         return createBatch(BATCH_ID);
     }

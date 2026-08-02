@@ -23,6 +23,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDateTime;
 import java.time.Month;
+import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -272,6 +273,72 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
     }
 
     @Test
+    void shouldReadSingleStatusAndMerchantBatchesOnlyWithinTheirDatabaseScopes() {
+        RewardBatch scoped = batch("batch-scoped");
+        scoped.setMonth("2026-06");
+        scoped.setStatus(RewardBatchStatus.SENT);
+        RewardBatch earlierSent = batch("batch-earlier-sent");
+        earlierSent.setMonth("2026-05");
+        earlierSent.setStatus(RewardBatchStatus.SENT);
+        RewardBatch merchantCreated = batch("batch-merchant-created");
+        merchantCreated.setMonth("2026-04");
+        RewardBatch otherMerchant = batch("batch-other-merchant");
+        otherMerchant.setMerchantId("other-merchant");
+        RewardBatch otherInitiative = batch("batch-other-initiative");
+        otherInitiative.setInitiativeId("other-initiative");
+        otherInitiative.setStatus(RewardBatchStatus.SENT);
+
+        StepVerifier.create(Flux.concat(
+                        adapter.createOrRead(scoped),
+                        adapter.createOrRead(earlierSent),
+                        adapter.createOrRead(merchantCreated),
+                        adapter.createOrRead(otherMerchant),
+                        adapter.createOrRead(otherInitiative)
+                ).then())
+                .verifyComplete();
+
+        StepVerifier.create(listAdapter.findBatch("batch-scoped"))
+                .assertNext(projected -> assertEquals("batch-scoped", projected.getId()))
+                .verifyComplete();
+        StepVerifier.create(listAdapter.findBatch("batch-scoped", "initiative-1"))
+                .assertNext(projected -> assertEquals("batch-scoped", projected.getId()))
+                .verifyComplete();
+        StepVerifier.create(listAdapter.findBatch("batch-scoped", "other-initiative"))
+                .verifyComplete();
+        StepVerifier.create(listAdapter.findBatchWithStatus(
+                        "batch-scoped", "initiative-1", RewardBatchStatus.SENT))
+                .assertNext(projected -> assertEquals("batch-scoped", projected.getId()))
+                .verifyComplete();
+        StepVerifier.create(listAdapter.findBatchWithStatus(
+                        "batch-scoped", "initiative-1", RewardBatchStatus.CREATED))
+                .verifyComplete();
+
+        StepVerifier.create(listAdapter.findBatchesWithStatus(
+                        RewardBatchStatus.SENT,
+                        "initiative-1",
+                        PageRequest.of(0, 1, Sort.by(Sort.Direction.ASC, "month"))
+                ))
+                .assertNext(projected -> assertEquals("batch-earlier-sent", projected.getId()))
+                .verifyComplete();
+
+        StepVerifier.create(listAdapter.findMerchantBatch(
+                        "merchant-1", "initiative-1", "batch-scoped"))
+                .assertNext(projected -> assertEquals("batch-scoped", projected.getId()))
+                .verifyComplete();
+        StepVerifier.create(listAdapter.findMerchantBatch(
+                        "other-merchant", "initiative-1", "batch-scoped"))
+                .verifyComplete();
+        StepVerifier.create(listAdapter.findMerchantBatches(
+                        "merchant-1", "initiative-1", PosType.PHYSICAL)
+                        .map(RewardBatch::getId)
+                        .collectList())
+                .assertNext(ids -> assertEquals(List.of(
+                        "batch-merchant-created", "batch-earlier-sent", "batch-scoped"
+                ), ids))
+                .verifyComplete();
+    }
+
+    @Test
     void shouldFindPriorBatchesForMerchantChronology() {
         RewardBatch prior = batch("batch-prior");
         prior.setMonth("2026-05");
@@ -379,6 +446,18 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                 .verifyComplete();
 
         StepVerifier.create(listAdapter.findBatchesWithStatus(RewardBatchStatus.SENT, "initiative-1"))
+                .expectNextMatches(result -> result.getId().equals("batch-sent"))
+                .verifyComplete();
+
+        StepVerifier.create(listAdapter.findRewardBatches(
+                        null,
+                        "initiative-1",
+                        RewardBatchStatus.SENT.name(),
+                        null,
+                        null,
+                        true,
+                        PageRequest.of(0, 10)
+                ))
                 .expectNextMatches(result -> result.getId().equals("batch-sent"))
                 .verifyComplete();
 
