@@ -1,6 +1,9 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.common.web.dto.ErrorDTO;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.PaymentBatchEligibility;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
@@ -78,6 +81,91 @@ class TransactionsControllerImplTest {
                 .expectBodyList(RewardTransaction.class).contains(rt);
 
         Mockito.verify(rewardTransactionService, Mockito.times(1)).findByIdTrxIssuer(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    void findEligibilityReturnsAllEligibilityFields() {
+        String merchantId = "MERCHANT_ID";
+        String transactionId = "TRANSACTION_ID";
+        PaymentBatchEligibility eligibility = new PaymentBatchEligibility(
+                transactionId,
+                "INITIATIVE_ID",
+                merchantId,
+                "REWARD_BATCH_ID",
+                "INVOICED",
+                RewardBatchStatus.EVALUATING,
+                RewardBatchTrxStatus.SUSPENDED);
+
+        Mockito.when(rewardTransactionService.findEligibility(merchantId, transactionId))
+                .thenReturn(Mono.just(eligibility));
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/transactions/{transactionId}/reward-batch/eligibility")
+                        .queryParam("merchantId", merchantId)
+                        .build(transactionId))
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.transactionId").isEqualTo(transactionId)
+                .jsonPath("$.initiativeId").isEqualTo("INITIATIVE_ID")
+                .jsonPath("$.merchantId").isEqualTo(merchantId)
+                .jsonPath("$.rewardBatchId").isEqualTo("REWARD_BATCH_ID")
+                .jsonPath("$.transactionStatus").isEqualTo("INVOICED")
+                .jsonPath("$.batchStatus").isEqualTo("EVALUATING")
+                .jsonPath("$.batchTransactionStatus").isEqualTo("SUSPENDED");
+
+        Mockito.verify(rewardTransactionService).findEligibility(merchantId, transactionId);
+    }
+
+    @Test
+    void findEligibilityReturnsNoContentWhenNoMembershipExists() {
+        String merchantId = "MERCHANT_ID";
+        String transactionId = "TRANSACTION_ID";
+        Mockito.when(rewardTransactionService.findEligibility(merchantId, transactionId))
+                .thenReturn(Mono.empty());
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/transactions/{transactionId}/reward-batch/eligibility")
+                        .queryParam("merchantId", merchantId)
+                        .build(transactionId))
+                .exchange()
+                .expectStatus().isNoContent()
+                .expectBody().isEmpty();
+
+        Mockito.verify(rewardTransactionService).findEligibility(merchantId, transactionId);
+    }
+
+    @Test
+    void findEligibilityPropagatesServiceErrors() {
+        String merchantId = "MERCHANT_ID";
+        String transactionId = "TRANSACTION_ID";
+        Mockito.when(rewardTransactionService.findEligibility(merchantId, transactionId))
+                .thenReturn(Mono.error(new IllegalStateException("database unavailable")));
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/transactions/{transactionId}/reward-batch/eligibility")
+                        .queryParam("merchantId", merchantId)
+                        .build(transactionId))
+                .exchange()
+                .expectStatus().is5xxServerError();
+
+        Mockito.verify(rewardTransactionService).findEligibility(merchantId, transactionId);
+    }
+
+    @Test
+    void findEligibilityRejectsMissingMerchantIdWithoutCallingService() {
+        String transactionId = "TRANSACTION_ID";
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
+                .uri("/idpay/transactions/{transactionId}/reward-batch/eligibility", transactionId)
+                .exchange()
+                .expectStatus().isBadRequest();
+
+        Mockito.verify(rewardTransactionService, Mockito.never())
+                .findEligibility(Mockito.anyString(), Mockito.anyString());
     }
 
     @Test

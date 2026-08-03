@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import it.gov.pagopa.idpay.transactions.model.PaymentBatchEligibility;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -7,6 +8,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 
@@ -37,6 +39,12 @@ public interface TransactionsController {
     Flux<RewardTransaction> findByInitiativeIdAndUserId(
             @PathVariable(value = "initiativeId") String initiativeId,
             @PathVariable(value = "userId") String userId
+    );
+
+    @GetMapping("/{transactionId}/reward-batch/eligibility")
+    Mono<ResponseEntity<PaymentBatchEligibility>> findEligibility(
+            @RequestParam("merchantId") String merchantId,
+            @PathVariable("transactionId") String transactionId
     );
 
     @PostMapping("/cleanup")
