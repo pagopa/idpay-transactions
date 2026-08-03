@@ -1,41 +1,34 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.PointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.PointOfSaleTypeEnum;
-import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
-import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
-import it.gov.pagopa.idpay.transactions.persistence.mongo.MongoRewardTransactionAdapter;
-import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
-import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
-
+import it.gov.pagopa.idpay.transactions.persistence.port.InvoicedTransactionAssignmentPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSearchPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSynchronizationPort;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.time.YearMonth;
 import java.util.List;
-import java.util.Map;
-
-import org.apache.commons.lang3.StringUtils;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
+import org.junit.jupiter.api.extension.ExtendWith;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -43,807 +36,228 @@ import reactor.test.StepVerifier;
 @ExtendWith(MockitoExtension.class)
 class RewardTransactionServiceImplTest {
 
-    @Mock
-    private RewardTransactionRepository rewardTransactionRepository;
+    @Mock private RewardTransactionSearchPort searchPort;
+    @Mock private RewardTransactionSynchronizationPort synchronizationPort;
+    @Mock private InvoicedTransactionAssignmentPort assignmentPort;
+    @Mock private MerchantRestClient merchantRestClient;
 
-    @Mock
-    private RewardBatchRepository rewardBatchRepository;
-
-    @Mock
-    private MerchantRestClient merchantRestClient;
-
-    private RewardTransactionService rewardTransactionService;
-    private static final String INITIATIVE_ID = "INIT01";
-    private static final List<String> INITIATIVES_ID = List.of(INITIATIVE_ID);
-    private static final String MERCHANT_ID = "MERCH01";
+    private RewardTransactionServiceImpl service;
 
     @BeforeEach
-    void setUp(){
-        int seed = 0x5a17beef;
-        rewardTransactionService = new RewardTransactionServiceImpl(
-                rewardTransactionRepository,
-                new MongoRewardTransactionAdapter(rewardTransactionRepository, rewardBatchRepository),
-                new MongoRewardTransactionAdapter(rewardTransactionRepository, rewardBatchRepository),
-                merchantRestClient,
-                seed
-        );
+    void setUp() {
+        service = new RewardTransactionServiceImpl(
+                searchPort, synchronizationPort, assignmentPort, merchantRestClient, 123);
     }
 
     @Test
-    void findByIdTrxIssuer() {
-        RewardTransaction rt = RewardTransaction.builder()
-                .userId("USERID")
-                .amountCents(3000L)
-                .trxDate(LocalDateTime.of(2022, 9, 19, 15, 43, 39))
-                .idTrxIssuer("IDTRXISSUER")
-                .build();
+    void legacySearchMethodsDelegateToSqlSearchPort() {
+        RewardTransaction transaction = RewardTransaction.builder().id("transaction").build();
+        LocalDateTime from = LocalDateTime.parse("2026-01-01T00:00:00");
+        LocalDateTime to = from.plusDays(1);
+        when(searchPort.findByIdTrxIssuer("issuer", "user", from, to, 100L, null))
+                .thenReturn(Flux.just(transaction));
+        when(searchPort.findByRange("user", from, to, 100L, null))
+                .thenReturn(Flux.just(transaction));
+        when(searchPort.findByInitiativeIdAndUserId("initiative", "user"))
+                .thenReturn(Flux.just(transaction));
 
-        Mockito.when(rewardTransactionRepository.findByIdTrxIssuer(rt.getIdTrxIssuer(), null, null, null, null, null))
-                .thenReturn(Flux.just(rt));
+        StepVerifier.create(service.findByIdTrxIssuer("issuer", "user", from, to, 100L, null))
+                .expectNext(transaction).verifyComplete();
+        StepVerifier.create(service.findByRange("user", from, to, 100L, null))
+                .expectNext(transaction).verifyComplete();
+        StepVerifier.create(service.findByInitiativeIdAndUserId("initiative", "user"))
+                .expectNext(transaction).verifyComplete();
 
-        Flux<RewardTransaction> result = rewardTransactionService.findByIdTrxIssuer("IDTRXISSUER", null, null, null, null, null);
-
-        RewardTransaction resultRT = result.toStream().findFirst().orElse(null);
-        Assertions.assertNotNull(resultRT);
-        Assertions.assertEquals(rt, resultRT);
+        verify(searchPort).findByIdTrxIssuer("issuer", "user", from, to, 100L, null);
+        verify(searchPort).findByRange("user", from, to, 100L, null);
+        verify(searchPort).findByInitiativeIdAndUserId("initiative", "user");
     }
 
     @Test
-    void findByRange() {
-        LocalDateTime date = LocalDateTime.of(2022, 9, 19, 15, 43, 39);
-        LocalDateTime startDate = date.minusMonths(9L);
-        LocalDateTime endDate = date.plusMonths(6L);
+    void nonInvoicedSaveUsesSqlSynchronizationPort() {
+        RewardTransaction transaction = RewardTransaction.builder()
+                .id("transaction").status("AUTHORIZED").build();
+        when(synchronizationPort.upsert(transaction)).thenReturn(Mono.just(transaction));
 
-        RewardTransaction rt = RewardTransaction.builder()
-                .userId("USERID")
-                .amountCents(3000L)
-                .trxDate(date)
-                .idTrxIssuer("IDTRXISSUER")
-                .build();
+        StepVerifier.create(service.save(transaction))
+                .expectNext(transaction)
+                .verifyComplete();
 
-        Mockito.when(rewardTransactionRepository.findByRange(rt.getUserId(), startDate, endDate, null, null))
-                .thenReturn(Flux.just(rt));
-
-        Flux<RewardTransaction> result = rewardTransactionService.findByRange(rt.getUserId(), startDate, endDate, null, null);
-
-        RewardTransaction resultRT = result.toStream().findFirst().orElse(null);
-        Assertions.assertNotNull(resultRT);
-        Assertions.assertEquals(rt, resultRT);
+        verify(synchronizationPort).upsert(transaction);
     }
 
     @Test
-    void save() {
-        RewardTransaction rt = RewardTransaction.builder()
-                .userId("USERID")
-                .amountCents(3000L)
-                .trxDate(LocalDateTime.of(2022, 9, 19, 15, 43, 39))
-                .idTrxIssuer("IDTRXISSUER")
-                .build();
+    void invoicedSaveAssignsTheTransactionToItsSqlBatch() {
+        RewardTransaction transaction = invoicedTransaction("transaction");
+        when(assignmentPort.assignInvoicedTransaction(
+                eq(transaction), any(RewardBatch.class),
+                anyInt())).thenReturn(Mono.just(transaction));
 
-        Mockito.when(rewardTransactionRepository.save(rt)).thenReturn(Mono.just(rt));
+        StepVerifier.create(service.save(transaction))
+                .expectNext(transaction)
+                .verifyComplete();
 
-        RewardTransaction result = rewardTransactionService.save(rt).block();
-
-        Assertions.assertNotNull(result);
-        Assertions.assertEquals(rt, result);
-        Mockito.verifyNoMoreInteractions(rewardTransactionRepository);
-        Mockito.verifyNoInteractions(rewardBatchRepository, merchantRestClient);
+        verify(assignmentPort).assignInvoicedTransaction(
+                eq(transaction), argThat(batch ->
+                        batch.getInitiativeId().equals("initiative")
+                                && batch.getMerchantId().equals("merchant")
+                                && batch.getPosType() == PosType.PHYSICAL
+                                && batch.getMonth().equals("2026-02")),
+                eq(service.computeSamplingKey("transaction")));
     }
 
     @Test
-    void save_invoiced_enrichesBatch() {
-        RewardTransaction rt = RewardTransaction.builder()
-                .id("TRX_ID")
-                .userId("USERID")
-                .amountCents(3000L)
-                .trxDate(LocalDateTime.of(2022, 9, 19, 15, 43, 39))
-                .idTrxIssuer("IDTRXISSUER")
-                .merchantId("MERCHANT1")
-                .pointOfSaleType(PosType.ONLINE)
-                .pointOfSaleId("POS1")
-                .businessName("Test Business")
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
-                .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
-                .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(1000L).build()))
-                .initiatives(List.of("initiative1"))
-                .status(SyncTrxStatus.INVOICED.name())
-                .build();
+    void singleInvoiceAssignmentEnrichesMissingFieldsThenAssigns() {
+        RewardTransaction transaction = invoicedTransaction("transaction");
+        transaction.setInvoiceUploadDate(null);
+        transaction.setFranchiseName(null);
+        transaction.setPointOfSaleType(null);
+        transaction.setBusinessName(null);
+        when(assignmentPort.findInvoicedTransactionWithoutBatch("transaction"))
+                .thenReturn(Mono.just(transaction));
+        when(merchantRestClient.getPointOfSale("merchant", "pos")).thenReturn(Mono.just(
+                PointOfSaleDTO.builder().type(PointOfSaleTypeEnum.PHYSICAL)
+                        .franchiseName("franchise").businessName("business").build()));
+        when(assignmentPort.assignInvoicedTransaction(
+                eq(transaction), any(),
+                anyInt())).thenReturn(Mono.just(transaction));
 
-        RewardBatch batch = new RewardBatch();
-        batch.setId("BATCH1");
-        batch.setMerchantId(MERCHANT_ID);
-        batch.setInitiativeId(INITIATIVE_ID);
-        batch.setStatus(RewardBatchStatus.CREATED);
+        StepVerifier.create(service.assignInvoicedTransactionsToBatches(10, 1, false, "transaction"))
+                .verifyComplete();
 
-        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
-                rt.getInitiatives().getFirst(),
-                rt.getMerchantId(),
-                rt.getPointOfSaleType(),
-                "2025-11"
-        )).thenReturn(Mono.just(batch));
-
-        Mockito.when(rewardBatchRepository.updateTotals(
-                        Mockito.eq(batch.getInitiativeId()),
-                        Mockito.eq(batch.getId()),
-                        Mockito.argThat(acc ->
-                                acc.getInitialAmountCents().equals(1000L) &&
-                                        acc.getNumberOfTransactions().equals(1L)
-                        )))
-                .thenReturn(Mono.just(batch));
-
-        Mockito.when(rewardTransactionRepository.save(Mockito.any()))
-                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
-
-        RewardTransaction result = rewardTransactionService.save(rt).block();
-
-        Assertions.assertNotNull(result);
-        Assertions.assertEquals("BATCH1", result.getRewardBatchId());
-        Assertions.assertEquals(RewardBatchTrxStatus.CONSULTABLE, result.getRewardBatchTrxStatus());
-        Assertions.assertNotNull(result.getRewardBatchInclusionDate());
-
-        Mockito.verify(rewardTransactionRepository, Mockito.times(1)).save(Mockito.any());
-        Mockito.verify(rewardBatchRepository, Mockito.times(1))
-                .updateTotals(Mockito.eq(INITIATIVE_ID), Mockito.eq("BATCH1"), Mockito.any(BatchCountersDTO.class));
+        assertEquals(
+                transaction.getTrxChargeDate(), transaction.getInvoiceUploadDate());
+        assertEquals("franchise", transaction.getFranchiseName());
+        assertEquals(PosType.PHYSICAL, transaction.getPointOfSaleType());
+        verify(assignmentPort).assignInvoicedTransaction(
+                eq(transaction), any(),
+                anyInt());
     }
 
     @Test
-    void findByInitiativeIddndUserId() {
-        RewardTransaction rt = RewardTransaction.builder()
-                .userId("USERID")
-                .amountCents(3000L)
-                .trxDate(LocalDateTime.of(2022, 9, 19, 15, 43, 39))
-                .initiatives(List.of("ID"))
-                .build();
-
-        Mockito.when(rewardTransactionRepository.findByInitiativeIdAndUserId("ID", "USERID"))
-                .thenReturn(Flux.just(rt));
-
-        RewardTransaction resultRT = rewardTransactionService.findByInitiativeIdAndUserId("ID", "USERID").blockFirst();
-        Assertions.assertNotNull(resultRT);
-        Assertions.assertEquals(rt, resultRT);
-    }
-
-    @Test
-    void computeSamplingKey_shouldBeDeterministicForSameInput() {
-        String id = "6543e5b9d9f31b0d94f6d21c";
-
-        int h1 = ((RewardTransactionServiceImpl) rewardTransactionService).computeSamplingKey(id);
-        int h2 = ((RewardTransactionServiceImpl) rewardTransactionService).computeSamplingKey(id);
-        int h3 = ((RewardTransactionServiceImpl) rewardTransactionService).computeSamplingKey(id);
-
-        Assertions.assertEquals(h1, h2);
-        Assertions.assertEquals(h1, h3);
-    }
-
-    @Test
-    void computeSamplingKey_shouldDifferForDifferentIds() {
-        int h1 = ((RewardTransactionServiceImpl) rewardTransactionService).computeSamplingKey("a123");
-        int h2 = ((RewardTransactionServiceImpl) rewardTransactionService).computeSamplingKey("b456");
-
-        Assertions.assertNotEquals(h1, h2, "Different IDs should normally yield different hashes");
-    }
-
-    @Test
-    void computeSamplingKey_shouldChangeWhenSeedChanges() {
-        String id = "6543e5b9d9f31b0d94f6d21c";
-        RewardTransactionServiceImpl hasher2 = new RewardTransactionServiceImpl(
-                rewardTransactionRepository,
-                new MongoRewardTransactionAdapter(rewardTransactionRepository, rewardBatchRepository),
-                new MongoRewardTransactionAdapter(rewardTransactionRepository, rewardBatchRepository),
-                merchantRestClient,
-                0x22222222
-        );
-
-        int h1 = ((RewardTransactionServiceImpl) rewardTransactionService).computeSamplingKey(id);
-        int h2 = hasher2.computeSamplingKey(id);
-
-        Assertions.assertNotEquals(h1, h2, "Changing the seed must change the resulting sampling key");
-    }
-
-    @Test
-    void computeSamplingKey_shouldHandleEmptyString() {
-        int h = ((RewardTransactionServiceImpl) rewardTransactionService).computeSamplingKey(StringUtils.EMPTY);
-        Assertions.assertEquals(h, ((RewardTransactionServiceImpl) rewardTransactionService).computeSamplingKey(StringUtils.EMPTY));
-    }
-
-    @Test
-    void computeSamplingKey_shouldThrowOnNullId() {
-        Assertions.assertThrows(NullPointerException.class, () ->
-                ((RewardTransactionServiceImpl) rewardTransactionService).computeSamplingKey(null)
-        );
-    }
-
-    @ParameterizedTest
-    @CsvSource({"true", "false"})
-    void save_invoiced_shouldUseDateBasedOnInvoiceUploadDatePresence(boolean hasInvoiceUploadDate) {
-
-        LocalDateTime invoiceUploadDate = hasInvoiceUploadDate ? LocalDateTime.of(2025, 11, 1, 1, 1) : null;
-        LocalDateTime trxChargeDate = LocalDateTime.of(2025, 10, 1, 1, 1);
-
-        LocalDateTime expectedBatchDate = hasInvoiceUploadDate ? invoiceUploadDate : trxChargeDate;
-        YearMonth expectedBatchMonth = YearMonth.from(expectedBatchDate);
-
-        RewardTransaction rt = RewardTransaction.builder()
-                .id("TRX_ID")
-                .userId("USERID")
-                .amountCents(3000L)
-                .trxDate(LocalDateTime.now())
-                .idTrxIssuer("IDTRXISSUER")
-                .status(SyncTrxStatus.INVOICED.name())
-                .merchantId("MERCHANT1")
-                .pointOfSaleType(PosType.ONLINE)
-                .pointOfSaleId("POS1")
-                .businessName("Test Business")
-                .invoiceUploadDate(invoiceUploadDate)
-                .trxChargeDate(trxChargeDate)
-                .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(1000L).build()))
-                .initiatives(List.of("initiative1"))
-                .build();
-
-        RewardBatch batch = new RewardBatch();
-        batch.setId("BATCH_ID");
-        batch.setStatus(RewardBatchStatus.CREATED);
-
-        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
-                rt.getInitiatives().getFirst(),
-                rt.getMerchantId(),
-                rt.getPointOfSaleType(),
-                expectedBatchMonth.toString()
-        )).thenReturn(Mono.just(batch));
-
-        Mockito.when(rewardBatchRepository.updateTotals(
-                        Mockito.eq(batch.getInitiativeId()),
-                        Mockito.eq(batch.getId()),
-                        Mockito.argThat(acc ->
-                                acc.getInitialAmountCents().equals(1000L) &&
-                                        acc.getNumberOfTransactions().equals(1L)
-                        )))
-                .thenReturn(Mono.just(batch));
-
-        Mockito.when(rewardTransactionRepository.save(Mockito.any()))
-                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
-
-        RewardTransaction result = rewardTransactionService.save(rt).block();
-        Assertions.assertNotNull(result);
-
-        verify(rewardBatchRepository).findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
-                rt.getInitiatives().getFirst(),
-                rt.getMerchantId(),
-                rt.getPointOfSaleType(),
-                expectedBatchMonth.toString()
-        );
-    }
-
-    @Test
-    void assignInvoicedTransactionsToBatches_processAllProcessesAllTransactions() {
-        int chunkSize = 200;
-        int repetitionsNumber = 1;
-
-        RewardTransaction trx1 = RewardTransaction.builder()
-                .id("TRX1")
-                .userId("USER1")
-                .amountCents(1000L)
-                .status("INVOICED")
-                .merchantId("M1")
-                .pointOfSaleId("POS1")
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
-                .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
-                .initiatives(List.of("initiative1"))
-                .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(500L).build()))
-                .build();
-
-        RewardTransaction trx2 = RewardTransaction.builder()
-                .id("TRX2")
-                .userId("USER2")
-                .amountCents(2000L)
-                .status("INVOICED")
-                .merchantId("M2")
-                .pointOfSaleId("POS2")
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
-                .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
-                .initiatives(List.of("initiative2"))
-                .rewards(Map.of("initiative2", Reward.builder().accruedRewardCents(1000L).build()))
-                .build();
-
-        RewardBatch batch = new RewardBatch();
-        batch.setId("BATCH1");
-        batch.setMerchantId(MERCHANT_ID);
-        batch.setInitiativeId(INITIATIVE_ID);
-        batch.setStatus(RewardBatchStatus.CREATED);
-
-        Mockito.when(rewardTransactionRepository.findInvoicedTransactionsWithoutBatch(chunkSize))
-                .thenReturn(Flux.just(trx1, trx2))
-                .thenReturn(Flux.empty());
-
-        Mockito.when(merchantRestClient.getPointOfSale(Mockito.anyString(), Mockito.anyString()))
-                .thenReturn(Mono.just(PointOfSaleDTO.builder()
-                        .type(PointOfSaleTypeEnum.ONLINE)
-                        .franchiseName("FranchiseName")
-                        .businessName("BusinessName")
-                        .build()));
-
-        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
-                        Mockito.anyString(),
-                        Mockito.any(),
-                        Mockito.any(),
-                        Mockito.anyString()))
-                .thenReturn(Mono.just(batch));
-
-        Mockito.when(rewardBatchRepository.updateTotals(Mockito.anyString(), Mockito.anyString(), Mockito.any(BatchCountersDTO.class)))
-                .thenReturn(Mono.just(batch));
-
-        Mockito.when(rewardTransactionRepository.save(Mockito.any()))
-                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
-
-        rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, repetitionsNumber, true, null).block();
-
-        Mockito.verify(rewardTransactionRepository, Mockito.times(2))
-                .findInvoicedTransactionsWithoutBatch(chunkSize);
-
-        Mockito.verify(merchantRestClient, Mockito.times(2))
-                .getPointOfSale(Mockito.anyString(), Mockito.anyString());
-
-        verify(rewardBatchRepository, times(2))
-                .findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
-                        Mockito.anyString(),
-                        Mockito.anyString(),
-                        Mockito.any(),
-                        Mockito.anyString()
-                );
-
-        Mockito.verify(rewardBatchRepository, Mockito.times(2))
-                .updateTotals(Mockito.anyString(), Mockito.anyString(), Mockito.any(BatchCountersDTO.class));
-
-        Mockito.verify(rewardTransactionRepository, Mockito.times(2))
-                .save(Mockito.any());
-    }
-
-    @Test
-    void assignInvoicedTransactionsToBatches_singleOperation_processesTransactions() {
-        int chunkSize = 20;
-        int repetitionsNumber = 1;
-        boolean processAll = false;
-
-        RewardTransaction trx1 = RewardTransaction.builder()
-                .id("TRX1")
-                .userId("USER1")
-                .amountCents(1000L)
-                .status("INVOICED")
-                .merchantId("M1")
-                .pointOfSaleId("POS1")
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
-                .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
-                .initiatives(List.of("initiative1"))
-                .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(500L).build()))
-                .build();
-
-        RewardTransaction trx2 = RewardTransaction.builder()
-                .id("TRX2")
-                .userId("USER2")
-                .amountCents(2000L)
-                .status("INVOICED")
-                .merchantId("M2")
-                .pointOfSaleId("POS2")
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
-                .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
-                .initiatives(List.of("initiative2"))
-                .rewards(Map.of("initiative2", Reward.builder().accruedRewardCents(1000L).build()))
-                .build();
-
-        RewardBatch batch = new RewardBatch();
-        batch.setId("BATCH1");
-        batch.setMerchantId(MERCHANT_ID);
-        batch.setInitiativeId(INITIATIVE_ID);
-        batch.setStatus(RewardBatchStatus.CREATED);
-
-        Mockito.when(rewardTransactionRepository.findInvoicedTransactionsWithoutBatch(chunkSize))
-                .thenReturn(Flux.just(trx1, trx2));
-
-        Mockito.when(merchantRestClient.getPointOfSale(Mockito.anyString(), Mockito.anyString()))
-                .thenReturn(Mono.just(PointOfSaleDTO.builder()
-                        .type(PointOfSaleTypeEnum.ONLINE)
-                        .franchiseName("FranchiseName")
-                        .businessName("BusinessName")
-                        .build()));
-
-        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
-                        Mockito.anyString(),
-                        Mockito.any(),
-                        Mockito.any(),
-                        Mockito.anyString()))
-                .thenReturn(Mono.just(batch));
-
-        Mockito.when(rewardBatchRepository.updateTotals(Mockito.anyString(), Mockito.anyString(), Mockito.any(BatchCountersDTO.class)))
-                .thenReturn(Mono.just(batch));
-
-        Mockito.when(rewardTransactionRepository.save(Mockito.any()))
-                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
-
-        rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, repetitionsNumber, processAll, null).block();
-
-        Mockito.verify(rewardTransactionRepository, Mockito.times(1))
-                .findInvoicedTransactionsWithoutBatch(chunkSize);
-
-        Mockito.verify(merchantRestClient, Mockito.times(2))
-                .getPointOfSale(Mockito.anyString(), Mockito.anyString());
-
-        verify(rewardBatchRepository, times(2))
-                .findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
-                        Mockito.anyString(),
-                        Mockito.anyString(),
-                        Mockito.any(),
-                        Mockito.anyString()
-                );
-
-        Mockito.verify(rewardBatchRepository, Mockito.times(2))
-                .updateTotals(Mockito.anyString(), Mockito.anyString(), Mockito.any(BatchCountersDTO.class));
-
-        Mockito.verify(rewardTransactionRepository, Mockito.times(2))
-                .save(Mockito.any());
-    }
-
-    @Test
-    void assignInvoicedTransactionsToBatches_singleOperation_noTransactions() {
-        int chunkSize = 200;
-        int repetitionsNumber = 1;
-        boolean processAll = false;
-
-        Mockito.when(rewardTransactionRepository.findInvoicedTransactionsWithoutBatch(chunkSize))
-                .thenReturn(Flux.empty());
-
-        rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, repetitionsNumber, processAll, null).block();
-
-        Mockito.verify(rewardTransactionRepository, Mockito.times(1))
-                .findInvoicedTransactionsWithoutBatch(chunkSize);
-
-        Mockito.verifyNoInteractions(merchantRestClient, rewardBatchRepository);
-    }
-
-    @Test
-    void assignInvoicedTransactionsToBatches_enrichesMissingFields() {
-        int chunkSize = 100;
-        int repetitionsNumber = 1;
-
-        RewardTransaction trx = RewardTransaction.builder()
-                .id("TRX1")
-                .status("INVOICED")
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 10, 0))
-                .invoiceUploadDate(null)
-                .franchiseName(null)
-                .pointOfSaleType(null)
-                .initiatives(INITIATIVES_ID)
-                .merchantId(MERCHANT_ID)
-                .businessName(null)
-                .initiatives(List.of("initiative1"))
-                .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(100L).build()))
-                .build();
-
-        RewardBatch batch = new RewardBatch();
-        batch.setId("BATCH1");
-        batch.setInitiativeId(INITIATIVE_ID);
-        batch.setMerchantId(MERCHANT_ID);
-        batch.setStatus(RewardBatchStatus.CREATED);
-
-        Mockito.when(rewardTransactionRepository.findInvoicedTransactionsWithoutBatch(chunkSize))
-                .thenReturn(Flux.just(trx))
-                .thenReturn(Flux.empty());
-
-        Mockito.when(merchantRestClient.getPointOfSale(Mockito.any(), Mockito.any()))
-                .thenReturn(Mono.just(PointOfSaleDTO.builder()
-                        .type(PointOfSaleTypeEnum.ONLINE)
-                        .franchiseName("FranchiseName")
-                        .businessName("BusinessName")
-                        .build()));
-
-        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
-                        Mockito.anyString(),
-                        Mockito.any(),
-                        Mockito.any(),
-                        Mockito.anyString()))
-                .thenReturn(Mono.just(batch));
-
-        Mockito.when(rewardBatchRepository.updateTotals(Mockito.anyString(), Mockito.anyString(), Mockito.any(BatchCountersDTO.class)))
-                .thenReturn(Mono.just(batch));
-
-        Mockito.when(rewardTransactionRepository.save(Mockito.any()))
-                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
-
-        rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, repetitionsNumber, false, null).block();
-
-        Mockito.verify(rewardTransactionRepository).save(Mockito.argThat(saved ->
-                saved.getInvoiceUploadDate().equals(trx.getTrxChargeDate()) &&
-                        "FranchiseName".equals(saved.getFranchiseName()) &&
-                        saved.getPointOfSaleType() == PosType.ONLINE &&
-                        "BusinessName".equals(saved.getBusinessName())
-        ));
-    }
-
-    @Test
-    void assignInvoicedTransactionsToBatches_noEnrichmentNeeded() {
-        int chunkSize = 100;
-        int repetitionsNumber = 1;
-
-        RewardTransaction trx = RewardTransaction.builder()
-                .id("TRX2")
-                .status("INVOICED")
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 10, 0))
-                .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 10, 0))
-                .franchiseName("FranchiseName")
-                .pointOfSaleType(PosType.ONLINE)
-                .businessName("BusinessName")
-                .initiatives(List.of("initiative1"))
-                .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(100L).build()))
-                .build();
-
-        RewardBatch batch = new RewardBatch();
-        batch.setId("BATCH1");
-        batch.setMerchantId(MERCHANT_ID);
-        batch.setInitiativeId(INITIATIVE_ID);
-        batch.setStatus(RewardBatchStatus.CREATED);
-
-        Mockito.when(rewardTransactionRepository.findInvoicedTransactionsWithoutBatch(chunkSize))
-                .thenReturn(Flux.just(trx))
-                .thenReturn(Flux.empty());
-
-        Mockito.when(merchantRestClient.getPointOfSale(Mockito.any(), Mockito.any()))
-                .thenReturn(Mono.just(PointOfSaleDTO.builder()
-                        .type(PointOfSaleTypeEnum.ONLINE)
-                        .franchiseName("FranchiseName")
-                        .businessName("BusinessName")
-                        .build()));
-
-        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
-                        Mockito.anyString(),
-                        Mockito.any(),
-                        Mockito.any(),
-                        Mockito.anyString()))
-                .thenReturn(Mono.just(batch));
-
-        Mockito.when(rewardBatchRepository.updateTotals(Mockito.anyString(), Mockito.anyString(), Mockito.any(BatchCountersDTO.class)))
-                .thenReturn(Mono.just(batch));
-
-        Mockito.when(rewardTransactionRepository.save(Mockito.any()))
-                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
-
-        rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, repetitionsNumber, false, null).block();
-
-        Mockito.verify(rewardTransactionRepository).save(Mockito.argThat(saved ->
-                saved.getInvoiceUploadDate().equals(trx.getInvoiceUploadDate()) &&
-                        "FranchiseName".equals(saved.getFranchiseName()) &&
-                        saved.getPointOfSaleType() == PosType.ONLINE &&
-                        "BusinessName".equals(saved.getBusinessName())
-        ));
-    }
-
-    @Test
-    void assignInvoicedTransactionsToBatches_partialEnrichment() {
-        int chunkSize = 100;
-        int repetitionsNumber = 1;
-
-        RewardTransaction trx = RewardTransaction.builder()
-                .id("TRX3")
-                .status("INVOICED")
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 10, 0))
-                .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 10, 0))
-                .franchiseName(null)
-                .pointOfSaleType(null)
-                .businessName(null)
-                .initiatives(List.of("initiative1"))
-                .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(100L).build()))
-                .build();
-
-        RewardBatch batch = new RewardBatch();
-        batch.setId("BATCH1");
-        batch.setMerchantId(MERCHANT_ID);
-        batch.setInitiativeId(INITIATIVE_ID);
-        batch.setStatus(RewardBatchStatus.CREATED);
-
-        Mockito.when(rewardTransactionRepository.findInvoicedTransactionsWithoutBatch(chunkSize))
-                .thenReturn(Flux.just(trx))
-                .thenReturn(Flux.empty());
-
-        Mockito.when(merchantRestClient.getPointOfSale(Mockito.any(), Mockito.any()))
-                .thenReturn(Mono.just(PointOfSaleDTO.builder()
-                        .type(PointOfSaleTypeEnum.ONLINE)
-                        .franchiseName("FranchiseName")
-                        .businessName("BusinessName")
-                        .build()));
-
-        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
-                        Mockito.anyString(),
-                        Mockito.any(),
-                        Mockito.any(),
-                        Mockito.anyString()))
-                .thenReturn(Mono.just(batch));
-
-        Mockito.when(rewardBatchRepository.updateTotals(Mockito.anyString(), Mockito.anyString(), Mockito.any(BatchCountersDTO.class)))
-                .thenReturn(Mono.just(batch));
-
-        Mockito.when(rewardTransactionRepository.save(Mockito.any()))
-                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
-
-        rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, repetitionsNumber, false, null).block();
-
-        Mockito.verify(rewardTransactionRepository).save(Mockito.argThat(saved ->
-                saved.getInvoiceUploadDate().equals(trx.getInvoiceUploadDate()) &&
-                        "FranchiseName".equals(saved.getFranchiseName()) &&
-                        saved.getPointOfSaleType() == PosType.ONLINE &&
-                        "BusinessName".equals(saved.getBusinessName())
-        ));
-    }
-
-    @Test
-    void enrichBatchData_throwsException_whenBatchStatusNotCreated() {
-
-        RewardTransaction rt = RewardTransaction.builder()
-                .id("TRX_ERR")
-                .userId("USERID")
-                .status(SyncTrxStatus.INVOICED.name())
-                .merchantId("MERCHANT1")
-                .pointOfSaleType(PosType.ONLINE)
-                .pointOfSaleId("POS1")
-                .businessName("Test Business")
-                .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 15, 43, 39))
-                .initiatives(List.of("initiative1"))
-                .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(500L).build()))
-                .build();
-
-        RewardBatch batch = new RewardBatch();
-        batch.setId("BATCH_ERR");
-        batch.setStatus(RewardBatchStatus.SENT);
-
-        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
-                        Mockito.anyString(),
-                        Mockito.anyString(),
-                        Mockito.any(),
-                        Mockito.anyString()))
-                .thenReturn(Mono.just(batch));
-
-        StepVerifier.create(rewardTransactionService.save(rt))
-                .expectErrorSatisfies(ex -> {
-                    Assertions.assertInstanceOf(ClientExceptionNoBody.class, ex);
-                    ClientExceptionNoBody cex = (ClientExceptionNoBody) ex;
-                    Assertions.assertEquals(HttpStatus.BAD_REQUEST, cex.getHttpStatus());
-                })
+    void missingExplicitInvoiceAssignmentReturnsNotFound() {
+        when(assignmentPort.findInvoicedTransactionWithoutBatch("missing")).thenReturn(Mono.empty());
+
+        StepVerifier.create(service.assignInvoicedTransactionsToBatches(10, 1, false, "missing"))
+                .expectError(it.gov.pagopa.common.web.exception.ClientExceptionNoBody.class)
                 .verify();
-
-        verify(rewardBatchRepository).findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
-                Mockito.anyString(),
-                Mockito.anyString(),
-                Mockito.any(),
-                Mockito.anyString()
-        );
-        Mockito.verifyNoMoreInteractions(rewardBatchRepository);
     }
 
     @Test
-    void assignInvoicedTransactionsToBatches_processSingleTransaction_found() {
-        String trxId = "TRX123";
+    void batchAssignmentContinuesAfterAnIndividualSqlAssignmentFailure() {
+        RewardTransaction failing = invoicedTransaction("failing");
+        RewardTransaction succeeding = invoicedTransaction("succeeding");
+        when(assignmentPort.findInvoicedTransactionsWithoutBatch(10))
+                .thenReturn(Flux.just(failing, succeeding), Flux.empty());
+        when(merchantRestClient.getPointOfSale("merchant", "pos")).thenReturn(Mono.just(
+                PointOfSaleDTO.builder().type(PointOfSaleTypeEnum.PHYSICAL)
+                        .franchiseName("franchise").businessName("business").build()));
+        when(assignmentPort.assignInvoicedTransaction(
+                eq(failing), any(),
+                anyInt())).thenReturn(Mono.error(new IllegalStateException("failure")));
+        when(assignmentPort.assignInvoicedTransaction(
+                eq(succeeding), any(),
+                anyInt())).thenReturn(Mono.just(succeeding));
 
-        RewardTransaction trx = RewardTransaction.builder()
-                .id(trxId)
-                .status("INVOICED")
-                .trxChargeDate(LocalDateTime.of(2025, 11, 19, 10, 0))
-                .invoiceUploadDate(LocalDateTime.of(2025, 11, 19, 10, 0))
-                .initiatives(List.of("initiative1"))
-                .initiatives(INITIATIVES_ID)   // se esiste nel model
-                .merchantId(MERCHANT_ID)
-                .rewards(Map.of("initiative1", Reward.builder().accruedRewardCents(100L).build()))
-                .pointOfSaleType(PosType.ONLINE)
-                .pointOfSaleId("POS1")
-                .businessName("BusinessName")
-                .build();
-
-        RewardBatch batch = new RewardBatch();
-        batch.setId("BATCH1");
-        batch.setMerchantId(MERCHANT_ID);
-        batch.setInitiativeId(INITIATIVE_ID);
-        batch.setStatus(RewardBatchStatus.CREATED);
-
-        Mockito.when(rewardTransactionRepository.findById(trxId))
-                .thenReturn(Mono.just(trx));
-
-        Mockito.when(rewardTransactionRepository.findInvoicedTrxByIdWithoutBatch(INITIATIVE_ID, MERCHANT_ID, trxId))
-                .thenReturn(Mono.just(trx));
-
-        Mockito.when(merchantRestClient.getPointOfSale(Mockito.any(), Mockito.any()))
-                .thenReturn(Mono.just(PointOfSaleDTO.builder()
-                        .type(PointOfSaleTypeEnum.ONLINE)
-                        .franchiseName("FranchiseName")
-                        .businessName("BusinessName")
-                        .build()));
-
-        when(rewardBatchRepository.findByInitiativeIdAndMerchantIdAndPosTypeAndMonth(
-                        Mockito.anyString(),
-                        Mockito.anyString(),
-                        Mockito.any(),
-                        Mockito.anyString()))
-                .thenReturn(Mono.just(batch));
-
-        Mockito.when(rewardBatchRepository.updateTotals(Mockito.anyString(), Mockito.anyString(), Mockito.any(BatchCountersDTO.class)))
-                .thenReturn(Mono.just(batch));
-
-        Mockito.when(rewardTransactionRepository.save(Mockito.any()))
-                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
-
-        StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(200, 1, false, trxId))
+        StepVerifier.create(service.assignInvoicedTransactionsToBatches(10, 1, true, null))
                 .verifyComplete();
 
-        Mockito.verify(rewardTransactionRepository, Mockito.times(1))
-                .findById(trxId);
-
-        Mockito.verify(rewardTransactionRepository, Mockito.times(1))
-                .findInvoicedTrxByIdWithoutBatch(INITIATIVE_ID, MERCHANT_ID, trxId);
-
-        Mockito.verify(rewardTransactionRepository, Mockito.times(1))
-                .save(Mockito.any());
+        verify(assignmentPort).assignInvoicedTransaction(
+                eq(succeeding), any(),
+                anyInt());
     }
 
     @Test
-    void assignInvoicedTransactionsToBatches_processSingleTransaction_notFound() {
-        String trxId = "TRX_NOT_EXIST";
+    void samplingKeyIsDeterministicAndSeedSpecific() {
+        RewardTransactionServiceImpl otherSeed = new RewardTransactionServiceImpl(
+                searchPort, synchronizationPort, assignmentPort, merchantRestClient, 456);
 
-        RewardTransaction trx = RewardTransaction.builder()
-                .id(trxId)
-                .merchantId(MERCHANT_ID)
-                .initiatives(INITIATIVES_ID)
-                .build();
+        assertEquals(
+                service.computeSamplingKey("id"), service.computeSamplingKey("id"));
+        assertNotEquals(
+                service.computeSamplingKey("id"), otherSeed.computeSamplingKey("id"));
+    }
 
-        Mockito.when(rewardTransactionRepository.findById(trxId))
-                .thenReturn(Mono.just(trx));
+    @Test
+    void repeatedAssignmentRunsEachRequestedChunkAndStopsOnEmptyChunks() {
+        when(assignmentPort.findInvoicedTransactionsWithoutBatch(10))
+                .thenReturn(Flux.empty());
 
-        Mockito.when(rewardTransactionRepository.findInvoicedTrxByIdWithoutBatch(INITIATIVE_ID, MERCHANT_ID, trxId))
-                .thenReturn(Mono.empty());
+        StepVerifier.create(service.assignInvoicedTransactionsToBatches(10, 2, false, null))
+                .verifyComplete();
 
-        StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(200, 1, false, trxId))
-                .expectErrorSatisfies(ex -> {
-                    Assertions.assertInstanceOf(ClientExceptionNoBody.class, ex);
-                    ClientExceptionNoBody cex = (ClientExceptionNoBody) ex;
-                    Assertions.assertEquals(HttpStatus.NOT_FOUND, cex.getHttpStatus());
-                    Assertions.assertTrue(cex.getMessage().contains(trxId));
-                })
+        verify(assignmentPort, times(2)).findInvoicedTransactionsWithoutBatch(10);
+    }
+
+    @Test
+    void assignmentPreservesAlreadyEnrichedTransactionFields() {
+        RewardTransaction transaction = invoicedTransaction("transaction");
+        when(assignmentPort.findInvoicedTransactionWithoutBatch("transaction"))
+                .thenReturn(Mono.just(transaction));
+        when(merchantRestClient.getPointOfSale("merchant", "pos")).thenReturn(Mono.just(
+                PointOfSaleDTO.builder().type(PointOfSaleTypeEnum.ONLINE)
+                        .franchiseName("different").businessName("different").build()));
+        when(assignmentPort.assignInvoicedTransaction(
+                any(), any(),
+                anyInt())).thenReturn(Mono.just(transaction));
+
+        StepVerifier.create(service.assignInvoicedTransactionsToBatches(10, 1, false, "transaction"))
+                .verifyComplete();
+
+        assertEquals("franchise", transaction.getFranchiseName());
+        assertEquals(PosType.PHYSICAL, transaction.getPointOfSaleType());
+        assertEquals("business", transaction.getBusinessName());
+    }
+
+    @Test
+    void assignmentPropagatesMerchantLookupFailureForAnExplicitTransaction() {
+        RewardTransaction transaction = invoicedTransaction("transaction");
+        when(assignmentPort.findInvoicedTransactionWithoutBatch("transaction"))
+                .thenReturn(Mono.just(transaction));
+        IllegalStateException failure = new IllegalStateException("merchant unavailable");
+        when(merchantRestClient.getPointOfSale("merchant", "pos")).thenReturn(Mono.error(failure));
+
+        StepVerifier.create(service.assignInvoicedTransactionsToBatches(10, 1, false, "transaction"))
+                .expectErrorMatches(error -> error == failure)
                 .verify();
-
-        Mockito.verify(rewardTransactionRepository, Mockito.times(1))
-                .findById(trxId);
-
-        Mockito.verify(rewardTransactionRepository, Mockito.times(1))
-                .findInvoicedTrxByIdWithoutBatch(INITIATIVE_ID, MERCHANT_ID, trxId);
-
-        Mockito.verifyNoMoreInteractions(rewardTransactionRepository);
-        Mockito.verifyNoInteractions(merchantRestClient, rewardBatchRepository);
     }
 
     @Test
-    void assignInvoicedTransactionsToBatches_trxIdNull_shouldProcessSingleOperation() {
-        int chunkSize = 200;
-        int repetitionsNumber = 1;
-        boolean processAll = false;
+    void repeatedAssignmentProcessesRowsAndSuppressesPerRowFailure() {
+        RewardTransaction failing = invoicedTransaction("failing");
+        RewardTransaction succeeding = invoicedTransaction("succeeding");
+        when(assignmentPort.findInvoicedTransactionsWithoutBatch(10))
+                .thenReturn(Flux.just(failing, succeeding));
+        when(merchantRestClient.getPointOfSale("merchant", "pos")).thenReturn(Mono.just(
+                PointOfSaleDTO.builder().type(PointOfSaleTypeEnum.PHYSICAL)
+                        .franchiseName("franchise").businessName("business").build()));
+        when(assignmentPort.assignInvoicedTransaction(
+                eq(failing), any(),
+                anyInt())).thenReturn(Mono.error(new IllegalStateException("failure")));
+        when(assignmentPort.assignInvoicedTransaction(
+                eq(succeeding), any(),
+                anyInt())).thenReturn(Mono.just(succeeding));
 
-        Mockito.when(rewardTransactionRepository.findInvoicedTransactionsWithoutBatch(chunkSize))
-                .thenReturn(Flux.empty());
-
-        StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, repetitionsNumber, processAll, null))
+        StepVerifier.create(service.assignInvoicedTransactionsToBatches(10, 1, false, null))
                 .verifyComplete();
 
-        Mockito.verify(rewardTransactionRepository, Mockito.never())
-                .findInvoicedTrxByIdWithoutBatch(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+        verify(assignmentPort).assignInvoicedTransaction(
+                eq(succeeding), any(),
+                anyInt());
     }
 
-    @Test
-    void assignInvoicedTransactionsToBatches_trxIdEmpty_shouldProcessSingleOperation() {
-        int chunkSize = 200;
-        int repetitionsNumber = 1;
-        boolean processAll = false;
-
-        Mockito.when(rewardTransactionRepository.findInvoicedTransactionsWithoutBatch(chunkSize))
-                .thenReturn(Flux.empty());
-
-        StepVerifier.create(rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize, repetitionsNumber, processAll, ""))
-                .verifyComplete();
-
-        Mockito.verify(rewardTransactionRepository, Mockito.never())
-                .findInvoicedTrxByIdWithoutBatch(Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+    private static RewardTransaction invoicedTransaction(String id) {
+        return RewardTransaction.builder()
+                .id(id)
+                .status(SyncTrxStatus.INVOICED.name())
+                .initiatives(List.of("initiative"))
+                .merchantId("merchant")
+                .pointOfSaleId("pos")
+                .pointOfSaleType(PosType.PHYSICAL)
+                .businessName("business")
+                .franchiseName("franchise")
+                .trxChargeDate(YearMonth.of(2026, Month.FEBRUARY).atDay(10).atStartOfDay())
+                .invoiceUploadDate(YearMonth.of(2026, Month.FEBRUARY).atDay(11).atStartOfDay())
+                .build();
     }
 }

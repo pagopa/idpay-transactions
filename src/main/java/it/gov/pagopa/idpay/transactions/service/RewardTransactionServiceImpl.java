@@ -11,7 +11,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardBatchFactory;
 import it.gov.pagopa.idpay.transactions.persistence.port.InvoicedTransactionAssignmentPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSynchronizationPort;
-import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSearchPort;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 
 import java.time.LocalDate;
@@ -30,19 +30,19 @@ import java.time.LocalDateTime;
 @Slf4j
 public class RewardTransactionServiceImpl implements RewardTransactionService {
 
-    private final RewardTransactionRepository rewardTrxRepository;
+    private final RewardTransactionSearchPort rewardTransactionSearchPort;
     private final RewardTransactionSynchronizationPort rewardTransactionSynchronizationPort;
     private final InvoicedTransactionAssignmentPort invoicedTransactionAssignmentPort;
     private final MerchantRestClient merchantRestClient;
     private final int seed;
 
 
-    public RewardTransactionServiceImpl(RewardTransactionRepository rewardTrxRepository,
+    public RewardTransactionServiceImpl(RewardTransactionSearchPort rewardTransactionSearchPort,
                                         RewardTransactionSynchronizationPort rewardTransactionSynchronizationPort,
                                         InvoicedTransactionAssignmentPort invoicedTransactionAssignmentPort,
                                         MerchantRestClient merchantRestClient,
                                         @Value(value="${app.sampling}") int seed) {
-        this.rewardTrxRepository = rewardTrxRepository;
+        this.rewardTransactionSearchPort = rewardTransactionSearchPort;
         this.rewardTransactionSynchronizationPort = rewardTransactionSynchronizationPort;
         this.invoicedTransactionAssignmentPort = invoicedTransactionAssignmentPort;
         this.merchantRestClient = merchantRestClient;
@@ -60,17 +60,30 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
     @Override
     public Flux<RewardTransaction> findByIdTrxIssuer(String idTrxIssuer, String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, Long amountCents, Pageable pageable) {
-        return rewardTrxRepository.findByIdTrxIssuer(idTrxIssuer, userId, trxDateStart, trxDateEnd, amountCents, pageable);
+        return rewardTransactionSearchPort.findByIdTrxIssuer(
+                idTrxIssuer,
+                userId,
+                trxDateStart,
+                trxDateEnd,
+                amountCents,
+                pageable
+        );
     }
 
     @Override
     public Flux<RewardTransaction> findByRange(String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, Long amountCents, Pageable pageable) {
-        return rewardTrxRepository.findByRange(userId, trxDateStart, trxDateEnd, amountCents, pageable);
+        return rewardTransactionSearchPort.findByRange(
+                userId,
+                trxDateStart,
+                trxDateEnd,
+                amountCents,
+                pageable
+        );
     }
 
     @Override
     public Flux<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId){
-        return rewardTrxRepository.findByInitiativeIdAndUserId(initiativeId, userId);
+        return rewardTransactionSearchPort.findByInitiativeIdAndUserId(initiativeId, userId);
     }
 
     @Override

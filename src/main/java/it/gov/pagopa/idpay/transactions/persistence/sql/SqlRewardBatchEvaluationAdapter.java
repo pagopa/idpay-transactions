@@ -25,6 +25,7 @@ import org.jooq.JSONB;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 import org.springframework.r2dbc.connection.ConnectionFactoryUtils;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Mono;
 
@@ -33,6 +34,7 @@ import reactor.core.publisher.Mono;
  * from transaction rows, so this adapter only changes lifecycle and row state.
  */
 @RequiredArgsConstructor
+@Component
 public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDecisionPort {
 
     private static final long SAMPLE_PERCENT_NUMERATOR = 3L;
@@ -43,6 +45,7 @@ public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDe
     private final RewardBatchSqlMapper batchMapper;
     private final RewardTransactionSqlMapper transactionMapper;
 
+    @Override
     public Mono<RewardBatch> prepareEvaluation(String rewardBatchId, String initiativeId) {
         return transactionalOperator.transactional(ConnectionFactoryUtils.getConnection(connectionFactory)
                 .flatMap(connection -> prepareEvaluationWithinTransaction(

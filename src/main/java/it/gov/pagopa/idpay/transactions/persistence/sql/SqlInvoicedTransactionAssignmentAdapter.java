@@ -22,11 +22,13 @@ import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 import org.springframework.http.HttpStatus;
 import org.springframework.r2dbc.connection.ConnectionFactoryUtils;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @RequiredArgsConstructor
+@Component
 public class SqlInvoicedTransactionAssignmentAdapter implements InvoicedTransactionAssignmentPort {
 
     private final TransactionalOperator transactionalOperator;

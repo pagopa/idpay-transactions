@@ -6,6 +6,7 @@ import static org.jooq.impl.DSL.count;
 import static org.jooq.impl.DSL.falseCondition;
 import static org.jooq.impl.DSL.jsonbGetAttributeAsText;
 
+import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
@@ -13,6 +14,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.InvoiceTransactionLookupPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionReadPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSearchPort;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -24,10 +26,12 @@ import org.jooq.SortField;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @RequiredArgsConstructor
+@Component
 public class SqlRewardTransactionSearchAdapter implements
         RewardTransactionSearchPort,
         RewardBatchTransactionReadPort,
@@ -109,7 +113,7 @@ public class SqlRewardTransactionSearchAdapter implements
                         null,
                         includeToCheckWithConsultable
                 ),
-                merchantSortFields(pageable),
+                transactionSortFields(pageable),
                 pageable
         );
     }
@@ -213,6 +217,73 @@ public class SqlRewardTransactionSearchAdapter implements
                 .map(mapper::fromRecord);
     }
 
+    @Override
+    public Flux<FranchisePointOfSaleDTO> findDistinctFranchiseAndPosByRewardBatchId(
+            String rewardBatchId,
+            String merchantId
+    ) {
+        return Flux.from(dslContext.selectDistinct(
+                        REWARD_TRANSACTIONS.FRANCHISE_NAME,
+                        REWARD_TRANSACTIONS.POINT_OF_SALE_ID
+                )
+                .from(REWARD_TRANSACTIONS)
+                .where(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(rewardBatchId)
+                        .and(REWARD_TRANSACTIONS.MERCHANT_ID.eq(merchantId)))
+                .orderBy(
+                        REWARD_TRANSACTIONS.FRANCHISE_NAME.asc(),
+                        REWARD_TRANSACTIONS.POINT_OF_SALE_ID.asc()
+                ))
+                .map(result -> FranchisePointOfSaleDTO.builder()
+                        .franchiseName(result.get(REWARD_TRANSACTIONS.FRANCHISE_NAME))
+                        .pointOfSaleId(result.get(REWARD_TRANSACTIONS.POINT_OF_SALE_ID))
+                        .build());
+    }
+
+    @Override
+    public Flux<RewardTransaction> findByIdTrxIssuer(
+            String idTrxIssuer,
+            String userId,
+            LocalDateTime trxDateStart,
+            LocalDateTime trxDateEnd,
+            Long amountCents,
+            Pageable pageable
+    ) {
+        Condition condition = REWARD_TRANSACTIONS.ID_TRX_ISSUER.eq(idTrxIssuer);
+        if (userId != null) {
+            condition = condition.and(REWARD_TRANSACTIONS.USER_ID.eq(userId));
+        }
+        if (amountCents != null) {
+            condition = condition.and(REWARD_TRANSACTIONS.AMOUNT_CENTS.eq(amountCents));
+        }
+        condition = dateCondition(condition, trxDateStart, trxDateEnd);
+        return selectTransactions(condition, transactionSortFields(pageable), pageable);
+    }
+
+    @Override
+    public Flux<RewardTransaction> findByRange(
+            String userId,
+            LocalDateTime trxDateStart,
+            LocalDateTime trxDateEnd,
+            Long amountCents,
+            Pageable pageable
+    ) {
+        Condition condition = REWARD_TRANSACTIONS.USER_ID.eq(userId);
+        if (amountCents != null) {
+            condition = condition.and(REWARD_TRANSACTIONS.AMOUNT_CENTS.eq(amountCents));
+        }
+        condition = dateCondition(condition, trxDateStart, trxDateEnd);
+        return selectTransactions(condition, transactionSortFields(pageable), pageable);
+    }
+
+    @Override
+    public Flux<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId) {
+        return Flux.from(dslContext.selectFrom(REWARD_TRANSACTIONS)
+                        .where(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(initiativeId)
+                                .and(REWARD_TRANSACTIONS.USER_ID.eq(userId)))
+                        .orderBy(REWARD_TRANSACTIONS.TRANSACTION_ID.asc()))
+                .map(mapper::fromRecord);
+    }
+
     private Flux<RewardTransaction> selectTransactions(
             Condition condition,
             List<? extends SortField<?>> sortFields,
@@ -297,7 +368,7 @@ public class SqlRewardTransactionSearchAdapter implements
         return pageable;
     }
 
-    private static List<? extends SortField<?>> merchantSortFields(Pageable pageable) {
+    private static List<? extends SortField<?>> transactionSortFields(Pageable pageable) {
         if (pageable == null || pageable.getSort().isUnsorted()) {
             return List.of(REWARD_TRANSACTIONS.TRANSACTION_ID.asc());
         }
@@ -351,5 +422,19 @@ public class SqlRewardTransactionSearchAdapter implements
 
     private static boolean notBlank(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private static Condition dateCondition(
+            Condition condition,
+            LocalDateTime trxDateStart,
+            LocalDateTime trxDateEnd
+    ) {
+        if (trxDateStart != null) {
+            condition = condition.and(REWARD_TRANSACTIONS.TRX_DATE.ge(trxDateStart));
+        }
+        if (trxDateEnd != null) {
+            condition = condition.and(REWARD_TRANSACTIONS.TRX_DATE.le(trxDateEnd));
+        }
+        return condition;
     }
 }

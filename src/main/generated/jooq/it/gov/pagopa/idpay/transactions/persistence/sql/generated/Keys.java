@@ -4,8 +4,10 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql.generated;
 
 
+import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.Reports;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions;
+import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.ReportsRecord;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardBatchesRecord;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardTransactionsRecord;
 
@@ -27,6 +29,7 @@ public class Keys {
     // UNIQUE and PRIMARY KEY definitions
     // -------------------------------------------------------------------------
 
+    public static final UniqueKey<ReportsRecord> REPORTS_PKEY = Internal.createUniqueKey(Reports.REPORTS, DSL.name("reports_pkey"), new TableField[] { Reports.REPORTS.ID }, true);
     public static final UniqueKey<RewardBatchesRecord> REWARD_BATCHES_PKEY = Internal.createUniqueKey(RewardBatches.REWARD_BATCHES, DSL.name("reward_batches_pkey"), new TableField[] { RewardBatches.REWARD_BATCHES.ID }, true);
     public static final UniqueKey<RewardBatchesRecord> UK_REWARD_BATCHES_ID_INITIATIVE = Internal.createUniqueKey(RewardBatches.REWARD_BATCHES, DSL.name("uk_reward_batches_id_initiative"), new TableField[] { RewardBatches.REWARD_BATCHES.ID, RewardBatches.REWARD_BATCHES.INITIATIVE_ID }, true);
     public static final UniqueKey<RewardBatchesRecord> UK_REWARD_BATCHES_INITIATIVE_MERCHANT_POS_MONTH = Internal.createUniqueKey(RewardBatches.REWARD_BATCHES, DSL.name("uk_reward_batches_initiative_merchant_pos_month"), new TableField[] { RewardBatches.REWARD_BATCHES.INITIATIVE_ID, RewardBatches.REWARD_BATCHES.MERCHANT_ID, RewardBatches.REWARD_BATCHES.POS_TYPE, RewardBatches.REWARD_BATCHES.MONTH }, true);

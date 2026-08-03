@@ -482,6 +482,123 @@ class SqlRewardTransactionSearchAdapterTest extends PostgresqlMigrationTestSuppo
                 .verifyComplete();
     }
 
+    @Test
+    void shouldReturnDistinctFranchiseAndPointOfSalePairsInStableOrderWithinMerchantBatch() {
+        RewardTransaction first = transaction("pair-first", SyncTrxStatus.INVOICED,
+                RewardBatchTrxStatus.CONSULTABLE, 1);
+        first.setRewardBatchId(BATCH_ID);
+        first.setFranchiseName("Alpha");
+        first.setPointOfSaleId("pos-2");
+        RewardTransaction duplicate = transaction("pair-duplicate", SyncTrxStatus.INVOICED,
+                RewardBatchTrxStatus.CONSULTABLE, 2);
+        duplicate.setRewardBatchId(BATCH_ID);
+        duplicate.setFranchiseName("Alpha");
+        duplicate.setPointOfSaleId("pos-2");
+        RewardTransaction second = transaction("pair-second", SyncTrxStatus.INVOICED,
+                RewardBatchTrxStatus.CONSULTABLE, 3);
+        second.setRewardBatchId(BATCH_ID);
+        second.setFranchiseName("Beta");
+        second.setPointOfSaleId("pos-1");
+        RewardTransaction otherMerchant = transaction("pair-other-merchant", SyncTrxStatus.INVOICED,
+                RewardBatchTrxStatus.CONSULTABLE, 4);
+        otherMerchant.setRewardBatchId(BATCH_ID);
+        otherMerchant.setMerchantId("other-merchant");
+        otherMerchant.setFranchiseName("Aardvark");
+        otherMerchant.setPointOfSaleId("pos-0");
+
+        StepVerifier.create(createBatch()
+                        .then(seed(second, duplicate, otherMerchant, first))
+                        .thenMany(adapter.findDistinctFranchiseAndPosByRewardBatchId(BATCH_ID, MERCHANT_ID)))
+                .assertNext(pair -> {
+                    assertEquals("Alpha", pair.getFranchiseName());
+                    assertEquals("pos-2", pair.getPointOfSaleId());
+                })
+                .assertNext(pair -> {
+                    assertEquals("Beta", pair.getFranchiseName());
+                    assertEquals("pos-1", pair.getPointOfSaleId());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldFilterIssuerHistoryByOptionalUserAmountInclusiveDatesAndDatabasePaging() {
+        LocalDateTime start = LocalDateTime.of(2026, Month.JULY, 10, 0, 0);
+        LocalDateTime end = LocalDateTime.of(2026, Month.JULY, 12, 0, 0);
+        RewardTransaction atStart = historyTransaction("issuer-start", "issuer", USER_ID, start, 100L);
+        RewardTransaction middle = historyTransaction("issuer-middle", "issuer", USER_ID, start.plusDays(1), 100L);
+        RewardTransaction atEnd = historyTransaction("issuer-end", "issuer", USER_ID, end, 100L);
+        RewardTransaction differentAmount = historyTransaction("issuer-other-amount", "issuer", USER_ID,
+                start.plusDays(1), 200L);
+        RewardTransaction differentUser = historyTransaction("issuer-other-user", "issuer", "other-user",
+                start.plusDays(1), 100L);
+        RewardTransaction outside = historyTransaction("issuer-outside", "issuer", USER_ID,
+                end.plusSeconds(1), 100L);
+
+        StepVerifier.create(seed(atEnd, differentAmount, outside, middle, differentUser, atStart)
+                        .thenMany(adapter.findByIdTrxIssuer(
+                                "issuer", USER_ID, start, end, 100L,
+                                PageRequest.of(0, 2, Sort.by(Sort.Direction.ASC, "trxDate")))))
+                .assertNext(transaction -> assertEquals("issuer-start", transaction.getId()))
+                .assertNext(transaction -> assertEquals("issuer-middle", transaction.getId()))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findByIdTrxIssuer(
+                        "issuer", null, start, end, null,
+                        PageRequest.of(1, 2, Sort.by(Sort.Direction.ASC, "trxDate"))))
+                .assertNext(transaction -> assertEquals("issuer-other-amount", transaction.getId()))
+                .assertNext(transaction -> assertEquals("issuer-other-user", transaction.getId()))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldSearchRangeAndInitiativeUserOnlyWithinRequestedScope() {
+        LocalDateTime date = LocalDateTime.of(2026, Month.JULY, 10, 10, 0);
+        RewardTransaction matching = historyTransaction("range-match", "issuer", USER_ID, date, 100L);
+        RewardTransaction second = historyTransaction("range-second", "issuer", USER_ID, date.plusHours(1), 100L);
+        RewardTransaction otherInitiative = historyTransaction("range-other-initiative", "issuer", USER_ID, date, 100L);
+        RewardTransaction otherUser = historyTransaction("range-other-user", "issuer", "other-user", date, 100L);
+
+        StepVerifier.create(seed(second, otherInitiative, otherUser, matching)
+                        .then(databaseClient()
+                                .sql("UPDATE reward_transactions SET initiative_id = 'other-initiative' "
+                                        + "WHERE transaction_id = 'range-other-initiative'")
+                                .fetch()
+                                .rowsUpdated())
+                        .thenMany(adapter.findByRange(
+                                USER_ID, date, date.plusHours(1), 100L,
+                                PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "trxDate")))))
+                .assertNext(transaction -> assertEquals("range-second", transaction.getId()))
+                .assertNext(transaction -> assertEquals("range-match", transaction.getId()))
+                .assertNext(transaction -> assertEquals("range-other-initiative", transaction.getId()))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findByInitiativeIdAndUserId(INITIATIVE_ID, USER_ID))
+                .assertNext(transaction -> assertEquals("range-match", transaction.getId()))
+                .assertNext(transaction -> assertEquals("range-second", transaction.getId()))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldUseDeterministicHistoryFallbackOrderingForNullAndUnpagedPageables() {
+        RewardTransaction first = historyTransaction(
+                "history-a", "issuer", USER_ID, LocalDateTime.of(2026, Month.JULY, 10, 10, 0), 100L);
+        RewardTransaction second = historyTransaction(
+                "history-b", "issuer", USER_ID, LocalDateTime.of(2026, Month.JULY, 11, 10, 0), 200L);
+
+        StepVerifier.create(seed(second, first)
+                        .thenMany(adapter.findByIdTrxIssuer(
+                                "issuer", null, null, null, null, null)))
+                .assertNext(transaction -> assertEquals("history-a", transaction.getId()))
+                .assertNext(transaction -> assertEquals("history-b", transaction.getId()))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.findByRange(
+                        USER_ID, null, null, null, Pageable.unpaged()))
+                .assertNext(transaction -> assertEquals("history-a", transaction.getId()))
+                .assertNext(transaction -> assertEquals("history-b", transaction.getId()))
+                .verifyComplete();
+    }
+
     private Mono<Void> createBatch() {
         return createBatch(BATCH_ID);
     }
@@ -533,5 +650,21 @@ class SqlRewardTransactionSearchAdapterTest extends PostgresqlMigrationTestSuppo
                 .additionalProperties(Map.of("productName", "Coffee", "productGtin", "AbC-123"))
                 .rewards(Map.of(INITIATIVE_ID, Reward.builder().accruedRewardCents(100L).build()))
                 .build();
+    }
+
+    private static RewardTransaction historyTransaction(
+            String id,
+            String issuer,
+            String user,
+            LocalDateTime trxDate,
+            long amountCents
+    ) {
+        RewardTransaction transaction = transaction(
+                id, SyncTrxStatus.INVOICED, RewardBatchTrxStatus.CONSULTABLE, 0);
+        transaction.setIdTrxIssuer(issuer);
+        transaction.setUserId(user);
+        transaction.setTrxDate(trxDate);
+        transaction.setAmountCents(amountCents);
+        return transaction;
     }
 }

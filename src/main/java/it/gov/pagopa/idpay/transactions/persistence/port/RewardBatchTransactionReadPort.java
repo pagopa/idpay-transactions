@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.persistence.port;
 
+import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import java.util.List;
@@ -19,5 +20,10 @@ public interface RewardBatchTransactionReadPort {
             String merchantId,
             String rewardBatchId,
             String transactionId
+    );
+
+    Flux<FranchisePointOfSaleDTO> findDistinctFranchiseAndPosByRewardBatchId(
+            String rewardBatchId,
+            String merchantId
     );
 }

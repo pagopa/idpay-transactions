@@ -16,6 +16,7 @@ import org.jooq.SortField;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -38,6 +39,7 @@ import static org.jooq.impl.DSL.val;
  * from its currently assigned transaction rows.
  */
 @RequiredArgsConstructor
+@Component
 public class SqlRewardBatchListAdapter implements RewardBatchListPort {
 
     private static final Field<Long> NUMBER_OF_TRANSACTIONS = count(REWARD_TRANSACTIONS.TRANSACTION_ID)
@@ -180,6 +182,28 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
                 .map(this::toBatch);
     }
 
+    public Mono<RewardBatch> findBatch(String rewardBatchId) {
+        return Mono.from(projectedBatches(REWARD_BATCHES.ID.eq(rewardBatchId)))
+                .map(this::toBatch);
+    }
+
+    public Mono<RewardBatch> findBatch(String rewardBatchId, String initiativeId) {
+        return Mono.from(projectedBatches(REWARD_BATCHES.ID.eq(rewardBatchId)
+                        .and(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId))))
+                .map(this::toBatch);
+    }
+
+    public Mono<RewardBatch> findBatchWithStatus(
+            String rewardBatchId,
+            String initiativeId,
+            RewardBatchStatus status
+    ) {
+        return Mono.from(projectedBatches(REWARD_BATCHES.ID.eq(rewardBatchId)
+                        .and(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId))
+                        .and(REWARD_BATCHES.STATUS.eq(status.name()))))
+                .map(this::toBatch);
+    }
+
     public Flux<RewardBatch> findBatchesWithStatus(
             RewardBatchStatus status,
             String initiativeId,
@@ -214,6 +238,29 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
 
     public Flux<RewardBatch> findOutcomeBatches(String initiativeId, Pageable pageable) {
         return findBatchesWithStatus(RewardBatchStatus.PENDING_REFUND, initiativeId, pageable);
+    }
+
+    public Mono<RewardBatch> findMerchantBatch(
+            String merchantId,
+            String initiativeId,
+            String rewardBatchId
+    ) {
+        return Mono.from(projectedBatches(REWARD_BATCHES.MERCHANT_ID.eq(merchantId)
+                        .and(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId))
+                        .and(REWARD_BATCHES.ID.eq(rewardBatchId))))
+                .map(this::toBatch);
+    }
+
+    public Flux<RewardBatch> findMerchantBatches(
+            String merchantId,
+            String initiativeId,
+            PosType posType
+    ) {
+        return Flux.from(projectedBatches(REWARD_BATCHES.MERCHANT_ID.eq(merchantId)
+                        .and(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId))
+                        .and(REWARD_BATCHES.POS_TYPE.eq(posType.name())))
+                .orderBy(REWARD_BATCHES.MONTH.asc()))
+                .map(this::toBatch);
     }
 
     private SelectHavingStep<Record> projectedBatches(Condition condition) {

@@ -112,6 +112,18 @@ Constraints and indexes:
 - index on `(reward_batch_id, sampling_key)` for sampling queries;
 - indexes on transaction identity and invoice lifecycle lookup fields.
 
+### `reports`
+
+Persist report records locally so the existing report generation, list, count,
+download, retry, and force-generation APIs remain available after Mongo removal.
+Each row retains its string identifier, initiative, report status and type,
+period, merchant/business scope, request and elaboration timestamps, operator
+scope, and generated filename.
+
+Indexes must support initiative/type/request-date lists and the two mutually
+exclusive scopes: merchant reports (`merchant_id` with no operator level) and
+operator reports (an operator level).
+
 ## Required use cases
 
 | Flow | Required behaviour |
@@ -135,7 +147,7 @@ Constraints and indexes:
 
 1. Add PostgreSQL and R2DBC dependencies/configuration without introducing blocking database calls.
 2. Create the SQL schema through the project-approved migration mechanism. The migration must preserve string identifiers unless an explicit cross-service UUID migration is approved.
-3. Backfill batches and transactions, including their current batch fields and typed accrued reward. Reconcile legacy Mongo counters externally against SQL transaction aggregates; identify transactions with multiple historical initiatives or batch memberships; and quarantine them for remediation before cutover. Do not select an initiative or batch arbitrarily.
+3. Backfill batches, transactions, and reports, including transaction batch fields and typed accrued reward. Reconcile legacy Mongo counters externally against SQL transaction aggregates; identify transactions with multiple historical initiatives or batch memberships; and quarantine them for remediation before cutover. Do not select an initiative or batch arbitrarily.
 4. During dual-read/dual-write or cutover, do not allow Mongo and SQL to independently apply a decision or move. Use an explicit cutover flag, an outbox/idempotency record, or another documented single-writer strategy.
 5. Kafka processing must be at-least-once safe: every payment snapshot carries a shared monotonic transaction revision, and every impact carries a unique event ID. Conditional projection updates and the transaction-local latest-applied-impact revision ensure retries or stale generic snapshots cannot duplicate or undo local batch membership.
 6. Preserve API response shapes and error semantics until a separately versioned API change is approved.
