@@ -9,8 +9,6 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldNameConstants;
-import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.mapping.MongoId;
 
 import java.time.LocalDateTime;
 
@@ -20,10 +18,8 @@ import java.time.LocalDateTime;
 @Builder
 @FieldNameConstants
 @EqualsAndHashCode(of = {"id"}, callSuper = false)
-@Document(collection = "reports")
 public class Report {
 
-    @MongoId
     private String id;
     private String initiativeId;
     private ReportStatus reportStatus;

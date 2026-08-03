@@ -1,14 +1,3 @@
-mongo:
-  request-rate-too-large:
-    api:
-      enabled: ${MONGO_REQUEST_RATE_TOO_LARGE_API_ENABLED:false}
-      max-retry: ${MONGO_REQUEST_RATE_TOO_LARGE_API_MAX_RETRY:0}
-      max-millis-elapsed: ${MONGO_REQUEST_RATE_TOO_LARGE_API_MAX_MILLIS_ELAPSED:200}
-    batch:
-      enabled: ${MONGO_REQUEST_RATE_TOO_LARGE_BATCH_ENABLED:true}
-      max-retry: ${MONGO_REQUEST_RATE_TOO_LARGE_BATCH_MAX_RETRY:5}
-      max-millis-elapsed: ${MONGO_REQUEST_RATE_TOO_LARGE_BATCH_MAX_MILLIS_ELAPSED:0}
-
 server:
   port: ${TRANSACTIONS_PORT:8080}
 
@@ -153,23 +142,14 @@ spring:
   data:
     redis:
       url: ${REDIS_CONNECTION_URL:redis://@localhost:6379}
-  mongodb:
-    uri: ${MONGODB_URI:mongodb://localhost:27017}
-    database: ${MONGODB_DBNAME:idpay-pagamenti}
-    # custom configured properties
-    config:
-      connectionPool:
-        maxSize: ${MONGODB_CONNECTIONPOOL_MAX_SIZE:100}
-        minSize: ${MONGODB_CONNECTIONPOOL_MIN_SIZE:2}
-        maxWaitTimeMS: ${MONGODB_CONNECTIONPOOL_MAX_WAIT_MS:120000}
-        maxConnectionLifeTimeMS: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTION_LIFE_MS:0}
-        maxConnectionIdleTimeMS: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTION_IDLE_MS:120000}
-        maxConnecting: ${MONGODB_CONNECTIONPOOL_MAX_CONNECTING:2}
+  r2dbc:
+    url: ${POSTGRES_R2DBC_URL:r2dbc:postgresql://localhost:5432/idpay-transactions}
+    username: ${POSTGRES_USERNAME:idpay}
+    password: ${POSTGRES_PASSWORD:idpay}
 
 management:
   health:
     redis.enabled: ${REDIS_CACHE_ENABLED:false}
-    mongo.enabled: ${HEALTH_MONGO_ENABLED:true}
   endpoint:
     health:
       probes.enabled: true
@@ -204,7 +184,6 @@ logging:
     io.swagger: ${LOG_LEVEL_IO_SWAGGER:WARN}
     javax.persistence: ${LOG_LEVEL_JAVAX_PERSISTENCE:INFO}
     org.hibernate: ${LOG_LEVEL_ORG_HIBERNATE:INFO}
-    org.mongodb.driver: ${LOG_LEVEL_MONGODB_DRIVER:WARN}
     org.apache.kafka: WARN
     org.springframework.boot.autoconfigure: WARN
 
@@ -221,19 +200,11 @@ app:
     retry:
       delay-millis: ${MERCHANT_RETRY_DELAY_MILLIS:2000}
       max-attempts: ${MERCHANT_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:10}}
-  payment:
-    base-url: ${IDPAY_PAYMENT_BASE_URL:}
-    retry:
-      delay-millis: ${PAYMENT_RETRY_DELAY_MILLIS:2000}
-      max-attempts: ${PAYMENT_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:10}}
   web-client:
     connect.timeout.millis: ${CONNECT_TIMEOUT_MILLIS:10000}
     response.timeout: ${RESPONSE_TIMEOUT:60000}
     read.handler.timeout: ${READ_TIMEOUT_HANDLER:60000}
     write.handler.timeout: ${WRITE_TIMEOUT_HANDLER:60000}
-  delete:
-    paginationSize: ${DELETE_PAGINATION_SIZE:45}
-    delayTime: ${DELETE_DELAY_TIME:1000}
   sampling: ${SAMPLING_HASH_SEED:15121984}
   data-factory:
     resource-group: ${DATA_FACTORY_RESOURCE_GROUP:}
