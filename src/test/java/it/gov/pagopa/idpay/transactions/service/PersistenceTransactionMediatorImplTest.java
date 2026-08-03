@@ -1,8 +1,10 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import it.gov.pagopa.common.kafka.utils.KafkaConstants;
 import it.gov.pagopa.common.utils.TestUtils;
-import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
@@ -21,10 +23,12 @@ import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,9 +39,6 @@ class PersistenceTransactionMediatorImplTest {
 
     @Mock
     private TransactionErrorNotifierService transactionErrorNotifierService;
-
-    @Mock
-    private PaymentRestClient paymentRestClient;
 
     @Mock
     private RewardTransactionMapper rewardTransactionMapper;
@@ -51,7 +52,6 @@ class PersistenceTransactionMediatorImplTest {
                 rewardTransactionService,
                 transactionErrorNotifierService,
                 rewardTransactionMapper,
-                paymentRestClient,
                 1000,
                 TestUtils.objectMapper
         );
@@ -93,36 +93,46 @@ class PersistenceTransactionMediatorImplTest {
                         Mockito.anyBoolean(),
                         Mockito.any(RuntimeException.class)
                 );
-        Mockito.verify(paymentRestClient, Mockito.never())
-                .cancelTransaction(Mockito.anyString(), Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
     }
 
     @Test
-    void executeShouldCancelWhenInvoiced() {
+    void executeShouldMapAndSaveInvoicedTransactionWithoutPaymentDeletion() {
         RewardTransactionDTO rtDTO = RewardTransactionDTOFaker.mockInstance(1);
-
-        Flux<Message<String>> messageFlux = Flux.just(rtDTO)
-                .map(TestUtils::jsonSerializer)
-                .map(payload -> MessageBuilder
-                        .withPayload(payload)
-                        .setHeader(KafkaHeaders.RECEIVED_PARTITION, 0)
-                        .setHeader(KafkaHeaders.OFFSET, 0L)
-                        .build()
-                );
-
         RewardTransaction rt = RewardTransactionFaker.mockInstance(1);
         rt.setStatus(SyncTrxStatus.INVOICED.name());
 
-        Mockito.when(rewardTransactionMapper.mapFromDTO(Mockito.any(RewardTransactionDTO.class)))
-                .thenReturn(rt);
-        Mockito.when(rewardTransactionService.save(rt)).thenReturn(Mono.just(rt));
-        Mockito.when(paymentRestClient.cancelTransaction(rt.getId(), rt.getMerchantId(), rt.getAcquirerId(), rt.getPointOfSaleId()))
-                .thenReturn(Mono.empty());
+        when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
+        when(rewardTransactionService.save(rt)).thenReturn(Mono.just(rt));
 
-        persistenceTransactionMediator.execute(messageFlux);
+        StepVerifier.create(persistenceTransactionMediator.execute(
+                        rtDTO,
+                        MessageBuilder.withPayload("payload").build(),
+                        Map.of()))
+                .expectNext(rt)
+                .verifyComplete();
 
-        Mockito.verify(paymentRestClient, Mockito.timeout(10000).times(1))
-                .cancelTransaction(rt.getId(), rt.getMerchantId(), rt.getAcquirerId(), rt.getPointOfSaleId());
+        verify(rewardTransactionMapper).mapFromDTO(rtDTO);
+        verify(rewardTransactionService).save(rt);
+    }
+
+    @Test
+    void executeShouldMapAndSaveNonInvoicedTransaction() {
+        RewardTransactionDTO rtDTO = RewardTransactionDTOFaker.mockInstance(1);
+        RewardTransaction rt = RewardTransactionFaker.mockInstance(1);
+        rt.setStatus(SyncTrxStatus.AUTHORIZED.name());
+
+        when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
+        when(rewardTransactionService.save(rt)).thenReturn(Mono.just(rt));
+
+        StepVerifier.create(persistenceTransactionMediator.execute(
+                        rtDTO,
+                        MessageBuilder.withPayload("payload").build(),
+                        Map.of()))
+                .expectNext(rt)
+                .verifyComplete();
+
+        verify(rewardTransactionMapper).mapFromDTO(rtDTO);
+        verify(rewardTransactionService).save(rt);
     }
     @Test
     void executeErrorDeserializer() {

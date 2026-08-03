@@ -6,8 +6,6 @@ import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import lombok.*;
 import lombok.experimental.FieldNameConstants;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -19,11 +17,10 @@ import java.util.Map;
 @Builder
 @FieldNameConstants
 @EqualsAndHashCode(of = {"id"}, callSuper = false)
-@Document(collection = "transaction")
 public class RewardTransaction {
 
-    @Id
     private String id;
+    private long transactionRevision;
     private String idTrxAcquirer;
     private String acquirerCode;
     private LocalDateTime trxDate;

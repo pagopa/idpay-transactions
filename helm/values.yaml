@@ -53,15 +53,11 @@ microservice-chart:
     runAsGroup: 10000
 
   envConfig:
-    MONGODB_DBNAME: "idpay"
     APPLICATIONINSIGHTS_ROLE_NAME: "idpaytransactions"
     APPLICATIONINSIGHTS_INSTRUMENTATION_LOGGING_LEVEL: "OFF"
     APPLICATIONINSIGHTS_INSTRUMENTATION_MICROMETER_ENABLED: "false"
     APPLICATIONINSIGHTS_PREVIEW_PROFILER_ENABLED: "false"
     KAFKA_NOTIFICATION_GROUP_ID: "idpay-commands-transactions-consumer-group"
-    DELETE_PAGINATION_SIZE: "45"
-    DELETE_DELAY_TIME: "1000"
-    HEALTH_MONGO_ENABLED: "false"
 
   externalConfigMapValues:
     idpay-common:
@@ -84,7 +80,9 @@ microservice-chart:
       MERCHANT_BASE_URL: idpay_merchant_host
 
   envSecret:
-    MONGODB_URI: mongodb-connection-string
+    POSTGRES_R2DBC_URL: postgresql-r2dbc-url
+    POSTGRES_USERNAME: postgresql-username
+    POSTGRES_PASSWORD: postgresql-password
     EVH_CONNECTION_REWARD_RESPONSE: evh-idpay-transaction-idpay-transaction-consumer-jaas-config-idpay-00
     KAFKA_ERRORS_SASL_JAAS_CONFIG: evh-idpay-errors-idpay-errors-producer-jaas-config-idpay-01
     KAFKA_COMMANDS_SASL_JAAS_CONFIG: evh-idpay-commands-idpay-commands-consumer-jaas-config-idpay-01

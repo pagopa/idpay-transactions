@@ -1,34 +1,36 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
-import it.gov.pagopa.idpay.transactions.data.factory.DataFactoryService;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.MerchantDetailDTO;
-import it.gov.pagopa.idpay.transactions.dto.DownloadReportResponseDTO;
+import it.gov.pagopa.idpay.transactions.data.factory.DataFactoryService;
 import it.gov.pagopa.idpay.transactions.dto.PatchReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.ReportDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReportRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ReportMapper;
-import it.gov.pagopa.idpay.transactions.dto.report.Report2RunDto;
 import it.gov.pagopa.idpay.transactions.dto.report.ReportGenerateForce;
 import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
 import it.gov.pagopa.idpay.transactions.enums.ReportType;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
-import it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException;
 import it.gov.pagopa.idpay.transactions.model.Report;
-import it.gov.pagopa.idpay.transactions.repository.ReportRepository;
+import it.gov.pagopa.idpay.transactions.persistence.port.ReportPersistencePort;
 import it.gov.pagopa.idpay.transactions.storage.ReportTransactionsBlobServiceImpl;
 import it.gov.pagopa.idpay.transactions.storage.ReportUserDetailsBlobServiceImpl;
-import it.gov.pagopa.idpay.transactions.utils.Utilities;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -37,1682 +39,367 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
-import static it.gov.pagopa.idpay.transactions.service.ReportServiceImpl.ALLOWED_ROLES;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REPORT_NOT_FOUND;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_REPORT_NOT_FOUND;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-import static org.springframework.http.HttpStatus.BAD_REQUEST;
-
 @ExtendWith(MockitoExtension.class)
 class ReportServiceImplTest {
 
-    @Mock
-    private ReportRepository reportRepository;
-
-    @Mock
-    private MerchantRestClient merchantRestClient;
-
-    @Mock
-    private ReportMapper reportMapper;
-
-    @Mock
-    private DataFactoryService dataFactoryServiceMock;
-
+    @Mock private ReportPersistencePort reportPort;
+    @Mock private MerchantRestClient merchantRestClient;
+    @Mock private ReportMapper reportMapper;
+    @Mock private ReportTransactionsBlobServiceImpl transactionBlobService;
+    @Mock private ReportUserDetailsBlobServiceImpl userDetailsBlobService;
+    @Mock private DataFactoryService dataFactoryService;
     private ReportServiceImpl service;
 
-    @Mock
-    private ReportTransactionsBlobServiceImpl reportTransactionsBlobService;
-
-    @Mock
-    private ReportUserDetailsBlobServiceImpl reportUserDetailsBlobService;
-
-
-    private static final String MERCHANT_ID = "M1";
-    private static final String INITIATIVE_ID = "INIT1";
-    private static final String ORGANIZATION_ROLE = "operator1";
-    private static final long PERIOD_LENGTH = 90;
-
     @BeforeEach
-    void setup() {
-        service = new ReportServiceImpl(PERIOD_LENGTH, reportRepository, merchantRestClient, reportMapper, reportTransactionsBlobService, reportUserDetailsBlobService, dataFactoryServiceMock);
+    void setUp() {
+        service = new ReportServiceImpl(
+                90, reportPort, merchantRestClient, reportMapper, transactionBlobService,
+                userDetailsBlobService, dataFactoryService);
     }
 
     @Test
-    void getUserDetailsReports_success() {
-        Pageable pageable = PageRequest.of(0, 10);
-        Pageable sortedPageable = PageRequest.of(
-                pageable.getPageNumber(),
-                pageable.getPageSize(),
-                Sort.by(Sort.Direction.DESC, "requestDate")
-        );
-
-        Report report = Report.builder()
-                .id("R30")
-                .initiativeId(INITIATIVE_ID)
-                .reportStatus(ReportStatus.INSERTED)
-                .operatorLevel(RewardBatchAssignee.L1)
-                .build();
-
-        when(reportRepository.findReportsCombined(
-                isNull(),
-                eq(ORGANIZATION_ROLE),
-                eq(INITIATIVE_ID),
-                eq(ReportType.USER_DETAILS),
-                eq(sortedPageable)
-        )).thenReturn(Flux.just(report));
-
-        when(reportRepository.countReportsCombined(
-                isNull(),
-                eq(ORGANIZATION_ROLE),
-                eq(INITIATIVE_ID),
-                eq(ReportType.USER_DETAILS)
-        )).thenReturn(Mono.just(1L));
-
-        StepVerifier.create(service.getUserDetailsReports(
-                        ORGANIZATION_ROLE,
-                        INITIATIVE_ID,
-                        pageable))
-                .assertNext(page -> {
-                    assertEquals(1, page.getTotalElements());
-                    assertEquals("R30", page.getContent().get(0).getId());
-                })
-                .verifyComplete();
-    }
-
-    @Test
-    void getReports_withMerchantId_overridesReportType() {
-        Pageable pageable = PageRequest.of(0, 10);
-        Pageable sortedPageable = PageRequest.of(
-                pageable.getPageNumber(),
-                pageable.getPageSize(),
-                Sort.by(Sort.Direction.DESC, "requestDate")
-        );
-
-        Report report = Report.builder()
-                .id("R10")
-                .initiativeId(INITIATIVE_ID)
-                .merchantId(MERCHANT_ID)
-                .reportStatus(ReportStatus.INSERTED)
-                .build();
-
-        when(reportRepository.findReportsCombined(
-                eq(MERCHANT_ID),
-                isNull(),
-                eq(INITIATIVE_ID),
-                eq(ReportType.MERCHANT_TRANSACTIONS),
-                eq(sortedPageable)
-        )).thenReturn(Flux.just(report));
-
-        when(reportRepository.countReportsCombined(
-                eq(MERCHANT_ID),
-                isNull(),
-                eq(INITIATIVE_ID),
-                eq(ReportType.MERCHANT_TRANSACTIONS)
-        )).thenReturn(Mono.just(1L));
+    void merchantReportsUseMerchantScopeAndMatchingCount() {
+        Report report = report("merchant-report", ReportType.MERCHANT_TRANSACTIONS);
+        Pageable requested = PageRequest.of(1, 2);
+        Pageable expected = PageRequest.of(1, 2, Sort.by(Sort.Direction.DESC, "requestDate"));
+        when(reportPort.findReports(
+                "merchant", null, "initiative",
+                ReportType.MERCHANT_TRANSACTIONS, expected)).thenReturn(Flux.just(report));
+        when(reportPort.countReports(
+                "merchant", null, "initiative", ReportType.MERCHANT_TRANSACTIONS))
+                .thenReturn(Mono.just(3L));
 
         StepVerifier.create(service.getReports(
-                        MERCHANT_ID,
-                        null,
-                        INITIATIVE_ID,
-                        ReportType.USER_DETAILS,
-                        pageable))
+                        "merchant", null, "initiative", ReportType.USER_DETAILS, requested))
                 .assertNext(page -> {
-                    assertEquals(1, page.getTotalElements());
-                    assertEquals("R10", page.getContent().get(0).getId());
+                    assertEquals(3, page.getTotalElements());
+                    assertEquals("merchant-report", page.getContent().getFirst().getId());
                 })
                 .verifyComplete();
     }
 
     @Test
-    void getReports_throwsBadRequest_whenReportTypeNullAndNoMerchantId() {
-        Pageable pageable = PageRequest.of(0, 10);
+    void operatorUserDetailsReportsUseOperatorScopeAndMatchingCount() {
+        Report report = report("operator-report", ReportType.USER_DETAILS);
+        Pageable expected = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "requestDate"));
+        when(reportPort.findReports(
+                null, "operator1", "initiative", ReportType.USER_DETAILS, expected))
+                .thenReturn(Flux.just(report));
+        when(reportPort.countReports(null, "operator1", "initiative", ReportType.USER_DETAILS))
+                .thenReturn(Mono.just(1L));
 
-        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class,
-                () -> service.getReports(
-                        null,
-                        ORGANIZATION_ROLE,
-                        INITIATIVE_ID,
-                        null,
-                        pageable
-                ));
-
-        assertEquals(400, ex.getHttpStatus().value());
+        StepVerifier.create(service.getUserDetailsReports("operator1", "initiative", PageRequest.of(0, 10)))
+                .assertNext(page -> assertEquals("operator-report", page.getContent().getFirst().getId()))
+                .verifyComplete();
     }
 
     @Test
-    void getReports_userDetailsBranch_success() {
+    void patchLoadsWithinInitiativeScopeBeforeSaving() {
+        Report report = report("report", ReportType.USER_DETAILS);
+        PatchReportRequest request = new PatchReportRequest();
+        request.setReportStatus(ReportStatus.GENERATED);
+        ReportDTO dto = ReportDTO.builder().id("report").build();
+        when(reportPort.findByIdAndInitiativeId("report", "initiative")).thenReturn(Mono.just(report));
+        when(reportPort.save(report)).thenReturn(Mono.just(report));
+        when(reportMapper.toDTO(report)).thenReturn(dto);
+
+        StepVerifier.create(service.patchReport("initiative", "report", request))
+                .expectNext(dto)
+                .verifyComplete();
+
+        verify(reportPort).findByIdAndInitiativeId("report", "initiative");
+        verify(reportPort).save(report);
+        assertEquals(ReportStatus.GENERATED, report.getReportStatus());
+    }
+
+    @Test
+    void invalidReportQueriesFailBeforePersistenceAccess() {
         Pageable pageable = PageRequest.of(0, 10);
-        Pageable sortedPageable = PageRequest.of(
-                pageable.getPageNumber(),
-                pageable.getPageSize(),
-                Sort.by(Sort.Direction.DESC, "requestDate")
-        );
+        assertThrows(ClientExceptionWithBody.class,
+                () -> service.getReports(null, null, "initiative", null, pageable));
+        assertThrows(ClientExceptionWithBody.class,
+                () -> service.getTransactionsReports(null, null, "initiative", pageable));
+    }
 
-        Report report = Report.builder()
-                .id("R20")
-                .initiativeId(INITIATIVE_ID)
-                .reportStatus(ReportStatus.INSERTED)
-                .operatorLevel(RewardBatchAssignee.L1)
-                .build();
+    @Test
+    void reportListValidationRejectsConflictingAndInvalidOperatorScopes() {
+        Pageable pageable = PageRequest.of(0, 10);
+        assertThrows(ClientExceptionWithBody.class, () -> service.getTransactionsReports(
+                "merchant", "operator1", "initiative", pageable));
+        assertThrows(ClientExceptionWithBody.class, () -> service.getTransactionsReports(
+                null, "admin", "initiative", pageable));
+        assertThrows(ClientExceptionWithBody.class, () -> service.getUserDetailsReports(
+                " ", "initiative", pageable));
+    }
 
-        when(reportRepository.findReportsCombined(
-                isNull(),
-                eq(ORGANIZATION_ROLE),
-                eq(INITIATIVE_ID),
-                eq(ReportType.USER_DETAILS),
-                eq(sortedPageable)
-        )).thenReturn(Flux.just(report));
+    @Test
+    void generatesMerchantReportPersistsItAndTriggersPipeline() {
+        ReportRequest request = validRequest(ReportType.MERCHANT_TRANSACTIONS);
+        MerchantDetailDTO merchant = new MerchantDetailDTO();
+        merchant.setBusinessName("Business");
+        Report saved = report("report", ReportType.MERCHANT_TRANSACTIONS);
+        ReportDTO dto = ReportDTO.builder().id("report").build();
+        when(merchantRestClient.getMerchantDetail("merchant", "initiative")).thenReturn(Mono.just(merchant));
+        when(reportPort.save(any())).thenReturn(Mono.just(saved));
+        when(dataFactoryService.triggerTransactionReportPipeline(saved)).thenReturn(Mono.just("run"));
+        when(reportMapper.toDTO(saved)).thenReturn(dto);
 
-        when(reportRepository.countReportsCombined(
-                isNull(),
-                eq(ORGANIZATION_ROLE),
-                eq(INITIATIVE_ID),
-                eq(ReportType.USER_DETAILS)
-        )).thenReturn(Mono.just(1L));
+        StepVerifier.create(service.generateMerchantTransactionsReport(
+                        "merchant", "operator1", "initiative", request))
+                .expectNext(dto).verifyComplete();
+
+        verify(reportPort).save(argThat(created ->
+                created.getMerchantId().equals("merchant")
+                        && created.getReportStatus() == ReportStatus.INSERTED
+                        && created.getReportType() == ReportType.MERCHANT_TRANSACTIONS));
+        verify(dataFactoryService).triggerTransactionReportPipeline(saved);
+    }
+
+    @Test
+    void merchantPipelineFailureMarksThePersistedReportFailed() {
+        ReportRequest request = validRequest(ReportType.MERCHANT_TRANSACTIONS);
+        MerchantDetailDTO merchant = new MerchantDetailDTO();
+        merchant.setBusinessName("Business");
+        Report saved = report("report", ReportType.MERCHANT_TRANSACTIONS);
+        ReportDTO dto = ReportDTO.builder().id("report").build();
+        when(merchantRestClient.getMerchantDetail("merchant", "initiative")).thenReturn(Mono.just(merchant));
+        when(reportPort.save(any())).thenReturn(Mono.just(saved));
+        when(dataFactoryService.triggerTransactionReportPipeline(saved)).thenReturn(Mono.error(
+                new it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException("storage", new RuntimeException())));
+        when(reportMapper.toDTO(saved)).thenReturn(dto);
+
+        StepVerifier.create(service.generateMerchantTransactionsReport(
+                        "merchant", "operator1", "initiative", request))
+                .expectNext(dto).verifyComplete();
+
+        assertEquals(ReportStatus.FAILED, saved.getReportStatus());
+        verify(reportPort, times(2)).save(any());
+    }
+
+    @Test
+    void generationValidatesPeriodsBeforeCallingPorts() {
+        ReportRequest invalid = new ReportRequest();
+        invalid.setReportType(ReportType.MERCHANT_TRANSACTIONS);
+        invalid.setStartPeriod(LocalDateTime.now().minusDays(1));
+        invalid.setEndPeriod(LocalDateTime.now().minusDays(2));
+
+        StepVerifier.create(service.generateMerchantTransactionsReport(
+                        "merchant", "operator1", "initiative", invalid))
+                .expectError(ClientExceptionWithBody.class).verify();
+
+        ReportRequest tooLong = validRequest(ReportType.USER_DETAILS);
+        tooLong.setStartPeriod(LocalDateTime.now().minusDays(100));
+        StepVerifier.create(service.generateMerchantTransactionsReport(
+                        "merchant", "operator1", "initiative", tooLong))
+                .expectError(ClientExceptionWithBody.class).verify();
+    }
+
+    @Test
+    void generatesUserDetailsReportAndTriggersItsPipeline() {
+        ReportRequest request = validRequest(ReportType.USER_DETAILS);
+        Report saved = report("report", ReportType.USER_DETAILS);
+        ReportDTO dto = ReportDTO.builder().id("report").build();
+        when(reportPort.save(any())).thenReturn(Mono.just(saved));
+        when(dataFactoryService.triggerUserDetailsReportPipeline(saved)).thenReturn(Mono.just("run"));
+        when(reportMapper.toDTO(saved)).thenReturn(dto);
+
+        StepVerifier.create(service.generateUserDetailsReport("operator2", "initiative", request))
+                .expectNext(dto).verifyComplete();
+
+        verify(dataFactoryService).triggerUserDetailsReportPipeline(saved);
+    }
+
+    @Test
+    void patchAndForceGenerationSurfaceScopedNotFoundAndUsePersistedReports() {
+        when(reportPort.findByIdAndInitiativeId("missing", "initiative")).thenReturn(Mono.empty());
+        StepVerifier.create(service.patchReport("initiative", "missing", new PatchReportRequest()))
+                .expectError(ClientExceptionWithBody.class).verify();
+
+        Report report = report("report", ReportType.MERCHANT_TRANSACTIONS);
+        when(reportPort.findAllById(List.of("report"))).thenReturn(Flux.just(report));
+        when(dataFactoryService.triggerTransactionReportPipeline(report)).thenReturn(Mono.just("run"));
+        ReportGenerateForce forceRequest = new ReportGenerateForce();
+        forceRequest.setReportsId(List.of("report"));
+        StepVerifier.create(service.forceGenerateReports(forceRequest))
+                .assertNext(runs -> assertEquals("report", runs.getFirst().getReportId()))
+                .verifyComplete();
+    }
+
+    @Test
+    void downloadsGeneratedMerchantAndUserDetailsReportsFromTheirScopedBlobs() {
+        Report merchant = report("merchant-report", ReportType.MERCHANT_TRANSACTIONS);
+        merchant.setMerchantId("merchant");
+        merchant.setFileName("merchant.csv");
+        merchant.setReportStatus(ReportStatus.GENERATED);
+        when(reportPort.findByIdAndInitiativeIdAndMerchantId("merchant-report", "initiative", "merchant"))
+                .thenReturn(Mono.just(merchant));
+        when(transactionBlobService.getFileSignedUrl(
+                "initiative/initiative/merchant/merchant/report/merchant.csv")).thenReturn("merchant-url");
+        StepVerifier.create(service.downloadTransactionsReport(
+                        "merchant", null, "initiative", "merchant-report"))
+                .assertNext(result -> assertEquals("merchant-url", result.getReportUrl())).verifyComplete();
+
+        Report user = report("user-report", ReportType.USER_DETAILS);
+        user.setFileName("users.csv");
+        user.setReportStatus(ReportStatus.GENERATED);
+        when(reportPort.findByIdAndInitiativeId("user-report", "initiative")).thenReturn(Mono.just(user));
+        when(userDetailsBlobService.getFileSignedUrl("initiative/initiative/report/users.csv"))
+                .thenReturn("users-url");
+        StepVerifier.create(service.downloadUserDetailsReports("operator3", "initiative", "user-report"))
+                .assertNext(result -> assertEquals("users-url", result.getReportUrl())).verifyComplete();
+    }
+
+    @Test
+    void downloadValidationRejectsMissingScopesAndIncompleteReports() {
+        StepVerifier.create(service.downloadTransactionsReport(null, null, "initiative", "report"))
+                .expectError(ClientExceptionWithBody.class).verify();
+        StepVerifier.create(service.downloadUserDetailsReports("admin", "initiative", "report"))
+                .expectError(ClientExceptionWithBody.class).verify();
+
+        Report notGenerated = report("report", ReportType.MERCHANT_TRANSACTIONS);
+        notGenerated.setMerchantId("merchant");
+        notGenerated.setFileName("file.csv");
+        when(reportPort.findByIdAndInitiativeIdAndMerchantId("report", "initiative", "merchant"))
+                .thenReturn(Mono.just(notGenerated));
+        StepVerifier.create(service.downloadTransactionsReport("merchant", null, "initiative", "report"))
+                .expectError(ClientExceptionWithBody.class).verify();
+    }
+
+    @Test
+    void getReportsDispatchesUserDetailsAndReturnsAnEmptyPage() {
+        Pageable expected = PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "requestDate"));
+        when(reportPort.findReports(null, "operator1", "initiative", ReportType.USER_DETAILS, expected))
+                .thenReturn(Flux.empty());
+        when(reportPort.countReports(null, "operator1", "initiative", ReportType.USER_DETAILS))
+                .thenReturn(Mono.just(0L));
 
         StepVerifier.create(service.getReports(
-                        null,
-                        ORGANIZATION_ROLE,
-                        INITIATIVE_ID,
-                        ReportType.USER_DETAILS,
-                        pageable))
-                .assertNext(page -> {
-                    assertEquals(1, page.getTotalElements());
-                    assertEquals("R20", page.getContent().get(0).getId());
-                })
+                        null, "operator1", "initiative", ReportType.USER_DETAILS, PageRequest.of(0, 5)))
+                .assertNext(page -> assertEquals(0, page.getTotalElements()))
                 .verifyComplete();
     }
 
     @Test
-    void getUserDetailsReports_throwsBadRequest_whenRoleBlank() {
-        Pageable pageable = PageRequest.of(0, 10);
+    void userDetailsPipelineFailureIsPersistedAsFailed() {
+        Report saved = report("report", ReportType.USER_DETAILS);
+        ReportDTO dto = ReportDTO.builder().id("report").build();
+        when(reportPort.save(any())).thenReturn(Mono.just(saved));
+        when(dataFactoryService.triggerUserDetailsReportPipeline(saved)).thenReturn(Mono.error(
+                new it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException("storage", new RuntimeException())));
+        when(reportMapper.toDTO(saved)).thenReturn(dto);
 
-        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class,
-                () -> service.getUserDetailsReports(
-                        "",
-                        INITIATIVE_ID,
-                        pageable
-                ));
+        StepVerifier.create(service.generateUserDetailsReport(
+                        "operator1", "initiative", validRequest(ReportType.USER_DETAILS)))
+                .expectNext(dto).verifyComplete();
 
-        assertEquals(400, ex.getHttpStatus().value());
+        assertEquals(ReportStatus.FAILED, saved.getReportStatus());
+        verify(reportPort, times(2)).save(any());
     }
 
     @Test
-    void getUserDetailsReports_throwsBadRequest_whenInvalidRole() {
-        Pageable pageable = PageRequest.of(0, 10);
-
-        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class,
-                () -> service.getUserDetailsReports(
-                        "admin",
-                        INITIATIVE_ID,
-                        pageable
-                ));
-
-        assertEquals(400, ex.getHttpStatus().value());
-        assertEquals("INVALID_ORGANIZATION_ROLE", ex.getCode());
-    }
-
-    @Test
-    void getReports_withBlankMerchantId_doesNotOverrideReportType() {
-        Pageable pageable = PageRequest.of(0, 10);
-        Pageable sortedPageable = PageRequest.of(
-                pageable.getPageNumber(),
-                pageable.getPageSize(),
-                Sort.by(Sort.Direction.DESC, "requestDate")
-        );
-
-        Report report = Report.builder()
-                .id("RB1")
-                .initiativeId(INITIATIVE_ID)
-                .reportStatus(ReportStatus.INSERTED)
-                .operatorLevel(RewardBatchAssignee.L1)
-                .build();
-
-        when(reportRepository.findReportsCombined(
-                isNull(),
-                eq(ORGANIZATION_ROLE),
-                eq(INITIATIVE_ID),
-                eq(ReportType.USER_DETAILS),
-                eq(sortedPageable)
-        )).thenReturn(Flux.just(report));
-
-        when(reportRepository.countReportsCombined(
-                isNull(),
-                eq(ORGANIZATION_ROLE),
-                eq(INITIATIVE_ID),
-                eq(ReportType.USER_DETAILS)
-        )).thenReturn(Mono.just(1L));
-
-        StepVerifier.create(service.getReports(
-                        "   ",
-                        ORGANIZATION_ROLE,
-                        INITIATIVE_ID,
-                        ReportType.USER_DETAILS,
-                        pageable))
-                .assertNext(page -> {
-                    assertEquals(1, page.getTotalElements());
-                    assertEquals("RB1", page.getContent().get(0).getId());
-                })
-                .verifyComplete();
-    }
-
-    @Test
-    void getTransactionsReports_returnsPage_success() {
-
-        Pageable pageable = PageRequest.of(0, 10);
-        Pageable sortedPageable = PageRequest.of(
-                pageable.getPageNumber(),
-                pageable.getPageSize(),
-                Sort.by(Sort.Direction.DESC, "requestDate")
-        );
-
-        Report report = Report.builder()
-                .id("R1")
-                .initiativeId(INITIATIVE_ID)
-                .merchantId(MERCHANT_ID)
-                .reportStatus(ReportStatus.INSERTED)
-                .operatorLevel(null)
-                .build();
-
-        when(reportRepository.findReportsCombined(
-                eq(MERCHANT_ID),
-                isNull(),
-                eq(INITIATIVE_ID),
-                eq(ReportType.MERCHANT_TRANSACTIONS),
-                eq(sortedPageable)
-        )).thenReturn(Flux.just(report));
-
-        when(reportRepository.countReportsCombined(
-                eq(MERCHANT_ID),
-                isNull(),
-                eq(INITIATIVE_ID),
-                eq(ReportType.MERCHANT_TRANSACTIONS)
-        )).thenReturn(Mono.just(1L));
-
-        try (MockedStatic<Utilities> utilitiesMock = mockStatic(Utilities.class, CALLS_REAL_METHODS)) {
-            utilitiesMock.when(() -> Utilities.sanitizeString(null)).thenReturn(null);
-
-            StepVerifier.create(service.getTransactionsReports(MERCHANT_ID, null, INITIATIVE_ID, pageable))
-                    .assertNext(page -> {
-                        assertEquals(1, page.getTotalElements());
-                        assertEquals("R1", page.getContent().get(0).getId());
-                    })
-                    .verifyComplete();
-        }
-    }
-
-    @Test
-    void getTransactionsReports_throwsBadRequest_whenMerchantIdAndRoleNull() {
-        Pageable pageable = PageRequest.of(0, 10);
-
-        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class,
-                () -> service.getTransactionsReports(null, null, INITIATIVE_ID, pageable));
-
-        assertEquals(400, ex.getHttpStatus().value());
-    }
-
-    @Test
-    void getTransactionsReports_returnsEmpty_whenNoReports() {
-        Pageable pageable = PageRequest.of(0, 10);
-        Pageable sortedPageable = PageRequest.of(
-                pageable.getPageNumber(),
-                pageable.getPageSize(),
-                Sort.by(Sort.Direction.DESC, "requestDate")
-        );
-
-        when(reportRepository.findReportsCombined(
-                eq(MERCHANT_ID),
-                isNull(),
-                eq(INITIATIVE_ID),
-                eq(ReportType.MERCHANT_TRANSACTIONS),
-                eq(sortedPageable)
-        )).thenReturn(Flux.empty());
-
-        when(reportRepository.countReportsCombined(
-                eq(MERCHANT_ID),
-                isNull(),
-                eq(INITIATIVE_ID),
-                eq(ReportType.MERCHANT_TRANSACTIONS)
-        )).thenReturn(Mono.just(0L));
-
-        try (MockedStatic<Utilities> utilitiesMock = mockStatic(Utilities.class, CALLS_REAL_METHODS)) {
-            utilitiesMock.when(() -> Utilities.sanitizeString(null)).thenReturn(null);
-
-            StepVerifier.create(service.getTransactionsReports(MERCHANT_ID, null, INITIATIVE_ID, pageable))
-                    .assertNext(page -> {
-                        assertTrue(page.getContent().isEmpty());
-                        assertEquals(0, page.getTotalElements());
-                    })
-                    .verifyComplete();
-        }
-    }
-
-    @Test
-    void getTransactionsReports_onlyOrganizationRole_success() {
-        Pageable pageable = PageRequest.of(0, 10);
-        Pageable sortedPageable = PageRequest.of( pageable.getPageNumber(),
-                pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "requestDate"));
-
-
-        Report report = Report.builder()
-                .id("R2")
-                .initiativeId(INITIATIVE_ID)
-                .merchantId(null)
-                .businessName("Business")
-                .reportStatus(ReportStatus.INSERTED)
-                .operatorLevel(RewardBatchAssignee.L1)
-                .fileName("report2.csv")
-                .requestDate(LocalDateTime.now())
-                .elaborationDate(LocalDateTime.now())
-                .build();
-
-        when(reportRepository.findReportsCombined(
-                isNull(),
-                eq(ORGANIZATION_ROLE),
-                eq(INITIATIVE_ID),
-                eq(ReportType.MERCHANT_TRANSACTIONS),
-                eq(sortedPageable)
-        )).thenReturn(Flux.just(report));
-
-        when(reportRepository.countReportsCombined(
-                isNull(),
-                eq(ORGANIZATION_ROLE),
-                eq(INITIATIVE_ID),
-                eq(ReportType.MERCHANT_TRANSACTIONS)
-        )).thenReturn(Mono.just(1L));
-
-        StepVerifier.create(service.getTransactionsReports(null, ORGANIZATION_ROLE, INITIATIVE_ID, pageable))
-                .assertNext(page -> {
-                    assertNotNull(page);
-                    assertEquals(1, page.getTotalElements());
-                    assertEquals("R2", page.getContent().get(0).getId());
-                })
-                .verifyComplete();
-    }
-
-    @Test
-    void getTransactionsReports_onlyMerchantId_success() {
-        Pageable pageable = PageRequest.of(0, 10);
-        Pageable sortedPageable = PageRequest.of(
-                pageable.getPageNumber(),
-                pageable.getPageSize(),
-                Sort.by(Sort.Direction.DESC, "requestDate")
-        );
-
-        Report report = Report.builder()
-                .id("R3")
-                .initiativeId(INITIATIVE_ID)
-                .merchantId(MERCHANT_ID)
-                .businessName("Business")
-                .reportStatus(ReportStatus.INSERTED)
-                .operatorLevel(RewardBatchAssignee.L1)
-                .fileName("report3.csv")
-                .requestDate(LocalDateTime.now())
-                .elaborationDate(LocalDateTime.now())
-                .build();
-
-        when(reportRepository.findReportsCombined(
-                eq(MERCHANT_ID),
-                isNull(),
-                eq(INITIATIVE_ID),
-                eq(ReportType.MERCHANT_TRANSACTIONS),
-                eq(sortedPageable)
-        )).thenReturn(Flux.just(report));
-
-        when(reportRepository.countReportsCombined(
-                eq(MERCHANT_ID),
-                isNull(),
-                eq(INITIATIVE_ID),
-                eq(ReportType.MERCHANT_TRANSACTIONS)
-        )).thenReturn(Mono.just(1L));
-
-        try (MockedStatic<Utilities> utilitiesMock = mockStatic(Utilities.class, CALLS_REAL_METHODS)) {
-            utilitiesMock.when(() -> Utilities.sanitizeString(null)).thenReturn(null);
-
-            StepVerifier.create(service.getTransactionsReports(MERCHANT_ID, null, INITIATIVE_ID, pageable))
-                    .assertNext(page -> {
-                        assertNotNull(page);
-                        assertEquals(1, page.getTotalElements());
-                        assertEquals("R3", page.getContent().get(0).getId());
-                    })
-                    .verifyComplete();
-        }
-    }
-
-    @Test
-    void getTransactionsReports_throwsBadRequest_whenMerchantIdAndRoleBothPresent() {
-        Pageable pageable = PageRequest.of(0, 10);
-
-        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class,
-                () -> service.getTransactionsReports(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, pageable));
-
-        assertEquals(400, ex.getHttpStatus().value());
-    }
-
-    @Test
-    void getTransactionsReports_throwsBadRequest_whenOrganizationRoleDoesNotContainOperator() {
-        Pageable pageable = PageRequest.of(0, 10);
-        String invalidRole = "admin";
-
-        ClientExceptionWithBody ex = assertThrows(ClientExceptionWithBody.class,
-                () -> service.getTransactionsReports(null, invalidRole, INITIATIVE_ID, pageable));
-
-        assertEquals(400, ex.getHttpStatus().value());
-        assertEquals("INVALID_ORGANIZATION_ROLE", ex.getCode());
-        assertEquals("The provided organization role is not a valid operator", ex.getMessage());
-    }
-
-    @Test
-    void generateReport_merchantTransactions_success() {
-        ReportRequest request = new ReportRequest();
-        request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
-        request.setStartPeriod(LocalDateTime.now().minusDays(10));
-        request.setEndPeriod(LocalDateTime.now());
-
-        ReportDTO expectedDto = ReportDTO.builder().id("R1").build();
-
-        ReportServiceImpl spyService = spy(service);
-        doReturn(Mono.just(expectedDto))
-                .when(spyService)
-                .generateMerchantTransactionsReport(any(), any(), any(), any());
-
-        StepVerifier.create(spyService.generateReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                .expectNext(expectedDto)
-                .verifyComplete();
-
-        verify(spyService, times(1))
-                .generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request);
-    }
-
-    @Test
-    void generateMerchantTransactionsReport_success() {
-        ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(5));
-        request.setEndPeriod(LocalDateTime.now().minusDays(1));
-        request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
-
-        MerchantDetailDTO merchant = new MerchantDetailDTO();
-        merchant.setBusinessName("Test Business");
-
-        Report savedReport = Report.builder()
-                .id("R100")
-                .initiativeId(INITIATIVE_ID)
-                .merchantId(MERCHANT_ID)
-                .businessName("Test Business")
-                .fileName("Report_01012026120000")
-                .reportStatus(ReportStatus.INSERTED)
-                .build();
-
-        ReportDTO mappedDto = ReportDTO.builder()
-                .id("R100")
-                .fileName(savedReport.getFileName())
-                .businessName(savedReport.getBusinessName())
-                .build();
-
-        when(merchantRestClient.getMerchantDetail(MERCHANT_ID, INITIATIVE_ID))
+    void downloadReportsDispatchesByPersistedTypeAndRejectsUnknownType() {
+        Report merchant = report("merchant-report", ReportType.MERCHANT_TRANSACTIONS);
+        merchant.setMerchantId("merchant");
+        merchant.setFileName("merchant.csv");
+        merchant.setReportStatus(ReportStatus.GENERATED);
+        when(reportPort.findByIdAndInitiativeId("merchant-report", "initiative")).thenReturn(Mono.just(merchant));
+        when(reportPort.findByIdAndInitiativeIdAndMerchantId("merchant-report", "initiative", "merchant"))
                 .thenReturn(Mono.just(merchant));
+        when(transactionBlobService.getFileSignedUrl(
+                "initiative/initiative/merchant/merchant/report/merchant.csv")).thenReturn("url");
+        StepVerifier.create(service.downloadReports("merchant", null, "initiative", "merchant-report"))
+                .assertNext(result -> assertEquals("url", result.getReportUrl())).verifyComplete();
 
-        when(reportRepository.save(any()))
-                .thenReturn(Mono.just(savedReport));
-
-        when(dataFactoryServiceMock.triggerTransactionReportPipeline(savedReport)).thenReturn(Mono.just("RUN_ID"));
-
-        when(reportMapper.toDTO(savedReport))
-                .thenReturn(mappedDto);
-
-        StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                .expectNext(mappedDto)
-                .verifyComplete();
-
-        verify(merchantRestClient).getMerchantDetail(MERCHANT_ID, INITIATIVE_ID);
-        verify(reportRepository).save(any(Report.class));
-        verify(reportMapper).toDTO(savedReport);
+        when(reportPort.findByIdAndInitiativeId("missing", "initiative")).thenReturn(Mono.empty());
+        StepVerifier.create(service.downloadReports(null, "operator1", "initiative", "missing"))
+                .expectError(ClientExceptionWithBody.class).verify();
     }
 
     @Test
-    void generateMerchantTransactionsReport_merchantDetailError() {
-        ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(5));
-        request.setEndPeriod(LocalDateTime.now().minusDays(1));
-        request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
-
-        RuntimeException remoteError = new RuntimeException("Merchant not found");
-
-        when(merchantRestClient.getMerchantDetail(MERCHANT_ID, INITIATIVE_ID))
-                .thenReturn(Mono.error(remoteError));
-
-        StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                .expectErrorMatches(err -> err instanceof RuntimeException &&
-                        err.getMessage().equals("Merchant not found"))
-                .verify();
-
-        verify(merchantRestClient).getMerchantDetail(MERCHANT_ID, INITIATIVE_ID);
-        verifyNoInteractions(reportRepository);
-        verifyNoInteractions(reportMapper);
-    }
-    @Test
-    void generateMerchantTransactionsReport_saveError() {
-        ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(5));
-        request.setEndPeriod(LocalDateTime.now().minusDays(1));
-        request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
-
-        MerchantDetailDTO merchant = new MerchantDetailDTO();
-        merchant.setBusinessName("Test Business");
-
-        when(merchantRestClient.getMerchantDetail(MERCHANT_ID, INITIATIVE_ID))
-                .thenReturn(Mono.just(merchant));
-
-        RuntimeException saveError = new RuntimeException("DB error");
-
-        when(reportRepository.save(any()))
-                .thenReturn(Mono.error(saveError));
-
-        StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                .expectErrorMatches(err -> err instanceof RuntimeException &&
-                        err.getMessage().equals("DB error"))
-                .verify();
-
-        verify(merchantRestClient).getMerchantDetail(MERCHANT_ID, INITIATIVE_ID);
-        verify(reportRepository).save(any());
-        verifyNoInteractions(reportMapper);
-    }
-    @Test
-    void generateMerchantTransactionsReport_fileNameGeneratedCorrectly() {
-        ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.of(2026, 1, 1, 0, 0));
-        request.setEndPeriod(LocalDateTime.of(2026, 1, 31, 23, 59));
-        request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
-
-        MerchantDetailDTO merchant = new MerchantDetailDTO();
-        merchant.setBusinessName("Business");
-
-        LocalDateTime fixedNow = LocalDateTime.of(2026, 2, 1, 12, 30, 45);
-
-        try (MockedStatic<LocalDateTime> mocked = mockStatic(LocalDateTime.class, CALLS_REAL_METHODS)) {
-            mocked.when(LocalDateTime::now).thenReturn(fixedNow);
-
-            when(merchantRestClient.getMerchantDetail(MERCHANT_ID, INITIATIVE_ID))
-                    .thenReturn(Mono.just(merchant));
-
-            ArgumentCaptor<Report> captor = ArgumentCaptor.forClass(Report.class);
-
-            Report saved = Report.builder()
-                    .id("R200")
-                    .fileName("Report_01022026123045")
-                    .build();
-
-            when(reportRepository.save(any())).thenReturn(Mono.just(saved));
-            when(dataFactoryServiceMock.triggerTransactionReportPipeline(saved)).thenReturn(Mono.just("RUN_ID"));
-            when(reportMapper.toDTO(saved)).thenReturn(ReportDTO.builder().id("R200").fileName(saved.getFileName()).build());
-
-            StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                    .assertNext(dto -> assertEquals("Report_01022026123045", dto.getFileName()))
-                    .verifyComplete();
-
-            verify(reportRepository).save(captor.capture());
-            assertEquals("Report_01022026123045.csv", captor.getValue().getFileName());
-        }
-    }
-    @Test
-    void generateMerchantTransactionsReport_TriggerPipelineError() {
-        ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.of(2026, 1, 1, 0, 0));
-        request.setEndPeriod(LocalDateTime.of(2026, 1, 31, 23, 59));
-        request.setReportType(ReportType.MERCHANT_TRANSACTIONS);
-
-        MerchantDetailDTO merchant = new MerchantDetailDTO();
-        merchant.setBusinessName("Business");
-
-        LocalDateTime fixedNow = LocalDateTime.of(2026, 2, 1, 12, 30, 45);
-
-        try (MockedStatic<LocalDateTime> mocked = mockStatic(LocalDateTime.class, CALLS_REAL_METHODS)) {
-            mocked.when(LocalDateTime::now).thenReturn(fixedNow);
-
-            when(merchantRestClient.getMerchantDetail(MERCHANT_ID, INITIATIVE_ID))
-                    .thenReturn(Mono.just(merchant));
-
-            Report saved = Report.builder()
-                    .id("R200")
-                    .fileName("Report_01022026123045")
-                    .build();
-
-            Report saved2 = Report.builder()
-                    .id("R200_2")
-                    .build();
-
-            when(reportRepository.save(any())).thenReturn(Mono.just(saved)).thenReturn(Mono.just(saved2));
-            when(dataFactoryServiceMock.triggerTransactionReportPipeline(saved)).thenReturn(Mono.error(new AzureConnectingErrorException("DUMMY_ERROR", new RuntimeException())));
-            when(reportMapper.toDTO(saved2)).thenReturn(ReportDTO.builder().id("R200_2").build());
-
-            StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                    .assertNext(dto -> assertEquals("R200_2", dto.getId()))
-                    .verifyComplete();
-        }
-    }
-
-    @Test
-    void generateMerchantTransactionsReport_invalidPeriod_startAfterEnd() {
-        ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(1));
-        request.setEndPeriod(LocalDateTime.now().minusDays(5));
-
-        StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody
-                        && ((ClientExceptionWithBody) throwable).getCode().equals(INVALID_PERIOD))
-                .verify();
-    }
-
-    @Test
-    void generateMerchantTransactionsReport_invalidPeriod_endNotBeforeToday() {
-        ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(10));
-        request.setEndPeriod(LocalDateTime.now());
-
-        StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody
-                        && ((ClientExceptionWithBody) throwable).getCode().equals(INVALID_PERIOD))
-                .verify();
-    }
-
-    @Test
-    void generateMerchantTransactionsReport_invalidLengthPeriod_exceedsLimit() {
-        ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(PERIOD_LENGTH + 5));
-        request.setEndPeriod(LocalDateTime.now().minusDays(1));
-
-        StepVerifier.create(service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody
-                        && ((ClientExceptionWithBody) throwable).getCode().equals(INVALID_LENGTH_PERIOD))
-                .verify();
-    }
-
-
-    @Test
-    void generateMerchantTransactionsReport_validLengthPeriod_equalToLimit() {
-        ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(PERIOD_LENGTH));
-        request.setEndPeriod(LocalDateTime.now().minusDays(1));
-
-        MerchantDetailDTO merchant = new MerchantDetailDTO();
-        merchant.setBusinessName("Business");
-
-        when(merchantRestClient.getMerchantDetail(MERCHANT_ID, INITIATIVE_ID))
-                .thenReturn(Mono.just(merchant));
-
-        when(reportRepository.save(any())).thenReturn(Mono.just(
-                Report.builder().id("OK").fileName("Report_test.csv").build()
-        ));
-
-        when(dataFactoryServiceMock.triggerTransactionReportPipeline(any()))
-                .thenReturn(Mono.just("RUN"));
-
-        when(reportMapper.toDTO(any()))
-                .thenReturn(ReportDTO.builder().id("OK").build());
-
-        StepVerifier.create(
-                        service.generateMerchantTransactionsReport(MERCHANT_ID, ORGANIZATION_ROLE, INITIATIVE_ID, request)
-                )
-                .assertNext(dto -> assertEquals("OK", dto.getId()))
-                .verifyComplete();
-    }
-
-    @Test
-    void generateReport_userDetails_success() {
-        ReportRequest request = new ReportRequest();
-        request.setReportType(ReportType.USER_DETAILS);
-        request.setStartPeriod(LocalDateTime.now().minusDays(10));
-        request.setEndPeriod(LocalDateTime.now());
-
-        ReportDTO expectedDto = ReportDTO.builder().id("R1").build();
-
-        ReportServiceImpl spyService = spy(service);
-        doReturn(Mono.just(expectedDto))
-                .when(spyService)
-                .generateUserDetailsReport(any(), any(), any());
-
-        StepVerifier.create(spyService.generateReport(null, ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                .expectNext(expectedDto)
-                .verifyComplete();
-
-        verify(spyService, times(1))
-                .generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request);
-    }
-
-    @Test
-    void generateUserDetailsReport_success() {
-        ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(5));
-        request.setEndPeriod(LocalDateTime.now().minusDays(1));
-        request.setReportType(ReportType.USER_DETAILS);
-
-        Report savedReport = Report.builder()
-                .id("R100")
-                .initiativeId(INITIATIVE_ID)
-                .fileName("Report_01012026120000")
-                .reportStatus(ReportStatus.INSERTED)
-                .build();
-
-        ReportDTO mappedDto = ReportDTO.builder()
-                .id("R100")
-                .fileName(savedReport.getFileName())
-                .businessName(savedReport.getBusinessName())
-                .build();
-
-        when(reportRepository.save(any()))
-                .thenReturn(Mono.just(savedReport));
-
-        when(dataFactoryServiceMock.triggerUserDetailsReportPipeline(savedReport)).thenReturn(Mono.just("RUN_ID"));
-
-        when(reportMapper.toDTO(savedReport))
-                .thenReturn(mappedDto);
-
-        StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                .expectNext(mappedDto)
-                .verifyComplete();
-
-        verify(reportRepository).save(any(Report.class));
-        verify(reportMapper).toDTO(savedReport);
-    }
-
-    @Test
-    void generateUserDetailsReport_saveError() {
-        ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(5));
-        request.setEndPeriod(LocalDateTime.now().minusDays(1));
-        request.setReportType(ReportType.USER_DETAILS);
-
-        RuntimeException saveError = new RuntimeException("DB error");
-
-        when(reportRepository.save(any()))
-                .thenReturn(Mono.error(saveError));
-
-        StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                .expectErrorMatches(err -> err instanceof RuntimeException &&
-                        err.getMessage().equals("DB error"))
-                .verify();
-
-        verify(reportRepository).save(any());
-        verifyNoInteractions(reportMapper);
-    }
-    @Test
-    void generateUserDetailsReport_fileNameGeneratedCorrectly() {
-        ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.of(2026, 1, 1, 0, 0));
-        request.setEndPeriod(LocalDateTime.of(2026, 1, 31, 23, 59));
-        request.setReportType(ReportType.USER_DETAILS);
-
-        LocalDateTime fixedNow = LocalDateTime.of(2026, 2, 1, 12, 30, 45);
-
-        try (MockedStatic<LocalDateTime> mocked = mockStatic(LocalDateTime.class, CALLS_REAL_METHODS)) {
-            mocked.when(LocalDateTime::now).thenReturn(fixedNow);
-
-            ArgumentCaptor<Report> captor = ArgumentCaptor.forClass(Report.class);
-
-            Report saved = Report.builder()
-                    .id("R200")
-                    .fileName("Report_01022026123045")
-                    .build();
-
-            when(reportRepository.save(any())).thenReturn(Mono.just(saved));
-            when(dataFactoryServiceMock.triggerUserDetailsReportPipeline(saved)).thenReturn(Mono.just("RUN_ID"));
-            when(reportMapper.toDTO(saved)).thenReturn(ReportDTO.builder().id("R200").fileName(saved.getFileName()).build());
-
-            StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                    .assertNext(dto -> assertEquals("Report_01022026123045", dto.getFileName()))
-                    .verifyComplete();
-
-            verify(reportRepository).save(captor.capture());
-            assertEquals("Report_01022026123045.csv", captor.getValue().getFileName());
-        }
-    }
-    @Test
-    void generateUserDetailsReport_TriggerPipelineError() {
-        ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.of(2026, 1, 1, 0, 0));
-        request.setEndPeriod(LocalDateTime.of(2026, 1, 31, 23, 59));
-        request.setReportType(ReportType.USER_DETAILS);
-
-        LocalDateTime fixedNow = LocalDateTime.of(2026, 2, 1, 12, 30, 45);
-
-        try (MockedStatic<LocalDateTime> mocked = mockStatic(LocalDateTime.class, CALLS_REAL_METHODS)) {
-            mocked.when(LocalDateTime::now).thenReturn(fixedNow);
-
-            Report saved = Report.builder()
-                    .id("R200")
-                    .fileName("Report_01022026123045")
-                    .build();
-
-            Report saved2 = Report.builder()
-                    .id("R200_2")
-                    .build();
-
-            when(reportRepository.save(any())).thenReturn(Mono.just(saved)).thenReturn(Mono.just(saved2));
-            when(dataFactoryServiceMock.triggerUserDetailsReportPipeline(saved)).thenReturn(Mono.error(new AzureConnectingErrorException("DUMMY_ERROR", new RuntimeException())));
-            when(reportMapper.toDTO(saved2)).thenReturn(ReportDTO.builder().id("R200_2").build());
-
-            StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                    .assertNext(dto -> assertEquals("R200_2", dto.getId()))
-                    .verifyComplete();
-        }
-    }
-
-    @Test
-    void generateUserDetailsReport_invalidPeriod_startAfterEnd() {
-        ReportRequest request = new ReportRequest();        request.setStartPeriod(LocalDateTime.now().minusDays(1));
-        request.setEndPeriod(LocalDateTime.now().minusDays(5));
-
-        StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody
-                        && ((ClientExceptionWithBody) throwable).getCode().equals(INVALID_PERIOD))
-                .verify();
-    }
-
-    @Test
-    void generateUserDetailsReport_invalidPeriod_endNotBeforeToday() {
-        ReportRequest request = new ReportRequest();
-        request.setStartPeriod(LocalDateTime.now().minusDays(10));
-        request.setEndPeriod(LocalDateTime.now());
-
-        StepVerifier.create(service.generateUserDetailsReport(ORGANIZATION_ROLE, INITIATIVE_ID, request))
-                .expectErrorMatches(throwable -> throwable instanceof ClientExceptionWithBody
-                        && ((ClientExceptionWithBody) throwable).getCode().equals(INVALID_PERIOD))
-                .verify();
-    }
-
-
-    @Test
-    void patchReport_success_updatesStatus() {
-        PatchReportRequest request = PatchReportRequest.builder()
-                .reportStatus(ReportStatus.GENERATED)
-                .build();
-
-        Report existing = Report.builder()
-                .id("R1")
-                .initiativeId(INITIATIVE_ID)
-                .reportStatus(ReportStatus.INSERTED)
-                .build();
-
-        Report updated = Report.builder()
-                .id("R1")
-                .initiativeId(INITIATIVE_ID)
-                .reportStatus(ReportStatus.GENERATED)
-                .build();
-
-        ReportDTO updatedDTO = ReportDTO.builder()
-                .id("R1")
-                .initiativeId(INITIATIVE_ID)
-                .reportStatus(ReportStatus.GENERATED)
-                .build();
-
-        when(reportRepository.findByIdAndInitiativeId("R1", INITIATIVE_ID))
-                .thenReturn(Mono.just(existing));
-
-        when(reportRepository.save(any(Report.class)))
-                .thenReturn(Mono.just(updated));
-
-        when(reportMapper.toDTO(updated)).thenReturn(updatedDTO);
-
-        StepVerifier.create(service.patchReport(INITIATIVE_ID, "R1", request))
-                .assertNext(dto -> {
-                    assertEquals("R1", dto.getId());
-                    assertEquals(ReportStatus.GENERATED, dto.getReportStatus());
-                })
-                .verifyComplete();
-
-        verify(reportRepository).findByIdAndInitiativeId("R1", INITIATIVE_ID);
-        verify(reportRepository).save(any(Report.class));
-        verify(reportMapper).toDTO(updated);
-    }
-    @Test
-    void patchReport_success_noStatusUpdateWhenNull() {
-        PatchReportRequest request = PatchReportRequest.builder()
-                .reportStatus(null)
-                .build();
-
-        Report existing = Report.builder()
-                .id("R2")
-                .initiativeId(INITIATIVE_ID)
-                .reportStatus(ReportStatus.INSERTED)
-                .build();
-
-        Report saved = Report.builder()
-                .id("R2")
-                .initiativeId(INITIATIVE_ID)
-                .reportStatus(ReportStatus.INSERTED)
-                .build();
-
-        ReportDTO savedDTO = ReportDTO.builder()
-                .id("R2")
-                .initiativeId(INITIATIVE_ID)
-                .reportStatus(ReportStatus.INSERTED)
-                .build();
-
-        when(reportRepository.findByIdAndInitiativeId("R2", INITIATIVE_ID))
-                .thenReturn(Mono.just(existing));
-
-        when(reportRepository.save(any(Report.class)))
-                .thenReturn(Mono.just(saved));
-
-        when(reportMapper.toDTO(saved)).thenReturn(savedDTO);
-
-        StepVerifier.create(service.patchReport(INITIATIVE_ID, "R2", request))
-                .assertNext(dto -> {
-                    assertEquals("R2", dto.getId());
-                    assertEquals(ReportStatus.INSERTED, dto.getReportStatus());
-                })
-                .verifyComplete();
-
-        verify(reportRepository).findByIdAndInitiativeId("R2", INITIATIVE_ID);
-        verify(reportRepository).save(any(Report.class));
-        verify(reportMapper).toDTO(saved);
-    }
-    @Test
-    void patchReport_notFound_throwsException() {
-        PatchReportRequest request = PatchReportRequest.builder()
-                .reportStatus(ReportStatus.GENERATED)
-                .build();
-
-        when(reportRepository.findByIdAndInitiativeId("missing", INITIATIVE_ID))
+    void downloadGeneratedReportsRejectsMissingFilenamesAndNotFoundScopes() {
+        Report missingFilename = report("report", ReportType.USER_DETAILS);
+        missingFilename.setReportStatus(ReportStatus.GENERATED);
+        when(reportPort.findByIdAndInitiativeId("report", "initiative")).thenReturn(Mono.just(missingFilename));
+        StepVerifier.create(service.downloadUserDetailsReports("operator1", "initiative", "report"))
+                .expectError(ClientExceptionWithBody.class).verify();
+
+        when(reportPort.findByIdAndInitiativeIdAndMerchantId("missing", "initiative", "merchant"))
                 .thenReturn(Mono.empty());
-
-        StepVerifier.create(service.patchReport(INITIATIVE_ID, "missing", request))
-                .expectErrorSatisfies(error -> {
-                    assertInstanceOf(ClientExceptionWithBody.class, error);
-                    ClientExceptionWithBody ex = (ClientExceptionWithBody) error;
-                    assertEquals(404, ex.getHttpStatus().value());
-                    assertEquals(REPORT_NOT_FOUND, ex.getCode());
-                    assertEquals(
-                            ERROR_MESSAGE_REPORT_NOT_FOUND.formatted("missing", INITIATIVE_ID),
-                            ex.getMessage()
-                    );
-                })
-                .verify();
-
-        verify(reportRepository).findByIdAndInitiativeId("missing", INITIATIVE_ID);
-        verify(reportRepository, never()).save(any());
-        verify(reportMapper, never()).toDTO(any());
-    }
-
-
-    @Test
-    void forceGenerateReports() {
-        Report report1 = mock(Report.class);
-        when(report1.getId()).thenReturn("R1");
-        Report report2 = mock(Report.class);
-        when(report2.getId()).thenReturn("R2");
-
-        ReportGenerateForce request = new ReportGenerateForce(List.of("R1", "R2"));
-
-        when(reportRepository.findAllById(anyIterable()))
-                .thenReturn(Flux.just(report1, report2));
-
-        when(dataFactoryServiceMock.triggerTransactionReportPipeline(report1)).thenReturn(Mono.just("RUN1"));
-        when(dataFactoryServiceMock.triggerTransactionReportPipeline(report2)).thenReturn(Mono.just("RUN2"));
-
-        Mono<List<Report2RunDto>> resultMono = service.forceGenerateReports(request);
-
-        StepVerifier.create(resultMono)
-                .assertNext(list -> {
-                    assertNotNull(list);
-                    assertEquals(2, list.size());
-
-                    assertTrue(list.stream().anyMatch(d -> "R1".equals(d.getReportId()) && "RUN1".equals(d.getRunId())));
-                    assertTrue(list.stream().anyMatch(d -> "R2".equals(d.getReportId()) && "RUN2".equals(d.getRunId())));
-                })
-                .verifyComplete();
-
-        verify(reportRepository, times(1)).findAllById(anyList());
-        verify(dataFactoryServiceMock, times(2)).triggerTransactionReportPipeline(any());
+        StepVerifier.create(service.downloadTransactionsReport("merchant", null, "initiative", "missing"))
+                .expectError(ClientExceptionWithBody.class).verify();
     }
 
     @Test
-    void downloadReports_whenMerchantTransactions_callsTransactionsMethod() {
+    void reportEntryPointDispatchesBothTypesAndValidatesMerchantRequirement() {
+        ReportServiceImpl dispatcher = spy(service);
+        ReportDTO dto = ReportDTO.builder().id("report").build();
+        ReportRequest merchantRequest = validRequest(ReportType.MERCHANT_TRANSACTIONS);
+        ReportRequest userRequest = validRequest(ReportType.USER_DETAILS);
+        doReturn(Mono.just(dto)).when(dispatcher)
+                .generateMerchantTransactionsReport("merchant", "operator1", "initiative", merchantRequest);
+        doReturn(Mono.just(dto)).when(dispatcher)
+                .generateUserDetailsReport("operator1", "initiative", userRequest);
 
-        String reportId = "R1";
-
-        Report report = Report.builder()
-                .id(reportId)
-                .initiativeId(INITIATIVE_ID)
-                .reportType(ReportType.MERCHANT_TRANSACTIONS)
-                .build();
-
-        when(reportRepository.findByIdAndInitiativeId(reportId, INITIATIVE_ID))
-                .thenReturn(Mono.just(report));
-
-        ReportServiceImpl spyService = Mockito.spy(service);
-
-        DownloadReportResponseDTO response =
-                DownloadReportResponseDTO.builder()
-                        .reportUrl("url")
-                        .build();
-
-        doReturn(Mono.just(response))
-                .when(spyService)
-                .downloadTransactionsReport(
-                        MERCHANT_ID,
-                        null,
-                        INITIATIVE_ID,
-                        reportId
-                );
-
-        StepVerifier.create(
-                        spyService.downloadReports(
-                                MERCHANT_ID,
-                                null,
-                                INITIATIVE_ID,
-                                reportId
-                        )
-                )
-                .assertNext(r -> assertEquals("url", r.getReportUrl()))
-                .verifyComplete();
-
-        verify(spyService)
-                .downloadTransactionsReport(
-                        MERCHANT_ID,
-                        null,
-                        INITIATIVE_ID,
-                        reportId
-                );
-
-        verify(spyService, never())
-                .downloadUserDetailsReports(any(), any(), any());
+        StepVerifier.create(dispatcher.generateReport("merchant", "operator1", "initiative", merchantRequest))
+                .expectNext(dto).verifyComplete();
+        StepVerifier.create(dispatcher.generateReport(null, "operator1", "initiative", userRequest))
+                .expectNext(dto).verifyComplete();
+        StepVerifier.create(service.generateReport(null, "operator1", "initiative", merchantRequest))
+                .expectError(ClientExceptionWithBody.class).verify();
     }
 
     @Test
-    void downloadReports_whenUserDetails_callsUserDetailsMethod() {
+    void operatorTransactionDownloadUsesInitiativeScopedLookup() {
+        Report report = report("report", ReportType.MERCHANT_TRANSACTIONS);
+        report.setMerchantId("merchant");
+        report.setFileName("report.csv");
+        report.setReportStatus(ReportStatus.GENERATED);
+        when(reportPort.findByIdAndInitiativeId("report", "initiative")).thenReturn(Mono.just(report));
+        when(transactionBlobService.getFileSignedUrl(
+                "initiative/initiative/merchant/merchant/report/report.csv")).thenReturn("url");
 
-        String reportId = "R1";
-
-        Report report = Report.builder()
-                .id(reportId)
-                .initiativeId(INITIATIVE_ID)
-                .reportType(ReportType.USER_DETAILS)
-                .build();
-
-        when(reportRepository.findByIdAndInitiativeId(reportId, INITIATIVE_ID))
-                .thenReturn(Mono.just(report));
-
-        ReportServiceImpl spyService = Mockito.spy(service);
-
-        DownloadReportResponseDTO response =
-                DownloadReportResponseDTO.builder()
-                        .reportUrl("url")
-                        .build();
-
-        doReturn(Mono.just(response))
-                .when(spyService)
-                .downloadUserDetailsReports(
-                        ORGANIZATION_ROLE,
-                        INITIATIVE_ID,
-                        reportId
-                );
-
-        StepVerifier.create(
-                        spyService.downloadReports(
-                                null,
-                                ORGANIZATION_ROLE,
-                                INITIATIVE_ID,
-                                reportId
-                        )
-                )
-                .assertNext(r -> assertEquals("url", r.getReportUrl()))
-                .verifyComplete();
-
-        verify(spyService)
-                .downloadUserDetailsReports(
-                        ORGANIZATION_ROLE,
-                        INITIATIVE_ID,
-                        reportId
-                );
-
-        verify(spyService, never())
-                .downloadTransactionsReport(any(), any(), any(), any());
+        StepVerifier.create(service.downloadTransactionsReport(null, "operator1", "initiative", "report"))
+                .assertNext(result -> assertEquals("url", result.getReportUrl())).verifyComplete();
     }
 
     @Test
-    void downloadReports_notFound_returnsError() {
-
-        when(reportRepository.findByIdAndInitiativeId("R1", INITIATIVE_ID))
-                .thenReturn(Mono.empty());
-
-        StepVerifier.create(
-                        service.downloadReports(
-                                MERCHANT_ID,
-                                null,
-                                INITIATIVE_ID,
-                                "R1"
-                        )
-                )
-                .expectError(ClientExceptionWithBody.class)
-                .verify();
-
-        verifyNoInteractions(reportTransactionsBlobService);
+    void invalidUserDetailsRoleAndPeriodAreRejected() {
+        Pageable pageable = PageRequest.of(0, 10);
+        assertThrows(ClientExceptionWithBody.class,
+                () -> service.getUserDetailsReports("admin", "initiative", pageable));
+        ReportRequest invalid = validRequest(ReportType.USER_DETAILS);
+        invalid.setEndPeriod(LocalDateTime.now());
+        StepVerifier.create(service.generateUserDetailsReport("operator1", "initiative", invalid))
+                .expectError(ClientExceptionWithBody.class).verify();
     }
 
     @Test
-    void downloadReports_nullReportType_returnsError() {
+    void downloadReportsDispatchesUserDetailsType() {
+        Report user = report("user", ReportType.USER_DETAILS);
+        user.setFileName("users.csv");
+        user.setReportStatus(ReportStatus.GENERATED);
+        when(reportPort.findByIdAndInitiativeId("user", "initiative")).thenReturn(Mono.just(user));
+        when(userDetailsBlobService.getFileSignedUrl("initiative/initiative/report/users.csv")).thenReturn("url");
 
-        String reportId = "R1";
-
-        Report report = Report.builder()
-                .id(reportId)
-                .initiativeId(INITIATIVE_ID)
-                .reportType(null)
-                .build();
-
-        when(reportRepository.findByIdAndInitiativeId(reportId, INITIATIVE_ID))
-                .thenReturn(Mono.just(report));
-
-        StepVerifier.create(
-                        service.downloadReports(
-                                MERCHANT_ID,
-                                null,
-                                INITIATIVE_ID,
-                                reportId
-                        )
-                )
-                .expectError(ClientExceptionWithBody.class)
-                .verify();
+        StepVerifier.create(service.downloadReports(null, "operator1", "initiative", "user"))
+                .assertNext(result -> assertEquals("url", result.getReportUrl())).verifyComplete();
     }
 
-    @Test
-    void downloadTransactionsReport_success() {
-
-        String reportId = "R1";
-        String fileName = "Report_01012026120000";
-        String expectedUrl = "https://signed-url";
-
-        Report report = Report.builder()
-                .id(reportId)
-                .initiativeId(INITIATIVE_ID)
-                .merchantId(MERCHANT_ID)
-                .reportStatus(ReportStatus.GENERATED)
-                .fileName(fileName)
-                .reportType(ReportType.MERCHANT_TRANSACTIONS)
-                .build();
-
-        when(reportRepository.findByIdAndInitiativeIdAndMerchantId(
-                reportId, INITIATIVE_ID, MERCHANT_ID))
-                .thenReturn(Mono.just(report));
-
-        when(reportTransactionsBlobService.getFileSignedUrl(anyString()))
-                .thenReturn(expectedUrl);
-
-        StepVerifier.create(
-                        service.downloadTransactionsReport(
-                                MERCHANT_ID,
-                                null,
-                                INITIATIVE_ID,
-                                reportId
-                        )
-                )
-                .assertNext(response -> {
-                    assertEquals(expectedUrl, response.getReportUrl());
-                })
-                .verifyComplete();
-
-        verify(reportTransactionsBlobService).getFileSignedUrl(contains(fileName));
+    private static ReportRequest validRequest(ReportType type) {
+        ReportRequest request = new ReportRequest();
+        request.setReportType(type);
+        request.setStartPeriod(LocalDateTime.now().minusDays(2));
+        request.setEndPeriod(LocalDateTime.now().minusDays(1));
+        return request;
     }
 
-    @Test
-    void downloadUserDetailsReport_success() {
-
-        String reportId = "R2";
-        String fileName = "UserDetails_01012026120000";
-        String expectedUrl = "https://signed-user-details-url";
-
-        Report report = Report.builder()
-                .id(reportId)
-                .initiativeId(INITIATIVE_ID)
-                .reportStatus(ReportStatus.GENERATED)
-                .fileName(fileName)
-                .reportType(ReportType.USER_DETAILS)
-                .build();
-
-        when(reportRepository.findByIdAndInitiativeId(
-                reportId, INITIATIVE_ID))
-                .thenReturn(Mono.just(report));
-
-        when(reportUserDetailsBlobService.getFileSignedUrl(anyString()))
-                .thenReturn(expectedUrl);
-
-        StepVerifier.create(
-                        service.downloadUserDetailsReports(
-                                "operator1",
-                                INITIATIVE_ID,
-                                reportId
-                        )
-                )
-                .assertNext(response -> {
-                    assertEquals(expectedUrl, response.getReportUrl());
-                })
-                .verifyComplete();
-
-        verify(reportUserDetailsBlobService)
-                .getFileSignedUrl(contains(fileName));
-
-        verify(reportTransactionsBlobService, never())
-                .getFileSignedUrl(anyString());
-    }
-
-    @Test
-    void downloadTransactionsReport_notGenerated_throwsException() {
-
-        String reportId = "R1";
-
-        Report report = Report.builder()
-                .id(reportId)
-                .initiativeId(INITIATIVE_ID)
-                .merchantId(MERCHANT_ID)
+    private static Report report(String id, ReportType type) {
+        return Report.builder()
+                .id(id)
+                .initiativeId("initiative")
                 .reportStatus(ReportStatus.INSERTED)
-                .fileName("file.csv")
+                .requestDate(LocalDateTime.parse("2026-01-01T00:00:00"))
+                .reportType(type)
                 .build();
-
-        when(reportRepository.findByIdAndInitiativeIdAndMerchantId(
-                reportId, INITIATIVE_ID, MERCHANT_ID))
-                .thenReturn(Mono.just(report));
-
-        StepVerifier.create(
-                        service.downloadTransactionsReport(
-                                MERCHANT_ID,
-                                null,
-                                INITIATIVE_ID,
-                                reportId
-                        )
-                )
-                .expectErrorSatisfies(error -> {
-                    assertInstanceOf(ClientExceptionWithBody.class, error);
-                    ClientExceptionWithBody ex = (ClientExceptionWithBody) error;
-                    assertEquals(400, ex.getHttpStatus().value());
-                    assertEquals("REPORT_NOT_GENERATED", ex.getCode());
-                    assertEquals(
-                            "The report R1 is not generated yet and cannot be downloaded",
-                            ex.getMessage()
-                    );
-                })
-                .verify();
-    }
-
-    @Test
-    void downloadTransactionsReport_missingFilename_throwsException() {
-
-        String reportId = "R1";
-
-        Report report = Report.builder()
-                .id(reportId)
-                .initiativeId(INITIATIVE_ID)
-                .merchantId(MERCHANT_ID)
-                .reportStatus(ReportStatus.GENERATED)
-                .fileName(null)
-                .build();
-
-        when(reportRepository.findByIdAndInitiativeIdAndMerchantId(
-                reportId, INITIATIVE_ID, MERCHANT_ID))
-                .thenReturn(Mono.just(report));
-
-        StepVerifier.create(
-                        service.downloadTransactionsReport(
-                                MERCHANT_ID,
-                                null,
-                                INITIATIVE_ID,
-                                reportId
-                        )
-                )
-                .expectErrorSatisfies(error -> {
-                    assertInstanceOf(ClientExceptionWithBody.class, error);
-                    ClientExceptionWithBody ex = (ClientExceptionWithBody) error;
-                    assertEquals(500, ex.getHttpStatus().value());
-                })
-                .verify();
-    }
-
-    @Test
-    void downloadTransactionsReport_notFound() {
-
-        when(reportRepository.findByIdAndInitiativeIdAndMerchantId(
-                anyString(), anyString(), anyString()))
-                .thenReturn(Mono.empty());
-
-        StepVerifier.create(
-                        service.downloadTransactionsReport(
-                                MERCHANT_ID,
-                                null,
-                                INITIATIVE_ID,
-                                "missing"
-                        )
-                )
-                .expectErrorSatisfies(error -> {
-                    assertInstanceOf(ClientExceptionWithBody.class, error);
-                    ClientExceptionWithBody ex = (ClientExceptionWithBody) error;
-                    assertEquals(404, ex.getHttpStatus().value());
-                })
-                .verify();
-    }
-
-    @Test
-    void downloadTransactionsReport_bothMerchantAndRoleMissing_returnsBadRequest() {
-
-        StepVerifier.create(
-                        service.downloadTransactionsReport(
-                                null,
-                                null,
-                                INITIATIVE_ID,
-                                "R1"
-                        )
-                )
-                .expectErrorSatisfies(error -> {
-                    assertInstanceOf(ClientExceptionWithBody.class, error);
-                    ClientExceptionWithBody ex = (ClientExceptionWithBody) error;
-
-                    assertEquals(400, ex.getHttpStatus().value());
-                    assertEquals(MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY, ex.getCode());
-                })
-                .verify();
-
-        verifyNoInteractions(reportRepository);
-    }
-
-    @Test
-    void downloadTransactionsReport_merchantAndRoleBothPresent_returnsBadRequest() {
-
-        StepVerifier.create(
-                        service.downloadTransactionsReport(
-                                MERCHANT_ID,
-                                "ADMIN",
-                                INITIATIVE_ID,
-                                "R1"
-                        )
-                )
-                .expectErrorSatisfies(error -> {
-                    assertInstanceOf(ClientExceptionWithBody.class, error);
-                    ClientExceptionWithBody ex = (ClientExceptionWithBody) error;
-
-                    assertEquals(400, ex.getHttpStatus().value());
-                    assertEquals(MERCHANT_ID_AND_ORGANIZATION_ROLE_CANNOT_COEXIST, ex.getCode());
-                })
-                .verify();
-
-        verifyNoInteractions(reportRepository);
-    }
-
-
-    @Test
-    void downloadTransactionsReport_invalidOrganizationRole_returnsBadRequest() {
-
-        StepVerifier.create(
-                        service.downloadTransactionsReport(
-                                null,
-                                "INVALID_ROLE",
-                                INITIATIVE_ID,
-                                "R1"
-                        )
-                )
-                .expectErrorSatisfies(error -> {
-                    assertInstanceOf(ClientExceptionWithBody.class, error);
-                    ClientExceptionWithBody ex = (ClientExceptionWithBody) error;
-
-                    assertEquals(400, ex.getHttpStatus().value());
-                    assertEquals(INVALID_ORGANIZATION_ROLE, ex.getCode());
-                })
-                .verify();
-
-        verifyNoInteractions(reportRepository);
-    }
-
-    @Test
-    void downloadTransactionsReport_withOrganizationRole_callsCorrectRepositoryMethod() {
-
-        Report report = Report.builder()
-                .id("R1")
-                .initiativeId(INITIATIVE_ID)
-                .merchantId("M1")
-                .reportStatus(ReportStatus.GENERATED)
-                .fileName("file.csv")
-                .build();
-
-        when(reportRepository.findByIdAndInitiativeId("R1", INITIATIVE_ID))
-                .thenReturn(Mono.just(report));
-
-        when(reportUserDetailsBlobService.getFileSignedUrl(anyString()))
-                .thenReturn("signed-url");
-
-        StepVerifier.create(
-                        service.downloadTransactionsReport(
-                                null,
-                                ALLOWED_ROLES.get(0),
-                                INITIATIVE_ID,
-                                "R1"
-                        )
-                )
-                .expectNextCount(1)
-                .verifyComplete();
-
-        verify(reportRepository).findByIdAndInitiativeId("R1", INITIATIVE_ID);
-        verify(reportRepository, never())
-                .findByIdAndInitiativeIdAndMerchantId(any(), any(), any());
-    }
-
-    @ParameterizedTest
-    @CsvSource({
-            ",",
-            "'',",
-            ",'',",
-            "'',''"
-    })
-    void downloadTransactionsReport_bothMerchantAndRoleMissing_returnsBadRequest(
-            String merchantId,
-            String organizationRole
-    ) {
-
-        StepVerifier.create(
-                        service.downloadTransactionsReport(
-                                merchantId,
-                                organizationRole,
-                                INITIATIVE_ID,
-                                "R1"
-                        )
-                )
-                .expectErrorSatisfies(error -> {
-                    assertInstanceOf(ClientExceptionWithBody.class, error);
-                    ClientExceptionWithBody ex = (ClientExceptionWithBody) error;
-
-                    assertEquals(BAD_REQUEST, ex.getHttpStatus());
-                    assertEquals(MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY, ex.getCode());
-                })
-                .verify();
-
-        verifyNoInteractions(reportRepository);
-    }
-
-    @Test
-    void downloadUserDetailsReports_success() {
-        String reportId = "R1";
-        String fileName = "UserDetails_01012026.csv";
-        String expectedUrl = "https://signed-url";
-
-        Report report = Report.builder()
-                .id(reportId)
-                .initiativeId(INITIATIVE_ID)
-                .reportStatus(ReportStatus.GENERATED)
-                .fileName(fileName)
-                .reportType(ReportType.USER_DETAILS)
-                .build();
-
-        when(reportRepository.findByIdAndInitiativeId(reportId, INITIATIVE_ID))
-                .thenReturn(Mono.just(report));
-
-        when(reportUserDetailsBlobService.getFileSignedUrl(anyString()))
-                .thenReturn(expectedUrl);
-
-        StepVerifier.create(
-                        service.downloadUserDetailsReports(
-                                ORGANIZATION_ROLE,
-                                INITIATIVE_ID,
-                                reportId
-                        )
-                )
-                .assertNext(response ->
-                        assertEquals(expectedUrl, response.getReportUrl()))
-                .verifyComplete();
-
-        verify(reportRepository)
-                .findByIdAndInitiativeId(reportId, INITIATIVE_ID);
-    }
-
-    @ParameterizedTest
-    @CsvSource({
-            "null",
-            "''",
-            "'   '"
-    })
-    void downloadUserDetailsReports_missingOrganizationRole_returnsBadRequest(String role) {
-
-        String reportId = "R1";
-
-        String organizationRole = "null".equals(role) ? null : role;
-
-        StepVerifier.create(
-                        service.downloadUserDetailsReports(
-                                organizationRole,
-                                INITIATIVE_ID,
-                                reportId
-                        )
-                )
-                .expectErrorSatisfies(error -> {
-                    assertInstanceOf(ClientExceptionWithBody.class, error);
-                    ClientExceptionWithBody ex = (ClientExceptionWithBody) error;
-
-                    assertEquals(BAD_REQUEST, ex.getHttpStatus());
-                    assertEquals(MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY, ex.getCode());
-                    assertEquals(
-                            ERROR_MESSAGE_MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY,
-                            ex.getMessage()
-                    );
-                })
-                .verify();
-
-        verifyNoInteractions(reportRepository);
-    }
-
-    @Test
-    void downloadUserDetailsReports_notGenerated_throwsException() {
-
-        String reportId = "R1";
-
-        Report report = Report.builder()
-                .id(reportId)
-                .initiativeId(INITIATIVE_ID)
-                .reportStatus(ReportStatus.INSERTED)
-                .fileName("file.csv")
-                .reportType(ReportType.USER_DETAILS)
-                .build();
-
-        when(reportRepository.findByIdAndInitiativeId(reportId, INITIATIVE_ID))
-                .thenReturn(Mono.just(report));
-
-        StepVerifier.create(
-                        service.downloadUserDetailsReports(
-                                ORGANIZATION_ROLE,
-                                INITIATIVE_ID,
-                                reportId
-                        )
-                )
-                .expectError(ClientExceptionWithBody.class)
-                .verify();
-    }
-
-    @Test
-    void downloadUserDetailsReports_missingFilename_throwsException() {
-
-        String reportId = "R1";
-
-        Report report = Report.builder()
-                .id(reportId)
-                .initiativeId(INITIATIVE_ID)
-                .reportStatus(ReportStatus.GENERATED)
-                .fileName(null)
-                .reportType(ReportType.USER_DETAILS)
-                .build();
-
-        when(reportRepository.findByIdAndInitiativeId(reportId, INITIATIVE_ID))
-                .thenReturn(Mono.just(report));
-
-        StepVerifier.create(
-                        service.downloadUserDetailsReports(
-                                ORGANIZATION_ROLE,
-                                INITIATIVE_ID,
-                                reportId
-                        )
-                )
-                .expectError(ClientExceptionWithBody.class)
-                .verify();
-    }
-
-    @Test
-    void downloadUserDetailsReports_blankFilename_throwsException() {
-
-        String reportId = "R1";
-
-        Report report = Report.builder()
-                .id(reportId)
-                .initiativeId(INITIATIVE_ID)
-                .reportStatus(ReportStatus.GENERATED)
-                .fileName("   ")
-                .reportType(ReportType.USER_DETAILS)
-                .build();
-
-        when(reportRepository.findByIdAndInitiativeId(reportId, INITIATIVE_ID))
-                .thenReturn(Mono.just(report));
-
-        StepVerifier.create(
-                        service.downloadUserDetailsReports(
-                                ORGANIZATION_ROLE,
-                                INITIATIVE_ID,
-                                reportId
-                        )
-                )
-                .expectError(ClientExceptionWithBody.class)
-                .verify();
-    }
-
-    @Test
-    void downloadUserDetailsReports_notFound() {
-
-        when(reportRepository.findByIdAndInitiativeId(anyString(), anyString()))
-                .thenReturn(Mono.empty());
-
-        StepVerifier.create(
-                        service.downloadUserDetailsReports(
-                                ORGANIZATION_ROLE,
-                                INITIATIVE_ID,
-                                "missing"
-                        )
-                )
-                .expectError(ClientExceptionWithBody.class)
-                .verify();
-    }
-
-    @Test
-    void downloadUserDetailsReports_invalidOrganizationRole_returnsBadRequest() {
-
-        StepVerifier.create(
-                        service.downloadUserDetailsReports(
-                                "INVALID_ROLE",
-                                INITIATIVE_ID,
-                                "R1"
-                        )
-                )
-                .expectError(ClientExceptionWithBody.class)
-                .verify();
-
-        verifyNoInteractions(reportRepository);
     }
 }

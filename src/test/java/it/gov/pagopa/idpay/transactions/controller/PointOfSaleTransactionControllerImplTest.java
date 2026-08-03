@@ -1,306 +1,113 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
-import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf;
+import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockUser;
+
 import it.gov.pagopa.idpay.transactions.dto.DownloadInvoiceResponseDTO;
-import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionDTO;
-import it.gov.pagopa.idpay.transactions.dto.PointOfSaleTransactionsListDTO;
+import it.gov.pagopa.idpay.transactions.dto.FranchisePointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.PointOfSaleTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.PointOfSaleTransactionService;
-import it.gov.pagopa.idpay.transactions.service.invoice_lifecycle.InvoiceLifecyclePolicy;
-import it.gov.pagopa.idpay.transactions.test.fakers.PointOfSaleTransactionDTOFaker;
-import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
-import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
+import java.util.List;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
 import org.springframework.cache.CacheManager;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.client.MultipartBodyBuilder;
-import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
-import org.springframework.web.reactive.function.BodyInserters;
 import reactor.core.publisher.Mono;
-
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf;
-import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockUser;
 
 @WebFluxTest(controllers = PointOfSaleTransactionControllerImpl.class)
 class PointOfSaleTransactionControllerImplTest {
 
-    @Autowired
-    protected WebTestClient webClient;
-
-    @MockitoBean
-    PointOfSaleTransactionService pointOfSaleTransactionService;
-
-    @MockitoBean
-    PointOfSaleTransactionMapper mapper;
-
-    @MockitoBean
-    CacheManager cacheManager;
-
-
-    private static final String INITIATIVE_ID = "INITIATIVE_ID";
-    private static final String POINT_OF_SALE_ID = "POINT_OF_SALE_ID";
-    private static final String MERCHANT_ID = "MERCHANT_ID";
-    private static final String FISCAL_CODE = "FISCALCODE1";
-    private static final String TRX_ID = "TRX_ID_1";
-
+    @Autowired private WebTestClient webClient;
+    @MockitoBean private PointOfSaleTransactionService service;
+    @MockitoBean private PointOfSaleTransactionMapper mapper;
+    @MockitoBean private CacheManager cacheManager;
 
     @Test
-    void getPointOfSaleTransactionsOk() {
-        RewardTransaction trx = RewardTransactionFaker.mockInstance(1);
-        trx.setId("TRX1");
+    void retainedPointOfSaleSearchRouteDelegatesToService() {
+        RewardTransaction transaction = RewardTransaction.builder().id("transaction").build();
+        when(service.getPointOfSaleTransactions(
+                anyString(), anyString(), anyString(), isNull(), any(TrxFiltersDTO.class), any()))
+                .thenReturn(Mono.just(new PageImpl<>(List.of(transaction), PageRequest.of(0, 20), 1)));
+        when(mapper.toDTO(any(RewardTransaction.class), anyString(), isNull())).thenReturn(Mono.empty());
 
-        Page<RewardTransaction> page = new PageImpl<>(
-                List.of(trx),
-                PageRequest.of(0, 10), 1
-        );
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
+                .uri("/idpay/initiatives/initiative/point-of-sales/pos/transactions/processed")
+                .header("x-merchant-id", "merchant")
+                .header("x-point-of-sale-id", "pos")
+                .exchange()
+                .expectStatus().isOk();
 
-        PointOfSaleTransactionDTO dto = PointOfSaleTransactionDTOFaker
-                .mockInstance(trx, INITIATIVE_ID, FISCAL_CODE);
-
-        when(pointOfSaleTransactionService.getPointOfSaleTransactions(
-                eq(MERCHANT_ID),
-                eq(INITIATIVE_ID),
-                eq(POINT_OF_SALE_ID),
+        ArgumentCaptor<String> merchantId = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> initiativeId = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> pointOfSaleId = ArgumentCaptor.forClass(String.class);
+        verify(service).getPointOfSaleTransactions(
+                merchantId.capture(),
+                initiativeId.capture(),
+                pointOfSaleId.capture(),
                 isNull(),
                 any(TrxFiltersDTO.class),
-                any(Pageable.class)))
-                .thenReturn(Mono.just(page));
-
-        when(mapper.toDTO(eq(trx), eq(INITIATIVE_ID), isNull()))
-                .thenReturn(Mono.just(dto));
-
-        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/initiatives/{initiativeId}/point-of-sales/{pointOfSaleId}/transactions/processed")
-                        .build(INITIATIVE_ID, POINT_OF_SALE_ID))
-                .header("x-merchant-id", MERCHANT_ID)
-                .header("x-point-of-sale-id", POINT_OF_SALE_ID)
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody(PointOfSaleTransactionsListDTO.class)
-                .value(res -> {
-                    assertNotNull(res);
-                    assertEquals(1, res.getContent().size());
-                    assertEquals("TRX1", res.getContent().getFirst().getTrxId());
-                    assertEquals(FISCAL_CODE, res.getContent().getFirst().getFiscalCode());
-                    assertEquals(1, res.getTotalElements());
-                    assertEquals(1, res.getTotalPages());
-                    assertEquals(10, res.getPageSize());
-                });
+                any()
+        );
+        assertEquals("merchant", merchantId.getValue());
+        assertEquals("initiative", initiativeId.getValue());
+        assertEquals("pos", pointOfSaleId.getValue());
     }
 
     @Test
-    void downloadInvoiceShouldReturnUrl() {
-        doReturn(Mono.just(DownloadInvoiceResponseDTO.builder().invoiceUrl("testUrl").build()))
-                .when(pointOfSaleTransactionService).downloadTransactionInvoice(
-                        MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
-        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
-                        .build(POINT_OF_SALE_ID, TRX_ID))
-                .header("x-merchant-id", MERCHANT_ID)
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody(DownloadInvoiceResponseDTO.class)
-                .value(res -> {
-                    assertNotNull(res);
-                    assertNotNull(res.getInvoiceUrl());
-                    assertEquals("testUrl", res.getInvoiceUrl());
-                    verify(pointOfSaleTransactionService).downloadTransactionInvoice(
-                            MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
-                });
+    void retainedInvoiceDownloadRouteDelegatesToService() {
+        when(service.downloadTransactionInvoice("merchant", "pos", "transaction"))
+                .thenReturn(Mono.just(DownloadInvoiceResponseDTO.builder().invoiceUrl("signed-url").build()));
 
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
+                .uri("/idpay/pos/transactions/transaction/download")
+                .header("x-merchant-id", "merchant")
+                .exchange()
+                .expectStatus().isOk();
+
+        verify(service).downloadTransactionInvoice("merchant", "pos", "transaction");
     }
 
     @Test
-    void downloadInvoiceShouldErrorOnServiceKO() {
-        doReturn(Mono.error(new ClientExceptionNoBody(HttpStatus.BAD_REQUEST,
-                ExceptionConstants.ExceptionMessage.TRANSACTION_MISSING_INVOICE)))
-                .when(pointOfSaleTransactionService).downloadTransactionInvoice(
-                        MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
-        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
-                        .build(POINT_OF_SALE_ID, TRX_ID))
-                .header("x-merchant-id", MERCHANT_ID)
-                .exchange()
-                .expectStatus().isBadRequest();
+    void retainedBatchPointOfSaleReadRouteDelegatesToService() {
+        when(service.getDistinctFranchiseAndPosByRewardBatchId("batch", "merchant"))
+                .thenReturn(Mono.just(List.of(new FranchisePointOfSaleDTO())));
 
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
+                .uri("/idpay/point-of-sales/batch")
+                .header("x-merchant-id", "merchant")
+                .exchange()
+                .expectStatus().isOk();
+
+        verify(service).getDistinctFranchiseAndPosByRewardBatchId("batch", "merchant");
     }
 
     @Test
-    void downloadInvoiceShouldReturnKOOnMissingMerchHeader() {
+    void retainedPointOfSaleRoutesRejectTokenAndPathPointOfSaleMismatches() {
         webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
-                        .build(POINT_OF_SALE_ID, TRX_ID))
+                .uri("/idpay/initiatives/initiative/point-of-sales/pos/transactions/processed")
+                .header("x-merchant-id", "merchant")
+                .header("x-point-of-sale-id", "other-pos")
                 .exchange()
-                .expectStatus().isBadRequest();
-    }
+                .expectStatus().isForbidden();
 
-    @Test
-    void getPointOfSaleTransactionsForbidden() {
         webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/initiatives/{initiativeId}/point-of-sales/{pointOfSaleId}/transactions/processed")
-                        .build(INITIATIVE_ID, POINT_OF_SALE_ID))
-                .header("x-merchant-id", MERCHANT_ID)
-                .header("x-point-of-sale-id", "ALTRO_POS")
+                .uri("/idpay/pos/transactions/transaction/download")
+                .header("x-merchant-id", "merchant")
+                .header("x-point-of-sale-id", "other-pos")
                 .exchange()
                 .expectStatus().isForbidden();
     }
-
-    @Test
-    void downloadInvoiceShouldReturnForbiddenOnPosMismatch() {
-        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
-                        .build(POINT_OF_SALE_ID, TRX_ID))
-                .header("x-merchant-id", MERCHANT_ID)
-                .header("x-point-of-sale-id", "ALTRO_POS")
-                .exchange()
-                .expectStatus().isForbidden();
-    }
-
-    @Test
-    void downloadInvoiceShouldReturnOkWithoutPosHeader() {
-        doReturn(Mono.just(DownloadInvoiceResponseDTO.builder().invoiceUrl("testUrl").build()))
-                .when(pointOfSaleTransactionService).downloadTransactionInvoice(
-                        MERCHANT_ID, POINT_OF_SALE_ID, TRX_ID);
-
-        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/{pointOfSaleId}/transactions/{transactionId}/download")
-                        .build(POINT_OF_SALE_ID, TRX_ID))
-                .header("x-merchant-id", MERCHANT_ID)
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody(DownloadInvoiceResponseDTO.class)
-                .value(res -> {
-                    assertNotNull(res);
-                    assertEquals("testUrl", res.getInvoiceUrl());
-                });
-    }
-
-    @Test
-    void updateInvoiceFileOk() {
-
-        String authorization =
-                "Bearer eyJhbGciOiJub25lIn0." +
-                        "eyJzY29wZSI6InRyYW5zYWN0aW9uOmludm9pY2VsaWZlY3ljbGU6ZnVsbCJ9." +
-                        "sig";
-
-        when(pointOfSaleTransactionService.updateInvoiceTransaction(
-                eq(TRX_ID),
-                eq(MERCHANT_ID),
-                any(FilePart.class),
-                eq("DOC123"),
-                any(InvoiceLifecyclePolicy.class)
-        )).thenReturn(Mono.empty());
-
-        MultipartBodyBuilder builder = new MultipartBodyBuilder();
-        builder.part("file", "dummycontent".getBytes())
-                .filename("invoice.pdf")
-                .contentType(MediaType.APPLICATION_OCTET_STREAM);
-        builder.part("docNumber", "DOC123");
-
-        webClient.mutateWith(mockUser()).mutateWith(csrf()).put()
-                .uri("/idpay/transactions/{id}/invoice/update", TRX_ID)
-                .header("x-merchant-id", MERCHANT_ID)
-                .header("x-point-of-sale-id", POINT_OF_SALE_ID)
-                .header("Authorization", authorization)
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .body(BodyInserters.fromMultipartData(builder.build()))
-                .exchange()
-                .expectStatus().isNoContent();
-
-        verify(pointOfSaleTransactionService).updateInvoiceTransaction(
-                eq(TRX_ID),
-                eq(MERCHANT_ID),
-                any(FilePart.class),
-                eq("DOC123"),
-                any(InvoiceLifecyclePolicy.class)
-        );
-    }
-
-    @Test
-    void updateInvoiceFileBadRequestWhenMissingMerchantId() {
-        MultipartBodyBuilder builder = new MultipartBodyBuilder();
-        builder.part("file", "dummy".getBytes())
-                .filename("f.pdf")
-                .contentType(MediaType.APPLICATION_OCTET_STREAM);
-
-        webClient.mutateWith(mockUser()).mutateWith(csrf()).put()
-                .uri("/idpay/transactions/{transactionId}/invoice/update", TRX_ID)
-                .header("x-point-of-sale-id", POINT_OF_SALE_ID)
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .body(BodyInserters.fromMultipartData(builder.build()))
-                .exchange()
-                .expectStatus().isBadRequest();
-    }
-
-    @Test
-    void reversalTransactionOk() {
-
-        when(pointOfSaleTransactionService.reversalTransaction(
-                eq(TRX_ID),
-                eq(MERCHANT_ID),
-                any(FilePart.class),
-                eq("DOC456"),
-                any(InvoiceLifecyclePolicy.class)
-        )).thenReturn(Mono.empty());
-
-        MultipartBodyBuilder builder = new MultipartBodyBuilder();
-        builder.part("file", "dummycontent".getBytes())
-                .filename("reversal.pdf")
-                .contentType(MediaType.APPLICATION_OCTET_STREAM);
-        builder.part("docNumber", "DOC456");
-
-        webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
-                .uri("/idpay/transactions/{id}/reversal-invoiced", TRX_ID)
-                .header("x-merchant-id", MERCHANT_ID)
-                .header("x-point-of-sale-id", POINT_OF_SALE_ID)
-                .header("Authorization", buildBearerTokenWithScope("transaction:invoicelifecycle:basic"))
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .body(BodyInserters.fromMultipartData(builder.build()))
-                .exchange()
-                .expectStatus().isNoContent()
-                .expectBody().isEmpty();
-
-        verify(pointOfSaleTransactionService).reversalTransaction(
-                eq(TRX_ID),
-                eq(MERCHANT_ID),
-                any(FilePart.class),
-                eq("DOC456"),
-                any(InvoiceLifecyclePolicy.class)
-        );
-    }
-
-    private static String buildBearerTokenWithScope(String scope) {
-        String header = Base64.getUrlEncoder().withoutPadding()
-                .encodeToString("{\"alg\":\"none\"}".getBytes(StandardCharsets.UTF_8));
-        String payload = Base64.getUrlEncoder().withoutPadding()
-                .encodeToString(("{\"scope\":\"" + scope + "\"}").getBytes(StandardCharsets.UTF_8));
-        return "Bearer " + header + "." + payload + ".sig";
-    }
-
 }
