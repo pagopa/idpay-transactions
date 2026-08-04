@@ -8,7 +8,6 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
 import org.springframework.cache.CacheManager;
@@ -21,8 +20,19 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockUser;
 
@@ -39,7 +49,7 @@ class TransactionsControllerImplTest {
 
     @Test
     void findAllOk() {
-        LocalDateTime now = LocalDateTime.of(2022, 9, 20, 13, 15,45);
+        LocalDateTime now = LocalDateTime.of(2022, Month.SEPTEMBER, 20, 13, 15,45);
         LocalDateTime startDate = now.minusMonths(5L);
         LocalDateTime endDate = now.plusMonths(8L);
 
@@ -50,7 +60,7 @@ class TransactionsControllerImplTest {
                 .amountCents(3000L).build();
 
         //idTrxIssuer present in request
-        Mockito.when(rewardTransactionService.findByIdTrxIssuer(Mockito.eq(rt.getIdTrxIssuer()),Mockito.eq(rt.getUserId()), Mockito.any(), Mockito.any(), Mockito.eq(rt.getAmountCents()), Mockito.any()))
+        when(rewardTransactionService.findByIdTrxIssuer(eq(rt.getIdTrxIssuer()),eq(rt.getUserId()), any(), any(), eq(rt.getAmountCents()), any()))
                 .thenReturn(Flux.just(rt));
 
         webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
@@ -66,7 +76,7 @@ class TransactionsControllerImplTest {
                 .expectBodyList(RewardTransaction.class).contains(rt);
 
         //userId e range of date present in the request
-        Mockito.when(rewardTransactionService.findByRange(Mockito.eq(rt.getUserId()), Mockito.any(), Mockito.any(), Mockito.eq(rt.getAmountCents()), Mockito.any()))
+        when(rewardTransactionService.findByRange(eq(rt.getUserId()), any(), any(), eq(rt.getAmountCents()), any()))
                 .thenReturn(Flux.just(rt));
 
         webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
@@ -80,7 +90,92 @@ class TransactionsControllerImplTest {
                 .expectStatus().isOk()
                 .expectBodyList(RewardTransaction.class).contains(rt);
 
-        Mockito.verify(rewardTransactionService, Mockito.times(1)).findByIdTrxIssuer(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        verify(rewardTransactionService, times(1)).findByIdTrxIssuer(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void findEligibilityReturnsAllEligibilityFields() {
+        String merchantId = "MERCHANT_ID";
+        String transactionId = "TRANSACTION_ID";
+        PaymentBatchEligibility eligibility = new PaymentBatchEligibility(
+                transactionId,
+                "INITIATIVE_ID",
+                merchantId,
+                "REWARD_BATCH_ID",
+                "INVOICED",
+                RewardBatchStatus.EVALUATING,
+                RewardBatchTrxStatus.SUSPENDED);
+
+        when(rewardTransactionService.findEligibility(merchantId, transactionId))
+                .thenReturn(Mono.just(eligibility));
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/transactions/{transactionId}/reward-batch/eligibility")
+                        .queryParam("merchantId", merchantId)
+                        .build(transactionId))
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.transactionId").isEqualTo(transactionId)
+                .jsonPath("$.initiativeId").isEqualTo("INITIATIVE_ID")
+                .jsonPath("$.merchantId").isEqualTo(merchantId)
+                .jsonPath("$.rewardBatchId").isEqualTo("REWARD_BATCH_ID")
+                .jsonPath("$.transactionStatus").isEqualTo("INVOICED")
+                .jsonPath("$.batchStatus").isEqualTo("EVALUATING")
+                .jsonPath("$.batchTransactionStatus").isEqualTo("SUSPENDED");
+
+        verify(rewardTransactionService).findEligibility(merchantId, transactionId);
+    }
+
+    @Test
+    void findEligibilityReturnsNoContentWhenNoMembershipExists() {
+        String merchantId = "MERCHANT_ID";
+        String transactionId = "TRANSACTION_ID";
+        when(rewardTransactionService.findEligibility(merchantId, transactionId))
+                .thenReturn(Mono.empty());
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/transactions/{transactionId}/reward-batch/eligibility")
+                        .queryParam("merchantId", merchantId)
+                        .build(transactionId))
+                .exchange()
+                .expectStatus().isNoContent()
+                .expectBody().isEmpty();
+
+        verify(rewardTransactionService).findEligibility(merchantId, transactionId);
+    }
+
+    @Test
+    void findEligibilityPropagatesServiceErrors() {
+        String merchantId = "MERCHANT_ID";
+        String transactionId = "TRANSACTION_ID";
+        when(rewardTransactionService.findEligibility(merchantId, transactionId))
+                .thenReturn(Mono.error(new IllegalStateException("database unavailable")));
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/transactions/{transactionId}/reward-batch/eligibility")
+                        .queryParam("merchantId", merchantId)
+                        .build(transactionId))
+                .exchange()
+                .expectStatus().is5xxServerError();
+
+        verify(rewardTransactionService).findEligibility(merchantId, transactionId);
+    }
+
+    @Test
+    void findEligibilityRejectsMissingMerchantIdWithoutCallingService() {
+        String transactionId = "TRANSACTION_ID";
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
+                .uri("/idpay/transactions/{transactionId}/reward-batch/eligibility", transactionId)
+                .exchange()
+                .expectStatus().isBadRequest();
+
+        verify(rewardTransactionService, never())
+                .findEligibility(anyString(), anyString());
     }
 
     @Test
@@ -238,13 +333,13 @@ class TransactionsControllerImplTest {
                 .expectStatus().isBadRequest()
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDTO);
 
-        Mockito.verify(rewardTransactionService, Mockito.never()).findByRange(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
-        Mockito.verify(rewardTransactionService, Mockito.never()).findByIdTrxIssuer(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+        verify(rewardTransactionService, never()).findByRange(any(), any(), any(), any(), any());
+        verify(rewardTransactionService, never()).findByIdTrxIssuer(any(), any(), any(), any(), any(), any());
     }
 
     @Test
     void pageable(){
-        LocalDateTime now = LocalDateTime.of(2022, 9, 20, 13, 15,45);
+        LocalDateTime now = LocalDateTime.of(2022, Month.SEPTEMBER, 20, 13, 15,45);
         LocalDateTime startDate = now.minusMonths(5L);
         LocalDateTime endDate = now.plusMonths(8L);
         String userId = "USERID";
@@ -259,7 +354,7 @@ class TransactionsControllerImplTest {
                 .amountCents(amountCents).build();
 
         //idTrxIssuer present in request
-        Mockito.when(rewardTransactionService.findByIdTrxIssuer(Mockito.any(),Mockito.any(), Mockito.any(), Mockito.any(), Mockito.eq(amountCents), Mockito.any()))
+        when(rewardTransactionService.findByIdTrxIssuer(any(),any(), any(), any(), eq(amountCents), any()))
                 .thenReturn(Flux.just(rt));
 
         Pageable expectedPageable = PageRequest.of(2, 3, Sort.unsorted());
@@ -277,7 +372,7 @@ class TransactionsControllerImplTest {
                 .exchange()
                 .expectStatus().isOk()
                 .expectBodyList(RewardTransaction.class).contains(rt);
-        Mockito.verify(rewardTransactionService, Mockito.times(1)).findByIdTrxIssuer(Mockito.eq(rt.getIdTrxIssuer()), Mockito.any(), Mockito.any(),Mockito.any(),Mockito.any(),Mockito.eq(expectedPageable));
+        verify(rewardTransactionService, times(1)).findByIdTrxIssuer(eq(rt.getIdTrxIssuer()), any(), any(),any(),any(),eq(expectedPageable));
 
         Pageable expectedPageable2 = PageRequest.of(0, 3, Sort.Direction.DESC, "_id");
         webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
@@ -294,13 +389,13 @@ class TransactionsControllerImplTest {
                 .exchange()
                 .expectStatus().isOk()
                 .expectBodyList(RewardTransaction.class).contains(rt);
-        Mockito.verify(rewardTransactionService, Mockito.times(1)).findByIdTrxIssuer(Mockito.eq("idTrxIssuer2"), Mockito.any(), Mockito.any(),Mockito.any(),Mockito.any(),Mockito.eq(expectedPageable2));
+        verify(rewardTransactionService, times(1)).findByIdTrxIssuer(eq("idTrxIssuer2"), any(),any(),any(),any(),eq(expectedPageable2));
 
     }
 
     @Test
     void findByInitiativeIdAndUserId_Ok() {
-        LocalDateTime now = LocalDateTime.of(2022, 9, 20, 13, 15,45);
+        LocalDateTime now = LocalDateTime.of(2022, Month.SEPTEMBER, 20, 13, 15,45);
 
         RewardTransaction rt = RewardTransaction.builder()
                 .idTrxIssuer("IDTRXISSUER")
@@ -310,7 +405,7 @@ class TransactionsControllerImplTest {
                 .amountCents(3000L).build();
 
 
-        Mockito.when(rewardTransactionService.findByInitiativeIdAndUserId("ID","USERID"))
+        when(rewardTransactionService.findByInitiativeIdAndUserId("ID","USERID"))
                 .thenReturn(Flux.just(rt));
 
         webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
@@ -324,8 +419,8 @@ class TransactionsControllerImplTest {
 
     @Test
     void cleanupInvoicedTransactions_defaultChunkSize() {
-        Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(Mockito.anyInt(),
-                        Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
+        when(rewardTransactionService.assignInvoicedTransactionsToBatches(anyInt(),
+                        anyInt(), anyBoolean(), isNull()))
                 .thenReturn(Mono.empty());
 
         webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
@@ -334,18 +429,18 @@ class TransactionsControllerImplTest {
                 .expectStatus().isAccepted()
                 .expectBody(String.class);
 
-        Mockito.verify(rewardTransactionService, Mockito.times(1))
+        verify(rewardTransactionService, times(1))
                 .assignInvoicedTransactionsToBatches(
-                        Mockito.eq(200),
-                        Mockito.eq(1),
-                        Mockito.eq(false),
-                        Mockito.isNull());
+                        eq(200),
+                        eq(1),
+                        eq(false),
+                        isNull());
     }
 
     @Test
     void cleanupInvoicedTransactions_customChunkSize() {
-        Mockito.when(rewardTransactionService.assignInvoicedTransactionsToBatches(Mockito.anyInt(),
-                        Mockito.anyInt(), Mockito.anyBoolean(), Mockito.isNull()))
+        when(rewardTransactionService.assignInvoicedTransactionsToBatches(anyInt(),
+                        anyInt(), anyBoolean(), isNull()))
                 .thenReturn(Mono.empty());
 
         int customChunkSize = 500;
@@ -360,11 +455,11 @@ class TransactionsControllerImplTest {
                 .expectStatus().isAccepted()
                 .expectBody(String.class);
 
-        Mockito.verify(rewardTransactionService, Mockito.times(1))
+        verify(rewardTransactionService, times(1))
                 .assignInvoicedTransactionsToBatches(
-                        Mockito.eq(customChunkSize),
-                        Mockito.eq(customIteration), Mockito.eq(false),
-                        Mockito.isNull()
+                        eq(customChunkSize),
+                        eq(customIteration), eq(false),
+                        isNull()
                 );
     }
 }
