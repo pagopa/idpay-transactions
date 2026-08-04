@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
+import it.gov.pagopa.idpay.transactions.model.PaymentBatchEligibility;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
@@ -14,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 
@@ -43,6 +45,13 @@ public class TransactionsControllerImpl implements TransactionsController{
             return rewardTransactionService.findByInitiativeIdAndUserId(initiativeId, userId);
         }
         throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, ExceptionConstants.ExceptionCode.TRANSACTIONS_MISSING_MANDATORY_FILTERS,ExceptionConstants.ExceptionMessage.TRANSACTIONS_MISSING_MANDATORY_FILTERS);
+    }
+
+    @Override
+    public Mono<ResponseEntity<PaymentBatchEligibility>> findEligibility(String merchantId, String transactionId) {
+        return rewardTransactionService.findEligibility(merchantId, transactionId)
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.<PaymentBatchEligibility>noContent().build());
     }
 
     @Override

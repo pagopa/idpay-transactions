@@ -15,9 +15,13 @@ import it.gov.pagopa.idpay.transactions.connector.rest.dto.PointOfSaleDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.PointOfSaleTypeEnum;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.PaymentBatchEligibility;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.InvoicedTransactionAssignmentPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.PaymentRewardBatchImpactPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSearchPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSynchronizationPort;
 import java.time.LocalDateTime;
@@ -39,6 +43,7 @@ class RewardTransactionServiceImplTest {
     @Mock private RewardTransactionSearchPort searchPort;
     @Mock private RewardTransactionSynchronizationPort synchronizationPort;
     @Mock private InvoicedTransactionAssignmentPort assignmentPort;
+    @Mock private PaymentRewardBatchImpactPort paymentRewardBatchImpactPort;
     @Mock private MerchantRestClient merchantRestClient;
 
     private RewardTransactionServiceImpl service;
@@ -46,7 +51,8 @@ class RewardTransactionServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new RewardTransactionServiceImpl(
-                searchPort, synchronizationPort, assignmentPort, merchantRestClient, 123);
+                searchPort, synchronizationPort, assignmentPort, paymentRewardBatchImpactPort,
+                merchantRestClient, 123);
     }
 
     @Test
@@ -71,6 +77,37 @@ class RewardTransactionServiceImplTest {
         verify(searchPort).findByIdTrxIssuer("issuer", "user", from, to, 100L, null);
         verify(searchPort).findByRange("user", from, to, 100L, null);
         verify(searchPort).findByInitiativeIdAndUserId("initiative", "user");
+    }
+
+    @Test
+    void eligibilityDelegatesToPaymentRewardBatchImpactPort() {
+        PaymentBatchEligibility eligibility = new PaymentBatchEligibility(
+                "transaction",
+                "initiative",
+                "merchant",
+                "reward-batch",
+                SyncTrxStatus.INVOICED.name(),
+                RewardBatchStatus.EVALUATING,
+                RewardBatchTrxStatus.SUSPENDED);
+        when(paymentRewardBatchImpactPort.findEligibility("merchant", "transaction"))
+                .thenReturn(Mono.just(eligibility));
+
+        StepVerifier.create(service.findEligibility("merchant", "transaction"))
+                .expectNext(eligibility)
+                .verifyComplete();
+
+        verify(paymentRewardBatchImpactPort).findEligibility("merchant", "transaction");
+    }
+
+    @Test
+    void eligibilityPropagatesEmptyWhenTransactionHasNoBatchMembership() {
+        when(paymentRewardBatchImpactPort.findEligibility("merchant", "transaction"))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(service.findEligibility("merchant", "transaction"))
+                .verifyComplete();
+
+        verify(paymentRewardBatchImpactPort).findEligibility("merchant", "transaction");
     }
 
     @Test
@@ -170,7 +207,8 @@ class RewardTransactionServiceImplTest {
     @Test
     void samplingKeyIsDeterministicAndSeedSpecific() {
         RewardTransactionServiceImpl otherSeed = new RewardTransactionServiceImpl(
-                searchPort, synchronizationPort, assignmentPort, merchantRestClient, 456);
+                searchPort, synchronizationPort, assignmentPort, paymentRewardBatchImpactPort,
+                merchantRestClient, 456);
 
         assertEquals(
                 service.computeSamplingKey("id"), service.computeSamplingKey("id"));

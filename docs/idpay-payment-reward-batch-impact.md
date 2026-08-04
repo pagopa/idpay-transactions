@@ -22,7 +22,7 @@ An `INVOICED` generic snapshot updates only the local projection:
 | Revision in `idpay-payment` transaction storage/model | Not implemented |
 | Revision in generic transaction snapshots | Not implemented |
 | Dedicated payment-to-reward-batch-impact producer | Not implemented |
-| Read-only eligibility endpoint/client contract | Not implemented |
+| Read-only eligibility endpoint/client contract | Endpoint implemented in `idpay-transactions`; payment client pending |
 | Runtime impact consumer binding in `idpay-transactions` | Not implemented |
 
 The current payment `TransactionInProgress` model has `counterVersion`, but it
@@ -133,7 +133,22 @@ batchStatus
 batchTransactionStatus
 ```
 
-The HTTP/client shape and payment policy using this result are still an
+#### Proposed HTTP contract
+
+`idpay-transactions` exposes the read-only query as:
+
+```http
+GET /idpay/transactions/{transactionId}/reward-batch/eligibility?merchantId={merchantId}
+```
+
+The response is `200 OK` with the fields above when the transaction has a
+current batch membership. It is `204 No Content` when no membership matches
+the transaction and merchant, allowing payment to continue without a local
+batch precondition. Missing request parameters are rejected with `400 Bad
+Request`; database or service failures are not converted into an empty
+eligibility response.
+
+The client implementation and payment policy using this result are still an
 integration PR decision. The query does not authorize the payment command,
 does not reserve membership, and does not create write coupling. Its result
 must not be copied into the impact event as a membership precondition because
