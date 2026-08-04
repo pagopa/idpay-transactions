@@ -146,6 +146,10 @@ spring:
     url: ${POSTGRES_R2DBC_URL:r2dbc:postgresql://localhost:5432/idpay-transactions}
     username: ${POSTGRES_USERNAME:idpay}
     password: ${POSTGRES_PASSWORD:idpay}
+  flyway:
+    url: ${POSTGRES_JDBC_URL:jdbc:postgresql://localhost:5432/idpay-transactions}
+    user: ${POSTGRES_USERNAME:idpay}
+    password: ${POSTGRES_PASSWORD:idpay}
 
 management:
   health:
