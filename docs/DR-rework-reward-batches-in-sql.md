@@ -23,6 +23,7 @@ The previous draft was inaccurate in the following ways:
 Migrate the batch domain and its local transaction data from reactive MongoDB to PostgreSQL through a reactive SQL stack:
 
 - Use R2DBC and reactive repositories/custom SQL (`Mono`/`Flux`), not JPA, Hibernate, or blocking repositories.
+- Use a PostgreSQL schema dedicated to `idpay-transactions`, owned and migrated exclusively by this service. Flyway creates and manages its schema-history table in that schema; it must not baseline or manage a non-empty schema containing tables owned by other services.
 - Keep `idpay-transactions` as the physical owner of batches and of the local transaction projection needed to execute batch, reporting, and delivery flows. Payment owns invoice update/reversal commands, their authorization, blob operations, and authoritative transaction-state transitions; this service owns the resulting local reward-batch membership effect. An `INVOICED` snapshot only updates that local projection and must not trigger a cancellation or deletion request to payment.
 - Store current batch membership and evaluation state on the local transaction row. The migration must not reduce the local data to a batch-only projection until the consumers of invoice, CSV, POS, and transaction search data have been migrated or replaced.
 - Enforce single-initiative ownership: a transaction belongs to exactly one initiative for its whole local lifecycle. It may be assigned to zero or one reward batch at a time; moving or postponing it updates that single assignment and never creates another one.
@@ -146,7 +147,7 @@ operator reports (an operator level).
 ## Migration and compatibility requirements
 
 1. Add PostgreSQL and R2DBC dependencies/configuration without introducing blocking database calls.
-2. Create the SQL schema through the project-approved migration mechanism. The migration must preserve string identifiers unless an explicit cross-service UUID migration is approved.
+2. Create a dedicated SQL schema through the project-approved migration mechanism, configure R2DBC and Flyway to use it, and let Flyway create its schema-history table there. Do not use `baselineOnMigrate` to adopt an existing shared schema. The migration must preserve string identifiers unless an explicit cross-service UUID migration is approved.
 3. Backfill batches, transactions, and reports, including transaction batch fields and typed accrued reward. Reconcile legacy Mongo counters externally against SQL transaction aggregates; identify transactions with multiple historical initiatives or batch memberships; and quarantine them for remediation before cutover. Do not select an initiative or batch arbitrarily.
 4. During dual-read/dual-write or cutover, do not allow Mongo and SQL to independently apply a decision or move. Use an explicit cutover flag, an outbox/idempotency record, or another documented single-writer strategy.
 5. Kafka processing must be at-least-once safe: every payment snapshot carries a shared monotonic transaction revision, and every impact carries a unique event ID. Conditional projection updates and the transaction-local latest-applied-impact revision ensure retries or stale generic snapshots cannot duplicate or undo local batch membership.

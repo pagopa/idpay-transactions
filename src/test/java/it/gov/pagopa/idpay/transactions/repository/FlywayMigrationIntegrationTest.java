@@ -15,6 +15,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers(disabledWithoutDocker = true)
 class FlywayMigrationIntegrationTest {
 
+    private static final String POSTGRES_SCHEMA = "idpay-rimborsi";
+
     @Container
     private static final PostgreSQLContainer<?> postgresql = new PostgreSQLContainer<>("postgres:17-alpine")
             .withDatabaseName("idpay_transactions")
@@ -25,8 +27,7 @@ class FlywayMigrationIntegrationTest {
     void resetSchema() {
         try (var connection = postgresql.createConnection("");
              var statement = connection.createStatement()) {
-            statement.execute("DROP SCHEMA public CASCADE");
-            statement.execute("CREATE SCHEMA public");
+            statement.execute("DROP SCHEMA IF EXISTS \"" + POSTGRES_SCHEMA + "\" CASCADE");
         } catch (Exception exception) {
             throw new IllegalStateException("Unable to reset the PostgreSQL test schema", exception);
         }
@@ -40,6 +41,7 @@ class FlywayMigrationIntegrationTest {
             assertEquals(
                     "001,002,003,004,005,006,007",
                     java.util.Arrays.stream(flyway.info().applied())
+                            .filter(migration -> migration.getVersion() != null)
                             .map(migration -> migration.getVersion().getVersion())
                             .collect(java.util.stream.Collectors.joining(","))
             );
@@ -48,7 +50,7 @@ class FlywayMigrationIntegrationTest {
                     query(flyway, """
                             SELECT table_name
                             FROM information_schema.tables
-                            WHERE table_schema = 'public'
+                            WHERE table_schema = 'idpay-rimborsi'
                               AND table_name IN ('reports', 'reward_batches', 'reward_transactions')
                             ORDER BY table_name
                             """)
@@ -57,7 +59,7 @@ class FlywayMigrationIntegrationTest {
                     postgresql.getUsername(),
                     query(flyway, """
                             SELECT DISTINCT installed_by
-                            FROM flyway_schema_history
+                            FROM "idpay-rimborsi".flyway_schema_history
                             WHERE success
                               AND version IS NOT NULL
                             """)
@@ -75,7 +77,7 @@ class FlywayMigrationIntegrationTest {
                     "7",
                     query(flyway, """
                             SELECT COUNT(*)
-                            FROM flyway_schema_history
+                            FROM "idpay-rimborsi".flyway_schema_history
                             WHERE success
                               AND version IS NOT NULL
                             """)
@@ -89,6 +91,8 @@ class FlywayMigrationIntegrationTest {
                 .withPropertyValues(
                         "spring.flyway.url=" + postgresql.getJdbcUrl(),
                         "spring.flyway.user=" + postgresql.getUsername(),
+                        "spring.flyway.default-schema=" + POSTGRES_SCHEMA,
+                        "spring.flyway.schemas=" + POSTGRES_SCHEMA,
                         "spring.flyway.password=" + postgresql.getPassword()
                 );
     }

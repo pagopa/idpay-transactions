@@ -5,6 +5,7 @@ import org.flywaydb.core.api.output.MigrateResult;
 import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
 import io.r2dbc.spi.ConnectionFactoryOptions;
+import io.r2dbc.spi.Option;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.data.r2dbc.dialect.PostgresDialect;
 import org.springframework.r2dbc.core.DatabaseClient;
@@ -18,6 +19,8 @@ import reactor.util.retry.Retry;
 import java.time.Duration;
 
 public abstract class PostgresqlMigrationTestSupport {
+
+    private static final String POSTGRES_SCHEMA = "idpay-rimborsi";
 
     @Container
     protected static final PostgreSQLContainer<?> postgresql = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -39,6 +42,8 @@ public abstract class PostgresqlMigrationTestSupport {
         return Flyway.configure()
                 .dataSource(postgresql.getJdbcUrl(), postgresql.getUsername(), postgresql.getPassword())
                 .locations("classpath:db/migration")
+                .defaultSchema(POSTGRES_SCHEMA)
+                .schemas(POSTGRES_SCHEMA)
                 .load();
     }
 
@@ -55,6 +60,7 @@ public abstract class PostgresqlMigrationTestSupport {
                         .from(options)
                         .option(ConnectionFactoryOptions.USER, postgresql.getUsername())
                         .option(ConnectionFactoryOptions.PASSWORD, postgresql.getPassword())
+                        .option(Option.valueOf("schema"), POSTGRES_SCHEMA)
                         .build()
         );
         databaseClient = DatabaseClient.create(connectionFactory);

@@ -23,336 +23,344 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
     private static final long serialVersionUID = 1L;
 
     /**
-     * Setter for <code>public.reward_batches.id</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.id</code>.
      */
     public void setId(String value) {
         set(0, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.id</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.id</code>.
      */
     public String getId() {
         return (String) get(0);
     }
 
     /**
-     * Setter for <code>public.reward_batches.initiative_id</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.initiative_id</code>.
      */
     public void setInitiativeId(String value) {
         set(1, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.initiative_id</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.initiative_id</code>.
      */
     public String getInitiativeId() {
         return (String) get(1);
     }
 
     /**
-     * Setter for <code>public.reward_batches.merchant_id</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.merchant_id</code>.
      */
     public void setMerchantId(String value) {
         set(2, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.merchant_id</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.merchant_id</code>.
      */
     public String getMerchantId() {
         return (String) get(2);
     }
 
     /**
-     * Setter for <code>public.reward_batches.business_name</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.business_name</code>.
      */
     public void setBusinessName(String value) {
         set(3, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.business_name</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.business_name</code>.
      */
     public String getBusinessName() {
         return (String) get(3);
     }
 
     /**
-     * Setter for <code>public.reward_batches.month</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.month</code>.
      */
     public void setMonth(String value) {
         set(4, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.month</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.month</code>.
      */
     public String getMonth() {
         return (String) get(4);
     }
 
     /**
-     * Setter for <code>public.reward_batches.pos_type</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.pos_type</code>.
      */
     public void setPosType(String value) {
         set(5, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.pos_type</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.pos_type</code>.
      */
     public String getPosType() {
         return (String) get(5);
     }
 
     /**
-     * Setter for <code>public.reward_batches.status</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.status</code>.
      */
     public void setStatus(String value) {
         set(6, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.status</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.status</code>.
      */
     public String getStatus() {
         return (String) get(6);
     }
 
     /**
-     * Setter for <code>public.reward_batches.partial</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.partial</code>.
      */
     public void setPartial(Boolean value) {
         set(7, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.partial</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.partial</code>.
      */
     public Boolean getPartial() {
         return (Boolean) get(7);
     }
 
     /**
-     * Setter for <code>public.reward_batches.name</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.name</code>.
      */
     public void setName(String value) {
         set(8, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.name</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.name</code>.
      */
     public String getName() {
         return (String) get(8);
     }
 
     /**
-     * Setter for <code>public.reward_batches.start_date</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.start_date</code>.
      */
     public void setStartDate(LocalDateTime value) {
         set(9, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.start_date</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.start_date</code>.
      */
     public LocalDateTime getStartDate() {
         return (LocalDateTime) get(9);
     }
 
     /**
-     * Setter for <code>public.reward_batches.end_date</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.end_date</code>.
      */
     public void setEndDate(LocalDateTime value) {
         set(10, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.end_date</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.end_date</code>.
      */
     public LocalDateTime getEndDate() {
         return (LocalDateTime) get(10);
     }
 
     /**
-     * Setter for <code>public.reward_batches.creation_date</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.creation_date</code>.
      */
     public void setCreationDate(LocalDateTime value) {
         set(11, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.creation_date</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.creation_date</code>.
      */
     public LocalDateTime getCreationDate() {
         return (LocalDateTime) get(11);
     }
 
     /**
-     * Setter for <code>public.reward_batches.update_date</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.update_date</code>.
      */
     public void setUpdateDate(LocalDateTime value) {
         set(12, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.update_date</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.update_date</code>.
      */
     public LocalDateTime getUpdateDate() {
         return (LocalDateTime) get(12);
     }
 
     /**
-     * Setter for <code>public.reward_batches.merchant_send_date</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.merchant_send_date</code>.
      */
     public void setMerchantSendDate(LocalDateTime value) {
         set(13, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.merchant_send_date</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.merchant_send_date</code>.
      */
     public LocalDateTime getMerchantSendDate() {
         return (LocalDateTime) get(13);
     }
 
     /**
-     * Setter for <code>public.reward_batches.approval_date</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.approval_date</code>.
      */
     public void setApprovalDate(LocalDateTime value) {
         set(14, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.approval_date</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.approval_date</code>.
      */
     public LocalDateTime getApprovalDate() {
         return (LocalDateTime) get(14);
     }
 
     /**
-     * Setter for <code>public.reward_batches.delivery_date_request</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_batches.delivery_date_request</code>.
      */
     public void setDeliveryDateRequest(LocalDateTime value) {
         set(15, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.delivery_date_request</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_batches.delivery_date_request</code>.
      */
     public LocalDateTime getDeliveryDateRequest() {
         return (LocalDateTime) get(15);
     }
 
     /**
-     * Setter for <code>public.reward_batches.refund_outcome_timestamp</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_batches.refund_outcome_timestamp</code>.
      */
     public void setRefundOutcomeTimestamp(LocalDateTime value) {
         set(16, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.refund_outcome_timestamp</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_batches.refund_outcome_timestamp</code>.
      */
     public LocalDateTime getRefundOutcomeTimestamp() {
         return (LocalDateTime) get(16);
     }
 
     /**
-     * Setter for <code>public.reward_batches.report_path</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.report_path</code>.
      */
     public void setReportPath(String value) {
         set(17, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.report_path</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.report_path</code>.
      */
     public String getReportPath() {
         return (String) get(17);
     }
 
     /**
-     * Setter for <code>public.reward_batches.filename</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.filename</code>.
      */
     public void setFilename(String value) {
         set(18, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.filename</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.filename</code>.
      */
     public String getFilename() {
         return (String) get(18);
     }
 
     /**
-     * Setter for <code>public.reward_batches.assignee_level</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.assignee_level</code>.
      */
     public void setAssigneeLevel(String value) {
         set(19, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.assignee_level</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.assignee_level</code>.
      */
     public String getAssigneeLevel() {
         return (String) get(19);
     }
 
     /**
-     * Setter for <code>public.reward_batches.refund_valuta_date</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.refund_valuta_date</code>.
      */
     public void setRefundValutaDate(LocalDate value) {
         set(20, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.refund_valuta_date</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.refund_valuta_date</code>.
      */
     public LocalDate getRefundValutaDate() {
         return (LocalDate) get(20);
     }
 
     /**
-     * Setter for <code>public.reward_batches.refund_error_message</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_batches.refund_error_message</code>.
      */
     public void setRefundErrorMessage(String value) {
         set(21, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.refund_error_message</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_batches.refund_error_message</code>.
      */
     public String getRefundErrorMessage() {
         return (String) get(21);
     }
 
     /**
-     * Setter for <code>public.reward_batches.delivery_outcome</code>.
+     * Setter for <code>idpay-rimborsi.reward_batches.delivery_outcome</code>.
      */
     public void setDeliveryOutcome(JSONB value) {
         set(22, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.delivery_outcome</code>.
+     * Getter for <code>idpay-rimborsi.reward_batches.delivery_outcome</code>.
      */
     public JSONB getDeliveryOutcome() {
         return (JSONB) get(22);
     }
 
     /**
-     * Setter for <code>public.reward_batches.delivery_amount_cents</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_batches.delivery_amount_cents</code>.
      */
     public void setDeliveryAmountCents(Long value) {
         set(23, value);
     }
 
     /**
-     * Getter for <code>public.reward_batches.delivery_amount_cents</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_batches.delivery_amount_cents</code>.
      */
     public Long getDeliveryAmountCents() {
         return (Long) get(23);
