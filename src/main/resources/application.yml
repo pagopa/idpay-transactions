@@ -143,8 +143,12 @@ spring:
     redis:
       url: ${REDIS_CONNECTION_URL:redis://@localhost:6379}
   r2dbc:
-    url: ${POSTGRES_R2DBC_URL:r2dbc:postgresql://localhost:5432/idpay-transactions}
+    url: ${POSTGRES_URL_R2DBC:r2dbc:postgresql://localhost:5432/idpay-pagamenti}
     username: ${POSTGRES_USERNAME:idpay}
+    password: ${POSTGRES_PASSWORD:idpay}
+  flyway:
+    url: ${POSTGRES_URL_JDBC:jdbc:postgresql://localhost:5432/idpay-pagamenti}
+    user: ${POSTGRES_USERNAME:idpay}
     password: ${POSTGRES_PASSWORD:idpay}
 
 management:
