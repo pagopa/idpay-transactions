@@ -21,168 +21,168 @@ public class ReportsRecord extends UpdatableRecordImpl<ReportsRecord> {
     private static final long serialVersionUID = 1L;
 
     /**
-     * Setter for <code>public.reports.id</code>.
+     * Setter for <code>idpay-rimborsi.reports.id</code>.
      */
     public void setId(String value) {
         set(0, value);
     }
 
     /**
-     * Getter for <code>public.reports.id</code>.
+     * Getter for <code>idpay-rimborsi.reports.id</code>.
      */
     public String getId() {
         return (String) get(0);
     }
 
     /**
-     * Setter for <code>public.reports.initiative_id</code>.
+     * Setter for <code>idpay-rimborsi.reports.initiative_id</code>.
      */
     public void setInitiativeId(String value) {
         set(1, value);
     }
 
     /**
-     * Getter for <code>public.reports.initiative_id</code>.
+     * Getter for <code>idpay-rimborsi.reports.initiative_id</code>.
      */
     public String getInitiativeId() {
         return (String) get(1);
     }
 
     /**
-     * Setter for <code>public.reports.report_status</code>.
+     * Setter for <code>idpay-rimborsi.reports.report_status</code>.
      */
     public void setReportStatus(String value) {
         set(2, value);
     }
 
     /**
-     * Getter for <code>public.reports.report_status</code>.
+     * Getter for <code>idpay-rimborsi.reports.report_status</code>.
      */
     public String getReportStatus() {
         return (String) get(2);
     }
 
     /**
-     * Setter for <code>public.reports.start_period</code>.
+     * Setter for <code>idpay-rimborsi.reports.start_period</code>.
      */
     public void setStartPeriod(LocalDateTime value) {
         set(3, value);
     }
 
     /**
-     * Getter for <code>public.reports.start_period</code>.
+     * Getter for <code>idpay-rimborsi.reports.start_period</code>.
      */
     public LocalDateTime getStartPeriod() {
         return (LocalDateTime) get(3);
     }
 
     /**
-     * Setter for <code>public.reports.end_period</code>.
+     * Setter for <code>idpay-rimborsi.reports.end_period</code>.
      */
     public void setEndPeriod(LocalDateTime value) {
         set(4, value);
     }
 
     /**
-     * Getter for <code>public.reports.end_period</code>.
+     * Getter for <code>idpay-rimborsi.reports.end_period</code>.
      */
     public LocalDateTime getEndPeriod() {
         return (LocalDateTime) get(4);
     }
 
     /**
-     * Setter for <code>public.reports.merchant_id</code>.
+     * Setter for <code>idpay-rimborsi.reports.merchant_id</code>.
      */
     public void setMerchantId(String value) {
         set(5, value);
     }
 
     /**
-     * Getter for <code>public.reports.merchant_id</code>.
+     * Getter for <code>idpay-rimborsi.reports.merchant_id</code>.
      */
     public String getMerchantId() {
         return (String) get(5);
     }
 
     /**
-     * Setter for <code>public.reports.business_name</code>.
+     * Setter for <code>idpay-rimborsi.reports.business_name</code>.
      */
     public void setBusinessName(String value) {
         set(6, value);
     }
 
     /**
-     * Getter for <code>public.reports.business_name</code>.
+     * Getter for <code>idpay-rimborsi.reports.business_name</code>.
      */
     public String getBusinessName() {
         return (String) get(6);
     }
 
     /**
-     * Setter for <code>public.reports.request_date</code>.
+     * Setter for <code>idpay-rimborsi.reports.request_date</code>.
      */
     public void setRequestDate(LocalDateTime value) {
         set(7, value);
     }
 
     /**
-     * Getter for <code>public.reports.request_date</code>.
+     * Getter for <code>idpay-rimborsi.reports.request_date</code>.
      */
     public LocalDateTime getRequestDate() {
         return (LocalDateTime) get(7);
     }
 
     /**
-     * Setter for <code>public.reports.elaboration_date</code>.
+     * Setter for <code>idpay-rimborsi.reports.elaboration_date</code>.
      */
     public void setElaborationDate(LocalDateTime value) {
         set(8, value);
     }
 
     /**
-     * Getter for <code>public.reports.elaboration_date</code>.
+     * Getter for <code>idpay-rimborsi.reports.elaboration_date</code>.
      */
     public LocalDateTime getElaborationDate() {
         return (LocalDateTime) get(8);
     }
 
     /**
-     * Setter for <code>public.reports.operator_level</code>.
+     * Setter for <code>idpay-rimborsi.reports.operator_level</code>.
      */
     public void setOperatorLevel(String value) {
         set(9, value);
     }
 
     /**
-     * Getter for <code>public.reports.operator_level</code>.
+     * Getter for <code>idpay-rimborsi.reports.operator_level</code>.
      */
     public String getOperatorLevel() {
         return (String) get(9);
     }
 
     /**
-     * Setter for <code>public.reports.file_name</code>.
+     * Setter for <code>idpay-rimborsi.reports.file_name</code>.
      */
     public void setFileName(String value) {
         set(10, value);
     }
 
     /**
-     * Getter for <code>public.reports.file_name</code>.
+     * Getter for <code>idpay-rimborsi.reports.file_name</code>.
      */
     public String getFileName() {
         return (String) get(10);
     }
 
     /**
-     * Setter for <code>public.reports.report_type</code>.
+     * Setter for <code>idpay-rimborsi.reports.report_type</code>.
      */
     public void setReportType(String value) {
         set(11, value);
     }
 
     /**
-     * Getter for <code>public.reports.report_type</code>.
+     * Getter for <code>idpay-rimborsi.reports.report_type</code>.
      */
     public String getReportType() {
         return (String) get(11);

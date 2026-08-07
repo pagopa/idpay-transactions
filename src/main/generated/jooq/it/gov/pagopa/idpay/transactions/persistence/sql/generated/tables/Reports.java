@@ -4,9 +4,9 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables;
 
 
+import it.gov.pagopa.idpay.transactions.persistence.sql.generated.IdpayRimborsi;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.Indexes;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.Keys;
-import it.gov.pagopa.idpay.transactions.persistence.sql.generated.Public;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.ReportsRecord;
 
 import java.time.LocalDateTime;
@@ -42,7 +42,7 @@ public class Reports extends TableImpl<ReportsRecord> {
     private static final long serialVersionUID = 1L;
 
     /**
-     * The reference instance of <code>public.reports</code>
+     * The reference instance of <code>idpay-rimborsi.reports</code>
      */
     public static final Reports REPORTS = new Reports();
 
@@ -55,62 +55,62 @@ public class Reports extends TableImpl<ReportsRecord> {
     }
 
     /**
-     * The column <code>public.reports.id</code>.
+     * The column <code>idpay-rimborsi.reports.id</code>.
      */
     public final TableField<ReportsRecord, String> ID = createField(DSL.name("id"), SQLDataType.CLOB.nullable(false), this, "");
 
     /**
-     * The column <code>public.reports.initiative_id</code>.
+     * The column <code>idpay-rimborsi.reports.initiative_id</code>.
      */
     public final TableField<ReportsRecord, String> INITIATIVE_ID = createField(DSL.name("initiative_id"), SQLDataType.CLOB.nullable(false), this, "");
 
     /**
-     * The column <code>public.reports.report_status</code>.
+     * The column <code>idpay-rimborsi.reports.report_status</code>.
      */
     public final TableField<ReportsRecord, String> REPORT_STATUS = createField(DSL.name("report_status"), SQLDataType.CLOB.nullable(false), this, "");
 
     /**
-     * The column <code>public.reports.start_period</code>.
+     * The column <code>idpay-rimborsi.reports.start_period</code>.
      */
     public final TableField<ReportsRecord, LocalDateTime> START_PERIOD = createField(DSL.name("start_period"), SQLDataType.LOCALDATETIME(6).nullable(false), this, "");
 
     /**
-     * The column <code>public.reports.end_period</code>.
+     * The column <code>idpay-rimborsi.reports.end_period</code>.
      */
     public final TableField<ReportsRecord, LocalDateTime> END_PERIOD = createField(DSL.name("end_period"), SQLDataType.LOCALDATETIME(6).nullable(false), this, "");
 
     /**
-     * The column <code>public.reports.merchant_id</code>.
+     * The column <code>idpay-rimborsi.reports.merchant_id</code>.
      */
     public final TableField<ReportsRecord, String> MERCHANT_ID = createField(DSL.name("merchant_id"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reports.business_name</code>.
+     * The column <code>idpay-rimborsi.reports.business_name</code>.
      */
     public final TableField<ReportsRecord, String> BUSINESS_NAME = createField(DSL.name("business_name"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reports.request_date</code>.
+     * The column <code>idpay-rimborsi.reports.request_date</code>.
      */
     public final TableField<ReportsRecord, LocalDateTime> REQUEST_DATE = createField(DSL.name("request_date"), SQLDataType.LOCALDATETIME(6).nullable(false), this, "");
 
     /**
-     * The column <code>public.reports.elaboration_date</code>.
+     * The column <code>idpay-rimborsi.reports.elaboration_date</code>.
      */
     public final TableField<ReportsRecord, LocalDateTime> ELABORATION_DATE = createField(DSL.name("elaboration_date"), SQLDataType.LOCALDATETIME(6), this, "");
 
     /**
-     * The column <code>public.reports.operator_level</code>.
+     * The column <code>idpay-rimborsi.reports.operator_level</code>.
      */
     public final TableField<ReportsRecord, String> OPERATOR_LEVEL = createField(DSL.name("operator_level"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reports.file_name</code>.
+     * The column <code>idpay-rimborsi.reports.file_name</code>.
      */
     public final TableField<ReportsRecord, String> FILE_NAME = createField(DSL.name("file_name"), SQLDataType.CLOB.nullable(false), this, "");
 
     /**
-     * The column <code>public.reports.report_type</code>.
+     * The column <code>idpay-rimborsi.reports.report_type</code>.
      */
     public final TableField<ReportsRecord, String> REPORT_TYPE = createField(DSL.name("report_type"), SQLDataType.CLOB.nullable(false), this, "");
 
@@ -123,21 +123,21 @@ public class Reports extends TableImpl<ReportsRecord> {
     }
 
     /**
-     * Create an aliased <code>public.reports</code> table reference
+     * Create an aliased <code>idpay-rimborsi.reports</code> table reference
      */
     public Reports(String alias) {
         this(DSL.name(alias), REPORTS);
     }
 
     /**
-     * Create an aliased <code>public.reports</code> table reference
+     * Create an aliased <code>idpay-rimborsi.reports</code> table reference
      */
     public Reports(Name alias) {
         this(alias, REPORTS);
     }
 
     /**
-     * Create a <code>public.reports</code> table reference
+     * Create a <code>idpay-rimborsi.reports</code> table reference
      */
     public Reports() {
         this(DSL.name("reports"), null);
@@ -145,7 +145,7 @@ public class Reports extends TableImpl<ReportsRecord> {
 
     @Override
     public Schema getSchema() {
-        return aliased() ? null : Public.PUBLIC;
+        return aliased() ? null : IdpayRimborsi.IDPAY_RIMBORSI;
     }
 
     @Override

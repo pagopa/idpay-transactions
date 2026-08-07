@@ -132,7 +132,7 @@ class RewardBatchDerivedAggregateMigrationTest extends PostgresqlMigrationTestSu
                         .sql("""
                                 SELECT indexdef
                                 FROM pg_indexes
-                                WHERE schemaname = 'public'
+                                WHERE schemaname = 'idpay-rimborsi'
                                   AND tablename = 'reward_transactions'
                                   AND indexname = 'idx_reward_transactions_batch_status'
                                 """)
