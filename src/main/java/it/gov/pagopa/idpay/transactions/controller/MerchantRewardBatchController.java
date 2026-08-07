@@ -119,8 +119,4 @@ public interface MerchantRewardBatchController {
       @PathVariable String rewardBatchId,
       @PathVariable String transactionId
   );
-
-  @DeleteMapping("/empty-reward-batches")
-  @ResponseStatus(code = HttpStatus.OK)
-  Mono<Void> cancelEmptyRewardBatches();
 }

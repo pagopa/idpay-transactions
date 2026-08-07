@@ -1,20 +1,19 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import com.google.common.hash.Hashing;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.TRANSACTION_NOT_FOUND;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
-import it.gov.pagopa.idpay.transactions.dto.batch.BatchCountersDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
-import it.gov.pagopa.idpay.transactions.model.Reward;
+import it.gov.pagopa.idpay.transactions.model.PaymentBatchEligibility;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
-import it.gov.pagopa.idpay.transactions.repository.RewardBatchRepository;
-import it.gov.pagopa.idpay.transactions.repository.RewardTransactionRepository;
+import it.gov.pagopa.idpay.transactions.model.RewardBatchFactory;
+import it.gov.pagopa.idpay.transactions.persistence.port.InvoicedTransactionAssignmentPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.PaymentRewardBatchImpactPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSynchronizationPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSearchPort;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 
 import java.time.LocalDate;
@@ -28,54 +27,73 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 @Service
 @Slf4j
 public class RewardTransactionServiceImpl implements RewardTransactionService {
 
-    private final RewardTransactionRepository rewardTrxRepository;
-    private final RewardBatchService rewardBatchService;
+    private final RewardTransactionSearchPort rewardTransactionSearchPort;
+    private final RewardTransactionSynchronizationPort rewardTransactionSynchronizationPort;
+    private final InvoicedTransactionAssignmentPort invoicedTransactionAssignmentPort;
+    private final PaymentRewardBatchImpactPort paymentRewardBatchImpactPort;
     private final MerchantRestClient merchantRestClient;
     private final int seed;
-    private final RewardBatchRepository rewardBatchRepository;
 
 
-    public RewardTransactionServiceImpl(RewardTransactionRepository rewardTrxRepository,
-                                        RewardBatchService rewardBatchService,
+    public RewardTransactionServiceImpl(RewardTransactionSearchPort rewardTransactionSearchPort,
+                                        RewardTransactionSynchronizationPort rewardTransactionSynchronizationPort,
+                                        InvoicedTransactionAssignmentPort invoicedTransactionAssignmentPort,
+                                        PaymentRewardBatchImpactPort paymentRewardBatchImpactPort,
                                         MerchantRestClient merchantRestClient,
-                                        @Value(value="${app.sampling}") int seed,
-                                        RewardBatchRepository rewardBatchRepository) {
-        this.rewardTrxRepository = rewardTrxRepository;
-        this.rewardBatchService = rewardBatchService;
+                                        @Value(value="${app.sampling}") int seed) {
+        this.rewardTransactionSearchPort = rewardTransactionSearchPort;
+        this.rewardTransactionSynchronizationPort = rewardTransactionSynchronizationPort;
+        this.invoicedTransactionAssignmentPort = invoicedTransactionAssignmentPort;
+        this.paymentRewardBatchImpactPort = paymentRewardBatchImpactPort;
         this.merchantRestClient = merchantRestClient;
         this.seed = seed;
-        this.rewardBatchRepository = rewardBatchRepository;
     }
 
     @Override
     public Mono<RewardTransaction> save(RewardTransaction rewardTransaction) {
 
         if (SyncTrxStatus.INVOICED.name().equalsIgnoreCase(rewardTransaction.getStatus())) {
-            return enrichBatchData(rewardTransaction)
-                .flatMap(rewardTrxRepository::save);
+            return enrichBatchData(rewardTransaction);
         }
-        return rewardTrxRepository.save(rewardTransaction);
+        return rewardTransactionSynchronizationPort.upsert(rewardTransaction);
+    }
+
+    @Override
+    public Mono<PaymentBatchEligibility> findEligibility(String merchantId, String transactionId) {
+        return paymentRewardBatchImpactPort.findEligibility(merchantId, transactionId);
     }
 
     @Override
     public Flux<RewardTransaction> findByIdTrxIssuer(String idTrxIssuer, String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, Long amountCents, Pageable pageable) {
-        return rewardTrxRepository.findByIdTrxIssuer(idTrxIssuer, userId, trxDateStart, trxDateEnd, amountCents, pageable);
+        return rewardTransactionSearchPort.findByIdTrxIssuer(
+                idTrxIssuer,
+                userId,
+                trxDateStart,
+                trxDateEnd,
+                amountCents,
+                pageable
+        );
     }
 
     @Override
     public Flux<RewardTransaction> findByRange(String userId, LocalDateTime trxDateStart, LocalDateTime trxDateEnd, Long amountCents, Pageable pageable) {
-        return rewardTrxRepository.findByRange(userId, trxDateStart, trxDateEnd, amountCents, pageable);
+        return rewardTransactionSearchPort.findByRange(
+                userId,
+                trxDateStart,
+                trxDateEnd,
+                amountCents,
+                pageable
+        );
     }
 
     @Override
     public Flux<RewardTransaction> findByInitiativeIdAndUserId(String initiativeId, String userId){
-        return rewardTrxRepository.findByInitiativeIdAndUserId(initiativeId, userId);
+        return rewardTransactionSearchPort.findByInitiativeIdAndUserId(initiativeId, userId);
     }
 
     @Override
@@ -88,14 +106,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
         if (trxId != null && !trxId.isEmpty()) {
             log.info("[BATCH_ASSIGNMENT] Processing transaction with ID={}", Utilities.sanitizeString(trxId));
 
-            return rewardTrxRepository.findById(trxId)
-                    .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
-                            HttpStatus.NOT_FOUND,
-                            String.format(TRANSACTION_NOT_FOUND, trxId))))
-                    .flatMap(rt -> rewardTrxRepository.findInvoicedTrxByIdWithoutBatch(
-                            rt.getInitiatives().getFirst(),
-                            rt.getMerchantId(),
-                            trxId))
+            return invoicedTransactionAssignmentPort.findInvoicedTransactionWithoutBatch(trxId)
                     .switchIfEmpty(Mono.error(new ClientExceptionNoBody(
                             HttpStatus.NOT_FOUND,
                             String.format(TRANSACTION_NOT_FOUND, trxId))))
@@ -111,7 +122,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
     }
 
     private Mono<Void> processAllOperation(int chunkSize) {
-      return rewardTrxRepository.findInvoicedTransactionsWithoutBatch(chunkSize)
+      return invoicedTransactionAssignmentPort.findInvoicedTransactionsWithoutBatch(chunkSize)
           .collectList()
           .flatMap(list -> {
             if (list.isEmpty()) {
@@ -137,7 +148,7 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
     return Flux.range(1, repetitionsNumber)
         .concatMap(i ->
-            rewardTrxRepository.findInvoicedTransactionsWithoutBatch(chunkSize)
+            invoicedTransactionAssignmentPort.findInvoicedTransactionsWithoutBatch(chunkSize)
                 .collectList()
                 .flatMap(list -> {
                   if (list.isEmpty()) {
@@ -165,7 +176,6 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
       return setTrxMissingFields(trx)
           .flatMap(this::enrichBatchData)
-          .flatMap(rewardTrxRepository::save)
           .doOnSuccess(savedTrx -> {
             log.info("[BATCH_ASSIGNMENT][{}] Transaction processed successfully.", savedTrx.getId());
 
@@ -228,39 +238,17 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
         String initiativeId = trx.getInitiatives().getFirst();
 
-        long accruedRewardCents = Optional.ofNullable(trx.getRewards())
-                .map(r -> r.get(initiativeId))
-                .map(Reward::getAccruedRewardCents)
-                .orElse(0L);
-
-        return rewardBatchService.findOrCreateBatch(
-                    initiativeId,
-                    trx.getMerchantId(),
-                    trx.getPointOfSaleType(),
-                    batchMonth,
-                    trx.getBusinessName()
-            )
-            .flatMap(rewardBatch -> {
-
-              if (rewardBatch.getStatus() != RewardBatchStatus.CREATED) {
-                throw new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_STATUS_MISMATCH);
-              }
-
-                BatchCountersDTO counters = BatchCountersDTO.newBatch()
-                        .incrementInitialAmountCents(accruedRewardCents)
-                        .incrementNumberOfTransactions(1L);
-
-              return rewardBatchRepository.updateTotals(rewardBatch.getInitiativeId(), rewardBatch.getId(), counters)
-                  .map(batch -> {
-                    trx.setRewardBatchId(batch.getId());
-                    trx.setRewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE);
-                    trx.setRewardBatchInclusionDate(LocalDateTime.now());
-                    trx.setRewardBatchRejectionReason(null);
-                    trx.setSamplingKey(computeSamplingKey(trx.getId()));
-                    trx.setUpdateDate(LocalDateTime.now());
-                    return trx;
-                  });
-            });
+        return invoicedTransactionAssignmentPort.assignInvoicedTransaction(
+                trx,
+                RewardBatchFactory.create(
+                        initiativeId,
+                        trx.getMerchantId(),
+                        trx.getPointOfSaleType(),
+                        batchMonth,
+                        trx.getBusinessName()
+                ),
+                computeSamplingKey(trx.getId())
+        );
     }
 
   /**
