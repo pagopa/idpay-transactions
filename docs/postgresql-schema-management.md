@@ -18,6 +18,9 @@ canonical schema artifacts. Flyway records applied versions in
 | `POSTGRES_USERNAME` | `idpay` | PostgreSQL runtime user. |
 | `POSTGRES_PASSWORD` | `idpay` | PostgreSQL runtime user password. |
 
+The legacy `POSTGRES_URL_R2DBC` and `POSTGRES_URL_JDBC` names remain accepted
+as fallbacks for existing deployments.
+
 Credentials must be supplied through the deployment secret mechanism. The
 same `POSTGRES_USERNAME` and `POSTGRES_PASSWORD` values are used by both
 Flyway and R2DBC; a separate migration user is not required.
