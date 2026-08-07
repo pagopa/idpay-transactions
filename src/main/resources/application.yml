@@ -152,8 +152,8 @@ spring:
     url: ${POSTGRES_URL_JDBC:jdbc:postgresql://localhost:5432/idpay-database}
     user: ${POSTGRES_USERNAME:idpay}
     password: ${POSTGRES_PASSWORD:idpay}
-    default-schema: ${POSTGRES_SCHEMA:idpay-pagamenti}
-    schemas: ${POSTGRES_SCHEMA:idpay-pagamenti}
+    default-schema: ${POSTGRES_SCHEMA:idpay-rimborsi}
+    schemas: ${POSTGRES_SCHEMA:idpay-rimborsi}
 
 management:
   health:
