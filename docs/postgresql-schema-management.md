@@ -14,6 +14,7 @@ canonical schema artifacts. Flyway records applied versions in
 | --- | --- | --- |
 | `POSTGRES_JDBC_URL` | `jdbc:postgresql://localhost:5432/idpay-transactions` | PostgreSQL JDBC connection URL used by Flyway at startup. |
 | `POSTGRES_R2DBC_URL` | `r2dbc:postgresql://localhost:5432/idpay-transactions` | PostgreSQL R2DBC connection URL. |
+| `POSTGRES_R2DBC_SSL_MODE` | `PREFER` | R2DBC PostgreSQL SSL mode. Deployments should use `REQUIRE` or a certificate-verifying mode. |
 | `POSTGRES_USERNAME` | `idpay` | PostgreSQL runtime user. |
 | `POSTGRES_PASSWORD` | `idpay` | PostgreSQL runtime user password. |
 
