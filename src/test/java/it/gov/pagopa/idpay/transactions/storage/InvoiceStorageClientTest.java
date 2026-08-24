@@ -3,10 +3,12 @@ package it.gov.pagopa.idpay.transactions.storage;
 import com.azure.core.http.rest.Response;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
+import com.azure.storage.blob.BlobServiceAsyncClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.models.BlockBlobItem;
 import com.azure.storage.blob.models.DeleteSnapshotsOptionType;
+import com.azure.storage.blob.models.UserDelegationKey;
 import com.azure.storage.blob.options.BlobParallelUploadOptions;
 import it.gov.pagopa.common.web.exception.ClientException;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,6 +19,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -30,9 +34,13 @@ class InvoiceStorageClientTest {
     @Mock
     private BlobServiceClient blobServiceClient;
     @Mock
+    private BlobServiceAsyncClient blobServiceAsyncClient;
+    @Mock
     private BlobContainerClient blobContainerClient;
     @Mock
     private BlobStorageProperties propertiesMock;
+    @Mock
+    private UserDelegationKey userDelegationKey;
 
     private InvoiceStorageClient invoiceStorageClient;
 
@@ -40,9 +48,12 @@ class InvoiceStorageClientTest {
     void init() {
         when(propertiesMock.getInvoiceTokenDurationSeconds()).thenReturn(60);
         lenient().doReturn(blobClientMock).when(blobContainerClient).getBlobClient(anyString());
+        lenient().when(blobServiceAsyncClient.getUserDelegationKey(any(), any()))
+                .thenReturn(Mono.just(userDelegationKey));
 
         invoiceStorageClient = new InvoiceStorageClient(
             blobServiceClient,
+            blobServiceAsyncClient,
             blobContainerClient,
             propertiesMock
         );
@@ -53,9 +64,9 @@ class InvoiceStorageClientTest {
     void getFileSignedUrlShouldReturnOK() {
         when(blobClientMock.getBlobUrl()).thenReturn("http://localhost:8080");
         when(blobClientMock.generateUserDelegationSas(any(), any())).thenReturn("token");
-        String url = invoiceStorageClient.getFileSignedUrl("fileId");
-        assertNotNull(url);
-        assertEquals("http://localhost:8080?token", url);
+        StepVerifier.create(invoiceStorageClient.getFileSignedUrl("fileId"))
+                .expectNext("http://localhost:8080?token")
+                .verifyComplete();
     }
 
     @Test
@@ -63,8 +74,9 @@ class InvoiceStorageClientTest {
         when(blobClientMock.generateUserDelegationSas(any(), any())).thenAnswer(item -> {
             throw new BlobStorageException("test", null, null);
         });
-        assertThrows(ClientException.class, () -> invoiceStorageClient
-                .getFileSignedUrl( "fileId"));
+        StepVerifier.create(invoiceStorageClient.getFileSignedUrl("fileId"))
+                .expectError(ClientException.class)
+                .verify();
     }
 
     @Test
@@ -135,10 +147,9 @@ class InvoiceStorageClientTest {
         when(blobClientMock.getBlobUrl()).thenReturn("http://localhost:8080");
         when(blobClientMock.generateUserDelegationSas(any(), any())).thenReturn("token");
 
-        String url = invoiceStorageClient.getInvoiceFileSignedUrl("fileId");
-
-        assertNotNull(url);
-        assertEquals("http://localhost:8080?token", url);
+        StepVerifier.create(invoiceStorageClient.getInvoiceFileSignedUrl("fileId"))
+                .expectNext("http://localhost:8080?token")
+                .verifyComplete();
     }
 
     @Test
@@ -146,8 +157,9 @@ class InvoiceStorageClientTest {
         when(blobClientMock.generateUserDelegationSas(any(), any()))
                 .thenThrow(new BlobStorageException("test", null, null));
 
-        assertThrows(ClientException.class,
-                () -> invoiceStorageClient.getInvoiceFileSignedUrl("fileId"));
+        StepVerifier.create(invoiceStorageClient.getInvoiceFileSignedUrl("fileId"))
+                .expectError(ClientException.class)
+                .verify();
     }
 
 }

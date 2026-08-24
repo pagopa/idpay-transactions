@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.storage;
 
 import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.storage.blob.BlobContainerClient;
+import com.azure.storage.blob.BlobServiceAsyncClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import org.springframework.context.annotation.Bean;
@@ -22,6 +23,14 @@ public class BlobStorageClientConfig {
         .endpoint("https://" + properties.getStorageAccountName() + ".blob.core.windows.net")
         .credential(new DefaultAzureCredentialBuilder().build())
         .buildClient();
+  }
+
+  @Bean
+  public BlobServiceAsyncClient blobServiceAsyncClient() {
+    return new BlobServiceClientBuilder()
+        .endpoint("https://" + properties.getStorageAccountName() + ".blob.core.windows.net")
+        .credential(new DefaultAzureCredentialBuilder().build())
+        .buildAsyncClient();
   }
 
   @Bean("invoiceContainerClient")

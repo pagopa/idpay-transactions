@@ -3,9 +3,11 @@ package it.gov.pagopa.idpay.transactions.storage;
 import com.azure.core.http.rest.Response;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
+import com.azure.storage.blob.BlobServiceAsyncClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.models.BlockBlobItem;
+import com.azure.storage.blob.models.UserDelegationKey;
 import com.azure.storage.blob.options.BlobParallelUploadOptions;
 import it.gov.pagopa.common.web.exception.ClientException;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +18,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,12 +34,16 @@ class ReportTransactionsBlobServiceImplTest {
 
     @Mock
     private BlobServiceClient blobServiceClient;
+    @Mock
+    private BlobServiceAsyncClient blobServiceAsyncClient;
 
     @Mock
     private BlobContainerClient reportsContainerClient;
 
     @Mock
     private BlobStorageProperties propertiesMock;
+    @Mock
+    private UserDelegationKey userDelegationKey;
 
     private ReportTransactionsBlobServiceImpl reportService;
 
@@ -45,9 +53,12 @@ class ReportTransactionsBlobServiceImplTest {
 
         lenient().when(reportsContainerClient.getBlobClient(anyString()))
                 .thenReturn(blobClientMock);
+        lenient().when(blobServiceAsyncClient.getUserDelegationKey(any(), any()))
+                .thenReturn(Mono.just(userDelegationKey));
 
         reportService = new ReportTransactionsBlobServiceImpl(
                 blobServiceClient,
+                blobServiceAsyncClient,
                 reportsContainerClient,
                 propertiesMock
         );
@@ -59,10 +70,9 @@ class ReportTransactionsBlobServiceImplTest {
         when(blobClientMock.generateUserDelegationSas(any(), any()))
                 .thenReturn("token");
 
-        String url = reportService.getFileSignedUrl("fileA.csv");
-
-        assertNotNull(url);
-        assertEquals("http://localhost:8080?token", url);
+        StepVerifier.create(reportService.getFileSignedUrl("fileA.csv"))
+                .expectNext("http://localhost:8080?token")
+                .verifyComplete();
     }
 
     @Test
@@ -70,8 +80,9 @@ class ReportTransactionsBlobServiceImplTest {
         when(blobClientMock.generateUserDelegationSas(any(), any()))
                 .thenThrow(new BlobStorageException("sas error", null, null));
 
-        assertThrows(ClientException.class,
-                () -> reportService.getFileSignedUrl("fileA.csv"));
+        StepVerifier.create(reportService.getFileSignedUrl("fileA.csv"))
+                .expectError(ClientException.class)
+                .verify();
     }
 
     @Test

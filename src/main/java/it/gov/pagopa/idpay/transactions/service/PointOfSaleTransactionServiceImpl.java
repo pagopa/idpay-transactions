@@ -87,7 +87,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                         HttpStatus.BAD_REQUEST,
                         TRANSACTION_MISSING_INVOICE
                 )))
-                .handle((rewardTransaction, sink) -> {
+                .map(rewardTransaction -> {
                     String status = rewardTransaction.getStatus();
                     InvoiceData documentData;
                     String typeFolder;
@@ -100,19 +100,17 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                         documentData = rewardTransaction.getCreditNoteData();
                         typeFolder = "creditNote";
                     } else {
-                        sink.error(new ClientExceptionNoBody(
+                        throw new ClientExceptionNoBody(
                                 HttpStatus.BAD_REQUEST,
                                 TRANSACTION_MISSING_INVOICE
-                        ));
-                        return;
+                        );
                     }
 
                     if (documentData == null || documentData.getFilename() == null) {
-                        sink.error(new ClientExceptionNoBody(
+                        throw new ClientExceptionNoBody(
                                 HttpStatus.BAD_REQUEST,
                                 TRANSACTION_MISSING_INVOICE
-                        ));
-                        return;
+                        );
                     }
 
                     String blobPath = String.format(
@@ -123,10 +121,12 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                             typeFolder,
                             documentData.getFilename()
                     );
-                    sink.next(DownloadInvoiceResponseDTO.builder()
-                            .invoiceUrl(invoiceStorageClient.getFileSignedUrl(blobPath))
-                            .build());
-                });
+                    return blobPath;
+                })
+                .flatMap(blobPath -> invoiceStorageClient.getFileSignedUrl(blobPath)
+                        .map(invoiceUrl -> DownloadInvoiceResponseDTO.builder()
+                                .invoiceUrl(invoiceUrl)
+                                .build()));
     }
 
     @Override

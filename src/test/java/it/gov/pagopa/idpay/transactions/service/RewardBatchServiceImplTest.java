@@ -12,6 +12,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
@@ -219,6 +220,7 @@ class RewardBatchServiceImplTest {
         StepVerifier.create(service.downloadApprovedRewardBatchFile(
                         "merchant", null, "initiative", "batch"))
                 .expectError().verify();
+        verifyNoInteractions(batchBlobService);
 
         RewardBatch approved = batch("approved", RewardBatchStatus.APPROVED);
         approved.setFilename("approved.csv");
@@ -226,7 +228,7 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Mono.just(approved));
         when(batchBlobService.getFileSignedUrl(
                 "initiative/initiative/merchant/merchant/batch/approved/approved.csv"))
-                .thenReturn("signed-url");
+                .thenReturn(Mono.just("signed-url"));
         StepVerifier.create(service.downloadApprovedRewardBatchFile(
                         "merchant", null, "initiative", "approved"))
                 .assertNext(response -> assertEquals("signed-url", response.getApprovedBatchUrl()))

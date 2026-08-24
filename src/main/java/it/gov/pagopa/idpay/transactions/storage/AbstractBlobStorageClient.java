@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.storage;
 import com.azure.core.http.rest.Response;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
+import com.azure.storage.blob.BlobServiceAsyncClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.models.BlockBlobItem;
@@ -15,6 +16,7 @@ import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpStatus;
+import reactor.core.publisher.Mono;
 
 import java.io.InputStream;
 import java.net.URLDecoder;
@@ -27,28 +29,36 @@ import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.Exceptio
 public abstract class AbstractBlobStorageClient {
 
     protected final BlobServiceClient blobServiceClient;
+    protected final BlobServiceAsyncClient blobServiceAsyncClient;
     protected final BlobContainerClient containerClient;
     protected final Integer sasDurationSeconds;
 
     protected AbstractBlobStorageClient(
             BlobServiceClient blobServiceClient,
+            BlobServiceAsyncClient blobServiceAsyncClient,
             BlobContainerClient containerClient,
             Integer sasDurationSeconds) {
 
         this.blobServiceClient = blobServiceClient;
+        this.blobServiceAsyncClient = blobServiceAsyncClient;
         this.containerClient = containerClient;
         this.sasDurationSeconds = sasDurationSeconds;
     }
 
-    public String getFileSignedUrl(String blobPath) {
+    public Mono<String> getFileSignedUrl(String blobPath) {
         OffsetDateTime expiryTime = OffsetDateTime.now().plusSeconds(sasDurationSeconds);
-        UserDelegationKey userDelegationKey =
-                blobServiceClient.getUserDelegationKey(null, expiryTime);
-
         BlobSasPermission sasPermission = new BlobSasPermission().setReadPermission(true);
         BlobClient blobClient = containerClient.getBlobClient(blobPath);
         BlobServiceSasSignatureValues sasValues = new BlobServiceSasSignatureValues(expiryTime, sasPermission);
 
+        return blobServiceAsyncClient.getUserDelegationKey(null, expiryTime)
+                .map(userDelegationKey -> generateSignedUrl(blobClient, sasValues, userDelegationKey));
+    }
+
+    private String generateSignedUrl(
+            BlobClient blobClient,
+            BlobServiceSasSignatureValues sasValues,
+            UserDelegationKey userDelegationKey) {
         try {
             String sasToken = blobClient.generateUserDelegationSas(sasValues, userDelegationKey);
             return StringUtils.joinWith("?",

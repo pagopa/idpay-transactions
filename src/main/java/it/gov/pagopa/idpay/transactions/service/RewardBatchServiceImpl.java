@@ -375,7 +375,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         REWARD_BATCH_NOT_FOUND,
                         ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId)
                 )))
-                .map(batch -> {
+                .flatMap(batch -> {
 
                     if (merchantId == null && !isValidInvitaliaOperator(organizationRole)) {
                         throw new RoleNotAllowedException(
@@ -407,11 +407,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             filename
                     );
 
-                    return DownloadRewardBatchResponseDTO.builder()
-                            .approvedBatchUrl(
-                                    approvedRewardBatchBlobService.getFileSignedUrl(blobPath)
-                            )
-                            .build();
+                    return approvedRewardBatchBlobService.getFileSignedUrl(blobPath)
+                            .map(approvedBatchUrl -> DownloadRewardBatchResponseDTO.builder()
+                                    .approvedBatchUrl(approvedBatchUrl)
+                                    .build());
                 });
     }
 
