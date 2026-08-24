@@ -1,32 +1,25 @@
 package it.gov.pagopa.idpay.transactions.storage;
 
 import com.azure.core.http.rest.Response;
-import com.azure.storage.blob.BlobContainerClient;
+import com.azure.storage.blob.BlobContainerAsyncClient;
 import com.azure.storage.blob.BlobServiceAsyncClient;
-import com.azure.storage.blob.BlobServiceClient;
-import com.azure.storage.blob.models.BlockBlobItem;
 import com.azure.storage.blob.models.DeleteSnapshotsOptionType;
-import com.azure.storage.blob.options.BlobParallelUploadOptions;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
-import java.io.InputStream;
-
 @Component
 @Slf4j
 public class InvoiceStorageClient extends AbstractBlobStorageClient {
 
     public InvoiceStorageClient(
-            BlobServiceClient blobServiceClient,
             BlobServiceAsyncClient blobServiceAsyncClient,
-            @Qualifier("invoiceContainerClient") BlobContainerClient blobContainerClient,
+            @Qualifier("invoiceContainerClient") BlobContainerAsyncClient blobContainerClient,
             BlobStorageProperties properties) {
 
         super(
-                blobServiceClient,
                 blobServiceAsyncClient,
                 blobContainerClient,
                 properties.getInvoiceTokenDurationSeconds()
@@ -38,10 +31,10 @@ public class InvoiceStorageClient extends AbstractBlobStorageClient {
     }
 
 
-    public Response<Boolean> deleteFile(String destination) {
+    public Mono<Response<Boolean>> deleteFile(String destination) {
         log.info("Deleting file {} from azure blob container", Utilities.sanitizeString(destination));
 
-        return containerClient.getBlobClient(destination)
-                .deleteIfExistsWithResponse(DeleteSnapshotsOptionType.INCLUDE, null, null, null);
+        return containerClient.getBlobAsyncClient(destination)
+                .deleteIfExistsWithResponse(DeleteSnapshotsOptionType.INCLUDE, null);
     }
 }

@@ -10,5 +10,5 @@ public interface ApprovedRewardBatchBlobService {
 
     Mono<String> getFileSignedUrl(String blobPath);
 
-    Response<BlockBlobItem> upload(InputStream inputStream, String destination, String contentType);
+    Mono<Response<BlockBlobItem>> upload(InputStream inputStream, String destination, String contentType);
 }

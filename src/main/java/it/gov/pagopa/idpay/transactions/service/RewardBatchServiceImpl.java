@@ -1,8 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import com.azure.core.http.rest.Response;
 import com.azure.storage.blob.models.BlobStorageException;
-import com.azure.storage.blob.models.BlockBlobItem;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.config.InitiativeNotFoundException;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
@@ -48,10 +46,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.NumberFormat;
 import java.time.LocalDate;
@@ -1022,28 +1018,25 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     public Mono<String> uploadCsvToBlob(String filename, String csvContent) {
 
-        return Mono.fromCallable(() -> {
-                    InputStream inputStream = new ByteArrayInputStream(csvContent.getBytes(StandardCharsets.UTF_8));
-                    Response<BlockBlobItem> response = approvedRewardBatchBlobService.upload(
-                            inputStream,
-                            filename,
-                            "text/csv; charset=UTF-8"
-                    );
-
+        return Mono.defer(() -> approvedRewardBatchBlobService.upload(
+                        new ByteArrayInputStream(csvContent.getBytes(StandardCharsets.UTF_8)),
+                        filename,
+                        "text/csv; charset=UTF-8"
+                )
+                .flatMap(response -> {
                     if (response.getStatusCode() != HttpStatus.CREATED.value()) {
                         log.error("Error uploading file to storage for file [{}]",
                                 Utilities.sanitizeString(filename));
-                        throw new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
+                        return Mono.error(new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
                                 ExceptionConstants.ExceptionCode.GENERIC_ERROR,
-                                "Error uploading csv file");
+                                "Error uploading csv file"));
                     }
-                    return filename;
-                })
+                    return Mono.just(filename);
+                }))
                 .onErrorMap(BlobStorageException.class, e -> {
                     log.error("Azure Blob Storage upload failed for file {}", filename, e);
                     return new RuntimeException("Error uploading CSV to Blob Storage.", e);
-                })
-                .subscribeOn(Schedulers.boundedElastic());
+                });
     }
 
 

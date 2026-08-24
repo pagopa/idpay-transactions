@@ -1,8 +1,7 @@
 package it.gov.pagopa.idpay.transactions.storage;
 
-import com.azure.storage.blob.BlobContainerClient;
+import com.azure.storage.blob.BlobContainerAsyncClient;
 import com.azure.storage.blob.BlobServiceAsyncClient;
-import com.azure.storage.blob.BlobServiceClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -12,12 +11,11 @@ import org.springframework.stereotype.Component;
 public class ApprovedRewardBatchBlobServiceImpl extends AbstractBlobStorageClient implements ApprovedRewardBatchBlobService {
 
     public ApprovedRewardBatchBlobServiceImpl(
-            BlobServiceClient blobServiceClient,
             BlobServiceAsyncClient blobServiceAsyncClient,
-            @Qualifier("rewardBatchesContainerClient") BlobContainerClient csvContainerClient,
+            @Qualifier("rewardBatchesContainerClient") BlobContainerAsyncClient csvContainerClient,
             BlobStorageProperties properties) {
 
-        super(blobServiceClient, blobServiceAsyncClient, csvContainerClient, properties.getInvoiceTokenDurationSeconds());
+        super(blobServiceAsyncClient, csvContainerClient, properties.getInvoiceTokenDurationSeconds());
     }
 
 }
