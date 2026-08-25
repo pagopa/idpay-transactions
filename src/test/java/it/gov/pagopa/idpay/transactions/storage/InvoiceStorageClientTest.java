@@ -13,15 +13,18 @@ import com.azure.storage.blob.options.BlobParallelUploadOptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -63,7 +66,9 @@ class InvoiceStorageClientTest {
                 .expectNext("http://localhost:8080?token")
                 .verifyComplete();
 
-        verify(blobServiceAsyncClient).getUserDelegationKey(isNull(), any(OffsetDateTime.class));
+        ArgumentCaptor<OffsetDateTime> expiryTime = ArgumentCaptor.forClass(OffsetDateTime.class);
+        verify(blobServiceAsyncClient).getUserDelegationKey(isNull(), expiryTime.capture());
+        assertEquals(ZoneOffset.UTC, expiryTime.getValue().getOffset());
         verify(blobContainerClient).getBlobAsyncClient("fileId");
         verify(blobClientMock).getBlobUrl();
         verify(blobClientMock).generateUserDelegationSas(any(), any());

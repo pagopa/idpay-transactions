@@ -21,6 +21,7 @@ import java.io.InputStream;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_ON_GET_FILE_URL_REQUEST;
 
@@ -41,7 +42,7 @@ public abstract class AbstractBlobStorageClient {
     }
 
     public Mono<String> getFileSignedUrl(String blobPath) {
-        OffsetDateTime expiryTime = OffsetDateTime.now().plusSeconds(sasDurationSeconds);
+        OffsetDateTime expiryTime = OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(sasDurationSeconds);
         BlobSasPermission sasPermission = new BlobSasPermission().setReadPermission(true);
         BlobServiceSasSignatureValues sasValues = new BlobServiceSasSignatureValues(expiryTime, sasPermission);
         BlobAsyncClient blobClient = containerClient.getBlobAsyncClient(blobPath);

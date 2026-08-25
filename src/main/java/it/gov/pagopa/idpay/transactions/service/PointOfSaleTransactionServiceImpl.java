@@ -87,7 +87,7 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                         HttpStatus.BAD_REQUEST,
                         TRANSACTION_MISSING_INVOICE
                 )))
-                .map(rewardTransaction -> {
+                .flatMap(rewardTransaction -> {
                     String status = rewardTransaction.getStatus();
                     InvoiceData documentData;
                     String typeFolder;
@@ -113,20 +113,18 @@ public class PointOfSaleTransactionServiceImpl implements PointOfSaleTransaction
                         );
                     }
 
-                    String blobPath = String.format(
-                            "invoices/merchant/%s/pos/%s/transaction/%s/%s/%s",
-                            merchantId,
-                            pointOfSaleId,
-                            transactionId,
-                            typeFolder,
-                            documentData.getFilename()
-                    );
-                    return blobPath;
-                })
-                .flatMap(blobPath -> invoiceStorageClient.getFileSignedUrl(blobPath)
-                        .map(invoiceUrl -> DownloadInvoiceResponseDTO.builder()
-                                .invoiceUrl(invoiceUrl)
-                                .build()));
+                    return invoiceStorageClient.getFileSignedUrl(String.format(
+                                    "invoices/merchant/%s/pos/%s/transaction/%s/%s/%s",
+                                    merchantId,
+                                    pointOfSaleId,
+                                    transactionId,
+                                    typeFolder,
+                                    documentData.getFilename()
+                            ))
+                            .map(invoiceUrl -> DownloadInvoiceResponseDTO.builder()
+                                    .invoiceUrl(invoiceUrl)
+                                    .build());
+                });
     }
 
     @Override
