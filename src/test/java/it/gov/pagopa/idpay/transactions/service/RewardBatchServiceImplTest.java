@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import com.azure.storage.blob.models.BlobStorageException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -10,8 +11,10 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
@@ -219,6 +222,7 @@ class RewardBatchServiceImplTest {
         StepVerifier.create(service.downloadApprovedRewardBatchFile(
                         "merchant", null, "initiative", "batch"))
                 .expectError().verify();
+        verifyNoInteractions(batchBlobService);
 
         RewardBatch approved = batch("approved", RewardBatchStatus.APPROVED);
         approved.setFilename("approved.csv");
@@ -226,7 +230,7 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Mono.just(approved));
         when(batchBlobService.getFileSignedUrl(
                 "initiative/initiative/merchant/merchant/batch/approved/approved.csv"))
-                .thenReturn("signed-url");
+                .thenReturn(Mono.just("signed-url"));
         StepVerifier.create(service.downloadApprovedRewardBatchFile(
                         "merchant", null, "initiative", "approved"))
                 .assertNext(response -> assertEquals("signed-url", response.getApprovedBatchUrl()))
@@ -415,7 +419,7 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Flux.empty());
         when(batchBlobService.upload(
                 any(InputStream.class), anyString(),
-                anyString())).thenReturn(response);
+                anyString())).thenReturn(Mono.just(response));
         when(lifecyclePort.saveBatch(approved)).thenReturn(Mono.just(approved));
 
         StepVerifier.create(service.generateAndSaveCsv("batch", "initiative", "merchant"))
@@ -445,9 +449,20 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Flux.empty());
         when(batchBlobService.upload(
                 any(), anyString(),
-                anyString())).thenReturn(failedResponse);
+                anyString())).thenReturn(Mono.just(failedResponse));
         StepVerifier.create(service.generateAndSaveCsv("batch", "initiative", "merchant"))
                 .expectError().verify();
+
+        BlobStorageException storageError =
+                new BlobStorageException("upload failed", null, null);
+        when(batchBlobService.upload(
+                any(), anyString(),
+                anyString())).thenReturn(Mono.error(storageError));
+        StepVerifier.create(service.generateAndSaveCsv("batch", "initiative", "merchant"))
+                .expectErrorMatches(error -> error instanceof RuntimeException
+                        && error.getCause() == storageError)
+                .verify();
+        verify(lifecyclePort, never()).saveBatch(any());
     }
 
     @Test
@@ -532,7 +547,7 @@ class RewardBatchServiceImplTest {
                 it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV.builder().pii("fiscal-code").build()));
         when(batchBlobService.upload(
                 any(), anyString(),
-                anyString())).thenReturn(response);
+                anyString())).thenReturn(Mono.just(response));
         when(lifecyclePort.saveBatch(approved)).thenReturn(Mono.just(approved));
 
         StepVerifier.create(service.generateAndSaveCsv("batch", "initiative", "merchant"))

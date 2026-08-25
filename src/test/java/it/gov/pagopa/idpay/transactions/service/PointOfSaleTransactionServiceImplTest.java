@@ -121,7 +121,7 @@ class PointOfSaleTransactionServiceImplTest {
         }
         when(invoiceLookupPort.findInvoiceTransaction("merchant", "transaction"))
                 .thenReturn(Mono.just(transaction.build()));
-        when(invoiceStorageClient.getFileSignedUrl(any())).thenReturn("signed-url");
+        when(invoiceStorageClient.getFileSignedUrl(any())).thenReturn(Mono.just("signed-url"));
 
         StepVerifier.create(service.downloadTransactionInvoice("merchant", "pos", "transaction"))
                 .assertNext(response -> assertEquals("signed-url", response.getInvoiceUrl()))

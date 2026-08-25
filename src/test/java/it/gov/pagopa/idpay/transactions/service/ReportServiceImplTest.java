@@ -234,7 +234,7 @@ class ReportServiceImplTest {
         when(reportPort.findByIdAndInitiativeIdAndMerchantId("merchant-report", "initiative", "merchant"))
                 .thenReturn(Mono.just(merchant));
         when(transactionBlobService.getFileSignedUrl(
-                "initiative/initiative/merchant/merchant/report/merchant.csv")).thenReturn("merchant-url");
+                "initiative/initiative/merchant/merchant/report/merchant.csv")).thenReturn(Mono.just("merchant-url"));
         StepVerifier.create(service.downloadTransactionsReport(
                         "merchant", null, "initiative", "merchant-report"))
                 .assertNext(result -> assertEquals("merchant-url", result.getReportUrl())).verifyComplete();
@@ -244,7 +244,7 @@ class ReportServiceImplTest {
         user.setReportStatus(ReportStatus.GENERATED);
         when(reportPort.findByIdAndInitiativeId("user-report", "initiative")).thenReturn(Mono.just(user));
         when(userDetailsBlobService.getFileSignedUrl("initiative/initiative/report/users.csv"))
-                .thenReturn("users-url");
+                .thenReturn(Mono.just("users-url"));
         StepVerifier.create(service.downloadUserDetailsReports("operator3", "initiative", "user-report"))
                 .assertNext(result -> assertEquals("users-url", result.getReportUrl())).verifyComplete();
     }
@@ -306,7 +306,7 @@ class ReportServiceImplTest {
         when(reportPort.findByIdAndInitiativeIdAndMerchantId("merchant-report", "initiative", "merchant"))
                 .thenReturn(Mono.just(merchant));
         when(transactionBlobService.getFileSignedUrl(
-                "initiative/initiative/merchant/merchant/report/merchant.csv")).thenReturn("url");
+                "initiative/initiative/merchant/merchant/report/merchant.csv")).thenReturn(Mono.just("url"));
         StepVerifier.create(service.downloadReports("merchant", null, "initiative", "merchant-report"))
                 .assertNext(result -> assertEquals("url", result.getReportUrl())).verifyComplete();
 
@@ -356,7 +356,7 @@ class ReportServiceImplTest {
         report.setReportStatus(ReportStatus.GENERATED);
         when(reportPort.findByIdAndInitiativeId("report", "initiative")).thenReturn(Mono.just(report));
         when(transactionBlobService.getFileSignedUrl(
-                "initiative/initiative/merchant/merchant/report/report.csv")).thenReturn("url");
+                "initiative/initiative/merchant/merchant/report/report.csv")).thenReturn(Mono.just("url"));
 
         StepVerifier.create(service.downloadTransactionsReport(null, "operator1", "initiative", "report"))
                 .assertNext(result -> assertEquals("url", result.getReportUrl())).verifyComplete();
@@ -379,7 +379,7 @@ class ReportServiceImplTest {
         user.setFileName("users.csv");
         user.setReportStatus(ReportStatus.GENERATED);
         when(reportPort.findByIdAndInitiativeId("user", "initiative")).thenReturn(Mono.just(user));
-        when(userDetailsBlobService.getFileSignedUrl("initiative/initiative/report/users.csv")).thenReturn("url");
+        when(userDetailsBlobService.getFileSignedUrl("initiative/initiative/report/users.csv")).thenReturn(Mono.just("url"));
 
         StepVerifier.create(service.downloadReports(null, "operator1", "initiative", "user"))
                 .assertNext(result -> assertEquals("url", result.getReportUrl())).verifyComplete();

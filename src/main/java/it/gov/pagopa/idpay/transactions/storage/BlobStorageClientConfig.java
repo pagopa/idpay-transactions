@@ -1,9 +1,9 @@
 package it.gov.pagopa.idpay.transactions.storage;
 
 import com.azure.identity.DefaultAzureCredentialBuilder;
-import com.azure.storage.blob.BlobContainerClient;
-import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.BlobServiceAsyncClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
+import com.azure.storage.blob.BlobContainerAsyncClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -17,30 +17,30 @@ public class BlobStorageClientConfig {
   }
 
   @Bean
-  public BlobServiceClient blobServiceClient() {
+  public BlobServiceAsyncClient blobServiceAsyncClient() {
     return new BlobServiceClientBuilder()
         .endpoint("https://" + properties.getStorageAccountName() + ".blob.core.windows.net")
         .credential(new DefaultAzureCredentialBuilder().build())
-        .buildClient();
+        .buildAsyncClient();
   }
 
   @Bean("invoiceContainerClient")
-  public BlobContainerClient blobContainerClient(BlobServiceClient blobServiceClient) {
-    return blobServiceClient.getBlobContainerClient(properties.getContainerReference());
+  public BlobContainerAsyncClient blobContainerClient(BlobServiceAsyncClient blobServiceClient) {
+    return blobServiceClient.getBlobContainerAsyncClient(properties.getContainerReference());
   }
 
   @Bean("rewardBatchesContainerClient")
-  public BlobContainerClient rewardBatchesContainerClient(BlobServiceClient blobServiceClient){
-    return blobServiceClient.getBlobContainerClient(properties.getCsvContainerReference());
+  public BlobContainerAsyncClient rewardBatchesContainerClient(BlobServiceAsyncClient blobServiceClient){
+    return blobServiceClient.getBlobContainerAsyncClient(properties.getCsvContainerReference());
   }
 
   @Bean("reportsTransactionsContainerClient")
-  public BlobContainerClient reportsTransactionsContainerClient(BlobServiceClient blobServiceClient){
-    return blobServiceClient.getBlobContainerClient(properties.getReportsTransactionsContainerReference());
+  public BlobContainerAsyncClient reportsTransactionsContainerClient(BlobServiceAsyncClient blobServiceClient){
+    return blobServiceClient.getBlobContainerAsyncClient(properties.getReportsTransactionsContainerReference());
   }
 
   @Bean("reportsUserDetailsContainerClient")
-  public BlobContainerClient reportsUserDetailsContainerClient(BlobServiceClient blobServiceClient){
-    return blobServiceClient.getBlobContainerClient(properties.getReportsUserDetailsContainerReference());
+  public BlobContainerAsyncClient reportsUserDetailsContainerClient(BlobServiceAsyncClient blobServiceClient){
+    return blobServiceClient.getBlobContainerAsyncClient(properties.getReportsUserDetailsContainerReference());
   }
 }
