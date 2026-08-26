@@ -51,6 +51,18 @@ it.
 `status=REFUNDED` as the same detach signal. The generic snapshot still must
 not overwrite local batch fields except to clear them on detach.
 
+The generic topic is only the transport for this signal. At the application
+boundary, transaction synchronization must route `REFUNDED` snapshots to a
+focused persist-and-detach operation. The ordinary SQL projection upsert must
+remain status-agnostic and must not contain a hidden `REFUNDED` branch.
+
+The persist-and-detach operation is a reward-batch impact in domain terms, but
+it must not be forced through `PaymentRewardBatchImpact` or
+`SqlPaymentRewardBatchImpactAdapter`. That dedicated envelope, impact
+watermark, and equal-revision handling remain specific to
+`INVOICE_REPLACED`. Reversal continues to use the generic snapshot's strict
+transaction-revision ordering.
+
 Detach is idempotent: a retry of an already detached `REFUNDED` row must not
 fail or recreate membership. Revision rules stay as implemented: a stale
 snapshot must not overwrite a newer local projection.
@@ -63,7 +75,7 @@ branch, validation, and tests keep only `INVOICE_REPLACED`.
 | PR | Deliverable | Depends on |
 | --- | --- | --- |
 | 01 | Update [idpay-payment-reward-batch-impact.md](idpay-payment-reward-batch-impact.md) so reversal is `TRANSACTION_REFUNDED` on `idpay-transaction`. Keep `INVOICE_REPLACED` as the only dedicated impact. Point the DR at this plan. Do not change Java. | — |
-| 02 | Stop skipping `REFUNDED` in `rewardTrxConsumer`. Persist the snapshot and detach current membership in one SQL transaction. Cover assigned detach, already-unassigned persist, retry/idempotency, and stale-revision ignore. | 01 |
+| 02 | Stop skipping `REFUNDED` in `rewardTrxConsumer`. Route the mapped snapshot at the application layer to a focused persist-and-detach port operation; keep the ordinary projection upsert status-agnostic. Persist the snapshot and detach current membership in one SQL transaction. Cover assigned detach, already-unassigned persist, retry/idempotency, and stale-revision ignore. | 01 |
 | 03 | Remove `INVOICED_REVERSED` from `PaymentRewardBatchImpactType`, `SqlPaymentRewardBatchImpactAdapter`, and its tests. Keep `INVOICE_REPLACED` behaviour unchanged. | 02 |
 
 ## Implementation notes
@@ -71,6 +83,15 @@ branch, validation, and tests keep only `INVOICE_REPLACED`.
 - Reuse the existing membership-clear columns used by the current detach
   update: `reward_batch_id`, `reward_batch_trx_status`,
   `reward_batch_inclusion_date`, and `sampling_key`.
+- Dispatch by payload status before entering the ordinary synchronization
+  adapter: `INVOICED` keeps its assignment flow, `REFUNDED` uses the focused
+  persist-and-detach operation, and other statuses use the projection upsert.
+- Keep `SqlRewardTransactionAdapter.upsert` status-agnostic. Shared SQL
+  construction and revision guards may be reused, but the reversal decision
+  belongs to the application boundary.
+- Do not synthesize a `PaymentRewardBatchImpact` for reversal and do not use
+  the dedicated impact watermark. `TRANSACTION_REFUNDED` remains ordered and
+  deduplicated by the generic transaction revision.
 - Keep batch amounts/counts derived from remaining assigned rows. Do not
   write batch counters.
 - Do not call payment, cancel a payment transaction, or touch invoice blobs.
