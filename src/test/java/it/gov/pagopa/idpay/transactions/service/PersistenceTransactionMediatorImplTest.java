@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -172,23 +173,49 @@ class PersistenceTransactionMediatorImplTest {
     }
 
     @Test
-    void executeShouldSkipRefundedTransactions() {
-        RewardTransactionDTO rtDT = RewardTransactionDTOFaker.mockInstance(1);
+    void executeShouldPersistMappedRefundedStatusAndIgnoreOperationTypeHeader() {
+        RewardTransactionDTO rtDTO = RewardTransactionDTOFaker.mockInstance(1);
+        rtDTO.setStatus(SyncTrxStatus.REFUNDED.name());
+        RewardTransaction rt = RewardTransactionFaker.mockInstance(1);
+        rt.setStatus(SyncTrxStatus.REFUNDED.name());
 
-        Flux<Message<String>> messageFlux = Flux.just(rtDT)
-                .map(TestUtils::jsonSerializer)
-                .map(payload -> MessageBuilder
-                        .withPayload(payload)
-                        .setHeader(KafkaHeaders.RECEIVED_PARTITION, 0)
-                        .setHeader(KafkaHeaders.OFFSET, 0L)
-                        .setHeader("operationType", "REFUNDED")
-                        .build()
-                );
+        when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
+        when(rewardTransactionService.save(rt)).thenReturn(Mono.just(rt));
 
-        persistenceTransactionMediator.execute(messageFlux);
+        StepVerifier.create(persistenceTransactionMediator.execute(
+                        rtDTO,
+                        MessageBuilder.withPayload("payload")
+                                .setHeader("operationType", "REFUNDED")
+                                .build(),
+                        Map.of()))
+                .expectNext(rt)
+                .verifyComplete();
 
-        Mockito.verifyNoInteractions(rewardTransactionMapper, rewardTransactionService);
-        Mockito.verifyNoInteractions(transactionErrorNotifierService);
+        verify(rewardTransactionMapper).mapFromDTO(rtDTO);
+        verify(rewardTransactionService).save(rt);
+    }
+
+    @Test
+    void executeShouldNotRewriteStatusFromOperationTypeHeader() {
+        RewardTransactionDTO rtDTO = RewardTransactionDTOFaker.mockInstance(1);
+        rtDTO.setStatus(SyncTrxStatus.INVOICED.name());
+        RewardTransaction rt = RewardTransactionFaker.mockInstance(1);
+        rt.setStatus(SyncTrxStatus.INVOICED.name());
+
+        when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
+        when(rewardTransactionService.save(rt)).thenReturn(Mono.just(rt));
+
+        StepVerifier.create(persistenceTransactionMediator.execute(
+                        rtDTO,
+                        MessageBuilder.withPayload("payload")
+                                .setHeader("operationType", "REFUNDED")
+                                .build(),
+                        Map.of()))
+                .expectNext(rt)
+                .verifyComplete();
+
+        verify(rewardTransactionService).save(argThat(saved ->
+                SyncTrxStatus.INVOICED.name().equals(saved.getStatus())));
     }
 
     @Test

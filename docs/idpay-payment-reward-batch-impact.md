@@ -35,7 +35,7 @@ implemented by [implementation-plan-refunded-batch-detach.md](implementation-pla
 | Dedicated payment-to-reward-batch-impact producer | Not implemented (`INVOICE_REPLACED` only) |
 | Read-only eligibility endpoint/client contract | Endpoint implemented in `idpay-transactions`; payment client pending |
 | Runtime impact consumer binding in `idpay-transactions` | Not implemented |
-| `TRANSACTION_REFUNDED` persist-and-detach on `idpay-transaction` | Not implemented; `rewardTrxConsumer` currently skips `operationType=REFUNDED` |
+| `TRANSACTION_REFUNDED` persist-and-detach on `idpay-transaction` | Implemented from payload `status=REFUNDED`; CDC does not set `operationType` |
 
 The current payment `TransactionInProgress` model has `counterVersion`, but it
 is the reward-calculator counter ETag. It is not a transaction lifecycle
@@ -87,13 +87,14 @@ must not overwrite those local fields except to clear them when a
 `TRANSACTION_REFUNDED` snapshot detaches current membership.
 
 A reversal snapshot is `TRANSACTION_REFUNDED` on `idpay-transaction`.
-`rewardTrxConsumer` must treat the payload `status=REFUNDED` and the legacy
-`operationType=REFUNDED` header as the same detach signal: persist `REFUNDED`
-and, when `reward_batch_id` is set, clear `reward_batch_id`,
+Payment CDC publishes the outbox `payload` to that topic and does not set an
+`operationType` header. `rewardTrxConsumer` must persist payload
+`status=REFUNDED` and, when `reward_batch_id` is set, clear `reward_batch_id`,
 `reward_batch_trx_status`, `reward_batch_inclusion_date`, and `sampling_key`
-in the same SQL transaction. An already unassigned `REFUNDED` row stays
-unassigned. A retry of an already applied snapshot is a no-op. A stale
-snapshot must not overwrite a newer local projection.
+in the same SQL transaction. A Kafka header must not rewrite status. An
+already unassigned `REFUNDED` row stays unassigned. A retry of an already
+applied snapshot is a no-op. A stale snapshot must not overwrite a newer
+local projection.
 
 Payment enabling CDC for `TRANSACTION_REFUNDED` is a cross-repo prerequisite
 for the live path. This service must still accept and apply the snapshot once

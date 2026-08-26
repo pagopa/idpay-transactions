@@ -47,9 +47,11 @@ it.
 | Invoice replacement | Dedicated `INVOICE_REPLACED` impact | Unchanged |
 | Reversal | Outbox `TRANSACTION_REFUNDED` → CDC → `idpay-transaction` | Persist `REFUNDED`. If `reward_batch_id` is set, clear membership and in-batch assignment fields. If it is already null, persist `REFUNDED` and leave membership unchanged. |
 
-`rewardTrxConsumer` must treat `operationType=REFUNDED` and payload
-`status=REFUNDED` as the same detach signal. The generic snapshot still must
-not overwrite local batch fields except to clear them on detach.
+`rewardTrxConsumer` must persist and detach from payload `status=REFUNDED`.
+The payment CDC connector publishes the outbox `payload` only and does not
+set an `operationType` header; a header must not rewrite status. The generic
+snapshot still must not overwrite local batch fields except to clear them on
+detach.
 
 The generic topic is only the transport for this signal. At the application
 boundary, transaction synchronization must route `REFUNDED` snapshots to a
@@ -101,7 +103,7 @@ branch, validation, and tests keep only `INVOICE_REPLACED`.
 
 ## Tests
 
-- Consumer no longer returns empty for `operationType=REFUNDED`.
+- Consumer persists payload `status=REFUNDED` and does not rewrite status from an `operationType` header.
 - Assigned transaction becomes `REFUNDED` and loses batch membership.
 - Unassigned transaction becomes `REFUNDED` and stays unassigned.
 - Retry of the same `REFUNDED` snapshot is a no-op after the first apply.
