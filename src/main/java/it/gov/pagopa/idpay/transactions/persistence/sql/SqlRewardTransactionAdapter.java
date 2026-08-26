@@ -10,7 +10,10 @@ import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSynchr
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardTransactionsRecord;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
+import org.jooq.Condition;
 import org.jooq.DSLContext;
+import org.jooq.InsertOnDuplicateSetMoreStep;
+import org.jooq.InsertResultStep;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Mono;
@@ -32,30 +35,32 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
             RewardTransaction transaction,
             DSLContext transactionDslContext
     ) {
-        return upsertWithinTransaction(transaction, transactionDslContext, false);
+        RewardTransactionEntity entity = mapper.toEntity(transaction);
+        RewardTransactionsRecord transactionRecord = mapper.toRecord(entity);
+        InsertResultStep<?> write = isRefunded(entity)
+                ? insertOrUpdateRefunded(transactionDslContext, transactionRecord)
+                : insertOrUpdateProjection(transactionDslContext, transactionRecord, false);
+        return completeUpsert(write, entity, transactionDslContext);
     }
 
     Mono<RewardTransaction> upsertImpactWithinTransaction(
             RewardTransaction transaction,
             DSLContext transactionDslContext
     ) {
-        return upsertWithinTransaction(transaction, transactionDslContext, true);
+        RewardTransactionEntity entity = mapper.toEntity(transaction);
+        return completeUpsert(
+                insertOrUpdateProjection(transactionDslContext, mapper.toRecord(entity), true),
+                entity,
+                transactionDslContext
+        );
     }
 
-    private Mono<RewardTransaction> upsertWithinTransaction(
-            RewardTransaction transaction,
-            DSLContext transactionDslContext,
-            boolean allowEqualRevision
+    private Mono<RewardTransaction> completeUpsert(
+            InsertResultStep<?> write,
+            RewardTransactionEntity entity,
+            DSLContext transactionDslContext
     ) {
-        RewardTransactionEntity entity = mapper.toEntity(transaction);
-        return Mono.from(insertOrUpdate(
-                        transactionDslContext,
-                        mapper.toRecord(entity),
-                        allowEqualRevision,
-                        // Impact upserts keep membership so INVOICED_REVERSED can detach it.
-                        !allowEqualRevision
-                                && SyncTrxStatus.REFUNDED.name().equalsIgnoreCase(entity.status())
-                ))
+        return Mono.from(write)
                 .then(findById(transactionDslContext, entity.id()))
                 .switchIfEmpty(Mono.error(new IllegalStateException(
                         "Transaction %s was not persisted".formatted(entity.id())
@@ -71,17 +76,46 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
                 });
     }
 
+    private static boolean isRefunded(RewardTransactionEntity entity) {
+        return SyncTrxStatus.REFUNDED.name().equalsIgnoreCase(entity.status());
+    }
+
     private Mono<RewardTransaction> findById(DSLContext transactionDslContext, String transactionId) {
         return Mono.from(transactionDslContext.selectFrom(REWARD_TRANSACTIONS)
                         .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId)))
                 .map(mapper::fromRecord);
     }
 
-    private org.jooq.InsertResultStep<?> insertOrUpdate(
+    private InsertResultStep<?> insertOrUpdateProjection(
             DSLContext transactionDslContext,
             RewardTransactionsRecord transactionRecord,
-            boolean allowEqualRevision,
-            boolean detachMembership
+            boolean allowEqualRevision
+    ) {
+        return projectionOnConflictUpdate(transactionDslContext, transactionRecord)
+                .where(revisionGuard(transactionRecord, allowEqualRevision))
+                .returning(REWARD_TRANSACTIONS.TRANSACTION_ID);
+    }
+
+    private InsertResultStep<?> insertOrUpdateRefunded(
+            DSLContext transactionDslContext,
+            RewardTransactionsRecord transactionRecord
+    ) {
+        transactionRecord.setRewardBatchId(null);
+        transactionRecord.setRewardBatchTrxStatus(null);
+        transactionRecord.setRewardBatchInclusionDate(null);
+        transactionRecord.setSamplingKey(0);
+        return projectionOnConflictUpdate(transactionDslContext, transactionRecord)
+                .set(REWARD_TRANSACTIONS.REWARD_BATCH_ID, val((String) null))
+                .set(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS, val((String) null))
+                .set(REWARD_TRANSACTIONS.REWARD_BATCH_INCLUSION_DATE, val((LocalDateTime) null))
+                .set(REWARD_TRANSACTIONS.SAMPLING_KEY, val(0))
+                .where(revisionGuard(transactionRecord, false))
+                .returning(REWARD_TRANSACTIONS.TRANSACTION_ID);
+    }
+
+    private InsertOnDuplicateSetMoreStep<?> projectionOnConflictUpdate(
+            DSLContext transactionDslContext,
+            RewardTransactionsRecord transactionRecord
     ) {
         return transactionDslContext.insertInto(REWARD_TRANSACTIONS)
                 .set(transactionRecord)
@@ -135,31 +169,20 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
                 .set(REWARD_TRANSACTIONS.ACCRUED_REWARD_CENTS,
                         excluded(REWARD_TRANSACTIONS.ACCRUED_REWARD_CENTS))
                 .set(REWARD_TRANSACTIONS.TRANSACTION_REVISION,
-                        excluded(REWARD_TRANSACTIONS.TRANSACTION_REVISION))
-                .set(REWARD_TRANSACTIONS.REWARD_BATCH_ID,
-                        detachMembership
-                                ? val((String) null)
-                                : REWARD_TRANSACTIONS.REWARD_BATCH_ID)
-                .set(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS,
-                        detachMembership
-                                ? val((String) null)
-                                : REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS)
-                .set(REWARD_TRANSACTIONS.REWARD_BATCH_INCLUSION_DATE,
-                        detachMembership
-                                ? val((LocalDateTime) null)
-                                : REWARD_TRANSACTIONS.REWARD_BATCH_INCLUSION_DATE)
-                .set(REWARD_TRANSACTIONS.SAMPLING_KEY,
-                        detachMembership
-                                ? val(0)
-                                : REWARD_TRANSACTIONS.SAMPLING_KEY)
-                .where(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(transactionRecord.getInitiativeId())
-                        .and(allowEqualRevision
-                                ? REWARD_TRANSACTIONS.TRANSACTION_REVISION.le(
-                                        excluded(REWARD_TRANSACTIONS.TRANSACTION_REVISION)
-                                )
-                                : REWARD_TRANSACTIONS.TRANSACTION_REVISION.lt(
-                                        excluded(REWARD_TRANSACTIONS.TRANSACTION_REVISION)
-                                )))
-                .returning(REWARD_TRANSACTIONS.TRANSACTION_ID);
+                        excluded(REWARD_TRANSACTIONS.TRANSACTION_REVISION));
+    }
+
+    private static Condition revisionGuard(
+            RewardTransactionsRecord transactionRecord,
+            boolean allowEqualRevision
+    ) {
+        return REWARD_TRANSACTIONS.INITIATIVE_ID.eq(transactionRecord.getInitiativeId())
+                .and(allowEqualRevision
+                        ? REWARD_TRANSACTIONS.TRANSACTION_REVISION.le(
+                                excluded(REWARD_TRANSACTIONS.TRANSACTION_REVISION)
+                        )
+                        : REWARD_TRANSACTIONS.TRANSACTION_REVISION.lt(
+                                excluded(REWARD_TRANSACTIONS.TRANSACTION_REVISION)
+                        ));
     }
 }
