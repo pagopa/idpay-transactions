@@ -37,7 +37,8 @@ it.
   dedicated impact is applied.
 - The runtime dedicated-impact consumer binding is not wired.
 - [idpay-payment-reward-batch-impact.md](idpay-payment-reward-batch-impact.md)
-  still documents `INVOICED_REVERSED` as the reversal signal.
+  documents reversal as `TRANSACTION_REFUNDED` on `idpay-transaction`.
+  `INVOICE_REPLACED` is the only dedicated impact.
 
 ## Target behaviour
 
