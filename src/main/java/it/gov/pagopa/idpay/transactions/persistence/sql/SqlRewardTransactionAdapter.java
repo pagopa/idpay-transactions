@@ -2,10 +2,13 @@ package it.gov.pagopa.idpay.transactions.persistence.sql;
 
 import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions.REWARD_TRANSACTIONS;
 import static org.jooq.impl.DSL.excluded;
+import static org.jooq.impl.DSL.val;
 
+import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSynchronizationPort;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardTransactionsRecord;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Component;
@@ -48,7 +51,10 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
         return Mono.from(insertOrUpdate(
                         transactionDslContext,
                         mapper.toRecord(entity),
-                        allowEqualRevision
+                        allowEqualRevision,
+                        // Impact upserts keep membership so INVOICED_REVERSED can detach it.
+                        !allowEqualRevision
+                                && SyncTrxStatus.REFUNDED.name().equalsIgnoreCase(entity.status())
                 ))
                 .then(findById(transactionDslContext, entity.id()))
                 .switchIfEmpty(Mono.error(new IllegalStateException(
@@ -74,7 +80,8 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
     private org.jooq.InsertResultStep<?> insertOrUpdate(
             DSLContext transactionDslContext,
             RewardTransactionsRecord transactionRecord,
-            boolean allowEqualRevision
+            boolean allowEqualRevision,
+            boolean detachMembership
     ) {
         return transactionDslContext.insertInto(REWARD_TRANSACTIONS)
                 .set(transactionRecord)
@@ -129,6 +136,22 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
                         excluded(REWARD_TRANSACTIONS.ACCRUED_REWARD_CENTS))
                 .set(REWARD_TRANSACTIONS.TRANSACTION_REVISION,
                         excluded(REWARD_TRANSACTIONS.TRANSACTION_REVISION))
+                .set(REWARD_TRANSACTIONS.REWARD_BATCH_ID,
+                        detachMembership
+                                ? val((String) null)
+                                : REWARD_TRANSACTIONS.REWARD_BATCH_ID)
+                .set(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS,
+                        detachMembership
+                                ? val((String) null)
+                                : REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS)
+                .set(REWARD_TRANSACTIONS.REWARD_BATCH_INCLUSION_DATE,
+                        detachMembership
+                                ? val((LocalDateTime) null)
+                                : REWARD_TRANSACTIONS.REWARD_BATCH_INCLUSION_DATE)
+                .set(REWARD_TRANSACTIONS.SAMPLING_KEY,
+                        detachMembership
+                                ? val(0)
+                                : REWARD_TRANSACTIONS.SAMPLING_KEY)
                 .where(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(transactionRecord.getInitiativeId())
                         .and(allowEqualRevision
                                 ? REWARD_TRANSACTIONS.TRANSACTION_REVISION.le(

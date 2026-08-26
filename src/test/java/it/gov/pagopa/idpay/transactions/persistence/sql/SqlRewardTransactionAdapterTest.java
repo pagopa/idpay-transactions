@@ -1,12 +1,16 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.Reward;
+import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import it.gov.pagopa.idpay.transactions.model.RewardBatchFactory;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
 import java.time.LocalDateTime;
@@ -19,6 +23,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.r2dbc.repository.support.R2dbcRepositoryFactory;
 import org.springframework.r2dbc.connection.TransactionAwareConnectionFactoryProxy;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.test.StepVerifier;
@@ -28,17 +33,36 @@ import tools.jackson.databind.json.JsonMapper;
 class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
 
     private static SqlRewardTransactionAdapter adapter;
+    private static SqlInvoicedTransactionAssignmentAdapter assignmentAdapter;
 
     @BeforeAll
     static void setUpDatabase() {
         applyRepositoryMigrations();
+        var dslContext = DSL.using(
+                new TransactionAwareConnectionFactoryProxy(connectionFactory()),
+                SQLDialect.POSTGRES
+        );
+        var jsonMapper = JsonMapper.builder().build();
+        var transactionMapper = new RewardTransactionSqlMapper(jsonMapper);
         adapter = new SqlRewardTransactionAdapter(
                 transactionalOperator(),
-                DSL.using(
-                        new TransactionAwareConnectionFactoryProxy(connectionFactory()),
-                        SQLDialect.POSTGRES
+                dslContext,
+                transactionMapper
+        );
+        assignmentAdapter = new SqlInvoicedTransactionAssignmentAdapter(
+                transactionalOperator(),
+                dslContext,
+                connectionFactory(),
+                new SqlRewardBatchAdapter(
+                        transactionalOperator(),
+                        dslContext,
+                        new R2dbcRepositoryFactory(r2dbcEntityTemplate())
+                                .getRepository(RewardBatchSqlRepository.class),
+                        new RewardBatchSqlMapper(jsonMapper)
                 ),
-                new RewardTransactionSqlMapper(JsonMapper.builder().build())
+                adapter,
+                new RewardBatchSqlMapper(jsonMapper),
+                transactionMapper
         );
     }
 
@@ -165,6 +189,146 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
     }
 
     @Test
+    void shouldDetachAssignedMembershipWhenPersistingANewerRefundedSnapshot() {
+        RewardTransaction invoiced = invoicedTransaction("transaction-refunded-detach", "initiative-1", 1L);
+        RewardTransaction refunded = transaction("transaction-refunded-detach", "initiative-1");
+        refunded.setTransactionRevision(2L);
+        refunded.setStatus(SyncTrxStatus.REFUNDED.name());
+
+        StepVerifier.create(assignmentAdapter.assignInvoicedTransaction(
+                                invoiced,
+                                batch("refunded-detach-batch"),
+                                77
+                        )
+                        .then(adapter.upsert(refunded)))
+                .assertNext(saved -> {
+                    assertEquals(SyncTrxStatus.REFUNDED.name(), saved.getStatus());
+                    assertEquals(2L, saved.getTransactionRevision());
+                    assertNull(saved.getRewardBatchId());
+                    assertNull(saved.getRewardBatchTrxStatus());
+                    assertNull(saved.getRewardBatchInclusionDate());
+                    assertEquals(0, saved.getSamplingKey());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldPersistRefundedStatusForAnAlreadyUnassignedTransaction() {
+        RewardTransaction original = transaction("transaction-refunded-unassigned", "initiative-1");
+        original.setTransactionRevision(1L);
+        original.setRewardBatchTrxStatus(null);
+        original.setSamplingKey(0);
+        RewardTransaction refunded = transaction("transaction-refunded-unassigned", "initiative-1");
+        refunded.setTransactionRevision(2L);
+        refunded.setStatus(SyncTrxStatus.REFUNDED.name());
+        refunded.setRewardBatchTrxStatus(null);
+        refunded.setSamplingKey(0);
+
+        StepVerifier.create(adapter.upsert(original)
+                        .then(adapter.upsert(refunded)))
+                .assertNext(saved -> {
+                    assertEquals("REFUNDED", saved.getStatus());
+                    assertNull(saved.getRewardBatchId());
+                    assertNull(saved.getRewardBatchTrxStatus());
+                    assertEquals(0, saved.getSamplingKey());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldIgnoreARetryOfAnAlreadyAppliedRefundedSnapshot() {
+        RewardTransaction invoiced = invoicedTransaction("transaction-refunded-retry", "initiative-1", 1L);
+        RewardTransaction refunded = transaction("transaction-refunded-retry", "initiative-1");
+        refunded.setTransactionRevision(2L);
+        refunded.setStatus(SyncTrxStatus.REFUNDED.name());
+        refunded.setAmountCents(2_000L);
+        RewardTransaction retry = transaction("transaction-refunded-retry", "initiative-1");
+        retry.setTransactionRevision(2L);
+        retry.setStatus(SyncTrxStatus.REFUNDED.name());
+        retry.setAmountCents(9_999L);
+
+        StepVerifier.create(assignmentAdapter.assignInvoicedTransaction(
+                                invoiced,
+                                batch("refunded-retry-batch"),
+                                77
+                        )
+                        .then(adapter.upsert(refunded))
+                        .then(adapter.upsert(retry)))
+                .assertNext(saved -> {
+                    assertEquals(SyncTrxStatus.REFUNDED.name(), saved.getStatus());
+                    assertEquals(2L, saved.getTransactionRevision());
+                    assertEquals(2_000L, saved.getAmountCents());
+                    assertNull(saved.getRewardBatchId());
+                    assertNull(saved.getRewardBatchTrxStatus());
+                    assertNull(saved.getRewardBatchInclusionDate());
+                    assertEquals(0, saved.getSamplingKey());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldIgnoreAStaleRefundedSnapshotAgainstANewerRevision() {
+        RewardTransaction invoiced = invoicedTransaction("transaction-refunded-stale", "initiative-1", 1L);
+        RewardTransaction newer = transaction("transaction-refunded-stale", "initiative-1");
+        newer.setTransactionRevision(3L);
+        newer.setStatus(SyncTrxStatus.INVOICED.name());
+        newer.setAmountCents(2_000L);
+        RewardTransaction staleRefunded = transaction("transaction-refunded-stale", "initiative-1");
+        staleRefunded.setTransactionRevision(2L);
+        staleRefunded.setStatus(SyncTrxStatus.REFUNDED.name());
+        staleRefunded.setAmountCents(9_999L);
+
+        StepVerifier.create(assignmentAdapter.assignInvoicedTransaction(
+                                invoiced,
+                                batch("refunded-stale-batch"),
+                                77
+                        )
+                        .then(adapter.upsert(newer))
+                        .then(adapter.upsert(staleRefunded)))
+                .assertNext(saved -> {
+                    assertEquals(SyncTrxStatus.INVOICED.name(), saved.getStatus());
+                    assertEquals(3L, saved.getTransactionRevision());
+                    assertEquals(2_000L, saved.getAmountCents());
+                    assertEquals("refunded-stale-batch", saved.getRewardBatchId());
+                    assertEquals(RewardBatchTrxStatus.CONSULTABLE, saved.getRewardBatchTrxStatus());
+                    assertEquals(77, saved.getSamplingKey());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldRejectARefundedSnapshotThatChangesTheExistingTransactionInitiative() {
+        RewardTransaction invoiced = invoicedTransaction("transaction-refunded-initiative", "initiative-1", 1L);
+        RewardTransaction conflicting = transaction("transaction-refunded-initiative", "initiative-2");
+        conflicting.setTransactionRevision(2L);
+        conflicting.setStatus(SyncTrxStatus.REFUNDED.name());
+
+        StepVerifier.create(assignmentAdapter.assignInvoicedTransaction(
+                                invoiced,
+                                batch("refunded-initiative-batch"),
+                                77
+                        )
+                        .then(adapter.upsert(conflicting)))
+                .expectErrorMatches(error -> error instanceof IllegalStateException
+                        && error.getMessage().contains("initiative-1"))
+                .verify();
+
+        StepVerifier.create(databaseClient()
+                        .sql("""
+                                SELECT initiative_id, status, reward_batch_id, sampling_key
+                                FROM reward_transactions
+                                WHERE transaction_id = 'transaction-refunded-initiative'
+                                """)
+                        .map((row, metadata) -> row.get("initiative_id", String.class)
+                                + ":" + row.get("status", String.class)
+                                + ":" + row.get("reward_batch_id", String.class)
+                                + ":" + row.get("sampling_key", Integer.class))
+                        .one())
+                .expectNext("initiative-1:INVOICED:refunded-initiative-batch:77")
+                .verifyComplete();
+    }
+
+    @Test
     void shouldRejectAnUpsertThatChangesTheExistingTransactionInitiative() {
         RewardTransaction original = transaction("transaction-initiative", "initiative-1");
         original.setTransactionRevision(1L);
@@ -189,6 +353,25 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
                         .one())
                 .expectNext("initiative-1:AUTHORIZED")
                 .verifyComplete();
+    }
+
+    private static RewardBatch batch(String batchId) {
+        RewardBatch batch = RewardBatchFactory.create(
+                "initiative-1",
+                "merchant",
+                PosType.PHYSICAL,
+                "2026-07",
+                "Business"
+        );
+        batch.setId(batchId);
+        return batch;
+    }
+
+    private static RewardTransaction invoicedTransaction(String id, String initiativeId, long revision) {
+        RewardTransaction transaction = transaction(id, initiativeId);
+        transaction.setStatus(SyncTrxStatus.INVOICED.name());
+        transaction.setTransactionRevision(revision);
+        return transaction;
     }
 
     private static RewardTransaction transaction(String id, String initiativeId) {

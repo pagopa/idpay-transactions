@@ -124,6 +124,20 @@ class RewardTransactionServiceImplTest {
     }
 
     @Test
+    void refundedSaveUsesSqlSynchronizationPortWithoutAssignment() {
+        RewardTransaction transaction = RewardTransaction.builder()
+                .id("transaction").status(SyncTrxStatus.REFUNDED.name()).build();
+        when(synchronizationPort.upsert(transaction)).thenReturn(Mono.just(transaction));
+
+        StepVerifier.create(service.save(transaction))
+                .expectNext(transaction)
+                .verifyComplete();
+
+        verify(synchronizationPort).upsert(transaction);
+        verify(assignmentPort, times(0)).assignInvoicedTransaction(any(), any(), anyInt());
+    }
+
+    @Test
     void invoicedSaveAssignsTheTransactionToItsSqlBatch() {
         RewardTransaction transaction = invoicedTransaction("transaction");
         when(assignmentPort.assignInvoicedTransaction(
