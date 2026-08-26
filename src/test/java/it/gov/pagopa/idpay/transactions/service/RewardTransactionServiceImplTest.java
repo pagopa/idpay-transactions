@@ -121,19 +121,23 @@ class RewardTransactionServiceImplTest {
                 .verifyComplete();
 
         verify(synchronizationPort).upsert(transaction);
+        verify(synchronizationPort, times(0)).upsertRefundedAndDetach(any());
+        verify(assignmentPort, times(0)).assignInvoicedTransaction(any(), any(), anyInt());
     }
 
     @Test
     void refundedSaveUsesSqlSynchronizationPortWithoutAssignment() {
         RewardTransaction transaction = RewardTransaction.builder()
                 .id("transaction").status(SyncTrxStatus.REFUNDED.name()).build();
-        when(synchronizationPort.upsert(transaction)).thenReturn(Mono.just(transaction));
+        when(synchronizationPort.upsertRefundedAndDetach(transaction))
+                .thenReturn(Mono.just(transaction));
 
         StepVerifier.create(service.save(transaction))
                 .expectNext(transaction)
                 .verifyComplete();
 
-        verify(synchronizationPort).upsert(transaction);
+        verify(synchronizationPort).upsertRefundedAndDetach(transaction);
+        verify(synchronizationPort, times(0)).upsert(any());
         verify(assignmentPort, times(0)).assignInvoicedTransaction(any(), any(), anyInt());
     }
 
@@ -155,6 +159,8 @@ class RewardTransactionServiceImplTest {
                                 && batch.getPosType() == PosType.PHYSICAL
                                 && batch.getMonth().equals("2026-02")),
                 eq(service.computeSamplingKey("transaction")));
+        verify(synchronizationPort, times(0)).upsert(any());
+        verify(synchronizationPort, times(0)).upsertRefundedAndDetach(any());
     }
 
     @Test

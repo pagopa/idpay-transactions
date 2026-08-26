@@ -8,6 +8,7 @@ import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardBatchFactory;
@@ -189,8 +190,38 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
     }
 
     @Test
+    void shouldKeepGenericUpsertStatusAgnosticForANewerRefundedSnapshot() {
+        RewardTransaction invoiced = invoicedTransaction(
+                "transaction-generic-refunded",
+                "initiative-1",
+                1L
+        );
+        RewardTransaction refunded = transaction("transaction-generic-refunded", "initiative-1");
+        refunded.setTransactionRevision(2L);
+        refunded.setStatus(SyncTrxStatus.REFUNDED.name());
+
+        StepVerifier.create(assignmentAdapter.assignInvoicedTransaction(
+                                invoiced,
+                                batch("generic-refunded-batch"),
+                                77
+                        )
+                        .then(adapter.upsert(refunded)))
+                .assertNext(saved -> {
+                    assertEquals(SyncTrxStatus.REFUNDED.name(), saved.getStatus());
+                    assertEquals("generic-refunded-batch", saved.getRewardBatchId());
+                    assertEquals(RewardBatchTrxStatus.CONSULTABLE, saved.getRewardBatchTrxStatus());
+                    assertEquals(77, saved.getSamplingKey());
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void shouldDetachAssignedMembershipWhenPersistingANewerRefundedSnapshot() {
         RewardTransaction invoiced = invoicedTransaction("transaction-refunded-detach", "initiative-1", 1L);
+        ChecksError checksError = new ChecksError(
+                true, false, false, false, false, false, false, false
+        );
+        invoiced.setChecksError(checksError);
         RewardTransaction refunded = transaction("transaction-refunded-detach", "initiative-1");
         refunded.setTransactionRevision(2L);
         refunded.setStatus(SyncTrxStatus.REFUNDED.name());
@@ -200,7 +231,7 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
                                 batch("refunded-detach-batch"),
                                 77
                         )
-                        .then(adapter.upsert(refunded)))
+                        .then(adapter.upsertRefundedAndDetach(refunded)))
                 .assertNext(saved -> {
                     assertEquals(SyncTrxStatus.REFUNDED.name(), saved.getStatus());
                     assertEquals(2L, saved.getTransactionRevision());
@@ -208,6 +239,7 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
                     assertNull(saved.getRewardBatchTrxStatus());
                     assertNull(saved.getRewardBatchInclusionDate());
                     assertEquals(0, saved.getSamplingKey());
+                    assertEquals(checksError, saved.getChecksError());
                 })
                 .verifyComplete();
     }
@@ -225,7 +257,7 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
         refunded.setSamplingKey(0);
 
         StepVerifier.create(adapter.upsert(original)
-                        .then(adapter.upsert(refunded)))
+                        .then(adapter.upsertRefundedAndDetach(refunded)))
                 .assertNext(saved -> {
                     assertEquals("REFUNDED", saved.getStatus());
                     assertNull(saved.getRewardBatchId());
@@ -252,8 +284,8 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
                                 batch("refunded-retry-batch"),
                                 77
                         )
-                        .then(adapter.upsert(refunded))
-                        .then(adapter.upsert(retry)))
+                        .then(adapter.upsertRefundedAndDetach(refunded))
+                        .then(adapter.upsertRefundedAndDetach(retry)))
                 .assertNext(saved -> {
                     assertEquals(SyncTrxStatus.REFUNDED.name(), saved.getStatus());
                     assertEquals(2L, saved.getTransactionRevision());
@@ -284,7 +316,7 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
                                 77
                         )
                         .then(adapter.upsert(newer))
-                        .then(adapter.upsert(staleRefunded)))
+                        .then(adapter.upsertRefundedAndDetach(staleRefunded)))
                 .assertNext(saved -> {
                     assertEquals(SyncTrxStatus.INVOICED.name(), saved.getStatus());
                     assertEquals(3L, saved.getTransactionRevision());
@@ -308,7 +340,7 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
                                 batch("refunded-initiative-batch"),
                                 77
                         )
-                        .then(adapter.upsert(conflicting)))
+                        .then(adapter.upsertRefundedAndDetach(conflicting)))
                 .expectErrorMatches(error -> error instanceof IllegalStateException
                         && error.getMessage().contains("initiative-1"))
                 .verify();
@@ -326,6 +358,48 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
                         .one())
                 .expectNext("initiative-1:INVOICED:refunded-initiative-batch:77")
                 .verifyComplete();
+    }
+
+    @Test
+    void shouldInsertAFirstSeenRefundedTransactionWithoutLocalBatchState() {
+        RewardTransaction refunded = transaction("transaction-refunded-new", "initiative-1");
+        refunded.setTransactionRevision(1L);
+        refunded.setStatus(SyncTrxStatus.REFUNDED.name());
+        refunded.setRewardBatchId("payload-batch");
+        refunded.setRewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED);
+        refunded.setRewardBatchInclusionDate(LocalDateTime.of(2026, Month.JULY, 2, 10, 30));
+        refunded.setRewardBatchLastMonthElaborated("2026-06");
+        refunded.setSamplingKey(77);
+        refunded.setChecksError(new ChecksError(
+                true, false, false, false, false, false, false, false
+        ));
+
+        StepVerifier.create(adapter.upsertRefundedAndDetach(refunded))
+                .assertNext(saved -> {
+                    assertEquals(SyncTrxStatus.REFUNDED.name(), saved.getStatus());
+                    assertNull(saved.getRewardBatchId());
+                    assertNull(saved.getRewardBatchTrxStatus());
+                    assertNull(saved.getRewardBatchInclusionDate());
+                    assertNull(saved.getRewardBatchLastMonthElaborated());
+                    assertNull(saved.getRewardBatchRejectionReason());
+                    assertNull(saved.getChecksError());
+                    assertEquals(0, saved.getSamplingKey());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldRejectDetachOperationForANonRefundedTransaction() {
+        RewardTransaction invoiced = invoicedTransaction(
+                "transaction-invalid-detach",
+                "initiative-1",
+                1L
+        );
+
+        StepVerifier.create(adapter.upsertRefundedAndDetach(invoiced))
+                .expectErrorMatches(error -> error instanceof IllegalArgumentException
+                        && error.getMessage().contains("REFUNDED"))
+                .verify();
     }
 
     @Test

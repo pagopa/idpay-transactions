@@ -31,16 +31,47 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
         return transactionalOperator.transactional(upsertWithinTransaction(transaction, dslContext));
     }
 
+    @Override
+    public Mono<RewardTransaction> upsertRefundedAndDetach(RewardTransaction transaction) {
+        if (!SyncTrxStatus.REFUNDED.name().equalsIgnoreCase(transaction.getStatus())) {
+            return Mono.error(new IllegalArgumentException(
+                    "Only REFUNDED transactions can be persisted through the detach operation"
+            ));
+        }
+        return transactionalOperator.transactional(
+                upsertRefundedAndDetachWithinTransaction(transaction, dslContext)
+        );
+    }
+
     Mono<RewardTransaction> upsertWithinTransaction(
             RewardTransaction transaction,
             DSLContext transactionDslContext
     ) {
         RewardTransactionEntity entity = mapper.toEntity(transaction);
-        RewardTransactionsRecord transactionRecord = mapper.toRecord(entity);
-        InsertResultStep<?> write = isRefunded(entity)
-                ? insertOrUpdateRefunded(transactionDslContext, transactionRecord)
-                : insertOrUpdateProjection(transactionDslContext, transactionRecord, false);
-        return completeUpsert(write, entity, transactionDslContext);
+        return completeUpsert(
+                insertOrUpdateProjection(
+                        transactionDslContext,
+                        mapper.toRecord(entity),
+                        false
+                ),
+                entity,
+                transactionDslContext
+        );
+    }
+
+    Mono<RewardTransaction> upsertRefundedAndDetachWithinTransaction(
+            RewardTransaction transaction,
+            DSLContext transactionDslContext
+    ) {
+        RewardTransactionEntity entity = mapper.toEntity(transaction);
+        return completeUpsert(
+                insertOrUpdateRefunded(
+                        transactionDslContext,
+                        mapper.toRecord(entity)
+                ),
+                entity,
+                transactionDslContext
+        );
     }
 
     Mono<RewardTransaction> upsertImpactWithinTransaction(
@@ -76,10 +107,6 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
                 });
     }
 
-    private static boolean isRefunded(RewardTransactionEntity entity) {
-        return SyncTrxStatus.REFUNDED.name().equalsIgnoreCase(entity.status());
-    }
-
     private Mono<RewardTransaction> findById(DSLContext transactionDslContext, String transactionId) {
         return Mono.from(transactionDslContext.selectFrom(REWARD_TRANSACTIONS)
                         .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId)))
@@ -104,6 +131,9 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
         transactionRecord.setRewardBatchTrxStatus(null);
         transactionRecord.setRewardBatchInclusionDate(null);
         transactionRecord.setSamplingKey(0);
+        transactionRecord.setRewardBatchRejectionReasons(null);
+        transactionRecord.setRewardBatchLastMonthElaborated(null);
+        transactionRecord.setChecksError(null);
         return projectionOnConflictUpdate(transactionDslContext, transactionRecord)
                 .set(REWARD_TRANSACTIONS.REWARD_BATCH_ID, val((String) null))
                 .set(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS, val((String) null))
@@ -165,7 +195,6 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
                         excluded(REWARD_TRANSACTIONS.EXTENDED_AUTHORIZATION))
                 .set(REWARD_TRANSACTIONS.VOUCHER_AMOUNT_CENTS,
                         excluded(REWARD_TRANSACTIONS.VOUCHER_AMOUNT_CENTS))
-                .set(REWARD_TRANSACTIONS.CHECKS_ERROR, excluded(REWARD_TRANSACTIONS.CHECKS_ERROR))
                 .set(REWARD_TRANSACTIONS.ACCRUED_REWARD_CENTS,
                         excluded(REWARD_TRANSACTIONS.ACCRUED_REWARD_CENTS))
                 .set(REWARD_TRANSACTIONS.TRANSACTION_REVISION,

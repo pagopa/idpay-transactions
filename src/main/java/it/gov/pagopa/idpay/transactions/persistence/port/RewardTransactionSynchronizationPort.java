@@ -6,4 +6,6 @@ import reactor.core.publisher.Mono;
 public interface RewardTransactionSynchronizationPort {
 
     Mono<RewardTransaction> upsert(RewardTransaction transaction);
+
+    Mono<RewardTransaction> upsertRefundedAndDetach(RewardTransaction transaction);
 }
