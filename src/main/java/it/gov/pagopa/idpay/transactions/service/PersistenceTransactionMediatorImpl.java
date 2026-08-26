@@ -3,7 +3,6 @@ package it.gov.pagopa.idpay.transactions.service;
 import it.gov.pagopa.common.reactive.kafka.consumer.BaseKafkaConsumer;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
-import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,11 +25,8 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
     private final RewardTransactionService rewardTransactionService;
     private final TransactionErrorNotifierService transactionErrorNotifierService;
     private final RewardTransactionMapper rewardTransactionMapper;
-    private static final String OPERATION_TYPE_HEADER = "operationType";
-    private static final String OPERATION_TYPE_REFUNDED = "REFUNDED";
 
-
-  private final Duration commitDelay;
+    private final Duration commitDelay;
 
     private final ObjectReader objectReader;
 
@@ -81,24 +77,7 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
 
     return Mono.just(payload)
         .map(this.rewardTransactionMapper::mapFromDTO)
-        .map(transaction -> applyRefundedSignal(transaction, payload, message))
         .flatMap(this.rewardTransactionService::save);
-  }
-
-  private static RewardTransaction applyRefundedSignal(
-      RewardTransaction transaction,
-      RewardTransactionDTO payload,
-      Message<String> message
-  ) {
-    if (transaction != null && isRefundedSignal(payload, message)) {
-      transaction.setStatus(SyncTrxStatus.REFUNDED.name());
-    }
-    return transaction;
-  }
-
-  private static boolean isRefundedSignal(RewardTransactionDTO payload, Message<String> message) {
-    return OPERATION_TYPE_REFUNDED.equals(message.getHeaders().get(OPERATION_TYPE_HEADER))
-        || SyncTrxStatus.REFUNDED.name().equalsIgnoreCase(payload.getStatus());
   }
 
   @Override
