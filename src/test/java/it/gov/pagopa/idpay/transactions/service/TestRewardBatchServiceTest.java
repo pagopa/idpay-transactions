@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import it.gov.pagopa.idpay.transactions.model.PreparedRewardBatch;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTestSupportPort;
 import java.time.LocalDateTime;
+import java.time.Month;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,7 +31,7 @@ class TestRewardBatchServiceTest {
 
     @Test
     void mapsPreparedBatchAndPassesConfiguredSearchHorizon() {
-        LocalDateTime updateDate = LocalDateTime.of(2026, 8, 28, 10, 15);
+        LocalDateTime updateDate = LocalDateTime.of(2026, Month.AUGUST, 28, 10, 15);
         when(port.prepareForSend("initiative", "batch", 18))
                 .thenReturn(Mono.just(new PreparedRewardBatch(
                         "batch", "2026-08", "2026-07", updateDate

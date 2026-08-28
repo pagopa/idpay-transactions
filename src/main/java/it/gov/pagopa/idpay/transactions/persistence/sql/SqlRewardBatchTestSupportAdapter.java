@@ -146,12 +146,12 @@ public class SqlRewardBatchTestSupportAdapter implements RewardBatchTestSupportP
                 .collectList();
     }
 
-    private GroupingMonth toGroupingMonth(Record4<String, String, String, Integer> record) {
+    private GroupingMonth toGroupingMonth(Record4<String, String, String, Integer> row) {
         return new GroupingMonth(
-                record.value1(),
-                YearMonth.parse(record.value2()),
-                RewardBatchStatus.valueOf(record.value3()),
-                record.value4() > 0
+                row.value1(),
+                YearMonth.parse(row.value2()),
+                RewardBatchStatus.valueOf(row.value3()),
+                row.value4() > 0
         );
     }
 

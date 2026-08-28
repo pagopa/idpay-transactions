@@ -10,6 +10,7 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.time.YearMonth;
 import java.time.format.TextStyle;
 import java.util.Locale;
@@ -57,9 +58,9 @@ class SqlRewardBatchTestSupportAdapterTest extends PostgresqlMigrationTestSuppor
     void movesCurrentCreatedBatchAndPreservesMembershipAndLifecycleMetadata() {
         YearMonth current = YearMonth.now(ZONEID);
         YearMonth expected = current.minusMonths(1);
-        LocalDateTime originalUpdate = LocalDateTime.of(2025, 1, 2, 3, 4, 5);
-        LocalDateTime creation = LocalDateTime.of(2024, 2, 3, 4, 5, 6);
-        LocalDateTime merchantSend = LocalDateTime.of(2025, 3, 4, 5, 6, 7);
+        LocalDateTime originalUpdate = LocalDateTime.of(2025, Month.JANUARY, 2, 3, 4, 5);
+        LocalDateTime creation = LocalDateTime.of(2024, Month.FEBRUARY, 3, 4, 5, 6);
+        LocalDateTime merchantSend = LocalDateTime.of(2025, Month.MARCH, 4, 5, 6, 7);
 
         StepVerifier.create(insertDetailedBatch(
                         SOURCE, INITIATIVE, MERCHANT, current, RewardBatchStatus.CREATED,
@@ -102,13 +103,13 @@ class SqlRewardBatchTestSupportAdapterTest extends PostgresqlMigrationTestSuppor
     @Test
     void skipsOccupiedPreviousGroupingAndLeavesItUnchanged() {
         YearMonth current = YearMonth.now(ZONEID);
-        LocalDateTime occupiedUpdate = LocalDateTime.of(2025, 5, 6, 7, 8);
+        LocalDateTime occupiedUpdate = LocalDateTime.of(2025, Month.MAY, 6, 7, 8);
 
         StepVerifier.create(Flux.concat(
                         insertBatch(SOURCE, INITIATIVE, MERCHANT, current, RewardBatchStatus.CREATED),
                         insertDetailedBatch("occupied", INITIATIVE, MERCHANT, current.minusMonths(1),
                                 RewardBatchStatus.SENT, occupiedUpdate,
-                                LocalDateTime.of(2025, 1, 1, 0, 0), null)
+                                LocalDateTime.of(2025, Month.JANUARY, 1, 0, 0), null)
                 ).then(adapter.prepareForSend(INITIATIVE, SOURCE, 12)))
                 .assertNext(prepared -> assertEquals(
                         current.minusMonths(2).toString(), prepared.referenceMonth()
@@ -155,11 +156,13 @@ class SqlRewardBatchTestSupportAdapterTest extends PostgresqlMigrationTestSuppor
     @Test
     void alreadyPastSafeBatchIsIdempotentAndKeepsUpdateDate() {
         YearMonth past = YearMonth.now(ZONEID).minusMonths(2);
-        LocalDateTime originalUpdate = LocalDateTime.of(2025, 6, 7, 8, 9, 10);
+        LocalDateTime originalUpdate = LocalDateTime.of(2025, Month.JUNE, 7, 8, 9, 10);
 
         StepVerifier.create(insertDetailedBatch(
                         SOURCE, INITIATIVE, MERCHANT, past, RewardBatchStatus.CREATED,
-                        originalUpdate, LocalDateTime.of(2025, 1, 1, 0, 0), null
+                        originalUpdate,
+                        LocalDateTime.of(2025, Month.JANUARY, 1, 0, 0),
+                        null
                 )
                 .then(adapter.prepareForSend(INITIATIVE, SOURCE, 12)))
                 .assertNext(prepared -> {
@@ -236,11 +239,13 @@ class SqlRewardBatchTestSupportAdapterTest extends PostgresqlMigrationTestSuppor
     @Test
     void nonCreatedSourceIsRejectedAndCasPredicateLeavesItUnchanged() {
         YearMonth current = YearMonth.now(ZONEID);
-        LocalDateTime originalUpdate = LocalDateTime.of(2025, 7, 8, 9, 10);
+        LocalDateTime originalUpdate = LocalDateTime.of(2025, Month.JULY, 8, 9, 10);
 
         StepVerifier.create(insertDetailedBatch(
                         SOURCE, INITIATIVE, MERCHANT, current, RewardBatchStatus.SENT,
-                        originalUpdate, LocalDateTime.of(2025, 1, 1, 0, 0), null
+                        originalUpdate,
+                        LocalDateTime.of(2025, Month.JANUARY, 1, 0, 0),
+                        null
                 )
                 .then(adapter.prepareForSend(INITIATIVE, SOURCE, 12)))
                 .expectErrorSatisfies(error -> assertClientError(
@@ -295,8 +300,9 @@ class SqlRewardBatchTestSupportAdapterTest extends PostgresqlMigrationTestSuppor
     ) {
         return insertDetailedBatch(
                 id, initiative, merchant, month, status,
-                LocalDateTime.of(2025, 1, 2, 3, 4),
-                LocalDateTime.of(2025, 1, 1, 2, 3), null
+                LocalDateTime.of(2025, Month.JANUARY, 2, 3, 4),
+                LocalDateTime.of(2025, Month.JANUARY, 1, 2, 3),
+                null
         );
     }
 

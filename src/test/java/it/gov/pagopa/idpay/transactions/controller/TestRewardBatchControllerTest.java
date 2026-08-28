@@ -8,6 +8,7 @@ import static org.springframework.security.test.web.reactive.server.SecurityMock
 import it.gov.pagopa.idpay.transactions.dto.PrepareRewardBatchForSendResponse;
 import it.gov.pagopa.idpay.transactions.service.TestRewardBatchService;
 import java.time.LocalDateTime;
+import java.time.Month;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
@@ -36,7 +37,7 @@ class TestRewardBatchControllerTest {
 
     @Test
     void prepareForSendReturnsPreparedBatchWithoutRequestBody() {
-        LocalDateTime updateDate = LocalDateTime.of(2026, 8, 28, 11, 30);
+        LocalDateTime updateDate = LocalDateTime.of(2026, Month.AUGUST, 28, 11, 30);
         when(service.prepareForSend("initiative-1", "batch-1"))
                 .thenReturn(Mono.just(new PrepareRewardBatchForSendResponse(
                         "batch-1", "2026-08", "2026-07", updateDate
