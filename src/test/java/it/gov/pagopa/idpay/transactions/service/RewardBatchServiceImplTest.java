@@ -129,7 +129,19 @@ class RewardBatchServiceImplTest {
                 .expectNext(1L)
                 .verifyComplete();
 
+        verify(lifecyclePort).findBatchesWithStatus(RewardBatchStatus.SENT, "initiative");
+        verify(lifecyclePort, never()).findBatchWithStatus(
+                anyString(), eq("initiative"), eq(RewardBatchStatus.SENT));
         verify(decisionPort).prepareEvaluation("batch", "initiative");
+    }
+
+    @Test
+    void evaluationWithEmptyExplicitIdsIsNoOpWithoutFallingBackToAllBatches() {
+        StepVerifier.create(service.evaluatingRewardBatches(List.of(), "initiative"))
+                .expectNext(0L)
+                .verifyComplete();
+
+        verifyNoInteractions(lifecyclePort, decisionPort);
     }
 
     @Test
