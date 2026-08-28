@@ -197,6 +197,9 @@ logging:
     org.springframework.boot.autoconfigure: WARN
 
 app:
+  test-support:
+    enabled: ${TEST_SUPPORT_ENABLED:false}
+    reward-batch-search-horizon-months: ${TEST_SUPPORT_REWARD_BATCH_SEARCH_HORIZON_MONTHS:120}
   pdv:
     base-url: ${PDV_BASE_URL:https://api.uat.tokenizer.pdv.pagopa.it/tokenizer/v1}
     headers:
