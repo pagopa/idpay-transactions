@@ -214,21 +214,14 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
         if (source == null) {
             return Mono.just(transaction);
         }
-        return switch (impact.impactType()) {
-            case INVOICE_REPLACED -> RewardBatchStatus.CREATED.equals(source.getStatus())
-                    ? Mono.just(transaction)
-                    : moveToOutcomeMonth(
-                            transactionDslContext,
-                            impact,
-                            source,
-                            transaction
-                    );
-            case INVOICED_REVERSED -> detachMembership(
-                    transactionDslContext,
-                    source,
-                    transaction
-            );
-        };
+        return RewardBatchStatus.CREATED.equals(source.getStatus())
+                ? Mono.just(transaction)
+                : moveToOutcomeMonth(
+                        transactionDslContext,
+                        impact,
+                        source,
+                        transaction
+                );
     }
 
     private Mono<RewardTransaction> moveToOutcomeMonth(
@@ -248,24 +241,6 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
                                 .returning())
                         .map(transactionMapper::fromRecord)
                         .switchIfEmpty(Mono.error(new MembershipChangedException())));
-    }
-
-    private Mono<RewardTransaction> detachMembership(
-            DSLContext transactionDslContext,
-            RewardBatch source,
-            RewardTransaction transaction
-    ) {
-        return Mono.from(transactionDslContext.update(REWARD_TRANSACTIONS)
-                        .set(REWARD_TRANSACTIONS.REWARD_BATCH_ID, (String) null)
-                        .set(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS, (String) null)
-                        .set(REWARD_TRANSACTIONS.REWARD_BATCH_INCLUSION_DATE, (java.time.LocalDateTime) null)
-                        .set(REWARD_TRANSACTIONS.SAMPLING_KEY, 0)
-                        .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transaction.getId())
-                                .and(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(source.getInitiativeId()))
-                                .and(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(source.getId())))
-                        .returning())
-                .map(transactionMapper::fromRecord)
-                .switchIfEmpty(Mono.error(new MembershipChangedException()));
     }
 
     private Mono<RewardBatch> lockOrCreateOutcomeBatch(
@@ -388,10 +363,6 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
         if (impact.impactType() == PaymentRewardBatchImpactType.INVOICE_REPLACED
                 && !SyncTrxStatus.INVOICED.name().equals(impact.transaction().getStatus())) {
             throw new IllegalArgumentException("An invoice replacement impact must be INVOICED");
-        }
-        if (impact.impactType() == PaymentRewardBatchImpactType.INVOICED_REVERSED
-                && !SyncTrxStatus.REFUNDED.name().equals(impact.transaction().getStatus())) {
-            throw new IllegalArgumentException("An invoiced reversal impact must be REFUNDED");
         }
         if (impact.impactType() == PaymentRewardBatchImpactType.INVOICE_REPLACED
                 && impact.transaction().getPointOfSaleType() == null) {

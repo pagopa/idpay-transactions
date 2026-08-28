@@ -60,6 +60,9 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
         if (SyncTrxStatus.INVOICED.name().equalsIgnoreCase(rewardTransaction.getStatus())) {
             return enrichBatchData(rewardTransaction);
         }
+        if (SyncTrxStatus.REFUNDED.name().equalsIgnoreCase(rewardTransaction.getStatus())) {
+            return rewardTransactionSynchronizationPort.upsertRefundedAndDetach(rewardTransaction);
+        }
         return rewardTransactionSynchronizationPort.upsert(rewardTransaction);
     }
 
