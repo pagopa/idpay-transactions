@@ -10,9 +10,11 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -50,6 +52,7 @@ import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -514,6 +517,165 @@ class RewardBatchServiceImplTest {
 
         StepVerifier.create(service.evaluatingRewardBatches(List.of("sent", "missing"), "initiative"))
                 .expectNext(1L).verifyComplete();
+    }
+
+    @Test
+    void evaluationWithNullOnlyListIsNormalizedToEmptyAndIsANoOp() {
+        List<String> nullOnly = new ArrayList<>();
+        nullOnly.add(null);
+
+        StepVerifier.create(service.evaluatingRewardBatches(nullOnly, "initiative"))
+                .expectNext(0L)
+                .verifyComplete();
+
+        verifyNoInteractions(lifecyclePort, decisionPort);
+    }
+
+    @Test
+    void evaluationWithBlankOnlyListIsNormalizedToEmptyAndIsANoOp() {
+        StepVerifier.create(service.evaluatingRewardBatches(List.of(" ", ""), "initiative"))
+                .expectNext(0L)
+                .verifyComplete();
+
+        verifyNoInteractions(lifecyclePort, decisionPort);
+    }
+
+    @Test
+    void evaluationWithMultipleTargetedIdsEvaluatesEachEligibleBatch() {
+        RewardBatch b1 = batch("B1", RewardBatchStatus.SENT);
+        RewardBatch b2 = batch("B2", RewardBatchStatus.SENT);
+        when(lifecyclePort.findBatchWithStatus("B1", "initiative", RewardBatchStatus.SENT))
+                .thenReturn(Mono.just(b1));
+        when(lifecyclePort.findBatchWithStatus("B2", "initiative", RewardBatchStatus.SENT))
+                .thenReturn(Mono.just(b2));
+        when(decisionPort.prepareEvaluation("B1", "initiative")).thenReturn(Mono.just(b1));
+        when(decisionPort.prepareEvaluation("B2", "initiative")).thenReturn(Mono.just(b2));
+
+        StepVerifier.create(service.evaluatingRewardBatches(List.of("B1", "B2"), "initiative"))
+                .expectNext(2L)
+                .verifyComplete();
+
+        verify(lifecyclePort, never()).findBatchesWithStatus(any(), any());
+        verify(decisionPort).prepareEvaluation("B1", "initiative");
+        verify(decisionPort).prepareEvaluation("B2", "initiative");
+    }
+
+    @Test
+    void evaluationWithMixedListProcessesOnlyNonNullNonBlankIds() {
+        List<String> mixed = new ArrayList<>();
+        mixed.add("B1");
+        mixed.add(null);
+        mixed.add("   ");
+        mixed.add("B2");
+
+        RewardBatch b1 = batch("B1", RewardBatchStatus.SENT);
+        RewardBatch b2 = batch("B2", RewardBatchStatus.SENT);
+        when(lifecyclePort.findBatchWithStatus("B1", "initiative", RewardBatchStatus.SENT))
+                .thenReturn(Mono.just(b1));
+        when(lifecyclePort.findBatchWithStatus("B2", "initiative", RewardBatchStatus.SENT))
+                .thenReturn(Mono.just(b2));
+        when(decisionPort.prepareEvaluation("B1", "initiative")).thenReturn(Mono.just(b1));
+        when(decisionPort.prepareEvaluation("B2", "initiative")).thenReturn(Mono.just(b2));
+
+        StepVerifier.create(service.evaluatingRewardBatches(mixed, "initiative"))
+                .expectNext(2L)
+                .verifyComplete();
+
+        verify(lifecyclePort, never()).findBatchesWithStatus(any(), any());
+        verify(decisionPort).prepareEvaluation("B1", "initiative");
+        verify(decisionPort).prepareEvaluation("B2", "initiative");
+    }
+
+    @Test
+    void evaluationWithDuplicateIdsProcessesEachIdOnlyOnceInFirstOccurrenceOrder() {
+        RewardBatch b2 = batch("B2", RewardBatchStatus.SENT);
+        RewardBatch b1 = batch("B1", RewardBatchStatus.SENT);
+        when(lifecyclePort.findBatchWithStatus("B2", "initiative", RewardBatchStatus.SENT))
+                .thenReturn(Mono.just(b2));
+        when(lifecyclePort.findBatchWithStatus("B1", "initiative", RewardBatchStatus.SENT))
+                .thenReturn(Mono.just(b1));
+        when(decisionPort.prepareEvaluation("B2", "initiative")).thenReturn(Mono.just(b2));
+        when(decisionPort.prepareEvaluation("B1", "initiative")).thenReturn(Mono.just(b1));
+
+        StepVerifier.create(service.evaluatingRewardBatches(List.of("B2", "B1", "B2"), "initiative"))
+                .expectNext(2L)
+                .verifyComplete();
+
+        verify(lifecyclePort, times(1)).findBatchWithStatus("B2", "initiative", RewardBatchStatus.SENT);
+        verify(lifecyclePort, times(1)).findBatchWithStatus("B1", "initiative", RewardBatchStatus.SENT);
+        verify(decisionPort, times(1)).prepareEvaluation("B2", "initiative");
+        verify(decisionPort, times(1)).prepareEvaluation("B1", "initiative");
+
+        var order = inOrder(decisionPort);
+        order.verify(decisionPort).prepareEvaluation("B2", "initiative");
+        order.verify(decisionPort).prepareEvaluation("B1", "initiative");
+    }
+
+    @Test
+    void evaluationWithFullyIneligibleTargetedIdsIsANoOpWithoutQueryingAllBatchesOrDecisionPort() {
+        when(lifecyclePort.findBatchWithStatus("B1", "initiative", RewardBatchStatus.SENT))
+                .thenReturn(Mono.empty());
+        when(lifecyclePort.findBatchWithStatus("B2", "initiative", RewardBatchStatus.SENT))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(service.evaluatingRewardBatches(List.of("B1", "B2"), "initiative"))
+                .expectNext(0L)
+                .verifyComplete();
+
+        verify(lifecyclePort, never()).findBatchesWithStatus(any(), any());
+        verifyNoInteractions(decisionPort);
+    }
+
+    @Test
+    void evaluationWhenPrepareEvaluationReturnsEmptyCountRemainsZero() {
+        RewardBatch b1 = batch("B1", RewardBatchStatus.SENT);
+        when(lifecyclePort.findBatchWithStatus("B1", "initiative", RewardBatchStatus.SENT))
+                .thenReturn(Mono.just(b1));
+        when(decisionPort.prepareEvaluation("B1", "initiative")).thenReturn(Mono.empty());
+
+        StepVerifier.create(service.evaluatingRewardBatches(List.of("B1"), "initiative"))
+                .expectNext(0L)
+                .verifyComplete();
+
+        verify(decisionPort).prepareEvaluation("B1", "initiative");
+        verify(lifecyclePort, never()).findBatchesWithStatus(any(), any());
+    }
+
+    @Test
+    void evaluationLookupErrorTerminatesProcessingAndNeverInvokesDecisionPort() {
+        when(lifecyclePort.findBatchWithStatus("B1", "initiative", RewardBatchStatus.SENT))
+                .thenReturn(Mono.error(new RuntimeException("lookup failure")));
+
+        StepVerifier.create(service.evaluatingRewardBatches(List.of("B1", "B2"), "initiative"))
+                .expectError(RuntimeException.class)
+                .verify();
+
+        verifyNoInteractions(decisionPort);
+        verify(lifecyclePort, never()).findBatchWithStatus("B2", "initiative", RewardBatchStatus.SENT);
+    }
+
+    @Test
+    void evaluationPrepareEvaluationErrorTerminatesProcessingAndEarlierBatchesAreCommitted() {
+        RewardBatch b1 = batch("B1", RewardBatchStatus.SENT);
+        RewardBatch b2 = batch("B2", RewardBatchStatus.SENT);
+        when(lifecyclePort.findBatchWithStatus("B1", "initiative", RewardBatchStatus.SENT))
+                .thenReturn(Mono.just(b1));
+        when(lifecyclePort.findBatchWithStatus("B2", "initiative", RewardBatchStatus.SENT))
+                .thenReturn(Mono.just(b2));
+        when(decisionPort.prepareEvaluation("B1", "initiative")).thenReturn(Mono.just(b1));
+        when(decisionPort.prepareEvaluation("B2", "initiative"))
+                .thenReturn(Mono.error(new RuntimeException("evaluation failure")));
+
+        StepVerifier.create(service.evaluatingRewardBatches(List.of("B1", "B2", "B3"), "initiative"))
+                .expectError(RuntimeException.class)
+                .verify();
+
+        // B1 was committed before B2 failed
+        verify(decisionPort).prepareEvaluation("B1", "initiative");
+        verify(decisionPort).prepareEvaluation("B2", "initiative");
+        // B3 was never started because the stream terminated on B2's error
+        verify(lifecyclePort, never()).findBatchWithStatus("B3", "initiative", RewardBatchStatus.SENT);
+        verify(decisionPort, never()).prepareEvaluation("B3", "initiative");
     }
 
     @Test

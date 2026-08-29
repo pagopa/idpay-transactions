@@ -1148,4 +1148,69 @@ class MerchantRewardBatchControllerImplTest {
 
         Mockito.verifyNoInteractions(rewardBatchService);
     }
+
+    @Test
+    void evaluatingRewardBatches_nullOnlyListReturnsOkWithEmptyBody() {
+        when(rewardBatchService.evaluatingRewardBatches(
+                        argThat(ids -> ids != null && ids.size() == 1 && ids.get(0) == null),
+                        eq(INITIATIVE_ID)))
+                .thenReturn(Mono.just(0L));
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/evaluate",
+                        INITIATIVE_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"rewardBatchIds\":[null]}")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().isEmpty();
+
+        verify(rewardBatchService).evaluatingRewardBatches(
+                argThat(ids -> ids != null && ids.size() == 1 && ids.get(0) == null),
+                eq(INITIATIVE_ID));
+    }
+
+    @Test
+    void evaluatingRewardBatches_blankOnlyListReturnsOkWithEmptyBody() {
+        when(rewardBatchService.evaluatingRewardBatches(eq(List.of("  ")), eq(INITIATIVE_ID)))
+                .thenReturn(Mono.just(0L));
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/evaluate",
+                        INITIATIVE_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"rewardBatchIds\":[\"  \"]}")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().isEmpty();
+
+        verify(rewardBatchService).evaluatingRewardBatches(eq(List.of("  ")), eq(INITIATIVE_ID));
+    }
+
+    @Test
+    void evaluatingRewardBatches_mixedListWithNullAndBlankReturnsOkWithEmptyBody() {
+        when(rewardBatchService.evaluatingRewardBatches(
+                        argThat(ids -> ids != null && ids.size() == 3
+                                && REWARD_BATCH_ID_1.equals(ids.get(0))
+                                && ids.get(1) == null
+                                && "  ".equals(ids.get(2))),
+                        eq(INITIATIVE_ID)))
+                .thenReturn(Mono.just(1L));
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/evaluate",
+                        INITIATIVE_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"rewardBatchIds\":[\"" + REWARD_BATCH_ID_1 + "\",null,\"  \"]}")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().isEmpty();
+
+        verify(rewardBatchService).evaluatingRewardBatches(
+                argThat(ids -> ids != null && ids.size() == 3
+                        && REWARD_BATCH_ID_1.equals(ids.get(0))
+                        && ids.get(1) == null
+                        && "  ".equals(ids.get(2))),
+                eq(INITIATIVE_ID));
+    }
 }

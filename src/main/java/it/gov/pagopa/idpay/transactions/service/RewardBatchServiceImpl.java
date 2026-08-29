@@ -292,28 +292,41 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     @Override
     public Mono<Long> evaluatingRewardBatches(List<String> rewardBatchesRequest, String initiativeId) {
         log.info("[EVALUATING_REWARD_BATCH] Starting evaluation of reward batches with status SENT");
-        Flux<RewardBatch> rewardBatchToElaborate;
         if (rewardBatchesRequest == null) {
-            rewardBatchToElaborate = rewardBatchLifecyclePort.findBatchesWithStatus(RewardBatchStatus.SENT, initiativeId);
-        } else {
-            rewardBatchToElaborate = Flux.fromIterable(rewardBatchesRequest)
-                    .flatMap(batchId -> rewardBatchLifecyclePort.findBatchWithStatus(batchId, initiativeId, RewardBatchStatus.SENT));
+            return evaluateAllSentRewardBatches(initiativeId);
         }
 
-        return rewardBatchToElaborate
-                .flatMap(rewardBatch -> {
-                    log.info(
-                            "[EVALUATING_REWARD_BATCH] Evaluating reward batch {}",
-                            Utilities.sanitizeString(rewardBatch.getId())
-                    );
-                    return rewardBatchTransactionDecisionPort.prepareEvaluation(
-                            rewardBatch.getId(),
-                            initiativeId
-                    );
-                })
+        List<String> normalizedRewardBatchIds = rewardBatchesRequest.stream()
+                .filter(batchId -> batchId != null && !batchId.isBlank())
+                .distinct()
+                .toList();
+
+        return Flux.fromIterable(normalizedRewardBatchIds)
+                .concatMap(batchId -> rewardBatchLifecyclePort
+                        .findBatchWithStatus(batchId, initiativeId, RewardBatchStatus.SENT)
+                        .flatMap(rewardBatch -> evaluateRewardBatch(rewardBatch, initiativeId)))
                 .count()
                 .doOnSuccess(count ->
                         log.info("[EVALUATING_REWARD_BATCH] Completed evaluation. Total batches processed: {}", count));
+    }
+
+    private Mono<Long> evaluateAllSentRewardBatches(String initiativeId) {
+        return rewardBatchLifecyclePort.findBatchesWithStatus(RewardBatchStatus.SENT, initiativeId)
+                .flatMap(rewardBatch -> evaluateRewardBatch(rewardBatch, initiativeId))
+                .count()
+                .doOnSuccess(count ->
+                        log.info("[EVALUATING_REWARD_BATCH] Completed evaluation. Total batches processed: {}", count));
+    }
+
+    private Mono<RewardBatch> evaluateRewardBatch(RewardBatch rewardBatch, String initiativeId) {
+        log.info(
+                "[EVALUATING_REWARD_BATCH] Evaluating reward batch {}",
+                Utilities.sanitizeString(rewardBatch.getId())
+        );
+        return rewardBatchTransactionDecisionPort.prepareEvaluation(
+                rewardBatch.getId(),
+                initiativeId
+        );
     }
 
     private Mono<RewardBatch> updateTransactionStatuses(
