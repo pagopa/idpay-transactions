@@ -192,21 +192,16 @@ class TransactionsControllerImplTest {
     void evaluateInvoiceLifecycleEligibilityReturnsDecisionOnly(
             InvoiceLifecycleEligibilityDecision decision
     ) {
-        String merchantId = "MERCHANT_ID";
         String transactionId = "TRANSACTION_ID";
         String authorization = "Bearer token";
         when(invoiceLifecycleEligibilityService.evaluate(
-                merchantId,
                 transactionId,
                 InvoiceLifecycleOperation.INVOICE_REPLACEMENT,
                 authorization
         )).thenReturn(Mono.just(decision));
 
         webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/transactions/{transactionId}/invoice-lifecycle/eligibility")
-                        .queryParam("merchantId", merchantId)
-                        .build(transactionId))
+                .uri("/idpay/transactions/{transactionId}/invoice-lifecycle/eligibility", transactionId)
                 .header("Authorization", authorization)
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue("""
@@ -220,7 +215,6 @@ class TransactionsControllerImplTest {
                 ));
 
         verify(invoiceLifecycleEligibilityService).evaluate(
-                merchantId,
                 transactionId,
                 InvoiceLifecycleOperation.INVOICE_REPLACEMENT,
                 authorization
@@ -229,21 +223,16 @@ class TransactionsControllerImplTest {
 
     @Test
     void evaluateInvoiceLifecycleEligibilityReturnsAllowedWithoutMembership() {
-        String merchantId = "MERCHANT_ID";
         String transactionId = "TRANSACTION_ID";
         String authorization = "Bearer token";
         when(invoiceLifecycleEligibilityService.evaluate(
-                merchantId,
                 transactionId,
                 InvoiceLifecycleOperation.INVOICED_REVERSAL,
                 authorization
         )).thenReturn(Mono.just(InvoiceLifecycleEligibilityDecision.ALLOWED));
 
         webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/transactions/{transactionId}/invoice-lifecycle/eligibility")
-                        .queryParam("merchantId", merchantId)
-                        .build(transactionId))
+                .uri("/idpay/transactions/{transactionId}/invoice-lifecycle/eligibility", transactionId)
                 .header("Authorization", authorization)
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue("""
@@ -257,7 +246,6 @@ class TransactionsControllerImplTest {
                         ));
 
         verify(invoiceLifecycleEligibilityService).evaluate(
-                merchantId,
                 transactionId,
                 InvoiceLifecycleOperation.INVOICED_REVERSAL,
                 authorization
@@ -267,10 +255,7 @@ class TransactionsControllerImplTest {
     @Test
     void evaluateInvoiceLifecycleEligibilityRejectsUnsupportedOperation() {
         webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/transactions/{transactionId}/invoice-lifecycle/eligibility")
-                        .queryParam("merchantId", "MERCHANT_ID")
-                        .build("TRANSACTION_ID"))
+                .uri("/idpay/transactions/{transactionId}/invoice-lifecycle/eligibility", "TRANSACTION_ID")
                 .header("Authorization", "Bearer token")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue("""
@@ -280,16 +265,13 @@ class TransactionsControllerImplTest {
                 .expectStatus().isBadRequest();
 
         verify(invoiceLifecycleEligibilityService, never())
-                .evaluate(anyString(), anyString(), any(), anyString());
+                .evaluate(anyString(), any(), anyString());
     }
 
     @Test
     void evaluateInvoiceLifecycleEligibilityRejectsMissingOperation() {
         webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/idpay/transactions/{transactionId}/invoice-lifecycle/eligibility")
-                        .queryParam("merchantId", "MERCHANT_ID")
-                        .build("TRANSACTION_ID"))
+                .uri("/idpay/transactions/{transactionId}/invoice-lifecycle/eligibility", "TRANSACTION_ID")
                 .header("Authorization", "Bearer token")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue("{}")
@@ -297,7 +279,7 @@ class TransactionsControllerImplTest {
                 .expectStatus().isBadRequest();
 
         verify(invoiceLifecycleEligibilityService, never())
-                .evaluate(anyString(), anyString(), any(), anyString());
+                .evaluate(anyString(), any(), anyString());
     }
 
     @Test

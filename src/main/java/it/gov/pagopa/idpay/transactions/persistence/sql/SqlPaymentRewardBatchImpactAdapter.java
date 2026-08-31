@@ -17,6 +17,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.PaymentRewardBatchImpactPort;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
@@ -40,7 +41,7 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
     private final RewardBatchSqlMapper batchMapper;
 
     @Override
-    public Mono<PaymentBatchEligibility> findEligibility(String merchantId, String transactionId) {
+    public Mono<PaymentBatchEligibility> findEligibility(String transactionId) {
         return Mono.from(dslContext.select(
                         REWARD_TRANSACTIONS.TRANSACTION_ID,
                         REWARD_TRANSACTIONS.INITIATIVE_ID,
@@ -48,26 +49,33 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
                         REWARD_TRANSACTIONS.REWARD_BATCH_ID,
                         REWARD_TRANSACTIONS.STATUS,
                         REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS,
-                        REWARD_BATCHES.STATUS
+                        REWARD_BATCHES.STATUS,
+                        REWARD_BATCHES.MERCHANT_ID
                 )
                 .from(REWARD_TRANSACTIONS)
                 .join(REWARD_BATCHES)
                 .on(REWARD_BATCHES.ID.eq(REWARD_TRANSACTIONS.REWARD_BATCH_ID)
                         .and(REWARD_BATCHES.INITIATIVE_ID.eq(REWARD_TRANSACTIONS.INITIATIVE_ID)))
-                .where(REWARD_TRANSACTIONS.MERCHANT_ID.eq(merchantId)
-                        .and(REWARD_BATCHES.MERCHANT_ID.eq(merchantId))
-                        .and(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId))))
-                .map(queryResult -> new PaymentBatchEligibility(
-                        queryResult.get(REWARD_TRANSACTIONS.TRANSACTION_ID),
-                        queryResult.get(REWARD_TRANSACTIONS.INITIATIVE_ID),
-                        queryResult.get(REWARD_TRANSACTIONS.MERCHANT_ID),
-                        queryResult.get(REWARD_TRANSACTIONS.REWARD_BATCH_ID),
-                        queryResult.get(REWARD_TRANSACTIONS.STATUS),
-                        RewardBatchStatus.valueOf(queryResult.get(REWARD_BATCHES.STATUS)),
-                        rewardBatchTrxStatus(
-                                queryResult.get(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS)
-                        )
-                ));
+                .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId)))
+                .map(queryResult -> {
+                    String transactionMerchantId = queryResult.get(REWARD_TRANSACTIONS.MERCHANT_ID);
+                    String batchMerchantId = queryResult.get(REWARD_BATCHES.MERCHANT_ID);
+                    if (!Objects.equals(transactionMerchantId, batchMerchantId)) {
+                        throw new IllegalStateException(
+                                "Reward batch merchant does not match transaction merchant");
+                    }
+                    return new PaymentBatchEligibility(
+                            queryResult.get(REWARD_TRANSACTIONS.TRANSACTION_ID),
+                            queryResult.get(REWARD_TRANSACTIONS.INITIATIVE_ID),
+                            transactionMerchantId,
+                            queryResult.get(REWARD_TRANSACTIONS.REWARD_BATCH_ID),
+                            queryResult.get(REWARD_TRANSACTIONS.STATUS),
+                            RewardBatchStatus.valueOf(queryResult.get(REWARD_BATCHES.STATUS)),
+                            rewardBatchTrxStatus(
+                                    queryResult.get(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS)
+                            )
+                    );
+                });
     }
 
     @Override

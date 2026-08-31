@@ -48,7 +48,6 @@ public class InvoiceLifecycleEligibilityServiceImpl implements InvoiceLifecycleE
 
     @Override
     public Mono<InvoiceLifecycleEligibilityDecision> evaluate(
-            String merchantId,
             String transactionId,
             InvoiceLifecycleOperation operation,
             String authorization
@@ -56,7 +55,7 @@ public class InvoiceLifecycleEligibilityServiceImpl implements InvoiceLifecycleE
         validateOperation(operation);
         Actor actor = resolveActor(JwtUtils.extractScopesOrThrow(authorization));
 
-        return paymentRewardBatchImpactPort.findEligibility(merchantId, transactionId)
+        return paymentRewardBatchImpactPort.findEligibility(transactionId)
                 .map(eligibility -> decision(actor, eligibility))
                 .defaultIfEmpty(InvoiceLifecycleEligibilityDecision.ALLOWED);
     }

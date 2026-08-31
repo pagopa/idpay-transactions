@@ -7,7 +7,6 @@ import reactor.core.publisher.Mono;
 public interface InvoiceLifecycleEligibilityService {
 
     Mono<InvoiceLifecycleEligibilityDecision> evaluate(
-            String merchantId,
             String transactionId,
             InvoiceLifecycleOperation operation,
             String authorization

@@ -66,12 +66,10 @@ public class TransactionsControllerImpl implements TransactionsController{
     @Override
     public Mono<ResponseEntity<InvoiceLifecycleEligibilityResponse>> evaluateInvoiceLifecycleEligibility(
             String authorization,
-            String merchantId,
             String transactionId,
             InvoiceLifecycleEligibilityRequest request
     ) {
         return invoiceLifecycleEligibilityService.evaluate(
-                        merchantId,
                         transactionId,
                         parseOperation(request),
                         authorization

@@ -7,7 +7,7 @@ import reactor.core.publisher.Mono;
 
 public interface PaymentRewardBatchImpactPort {
 
-    Mono<PaymentBatchEligibility> findEligibility(String merchantId, String transactionId);
+    Mono<PaymentBatchEligibility> findEligibility(String transactionId);
 
     Mono<RewardTransaction> applyImpact(PaymentRewardBatchImpact impact);
 }
