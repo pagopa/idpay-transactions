@@ -53,7 +53,6 @@ public interface TransactionsController {
     @PostMapping("/{transactionId}/invoice-lifecycle/eligibility")
     Mono<ResponseEntity<InvoiceLifecycleEligibilityResponse>> evaluateInvoiceLifecycleEligibility(
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
-            @RequestParam("merchantId") String merchantId,
             @PathVariable("transactionId") String transactionId,
             @RequestBody InvoiceLifecycleEligibilityRequest request
     );

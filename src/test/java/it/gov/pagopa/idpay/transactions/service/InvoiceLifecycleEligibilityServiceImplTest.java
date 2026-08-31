@@ -85,11 +85,10 @@ class InvoiceLifecycleEligibilityServiceImplTest {
             RewardBatchTrxStatus transactionStatus,
             InvoiceLifecycleEligibilityDecision expected
     ) {
-        when(paymentRewardBatchImpactPort.findEligibility(MERCHANT_ID, TRANSACTION_ID))
+        when(paymentRewardBatchImpactPort.findEligibility(TRANSACTION_ID))
                 .thenReturn(Mono.just(eligibility(batchStatus, transactionStatus)));
 
         StepVerifier.create(service.evaluate(
-                        MERCHANT_ID,
                         TRANSACTION_ID,
                         operation,
                         bearer(actor.scope)
@@ -97,19 +96,18 @@ class InvoiceLifecycleEligibilityServiceImplTest {
                 .expectNext(expected)
                 .verifyComplete();
 
-        verify(paymentRewardBatchImpactPort).findEligibility(MERCHANT_ID, TRANSACTION_ID);
+        verify(paymentRewardBatchImpactPort).findEligibility(TRANSACTION_ID);
     }
 
     @Test
     void merchantScopeTakesPrecedenceWhenBothAuthoritiesArePresent() {
-        when(paymentRewardBatchImpactPort.findEligibility(MERCHANT_ID, TRANSACTION_ID))
+        when(paymentRewardBatchImpactPort.findEligibility(TRANSACTION_ID))
                 .thenReturn(Mono.just(eligibility(
                         RewardBatchStatus.EVALUATING,
                         RewardBatchTrxStatus.CONSULTABLE
                 )));
 
         StepVerifier.create(service.evaluate(
-                        MERCHANT_ID,
                         TRANSACTION_ID,
                         InvoiceLifecycleOperation.INVOICE_REPLACEMENT,
                         bearer(BASIC_SCOPE + " " + FULL_SCOPE)
@@ -120,11 +118,10 @@ class InvoiceLifecycleEligibilityServiceImplTest {
 
     @Test
     void allowsWhenNoBatchMembershipExists() {
-        when(paymentRewardBatchImpactPort.findEligibility(MERCHANT_ID, TRANSACTION_ID))
+        when(paymentRewardBatchImpactPort.findEligibility(TRANSACTION_ID))
                 .thenReturn(Mono.empty());
 
         StepVerifier.create(service.evaluate(
-                        MERCHANT_ID,
                         TRANSACTION_ID,
                         InvoiceLifecycleOperation.INVOICED_REVERSAL,
                         bearer(FULL_SCOPE)
@@ -138,7 +135,6 @@ class InvoiceLifecycleEligibilityServiceImplTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> service.evaluate(
-                        MERCHANT_ID,
                         TRANSACTION_ID,
                         null,
                         bearer(FULL_SCOPE)
@@ -152,7 +148,6 @@ class InvoiceLifecycleEligibilityServiceImplTest {
         assertThrows(
                 ResponseStatusException.class,
                 () -> service.evaluate(
-                        MERCHANT_ID,
                         TRANSACTION_ID,
                         InvoiceLifecycleOperation.INVOICE_REPLACEMENT,
                         bearer("transaction:read")
@@ -167,11 +162,10 @@ class InvoiceLifecycleEligibilityServiceImplTest {
             RewardBatchStatus batchStatus,
             RewardBatchTrxStatus transactionStatus
     ) {
-        when(paymentRewardBatchImpactPort.findEligibility(MERCHANT_ID, TRANSACTION_ID))
+        when(paymentRewardBatchImpactPort.findEligibility(TRANSACTION_ID))
                 .thenReturn(Mono.just(eligibility(batchStatus, transactionStatus)));
 
         StepVerifier.create(service.evaluate(
-                        MERCHANT_ID,
                         TRANSACTION_ID,
                         InvoiceLifecycleOperation.INVOICE_REPLACEMENT,
                         bearer(FULL_SCOPE)

@@ -68,7 +68,8 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
 
     @Override
     public Mono<PaymentBatchEligibility> findEligibility(String merchantId, String transactionId) {
-        return paymentRewardBatchImpactPort.findEligibility(merchantId, transactionId);
+        return paymentRewardBatchImpactPort.findEligibility(transactionId)
+                .filter(eligibility -> merchantId.equals(eligibility.merchantId()));
     }
 
     @Override

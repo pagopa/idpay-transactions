@@ -89,25 +89,42 @@ class RewardTransactionServiceImplTest {
                 SyncTrxStatus.INVOICED.name(),
                 RewardBatchStatus.EVALUATING,
                 RewardBatchTrxStatus.SUSPENDED);
-        when(paymentRewardBatchImpactPort.findEligibility("merchant", "transaction"))
+        when(paymentRewardBatchImpactPort.findEligibility("transaction"))
                 .thenReturn(Mono.just(eligibility));
 
         StepVerifier.create(service.findEligibility("merchant", "transaction"))
                 .expectNext(eligibility)
                 .verifyComplete();
 
-        verify(paymentRewardBatchImpactPort).findEligibility("merchant", "transaction");
+        verify(paymentRewardBatchImpactPort).findEligibility("transaction");
     }
 
     @Test
     void eligibilityPropagatesEmptyWhenTransactionHasNoBatchMembership() {
-        when(paymentRewardBatchImpactPort.findEligibility("merchant", "transaction"))
+        when(paymentRewardBatchImpactPort.findEligibility("transaction"))
                 .thenReturn(Mono.empty());
 
         StepVerifier.create(service.findEligibility("merchant", "transaction"))
                 .verifyComplete();
 
-        verify(paymentRewardBatchImpactPort).findEligibility("merchant", "transaction");
+        verify(paymentRewardBatchImpactPort).findEligibility("transaction");
+    }
+
+    @Test
+    void eligibilityFiltersLegacyRequestsForAnotherMerchant() {
+        PaymentBatchEligibility eligibility = new PaymentBatchEligibility(
+                "transaction",
+                "initiative",
+                "merchant",
+                "reward-batch",
+                SyncTrxStatus.INVOICED.name(),
+                RewardBatchStatus.EVALUATING,
+                RewardBatchTrxStatus.SUSPENDED);
+        when(paymentRewardBatchImpactPort.findEligibility("transaction"))
+                .thenReturn(Mono.just(eligibility));
+
+        StepVerifier.create(service.findEligibility("other-merchant", "transaction"))
+                .verifyComplete();
     }
 
     @Test
