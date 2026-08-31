@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.idpay.transactions.model.PaymentBatchEligibility;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.model.RewardTransactionEvent;
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -10,6 +11,8 @@ import java.time.LocalDateTime;
 
 public interface RewardTransactionService {
     Mono<RewardTransaction> save(RewardTransaction rewardTransaction);
+
+    Mono<RewardTransaction> save(RewardTransactionEvent event);
 
     Mono<PaymentBatchEligibility> findEligibility(String merchantId, String transactionId);
 

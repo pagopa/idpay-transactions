@@ -87,10 +87,68 @@ components:
       summary: Save transaction history
       payload:
         oneOf:
+          - $ref: '#/components/schemas/TransactionInvoiceReplaced'
           - $ref: 'https://raw.githubusercontent.com/pagopa/idpay-payment/main/specs/asyncapi.yml#/components/schemas/TransactionInProgress'
           - $ref: 'https://raw.githubusercontent.com/pagopa/idpay-reward-calculator/main/specs/asyncapi.yaml#/components/schemas/TransactionProcessed'
           - $ref: 'https://raw.githubusercontent.com/pagopa/idpay-reward-user-id-splitter/main/specs/asyncapi.yaml#/components/schemas/TransactionRejectedDTO'
   schemas:
+    TransactionInvoiceReplaced:
+      allOf:
+        - $ref: 'https://raw.githubusercontent.com/pagopa/idpay-payment/main/specs/asyncapi.yml#/components/schemas/RewardTransactionDTO'
+        - type: object
+          description: >-
+            Complete canonical post-replacement transaction snapshot consumed
+            from idpay-transaction. operationType remains the payment operation
+            code; eventType classifies the immutable event.
+          required:
+            - eventId
+            - schemaVersion
+            - eventType
+            - occurredAt
+            - id
+            - transactionRevision
+            - status
+            - initiatives
+            - merchantId
+            - pointOfSaleType
+            - businessName
+          properties:
+            eventId:
+              type: string
+            schemaVersion:
+              type: integer
+              enum:
+                - 1
+            eventType:
+              type: string
+              enum:
+                - TRANSACTION_INVOICE_REPLACED
+            occurredAt:
+              type: string
+              format: date-time
+            transactionRevision:
+              type: integer
+              format: int64
+              minimum: 1
+            status:
+              type: string
+              enum:
+                - INVOICED
+            initiatives:
+              type: array
+              minItems: 1
+              maxItems: 1
+              items:
+                type: string
+                minLength: 1
+            merchantId:
+              type: string
+              minLength: 1
+            pointOfSaleType:
+              type: string
+            businessName:
+              type: string
+              minLength: 1
     ErrorQueueHeader:
       type: object
       required:

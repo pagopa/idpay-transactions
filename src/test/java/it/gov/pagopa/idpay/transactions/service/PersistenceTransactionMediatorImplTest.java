@@ -10,6 +10,7 @@ import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.model.RewardTransactionEvent;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionDTOFaker;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +29,7 @@ import reactor.test.StepVerifier;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -79,14 +81,15 @@ class PersistenceTransactionMediatorImplTest {
                 .thenReturn(rt1)
                 .thenThrow(new RuntimeException("boom"));
 
-        Mockito.when(rewardTransactionService.save(rt1)).thenReturn(Mono.just(rt1));
+        Mockito.when(rewardTransactionService.save(Mockito.any(RewardTransactionEvent.class)))
+                .thenReturn(Mono.just(rt1));
 
         persistenceTransactionMediator.execute(messageFlux);
 
         Mockito.verify(rewardTransactionMapper, Mockito.timeout(10000).times(2))
                 .mapFromDTO(Mockito.any(RewardTransactionDTO.class));
         Mockito.verify(rewardTransactionService, Mockito.timeout(10000).times(1))
-                .save(Mockito.any(RewardTransaction.class));
+                .save(Mockito.any(RewardTransactionEvent.class));
         Mockito.verify(transactionErrorNotifierService, Mockito.timeout(10000).times(1))
                 .notifyTransaction(
                         Mockito.any(Message.class),
@@ -103,7 +106,8 @@ class PersistenceTransactionMediatorImplTest {
         rt.setStatus(SyncTrxStatus.INVOICED.name());
 
         when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
-        when(rewardTransactionService.save(rt)).thenReturn(Mono.just(rt));
+        when(rewardTransactionService.save(Mockito.any(RewardTransactionEvent.class)))
+                .thenReturn(Mono.just(rt));
 
         StepVerifier.create(persistenceTransactionMediator.execute(
                         rtDTO,
@@ -113,7 +117,45 @@ class PersistenceTransactionMediatorImplTest {
                 .verifyComplete();
 
         verify(rewardTransactionMapper).mapFromDTO(rtDTO);
-        verify(rewardTransactionService).save(rt);
+        verify(rewardTransactionService).save(argThat((RewardTransactionEvent event) ->
+                event.transaction() == rt));
+    }
+
+    @Test
+    void executeShouldApplyUnifiedInvoiceReplacementEvent() {
+        RewardTransactionDTO rtDTO = RewardTransactionDTOFaker.mockInstance(1);
+        rtDTO.setEventId("event-1");
+        rtDTO.setSchemaVersion(1);
+        rtDTO.setEventType("TRANSACTION_INVOICE_REPLACED");
+        rtDTO.setOccurredAt(OffsetDateTime.parse("2026-08-01T00:30:00+02:00"));
+        rtDTO.setTransactionRevision(6L);
+        rtDTO.setStatus(SyncTrxStatus.INVOICED.name());
+        rtDTO.setOperationType("PAYMENT");
+        RewardTransaction rt = RewardTransactionFaker.mockInstance(1);
+        rt.setTransactionRevision(6L);
+        rt.setStatus(SyncTrxStatus.INVOICED.name());
+        rt.setOperationType("PAYMENT");
+
+        when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
+        when(rewardTransactionService.save(
+                Mockito.any(RewardTransactionEvent.class)))
+                .thenReturn(Mono.just(rt));
+
+        StepVerifier.create(persistenceTransactionMediator.execute(
+                        rtDTO,
+                        MessageBuilder.withPayload("payload").build(),
+                        Map.of()))
+                .expectNext(rt)
+                .verifyComplete();
+
+        verify(rewardTransactionService).save(argThat((RewardTransactionEvent event) ->
+                event.eventId().equals("event-1")
+                        && event.schemaVersion() == 1
+                        && event.eventType().equals("TRANSACTION_INVOICE_REPLACED")
+                        && event.occurredAt().equals(rtDTO.getOccurredAt())
+                        && event.transactionRevision() == 6L
+                        && event.transaction().getOperationType().equals("PAYMENT")));
+        Mockito.verifyNoMoreInteractions(rewardTransactionService);
     }
 
     @Test
@@ -123,7 +165,8 @@ class PersistenceTransactionMediatorImplTest {
         rt.setStatus(SyncTrxStatus.AUTHORIZED.name());
 
         when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
-        when(rewardTransactionService.save(rt)).thenReturn(Mono.just(rt));
+        when(rewardTransactionService.save(Mockito.any(RewardTransactionEvent.class)))
+                .thenReturn(Mono.just(rt));
 
         StepVerifier.create(persistenceTransactionMediator.execute(
                         rtDTO,
@@ -133,7 +176,8 @@ class PersistenceTransactionMediatorImplTest {
                 .verifyComplete();
 
         verify(rewardTransactionMapper).mapFromDTO(rtDTO);
-        verify(rewardTransactionService).save(rt);
+        verify(rewardTransactionService).save(argThat((RewardTransactionEvent event) ->
+                event.transaction() == rt));
     }
     @Test
     void executeErrorDeserializer() {
@@ -180,7 +224,8 @@ class PersistenceTransactionMediatorImplTest {
         rt.setStatus(SyncTrxStatus.REFUNDED.name());
 
         when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
-        when(rewardTransactionService.save(rt)).thenReturn(Mono.just(rt));
+        when(rewardTransactionService.save(Mockito.any(RewardTransactionEvent.class)))
+                .thenReturn(Mono.just(rt));
 
         StepVerifier.create(persistenceTransactionMediator.execute(
                         rtDTO,
@@ -192,7 +237,8 @@ class PersistenceTransactionMediatorImplTest {
                 .verifyComplete();
 
         verify(rewardTransactionMapper).mapFromDTO(rtDTO);
-        verify(rewardTransactionService).save(rt);
+        verify(rewardTransactionService).save(argThat((RewardTransactionEvent event) ->
+                event.transaction() == rt));
     }
 
     @Test
@@ -203,7 +249,8 @@ class PersistenceTransactionMediatorImplTest {
         rt.setStatus(SyncTrxStatus.INVOICED.name());
 
         when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
-        when(rewardTransactionService.save(rt)).thenReturn(Mono.just(rt));
+        when(rewardTransactionService.save(Mockito.any(RewardTransactionEvent.class)))
+                .thenReturn(Mono.just(rt));
 
         StepVerifier.create(persistenceTransactionMediator.execute(
                         rtDTO,
@@ -214,8 +261,8 @@ class PersistenceTransactionMediatorImplTest {
                 .expectNext(rt)
                 .verifyComplete();
 
-        verify(rewardTransactionService).save(argThat(saved ->
-                SyncTrxStatus.INVOICED.name().equals(saved.getStatus())));
+        verify(rewardTransactionService).save(argThat((RewardTransactionEvent event) ->
+                SyncTrxStatus.INVOICED.name().equals(event.transaction().getStatus())));
     }
 
     @Test

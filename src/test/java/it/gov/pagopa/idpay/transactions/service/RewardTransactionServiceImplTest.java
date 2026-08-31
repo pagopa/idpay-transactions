@@ -18,8 +18,10 @@ import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.PaymentBatchEligibility;
+import it.gov.pagopa.idpay.transactions.model.PaymentRewardBatchImpact;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.model.RewardTransactionEvent;
 import it.gov.pagopa.idpay.transactions.persistence.port.InvoicedTransactionAssignmentPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.PaymentRewardBatchImpactPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSearchPort;
@@ -97,6 +99,56 @@ class RewardTransactionServiceImplTest {
                 .verifyComplete();
 
         verify(paymentRewardBatchImpactPort).findEligibility("transaction");
+    }
+
+    @Test
+    void invoiceReplacementDelegatesToPaymentRewardBatchImpactPort() {
+        RewardTransaction transaction = RewardTransaction.builder()
+                .id("transaction")
+                .transactionRevision(6L)
+                .build();
+        RewardTransactionEvent replacement = new RewardTransactionEvent(
+                "event",
+                1,
+                "TRANSACTION_INVOICE_REPLACED",
+                java.time.OffsetDateTime.parse("2026-08-01T00:30:00+02:00"),
+                6L,
+                transaction
+        );
+        when(paymentRewardBatchImpactPort.applyImpact(any(PaymentRewardBatchImpact.class)))
+                .thenReturn(Mono.just(transaction));
+
+        StepVerifier.create(service.save(replacement))
+                .expectNext(transaction)
+                .verifyComplete();
+
+        verify(paymentRewardBatchImpactPort).applyImpact(argThat(impact ->
+                impact.eventId().equals("event")
+                        && impact.transactionRevision() == 6L
+                        && impact.transaction() == transaction));
+    }
+
+    @Test
+    void legacyEventUsesExistingStatusOrchestration() {
+        RewardTransaction transaction = RewardTransaction.builder()
+                .id("transaction")
+                .status(SyncTrxStatus.AUTHORIZED.name())
+                .build();
+        RewardTransactionEvent event = new RewardTransactionEvent(
+                null,
+                0,
+                null,
+                null,
+                0L,
+                transaction
+        );
+        when(synchronizationPort.upsert(transaction)).thenReturn(Mono.just(transaction));
+
+        StepVerifier.create(service.save(event))
+                .expectNext(transaction)
+                .verifyComplete();
+
+        verify(synchronizationPort).upsert(transaction);
     }
 
     @Test

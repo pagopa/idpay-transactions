@@ -189,6 +189,65 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
     }
 
     @Test
+    void shouldRollBackProjectionWhenMembershipMoveFails() {
+        String transactionId = "rollback-membership-failure";
+
+        try {
+            StepVerifier.create(insertBatch(SOURCE_BATCH_ID, RewardBatchStatus.SENT, "2026-07")
+                            .then(insertMembership(
+                                    transactionId,
+                                    SOURCE_BATCH_ID,
+                                    RewardBatchTrxStatus.CONSULTABLE,
+                                    SyncTrxStatus.AUTHORIZED,
+                                    5L,
+                                    11
+                            ))
+                            .then(databaseClient().sql("""
+                                    CREATE OR REPLACE FUNCTION fail_reward_batch_membership_move()
+                                    RETURNS trigger AS $$
+                                    BEGIN
+                                        IF NEW.reward_batch_id IS DISTINCT FROM OLD.reward_batch_id THEN
+                                            RAISE EXCEPTION 'forced membership move failure';
+                                        END IF;
+                                        RETURN NEW;
+                                    END;
+                                    $$ LANGUAGE plpgsql
+                                    """).then())
+                            .then(databaseClient().sql("""
+                                    CREATE TRIGGER fail_reward_batch_membership_move
+                                    BEFORE UPDATE ON reward_transactions
+                                    FOR EACH ROW EXECUTE FUNCTION fail_reward_batch_membership_move()
+                                    """).then())
+                            .then(adapter.applyImpact(replacement(
+                                    transactionId,
+                                    "rollback-membership-failure-event",
+                                    6L,
+                                    eventTime()
+                            ))))
+                    .expectErrorMatches(error -> error.getMessage()
+                            .contains("forced membership move failure"))
+                    .verify();
+
+            StepVerifier.create(transactionState(transactionId))
+                    .expectNext(new TransactionState(
+                            SyncTrxStatus.AUTHORIZED.name(),
+                            5L,
+                            SOURCE_BATCH_ID,
+                            RewardBatchTrxStatus.CONSULTABLE.name(),
+                            11
+                    ))
+                    .verifyComplete();
+        } finally {
+            databaseClient().sql(
+                            "DROP TRIGGER IF EXISTS fail_reward_batch_membership_move ON reward_transactions")
+                    .then()
+                    .then(databaseClient().sql(
+                            "DROP FUNCTION IF EXISTS fail_reward_batch_membership_move()").then())
+                    .block();
+        }
+    }
+
+    @Test
     void shouldReuseExistingOutcomeMonthGrouping() {
         String transactionId = "move-existing-target";
 
@@ -335,7 +394,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                             RewardBatchTrxStatus.CONSULTABLE.name(),
                             10
                     ), result.getT1());
-                    assertEquals(0L, result.getT2());
+                    assertEquals(5L, result.getT2());
                 })
                 .verifyComplete();
     }
@@ -493,7 +552,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
     }
 
     @Test
-    void shouldLetCanonicalImpactsWinWhenGenericSnapshotsArriveFirstAtTheSameRevision() {
+    void shouldIgnoreReplacementWhenTheSameRevisionWasAlreadyApplied() {
         String transactionId = "generic-before-replacement";
 
         StepVerifier.create(insertBatch(SOURCE_BATCH_ID, RewardBatchStatus.CREATED, "2026-07")
@@ -517,7 +576,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                                 eventTime()
                         ))))
                 .assertNext(transaction -> {
-                    assertEquals(SyncTrxStatus.INVOICED.name(), transaction.getStatus());
+                            assertEquals(SyncTrxStatus.AUTHORIZED.name(), transaction.getStatus());
                     assertEquals(SOURCE_BATCH_ID, transaction.getRewardBatchId());
                     assertEquals(RewardBatchTrxStatus.CONSULTABLE, transaction.getRewardBatchTrxStatus());
                 })
@@ -529,7 +588,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                 ))
                 .assertNext(result -> {
                     assertEquals(new TransactionState(
-                            SyncTrxStatus.INVOICED.name(),
+                            SyncTrxStatus.AUTHORIZED.name(),
                             6L,
                             SOURCE_BATCH_ID,
                             RewardBatchTrxStatus.CONSULTABLE.name(),
@@ -658,7 +717,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
     }
 
     @Test
-    void shouldAdvanceMembershipAndMetadataWhenANewerGenericSnapshotKeepsTheCanonicalProjection() {
+    void shouldIgnoreReplacementOlderThanTheCanonicalProjection() {
         String transactionId = "newer-generic-then-older-impact";
         RewardTransaction newerGeneric = generic(transactionId, SyncTrxStatus.AUTHORIZED, 10L);
         newerGeneric.setBusinessName("Newer business");
@@ -680,24 +739,18 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                                 julyEventTime()
                         ))))
                 .assertNext(transaction -> {
-                    // The impact revision (6) is older than the generic snapshot revision (10)
-                    // already persisted, so the canonical projection keeps the newer snapshot...
                     assertEquals("Newer business", transaction.getBusinessName());
                     assertEquals(SyncTrxStatus.AUTHORIZED.name(), transaction.getStatus());
                     assertEquals(10L, transaction.getTransactionRevision());
-                    // ...while the batch membership effect and the impact metadata still apply,
-                    // because they are gated by latest_applied_payment_impact_revision, not by
-                    // transaction_revision.
                     assertEquals(SOURCE_BATCH_ID, transaction.getRewardBatchId());
-                    assertEquals(RewardBatchTrxStatus.SUSPENDED, transaction.getRewardBatchTrxStatus());
+                    assertEquals(RewardBatchTrxStatus.CONSULTABLE, transaction.getRewardBatchTrxStatus());
                 })
                 .verifyComplete();
 
         StepVerifier.create(latestAppliedImpactRevision(transactionId))
-                .expectNext(6L)
+                .expectNext(10L)
                 .verifyComplete();
 
-        // A retry of the same (now stale) impact revision must not repeat the membership effect.
         StepVerifier.create(adapter.applyImpact(replacement(
                         transactionId,
                         "newer-generic-then-older-impact-retry",
@@ -706,12 +759,12 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                 )))
                 .assertNext(transaction -> {
                     assertEquals("Newer business", transaction.getBusinessName());
-                    assertEquals(RewardBatchTrxStatus.SUSPENDED, transaction.getRewardBatchTrxStatus());
+                    assertEquals(RewardBatchTrxStatus.CONSULTABLE, transaction.getRewardBatchTrxStatus());
                 })
                 .verifyComplete();
 
         StepVerifier.create(latestAppliedImpactRevision(transactionId))
-                .expectNext(6L)
+                .expectNext(10L)
                 .verifyComplete();
     }
 
@@ -751,7 +804,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                             null,
                             0
                     ), result.getT1());
-                    assertEquals(0L, result.getT2());
+                    assertEquals(5L, result.getT2());
                 })
                 .verifyComplete();
     }
@@ -829,7 +882,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                             RewardBatchTrxStatus.CONSULTABLE.name(),
                             7
                     ), result.getT1());
-                    assertEquals(0L, result.getT2());
+                    assertEquals(5L, result.getT2());
                 })
                 .verifyComplete();
     }
@@ -875,7 +928,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                             7
                     ), result.getT1());
                     assertEquals(MERCHANT_ID, result.getT2());
-                    assertEquals(0L, result.getT3());
+                    assertEquals(5L, result.getT3());
                 })
                 .verifyComplete();
     }
@@ -897,8 +950,8 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                 .assertNext(transaction -> assertEquals(6L, transaction.getTransactionRevision()))
                 .verifyComplete();
 
-        // The impact below carries the same revision (6) already recorded as the latest
-        // applied one: on its own that would make it a no-op duplicate. But it also
+        // The impact below carries the same canonical revision (6): on its own that
+        // would make it a no-op duplicate. But it also
         // conflicts on initiative, so the integrity check must still fire and reject it
         // rather than silently swallowing a malformed message as "just a duplicate".
         RewardTransaction conflicting = generic(transactionId, SyncTrxStatus.INVOICED, 6L);
@@ -947,7 +1000,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                 .assertNext(transaction -> assertEquals(6L, transaction.getTransactionRevision()))
                 .verifyComplete();
 
-        // Revision 5 is now lower than the latest applied impact revision (6): on its own
+        // Revision 5 is now lower than the canonical transaction revision (6): on its own
         // that would make it a stale duplicate to ignore. But it also conflicts on
         // merchant, so the integrity check must still fire and reject it rather than
         // silently swallowing a malformed message as "just stale".
@@ -1010,7 +1063,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                             null,
                             0
                     ), result.getT1());
-                    assertEquals(0L, result.getT2());
+                    assertEquals(5L, result.getT2());
                 })
                 .verifyComplete();
     }
@@ -1516,6 +1569,22 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                             );
                         },
                         "point of sale type"
+                ),
+                Arguments.of(
+                        "invoice-replaced-missing-business-name",
+                        (BiFunction<String, String, PaymentRewardBatchImpact>) (txId, eventId) -> {
+                            RewardTransaction transaction = generic(txId, SyncTrxStatus.INVOICED, 6L);
+                            transaction.setBusinessName(" ");
+                            return new PaymentRewardBatchImpact(
+                                    eventId,
+                                    1,
+                                    PaymentRewardBatchImpactType.INVOICE_REPLACED,
+                                    eventTime(),
+                                    6L,
+                                    transaction
+                            );
+                        },
+                        "business name"
                 )
         );
     }
@@ -1683,9 +1752,11 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
     }
 
     private static Mono<Long> latestAppliedImpactRevision(String transactionId) {
+        // Kept as a local helper name to minimize churn in the pre-existing impact suite.
+        // Step 2 assertions now read the canonical transaction revision.
         return databaseClient()
                 .sql("""
-                        SELECT latest_applied_payment_impact_revision AS revision
+                        SELECT transaction_revision AS revision
                         FROM reward_transactions
                         WHERE transaction_id = :transactionId
                         """)
