@@ -1222,7 +1222,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
     }
 
     @Test
-    void shouldReturnPaymentEligibilityOnlyForTheCurrentMerchantMembership() {
+    void shouldReturnPaymentEligibilityByTransactionId() {
         String transactionId = "eligible";
 
         StepVerifier.create(insertBatch(SOURCE_BATCH_ID, RewardBatchStatus.EVALUATING, "2026-07")
@@ -1234,7 +1234,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                                 5L,
                                 4
                         ))
-                        .then(adapter.findEligibility(MERCHANT_ID, transactionId)))
+                        .then(adapter.findEligibility(transactionId)))
                 .expectNext(new PaymentBatchEligibility(
                         transactionId,
                         INITIATIVE_ID,
@@ -1246,12 +1246,10 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                 ))
                 .verifyComplete();
 
-        StepVerifier.create(adapter.findEligibility("other-merchant", transactionId))
-                .verifyComplete();
     }
 
     @Test
-    void shouldExcludeUnassignedAndBatchMerchantMismatchedRowsFromPaymentEligibility() {
+    void shouldExcludeUnassignedAndRejectBatchMerchantMismatchedRowsFromPaymentEligibility() {
         String unassignedTransactionId = "unassigned-eligibility";
         String mismatchedTransactionId = "mismatched-eligibility";
 
@@ -1278,11 +1276,13 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                 ).then())
                 .verifyComplete();
 
-        StepVerifier.create(Flux.concat(
-                        adapter.findEligibility(MERCHANT_ID, unassignedTransactionId),
-                        adapter.findEligibility(MERCHANT_ID, mismatchedTransactionId)
-                ))
+        StepVerifier.create(adapter.findEligibility(unassignedTransactionId))
                 .verifyComplete();
+
+        StepVerifier.create(adapter.findEligibility(mismatchedTransactionId))
+                .expectErrorMatches(error -> error instanceof IllegalStateException
+                        && error.getMessage().contains("merchant does not match"))
+                .verify();
     }
 
     private static OffsetDateTime eventTime() {
