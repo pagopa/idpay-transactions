@@ -202,7 +202,6 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
         return transactionAdapter.upsertImpactWithinTransaction(impact.transaction(), transactionDslContext)
                 .flatMap(persisted -> applyLockedMembership(
                         transactionDslContext,
-                        impact,
                         source,
                         persisted
                 ));
@@ -210,7 +209,6 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
 
     private Mono<RewardTransaction> applyLockedMembership(
             DSLContext transactionDslContext,
-            PaymentRewardBatchImpact impact,
             RewardBatch source,
             RewardTransaction transaction
     ) {
