@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql;
 
+import static it.gov.pagopa.common.utils.CommonConstants.ZONEID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -22,6 +23,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.OffsetDateTime;
+import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
@@ -142,14 +144,21 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                 })
                 .verifyComplete();
 
-        StepVerifier.create(latestAppliedImpactRevision(transactionId))
-                .expectNext(6L)
+        StepVerifier.create(transactionState(transactionId))
+                .expectNext(new TransactionState(
+                        SyncTrxStatus.INVOICED.name(),
+                        6L,
+                        SOURCE_BATCH_ID,
+                        RewardBatchTrxStatus.CONSULTABLE.name(),
+                        41
+                ))
                 .verifyComplete();
     }
 
     @Test
-    void shouldMoveNonCreatedMembershipToRomeEventMonthAndCreateTargetBatch() {
+    void shouldMoveNonCreatedMembershipToCurrentProcessingMonthDespiteOlderEventMonth() {
         String transactionId = "move-created-target";
+        String currentMonth = YearMonth.now(ZONEID).toString();
 
         StepVerifier.create(insertBatch(SOURCE_BATCH_ID, RewardBatchStatus.SENT, "2026-07")
                         .then(insertMembership(
@@ -164,7 +173,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                                 transactionId,
                                 "move-created-target-event",
                                 6L,
-                                eventTime()
+                                previousMonthEventTime()
                         ))))
                 .assertNext(transaction -> {
                     assertEquals(SyncTrxStatus.INVOICED.name(), transaction.getStatus());
@@ -175,9 +184,9 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
 
         StepVerifier.create(Flux.concat(
                         batchCount(),
-                        batchForGrouping("2026-08"),
+                        batchForGrouping(currentMonth),
                         aggregate(SOURCE_BATCH_ID),
-                        aggregateForGrouping("2026-08")
+                        aggregateForGrouping(currentMonth)
                 ).collectList())
                 .assertNext(result -> {
                     assertEquals(2L, result.get(0));
@@ -248,12 +257,13 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
     }
 
     @Test
-    void shouldReuseExistingOutcomeMonthGrouping() {
+    void shouldReuseExistingCurrentMonthGrouping() {
         String transactionId = "move-existing-target";
+        String currentMonth = YearMonth.now(ZONEID).toString();
 
         StepVerifier.create(Flux.concat(
                         insertBatch(SOURCE_BATCH_ID, RewardBatchStatus.SENT, "2026-07"),
-                        insertBatch(TARGET_BATCH_ID, RewardBatchStatus.CREATED, "2026-08"),
+                        insertBatch(TARGET_BATCH_ID, RewardBatchStatus.CREATED, currentMonth),
                         insertMembership(
                                 transactionId,
                                 SOURCE_BATCH_ID,
@@ -266,7 +276,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                         transactionId,
                         "move-existing-target-event",
                         6L,
-                        eventTime()
+                        previousMonthEventTime()
                 ))))
                 .assertNext(transaction -> {
                     assertEquals(TARGET_BATCH_ID, transaction.getRewardBatchId());
@@ -329,31 +339,34 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                                 transactionId,
                                 "stale-lower-revision-replacement",
                                 6L,
-                                julyEventTime()
+                                previousMonthEventTime()
                         )))
                         .then(adapter.applyImpact(replacement(
                                 transactionId,
                                 "stale-lower-revision-retry",
                                 5L,
-                                julyEventTime()
+                                previousMonthEventTime()
                         ))))
                 .assertNext(transaction -> {
-                    assertEquals(SOURCE_BATCH_ID, transaction.getRewardBatchId());
-                    assertEquals(RewardBatchTrxStatus.SUSPENDED, transaction.getRewardBatchTrxStatus());
-                    assertEquals(SyncTrxStatus.INVOICED.name(), transaction.getStatus());
-                    assertEquals(6L, transaction.getTransactionRevision());
-                })
-                .verifyComplete();
+                            assertEquals(RewardBatchTrxStatus.SUSPENDED, transaction.getRewardBatchTrxStatus());
+                            assertEquals(SyncTrxStatus.INVOICED.name(), transaction.getStatus());
+                            assertEquals(6L, transaction.getTransactionRevision());
+                        })
+                        .verifyComplete();
 
-        StepVerifier.create(Mono.zip(transactionState(transactionId), latestAppliedImpactRevision(transactionId)))
-                .assertNext(result -> {
-                    assertEquals(new TransactionState(
-                            SyncTrxStatus.INVOICED.name(),
-                            6L,
-                            SOURCE_BATCH_ID,
-                            RewardBatchTrxStatus.SUSPENDED.name(),
-                            10
-                    ), result.getT1());
+        StepVerifier.create(Mono.zip(
+                                transactionState(transactionId),
+                                latestAppliedImpactRevision(transactionId),
+                                batchForGrouping(YearMonth.now(ZONEID).toString())
+                        ))
+                        .assertNext(result -> {
+                            assertEquals(new TransactionState(
+                                    SyncTrxStatus.INVOICED.name(),
+                                    6L,
+                                    result.getT3().getId(),
+                                    RewardBatchTrxStatus.SUSPENDED.name(),
+                                    10
+                            ), result.getT1());
                     assertEquals(6L, result.getT2());
                 })
                 .verifyComplete();
@@ -457,11 +470,12 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
     }
 
     @Test
-    void shouldCompleteConcurrentOpposingReplacementsWithoutDuplicateBatches() {
+    void shouldCompleteConcurrentReplacementsWithoutDuplicateCurrentMonthBatches() {
         String firstSourceBatchId = "opposing-source-july";
         String secondSourceBatchId = "opposing-source-august";
         String firstTransactionId = "opposing-first";
         String secondTransactionId = "opposing-second";
+        String currentMonth = YearMonth.now(ZONEID).toString();
 
         StepVerifier.create(Flux.concat(
                         insertBatch(firstSourceBatchId, RewardBatchStatus.SENT, "2026-07"),
@@ -493,12 +507,12 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                                 secondTransactionId,
                                 "opposing-second-event",
                                 6L,
-                                julyEventTime()
+                                previousMonthEventTime()
                         )))
                 )).collectList())
                 .assertNext(transactions -> {
                     assertEquals(2, transactions.size());
-                    assertEquals(2, transactions.stream()
+                    assertEquals(1, transactions.stream()
                             .map(RewardTransaction::getRewardBatchId)
                             .distinct()
                             .count());
@@ -510,16 +524,17 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                         transactionState(secondTransactionId),
                         latestAppliedImpactRevision(firstTransactionId),
                         latestAppliedImpactRevision(secondTransactionId),
-                        batchCount()
+                        batchCount(),
+                        batchForGrouping(currentMonth)
                 ))
                 .assertNext(result -> {
-                    assertEquals(secondSourceBatchId, result.getT1().batchId());
-                    assertEquals(firstSourceBatchId, result.getT2().batchId());
+                    assertEquals(result.getT6().getId(), result.getT1().batchId());
+                    assertEquals(result.getT6().getId(), result.getT2().batchId());
                     assertEquals(RewardBatchTrxStatus.SUSPENDED.name(), result.getT1().batchStatus());
                     assertEquals(RewardBatchTrxStatus.SUSPENDED.name(), result.getT2().batchStatus());
                     assertEquals(6L, result.getT3());
                     assertEquals(6L, result.getT4());
-                    assertEquals(2L, result.getT5());
+                    assertEquals(3L, result.getT5());
                 })
                 .verifyComplete();
     }
@@ -649,10 +664,14 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
     }
 
     @Test
-    void shouldSuspendInPlaceWhenNonCreatedSourceAlreadyMatchesOutcomeMonth() {
+    void shouldSuspendInPlaceWhenNonCreatedSourceAlreadyMatchesCurrentMonth() {
         String transactionId = "same-month-in-place";
 
-        StepVerifier.create(insertBatch(SOURCE_BATCH_ID, RewardBatchStatus.SENT, "2026-08")
+        StepVerifier.create(insertBatch(
+                                SOURCE_BATCH_ID,
+                                RewardBatchStatus.SENT,
+                                YearMonth.now(ZONEID).toString()
+                        )
                         .then(insertMembership(
                                 transactionId,
                                 SOURCE_BATCH_ID,
@@ -736,7 +755,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                                 transactionId,
                                 "newer-generic-then-older-impact-event",
                                 6L,
-                                julyEventTime()
+                                previousMonthEventTime()
                         ))))
                 .assertNext(transaction -> {
                     assertEquals("Newer business", transaction.getBusinessName());
@@ -755,7 +774,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                         transactionId,
                         "newer-generic-then-older-impact-retry",
                         6L,
-                        julyEventTime()
+                        previousMonthEventTime()
                 )))
                 .assertNext(transaction -> {
                     assertEquals("Newer business", transaction.getBusinessName());
@@ -826,7 +845,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                                 transactionId,
                                 "later-replacement",
                                 7L,
-                                julyEventTime()
+                                previousMonthEventTime()
                         )))
                         .then(transactionAdapter.upsert(generic(
                                 transactionId,
@@ -836,13 +855,25 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                 .assertNext(transaction -> {
                     assertEquals(SyncTrxStatus.INVOICED.name(), transaction.getStatus());
                     assertEquals(7L, transaction.getTransactionRevision());
-                    assertEquals(SOURCE_BATCH_ID, transaction.getRewardBatchId());
                     assertEquals(RewardBatchTrxStatus.SUSPENDED, transaction.getRewardBatchTrxStatus());
                 })
                 .verifyComplete();
 
-        StepVerifier.create(latestAppliedImpactRevision(transactionId))
-                .expectNext(7L)
+        StepVerifier.create(Mono.zip(
+                        transactionState(transactionId),
+                        latestAppliedImpactRevision(transactionId),
+                        batchForGrouping(YearMonth.now(ZONEID).toString())
+                ))
+                .assertNext(result -> {
+                    assertEquals(new TransactionState(
+                            SyncTrxStatus.INVOICED.name(),
+                            7L,
+                            result.getT3().getId(),
+                            RewardBatchTrxStatus.SUSPENDED.name(),
+                            7
+                    ), result.getT1());
+                    assertEquals(7L, result.getT2());
+                })
                 .verifyComplete();
     }
 
@@ -1339,17 +1370,22 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
     }
 
     private static OffsetDateTime eventTime() {
-        return OffsetDateTime.of(
-                LocalDateTime.of(2026, Month.JULY, 31, 22, 30),
-                ZoneOffset.UTC
-        );
+        return YearMonth.now(ZONEID)
+                .atDay(1)
+                .atTime(0, 30)
+                .atZone(ZONEID)
+                .withZoneSameInstant(ZoneOffset.UTC)
+                .toOffsetDateTime();
     }
 
-    private static OffsetDateTime julyEventTime() {
-        return OffsetDateTime.of(
-                LocalDateTime.of(2026, Month.JULY, 1, 10, 30),
-                ZoneOffset.UTC
-        );
+    private static OffsetDateTime previousMonthEventTime() {
+        return YearMonth.now(ZONEID)
+                .minusMonths(1)
+                .atDay(15)
+                .atTime(12, 0)
+                .atZone(ZONEID)
+                .withZoneSameInstant(ZoneOffset.UTC)
+                .toOffsetDateTime();
     }
 
     private static Stream<Arguments> localOnlyImpactFields() {

@@ -219,21 +219,19 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
         }
         return RewardBatchStatus.CREATED.equals(source.getStatus())
                 ? Mono.just(transaction)
-                : moveToOutcomeMonth(
+                : moveToCurrentMonth(
                         transactionDslContext,
-                        impact,
                         source,
                         transaction
                 );
     }
 
-    private Mono<RewardTransaction> moveToOutcomeMonth(
+    private Mono<RewardTransaction> moveToCurrentMonth(
             DSLContext transactionDslContext,
-            PaymentRewardBatchImpact impact,
             RewardBatch source,
             RewardTransaction transaction
     ) {
-        return lockOrCreateOutcomeBatch(transactionDslContext, impact, source)
+        return lockOrCreateCurrentMonthBatch(transactionDslContext, source, transaction)
                 .flatMap(target -> Mono.from(transactionDslContext.update(REWARD_TRANSACTIONS)
                                 .set(REWARD_TRANSACTIONS.REWARD_BATCH_ID, target.getId())
                                 .set(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS,
@@ -246,18 +244,17 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
                         .switchIfEmpty(Mono.error(new MembershipChangedException())));
     }
 
-    private Mono<RewardBatch> lockOrCreateOutcomeBatch(
+    private Mono<RewardBatch> lockOrCreateCurrentMonthBatch(
             DSLContext transactionDslContext,
-            PaymentRewardBatchImpact impact,
-            RewardBatch source
+            RewardBatch source,
+            RewardTransaction transaction
     ) {
-        RewardTransaction transaction = impact.transaction();
-        String outcomeMonth = YearMonth.from(impact.occurredAt().atZoneSameInstant(ZONEID)).toString();
+        String currentMonth = YearMonth.now(ZONEID).toString();
         RewardBatch candidate = RewardBatchFactory.create(
                 source.getInitiativeId(),
                 source.getMerchantId(),
                 transaction.getPointOfSaleType(),
-                outcomeMonth,
+                currentMonth,
                 transaction.getBusinessName()
         );
         candidate.setId(UUID.randomUUID().toString());
