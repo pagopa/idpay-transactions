@@ -4,6 +4,7 @@ import it.gov.pagopa.common.reactive.kafka.consumer.BaseKafkaConsumer;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.model.RewardTransactionEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.Message;
@@ -75,9 +76,14 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
       Message<String> message,
       Map<String, Object> ctx) {
 
-    return Mono.just(payload)
-        .map(this.rewardTransactionMapper::mapFromDTO)
-        .flatMap(this.rewardTransactionService::save);
+    return rewardTransactionService.save(new RewardTransactionEvent(
+                payload.getEventId(),
+                payload.getSchemaVersion() == null ? 0 : payload.getSchemaVersion(),
+                payload.getEventType(),
+                payload.getOccurredAt(),
+                payload.getTransactionRevision() == null ? 0L : payload.getTransactionRevision(),
+                rewardTransactionMapper.mapFromDTO(payload)
+        ));
   }
 
   @Override

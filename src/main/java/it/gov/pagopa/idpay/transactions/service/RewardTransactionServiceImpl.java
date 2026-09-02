@@ -6,10 +6,13 @@ import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.Exceptio
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
+import it.gov.pagopa.idpay.transactions.enums.PaymentRewardBatchImpactType;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.PaymentBatchEligibility;
+import it.gov.pagopa.idpay.transactions.model.PaymentRewardBatchImpact;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardBatchFactory;
+import it.gov.pagopa.idpay.transactions.model.RewardTransactionEvent;
 import it.gov.pagopa.idpay.transactions.persistence.port.InvoicedTransactionAssignmentPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.PaymentRewardBatchImpactPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSynchronizationPort;
@@ -31,6 +34,8 @@ import java.time.LocalDateTime;
 @Service
 @Slf4j
 public class RewardTransactionServiceImpl implements RewardTransactionService {
+
+    private static final String TRANSACTION_INVOICE_REPLACED = "TRANSACTION_INVOICE_REPLACED";
 
     private final RewardTransactionSearchPort rewardTransactionSearchPort;
     private final RewardTransactionSynchronizationPort rewardTransactionSynchronizationPort;
@@ -64,6 +69,21 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
             return rewardTransactionSynchronizationPort.upsertRefundedAndDetach(rewardTransaction);
         }
         return rewardTransactionSynchronizationPort.upsert(rewardTransaction);
+    }
+
+    @Override
+    public Mono<RewardTransaction> save(RewardTransactionEvent event) {
+        if (TRANSACTION_INVOICE_REPLACED.equals(event.eventType())) {
+            return paymentRewardBatchImpactPort.applyImpact(new PaymentRewardBatchImpact(
+                    event.eventId(),
+                    event.schemaVersion(),
+                    PaymentRewardBatchImpactType.INVOICE_REPLACED,
+                    event.occurredAt(),
+                    event.transactionRevision(),
+                    event.transaction()
+            ));
+        }
+        return save(event.transaction());
     }
 
     @Override
