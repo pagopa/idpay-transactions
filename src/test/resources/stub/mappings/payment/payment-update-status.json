@@ -6,10 +6,8 @@
         "url": "/idpay/transactions/status",
         "bodyPatterns": [
           {
-            "equalToJson": {
-              "transactionIds": ["TRX_OK_1", "TRX_OK_2"],
-              "status": "REWARDED"
-            }
+            "equalToJson": "{\"transactionIds\": [\"TRX_OK_1\", \"TRX_OK_2\"], \"status\": \"REWARDED\"}",
+            "ignoreArrayOrder": true
           }
         ]
       },
@@ -27,10 +25,8 @@
         "url": "/idpay/transactions/status",
         "bodyPatterns": [
           {
-            "equalToJson": {
-              "transactionIds": ["TRX_BADREQUEST_1"],
-              "status": "REWARDED"
-            }
+            "equalToJson": "{\"transactionIds\": [\"TRX_BADREQUEST_1\"], \"status\": \"REWARDED\"}",
+            "ignoreArrayOrder": true
           }
         ]
       },
@@ -48,10 +44,8 @@
         "url": "/idpay/transactions/status",
         "bodyPatterns": [
           {
-            "equalToJson": {
-              "transactionIds": ["TRX_INTERNALSERVERERROR_1"],
-              "status": "REWARDED"
-            }
+            "equalToJson": "{\"transactionIds\": [\"TRX_INTERNALSERVERERROR_1\"], \"status\": \"REWARDED\"}",
+            "ignoreArrayOrder": true
           }
         ]
       },
