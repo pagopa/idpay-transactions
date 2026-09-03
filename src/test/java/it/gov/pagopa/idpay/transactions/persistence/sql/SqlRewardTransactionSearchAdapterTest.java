@@ -701,15 +701,33 @@ class SqlRewardTransactionSearchAdapterTest extends PostgresqlMigrationTestSuppo
                 RewardBatchTrxStatus.CONSULTABLE,
                 4
         );
-        otherInitiativeTrx.setRewardBatchId(BATCH_ID);
+        otherInitiativeTrx.setRewardBatchId("other-initiative-batch");
         otherInitiativeTrx.setInitiatives(List.of("other-initiative"));
 
         StepVerifier.create(createBatch()
                         .then(createBatch("other-batch", "2026-08"))
+                        .then(createCustomBatch("other-initiative-batch", "other-initiative", MERCHANT_ID, "2026-08"))
                         .then(seed(trx1, trx2, otherBatchTrx, otherInitiativeTrx))
                         .thenMany(adapter.findBatchTransactionIds(BATCH_ID, INITIATIVE_ID)))
                 .expectNextMatches(id -> List.of("batch-trx-1", "batch-trx-2").contains(id))
                 .expectNextMatches(id -> List.of("batch-trx-1", "batch-trx-2").contains(id))
                 .verifyComplete();
+    }
+
+    private Mono<Void> createCustomBatch(String batchId, String initiativeId, String merchantId, String month) {
+        return databaseClient()
+                .sql("""
+                        INSERT INTO reward_batches (
+                            id, initiative_id, merchant_id, month, pos_type, status, name, assignee_level
+                        )
+                        VALUES (:id, :initiativeId, :merchantId, :month, 'PHYSICAL', 'CREATED', 'July', 'L1')
+                        """)
+                .bind("id", batchId)
+                .bind("initiativeId", initiativeId)
+                .bind("merchantId", merchantId)
+                .bind("month", month)
+                .fetch()
+                .rowsUpdated()
+                .then();
     }
 }
