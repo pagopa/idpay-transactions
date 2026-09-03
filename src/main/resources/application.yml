@@ -261,3 +261,8 @@ app:
       max-attempts: ${EROGAZIONI_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:3}}
   batch:
     paginationSize: ${ELABORATION_PAGE_SIZE:10}
+  payment:
+    base-url: ${PAYMENT_BASE_URL:}
+    retry:
+      delay-millis: ${PAYMENT_RETRY_DELAY_MILLIS:2000}
+      max-attempts: ${PAYMENT_RETRY_MAX_ATTEMPTS:${RETRY_MAX_ATTEMPTS:10}}

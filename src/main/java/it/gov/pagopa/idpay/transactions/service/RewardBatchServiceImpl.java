@@ -4,6 +4,7 @@ import com.azure.storage.blob.models.BlobStorageException;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.config.InitiativeNotFoundException;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.InitiativeDetailDTO;
@@ -55,6 +56,7 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -88,6 +90,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     private final AuditUtilities auditUtilities;
     private final MerchantRestClient merchantRestClient;
+    private final PaymentRestClient paymentRestClient;
     private final SelfcareInstitutionsRestClient selfcareInstitutionsRestClient;
     private final ErogazioniRestClient erogazioniRestClient;
     private final InitiativeDataService initiativeDataService;
@@ -120,6 +123,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "%s_%s_%s.csv";
     private static final String PROCESSING_BATCH_LOG = "Processing batch {}";
     private static final String FAILED_TO_PROCESS_BATCH_LOG = "Failed to process batch {}: {}";
+    private static final int PAYMENT_STATUS_UPDATE_BATCH_SIZE = 1000;
 
     public RewardBatchServiceImpl(RewardBatchLifecyclePort rewardBatchLifecyclePort,
                                   RewardBatchListPort rewardBatchListPort,
@@ -136,6 +140,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                   ChecksErrorMapper checksErrorMapper,
                                   AuditUtilities auditUtilities,
                                   MerchantRestClient merchantRestClient,
+                                  PaymentRestClient paymentRestClient,
                                   SelfcareInstitutionsRestClient selfcareInstitutionsRestClient,
                                   ErogazioniRestClient erogazioniRestClient,
                                   InitiativeDataService initiativeDataService,
@@ -155,6 +160,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         this.checksErrorMapper = checksErrorMapper;
         this.auditUtilities = auditUtilities;
         this.merchantRestClient = merchantRestClient;
+        this.paymentRestClient = paymentRestClient;
         this.selfcareInstitutionsRestClient = selfcareInstitutionsRestClient;
         this.erogazioniRestClient = erogazioniRestClient;
         this.initiativeDataService = initiativeDataService;
@@ -306,14 +312,25 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             "[EVALUATING_REWARD_BATCH] Evaluating reward batch {}",
                             Utilities.sanitizeString(rewardBatch.getId())
                     );
-                    return rewardBatchTransactionDecisionPort.prepareEvaluation(
-                            rewardBatch.getId(),
-                            initiativeId
-                    );
+                    return syncPaymentTransactionsToRewarded(rewardBatch.getId(), initiativeId)
+                            .then(rewardBatchTransactionDecisionPort.prepareEvaluation(
+                                    rewardBatch.getId(),
+                                    initiativeId
+                            ));
                 })
                 .count()
                 .doOnSuccess(count ->
                         log.info("[EVALUATING_REWARD_BATCH] Completed evaluation. Total batches processed: {}", count));
+    }
+
+    private Mono<Void> syncPaymentTransactionsToRewarded(String rewardBatchId, String initiativeId) {
+        return rewardBatchTransactionReadPort.findBatchTransactionIds(rewardBatchId, initiativeId)
+                .distinct()
+                .buffer(PAYMENT_STATUS_UPDATE_BATCH_SIZE)
+                .concatMap(chunk -> chunk.isEmpty()
+                        ? Mono.empty()
+                        : paymentRestClient.updateTransactionsStatus(new HashSet<>(chunk), SyncTrxStatus.REWARDED).then())
+                .then();
     }
 
     private Mono<RewardBatch> updateTransactionStatuses(

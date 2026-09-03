@@ -26,4 +26,6 @@ public interface RewardBatchTransactionReadPort {
             String rewardBatchId,
             String merchantId
     );
+
+    Flux<String> findBatchTransactionIds(String rewardBatchId, String initiativeId);
 }
