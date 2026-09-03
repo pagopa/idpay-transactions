@@ -12,6 +12,7 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -53,6 +54,8 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -140,6 +143,35 @@ class RewardBatchServiceImplTest {
         verify(lifecyclePort, never()).findBatchWithStatus(
                 anyString(), eq("initiative"), eq(RewardBatchStatus.SENT));
         verify(paymentRestClient).updateTransactionsStatus(java.util.Set.of("trx-1", "trx-2"), SyncTrxStatus.REWARDED);
+        verify(decisionPort).prepareEvaluation("batch", "initiative");
+    }
+
+    @Test
+    void evaluationSplitsPaymentStatusUpdateIntoBatchesOfAtMost100Ids() {
+        RewardBatch sent = RewardBatch.builder().id("batch").build();
+        List<String> transactionIds = IntStream.rangeClosed(1, 205)
+                .mapToObj(i -> "trx-" + i)
+                .toList();
+
+        when(lifecyclePort.findBatchesWithStatus(RewardBatchStatus.SENT, "initiative"))
+                .thenReturn(Flux.just(sent));
+        when(transactionReadPort.findBatchTransactionIds("batch", "initiative"))
+                .thenReturn(Flux.fromIterable(transactionIds));
+        when(paymentRestClient.updateTransactionsStatus(any(), eq(SyncTrxStatus.REWARDED)))
+                .thenAnswer(invocation -> {
+                    Set<String> chunk = invocation.getArgument(0);
+                    if (chunk.size() > 100) {
+                        return Mono.error(new IllegalArgumentException("Chunk size exceeds 100"));
+                    }
+                    return Mono.just(chunk.size());
+                });
+        when(decisionPort.prepareEvaluation("batch", "initiative")).thenReturn(Mono.just(sent));
+
+        StepVerifier.create(service.evaluatingRewardBatches(null, "initiative"))
+                .expectNext(1L)
+                .verifyComplete();
+
+        verify(paymentRestClient, times(3)).updateTransactionsStatus(any(), eq(SyncTrxStatus.REWARDED));
         verify(decisionPort).prepareEvaluation("batch", "initiative");
     }
 

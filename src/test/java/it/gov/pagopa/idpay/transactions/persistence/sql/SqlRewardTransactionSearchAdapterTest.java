@@ -1,17 +1,11 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import it.gov.pagopa.idpay.transactions.dto.TrxFiltersDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
-import java.time.LocalDateTime;
-import java.time.Month;
-import java.util.List;
-import java.util.Map;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 import org.junit.jupiter.api.AfterAll;
@@ -27,6 +21,13 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import tools.jackson.databind.json.JsonMapper;
+
+import java.time.LocalDateTime;
+import java.time.Month;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Testcontainers(disabledWithoutDocker = true)
 class SqlRewardTransactionSearchAdapterTest extends PostgresqlMigrationTestSupport {
@@ -666,5 +667,49 @@ class SqlRewardTransactionSearchAdapterTest extends PostgresqlMigrationTestSuppo
         transaction.setTrxDate(trxDate);
         transaction.setAmountCents(amountCents);
         return transaction;
+    }
+
+    @Test
+    void shouldFindBatchTransactionIds() {
+        RewardTransaction trx1 = transaction(
+                "batch-trx-1",
+                SyncTrxStatus.INVOICED,
+                RewardBatchTrxStatus.CONSULTABLE,
+                1
+        );
+        trx1.setRewardBatchId(BATCH_ID);
+
+        RewardTransaction trx2 = transaction(
+                "batch-trx-2",
+                SyncTrxStatus.INVOICED,
+                RewardBatchTrxStatus.TO_CHECK,
+                2
+        );
+        trx2.setRewardBatchId(BATCH_ID);
+
+        RewardTransaction otherBatchTrx = transaction(
+                "other-batch-trx",
+                SyncTrxStatus.INVOICED,
+                RewardBatchTrxStatus.CONSULTABLE,
+                3
+        );
+        otherBatchTrx.setRewardBatchId("other-batch");
+
+        RewardTransaction otherInitiativeTrx = transaction(
+                "other-initiative-trx",
+                SyncTrxStatus.INVOICED,
+                RewardBatchTrxStatus.CONSULTABLE,
+                4
+        );
+        otherInitiativeTrx.setRewardBatchId(BATCH_ID);
+        otherInitiativeTrx.setInitiatives(List.of("other-initiative"));
+
+        StepVerifier.create(createBatch()
+                        .then(createBatch("other-batch", "2026-08"))
+                        .then(seed(trx1, trx2, otherBatchTrx, otherInitiativeTrx))
+                        .thenMany(adapter.findBatchTransactionIds(BATCH_ID, INITIATIVE_ID)))
+                .expectNextMatches(id -> List.of("batch-trx-1", "batch-trx-2").contains(id))
+                .expectNextMatches(id -> List.of("batch-trx-1", "batch-trx-2").contains(id))
+                .verifyComplete();
     }
 }
