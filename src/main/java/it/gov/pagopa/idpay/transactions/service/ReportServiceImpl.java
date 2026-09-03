@@ -594,13 +594,10 @@ public class ReportServiceImpl implements ReportService {
         ReportBlobService reportBlobService = ReportType.MERCHANT_TRANSACTIONS.equals(report.getReportType())
                                                 ? reportTransactionsBlobService
                                                 : reportUserDetailsBlobService;
-            return Mono.just(
-                    DownloadReportResponseDTO.builder()
-                            .reportUrl(
-                                    reportBlobService.getFileSignedUrl(blobPath)
-                            )
-                            .build()
-            );
+            return reportBlobService.getFileSignedUrl(blobPath)
+                    .map(reportUrl -> DownloadReportResponseDTO.builder()
+                            .reportUrl(reportUrl)
+                            .build());
 
     }
 

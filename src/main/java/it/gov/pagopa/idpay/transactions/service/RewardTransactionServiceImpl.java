@@ -6,10 +6,15 @@ import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.Exceptio
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
+import it.gov.pagopa.idpay.transactions.enums.PaymentRewardBatchImpactType;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
+import it.gov.pagopa.idpay.transactions.model.PaymentBatchEligibility;
+import it.gov.pagopa.idpay.transactions.model.PaymentRewardBatchImpact;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardBatchFactory;
+import it.gov.pagopa.idpay.transactions.model.RewardTransactionEvent;
 import it.gov.pagopa.idpay.transactions.persistence.port.InvoicedTransactionAssignmentPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.PaymentRewardBatchImpactPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSynchronizationPort;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSearchPort;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
@@ -30,9 +35,12 @@ import java.time.LocalDateTime;
 @Slf4j
 public class RewardTransactionServiceImpl implements RewardTransactionService {
 
+    private static final String TRANSACTION_INVOICE_REPLACED = "TRANSACTION_INVOICE_REPLACED";
+
     private final RewardTransactionSearchPort rewardTransactionSearchPort;
     private final RewardTransactionSynchronizationPort rewardTransactionSynchronizationPort;
     private final InvoicedTransactionAssignmentPort invoicedTransactionAssignmentPort;
+    private final PaymentRewardBatchImpactPort paymentRewardBatchImpactPort;
     private final MerchantRestClient merchantRestClient;
     private final int seed;
 
@@ -40,11 +48,13 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
     public RewardTransactionServiceImpl(RewardTransactionSearchPort rewardTransactionSearchPort,
                                         RewardTransactionSynchronizationPort rewardTransactionSynchronizationPort,
                                         InvoicedTransactionAssignmentPort invoicedTransactionAssignmentPort,
+                                        PaymentRewardBatchImpactPort paymentRewardBatchImpactPort,
                                         MerchantRestClient merchantRestClient,
                                         @Value(value="${app.sampling}") int seed) {
         this.rewardTransactionSearchPort = rewardTransactionSearchPort;
         this.rewardTransactionSynchronizationPort = rewardTransactionSynchronizationPort;
         this.invoicedTransactionAssignmentPort = invoicedTransactionAssignmentPort;
+        this.paymentRewardBatchImpactPort = paymentRewardBatchImpactPort;
         this.merchantRestClient = merchantRestClient;
         this.seed = seed;
     }
@@ -55,7 +65,31 @@ public class RewardTransactionServiceImpl implements RewardTransactionService {
         if (SyncTrxStatus.INVOICED.name().equalsIgnoreCase(rewardTransaction.getStatus())) {
             return enrichBatchData(rewardTransaction);
         }
+        if (SyncTrxStatus.REFUNDED.name().equalsIgnoreCase(rewardTransaction.getStatus())) {
+            return rewardTransactionSynchronizationPort.upsertRefundedAndDetach(rewardTransaction);
+        }
         return rewardTransactionSynchronizationPort.upsert(rewardTransaction);
+    }
+
+    @Override
+    public Mono<RewardTransaction> save(RewardTransactionEvent event) {
+        if (TRANSACTION_INVOICE_REPLACED.equals(event.eventType())) {
+            return paymentRewardBatchImpactPort.applyImpact(new PaymentRewardBatchImpact(
+                    event.eventId(),
+                    event.schemaVersion(),
+                    PaymentRewardBatchImpactType.INVOICE_REPLACED,
+                    event.occurredAt(),
+                    event.transactionRevision(),
+                    event.transaction()
+            ));
+        }
+        return save(event.transaction());
+    }
+
+    @Override
+    public Mono<PaymentBatchEligibility> findEligibility(String merchantId, String transactionId) {
+        return paymentRewardBatchImpactPort.findEligibility(transactionId)
+                .filter(eligibility -> merchantId.equals(eligibility.merchantId()));
     }
 
     @Override

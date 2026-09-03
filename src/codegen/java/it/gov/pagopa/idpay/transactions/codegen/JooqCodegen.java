@@ -18,6 +18,8 @@ import java.util.Comparator;
 
 public final class JooqCodegen {
 
+    private static final String POSTGRES_SCHEMA = "idpay-rimborsi";
+
     private JooqCodegen() {
     }
 
@@ -34,14 +36,20 @@ public final class JooqCodegen {
     }
 
     private static void applyRepositoryMigrations(PostgreSQLContainer<?> postgresql) throws Exception {
-        try (Connection connection = openConnection(postgresql);
-             var migrations = Files.list(Path.of("src", "main", "resources", "db", "migration"))) {
-            for (Path migration : migrations
-                    .filter(path -> path.getFileName().toString().endsWith(".sql"))
-                    .sorted(Comparator.comparing(path -> path.getFileName().toString()))
-                    .toList()) {
-                try (Statement statement = connection.createStatement()) {
-                    statement.execute(Files.readString(migration));
+        try (Connection connection = openConnection(postgresql)) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("CREATE SCHEMA IF NOT EXISTS \"" + POSTGRES_SCHEMA + "\"");
+                statement.execute("SET search_path TO \"" + POSTGRES_SCHEMA + "\"");
+            }
+
+            try (var migrations = Files.list(Path.of("src", "main", "resources", "db", "migration"))) {
+                for (Path migration : migrations
+                        .filter(path -> path.getFileName().toString().endsWith(".sql"))
+                        .sorted(Comparator.comparing(path -> path.getFileName().toString()))
+                        .toList()) {
+                    try (Statement statement = connection.createStatement()) {
+                        statement.execute(Files.readString(migration));
+                    }
                 }
             }
         }
@@ -74,7 +82,7 @@ public final class JooqCodegen {
                 .withGenerator(new Generator()
                         .withDatabase(new Database()
                                 .withName("org.jooq.meta.postgres.PostgresDatabase")
-                                .withInputSchema("public")
+                                .withInputSchema(POSTGRES_SCHEMA)
                                 .withIncludes("reward_batches|reward_transactions|reports"))
                         .withTarget(new Target()
                                 .withPackageName("it.gov.pagopa.idpay.transactions.persistence.sql.generated")

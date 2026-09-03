@@ -11,6 +11,7 @@ public final class ExceptionConstants {
         public static final String GENERIC_ERROR = "TRANSACTIONS_GENERIC_ERROR";
         public static final String TRANSACTIONS_MISSING_MANDATORY_FILTERS = "TRANSACTIONS_MISSING_MANDATORY_FILTERS";
         public static final String TRANSACTION_STATUS_NOT_ALLOWED = "TRANSACTION_STATUS_NOT_ALLOWED";
+        public static final String INVALID_INVOICE_LIFECYCLE_OPERATION = "INVALID_INVOICE_LIFECYCLE_OPERATION";
         public static final String REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED = "REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED";
         public static final String REWARD_BATCH_NOT_FOUND = "REWARD_BATCH_NOT_FOUND";
         public static final String REWARD_BATCH_NOT_APPROVED = "REWARD_BATCH_NOT_APPROVED";
@@ -45,6 +46,7 @@ public final class ExceptionConstants {
         public static final String REWARD_BATCH_STATUS_NOT_ALLOWED = "REWARD_BATCH_STATUS_NOT_ALLOWED";
         public static final String REWARD_BATCH_TRX_STATUS_NOT_ALLOWED = "REWARD_BATCH_TRX_STATUS_NOT_ALLOWED";
         public static final String REWARD_BATCH_PREVIOUS_NOT_SENT = "REWARD_BATCH_PREVIOUS_NOT_SENT";
+        public static final String REWARD_BATCH_TEST_SUPPORT_NO_SAFE_MONTH = "REWARD_BATCH_TEST_SUPPORT_NO_SAFE_MONTH";
         public static final String INVALID_CHECKS_ERROR = "INVALID_CHECKS_ERROR";
         public static final String REPORT_NOT_FOUND = "REPORT_NOT_FOUND";
         public static final String REPORT_NOT_GENERATED = "REPORT_NOT_GENERATED";
@@ -63,10 +65,12 @@ public final class ExceptionConstants {
         public static final String TRANSACTION_NOT_FOUND = "Transaction not found for ID: %s";
         public static final String TRANSACTION_NOT_STATUS_INVOICED_OR_REWARDED = "Transaction is not in invoiced or rewarded status";
         public static final String TRANSACTION_NOT_STATUS_APPROVED = "Transaction is not in approved status";
+        public static final String INVALID_INVOICE_LIFECYCLE_OPERATION = "Unsupported or missing invoice lifecycle operation";
         public static final String REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED = "Transaction can be postponed only until the end of the month following the initiative end date";
         public static final String ERROR_ON_GET_FILE_URL_REQUEST = "Error occurred while attempting to get file url";
         public static final String MISSING_TRANSACTIONS_FILTERS = "Mandatory filters are missing. Insert one of the following options: 1) organizationRole 2) merchantId";
         public static final String REWARD_BATCH_STATUS_MISMATCH = "Operation not allowed: the batch is no longer in CREATED status";
+        public static final String REWARD_BATCH_TEST_SUPPORT_NO_SAFE_MONTH = "No safe past month is available for the reward batch";
         public static final String ERROR_MESSAGE_REWARD_BATCH_STATUS_NOT_ALLOWED = "Operation not allowed: the batch is no longer in CREATED or EVALUATING status";
         public static final String ERROR_MESSAGE_MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY = "MerchantId or OrganizationRole must be provided";
         public static final String ERROR_MESSAGE_MERCHANT_ID_AND_ORGANIZATION_ROLE_CANNOT_COEXIST = "Only one between merchantId and organizationRole must be provided";

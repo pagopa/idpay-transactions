@@ -24,6 +24,11 @@ public class RewardTransactionDTO {
 
     @JsonAlias("_id")
     private String id;
+    private String eventId;
+    private Integer schemaVersion;
+    private String eventType;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    private OffsetDateTime occurredAt;
     private Long transactionRevision;
     private String idTrxAcquirer;
     private String acquirerCode;

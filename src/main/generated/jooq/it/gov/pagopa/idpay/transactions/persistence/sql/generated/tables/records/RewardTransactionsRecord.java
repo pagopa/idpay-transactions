@@ -22,252 +22,268 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
     private static final long serialVersionUID = 1L;
 
     /**
-     * Setter for <code>public.reward_transactions.transaction_id</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_transactions.transaction_id</code>.
      */
     public void setTransactionId(String value) {
         set(0, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.transaction_id</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_transactions.transaction_id</code>.
      */
     public String getTransactionId() {
         return (String) get(0);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.initiative_id</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.initiative_id</code>.
      */
     public void setInitiativeId(String value) {
         set(1, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.initiative_id</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.initiative_id</code>.
      */
     public String getInitiativeId() {
         return (String) get(1);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.reward_batch_id</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_transactions.reward_batch_id</code>.
      */
     public void setRewardBatchId(String value) {
         set(2, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.reward_batch_id</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_transactions.reward_batch_id</code>.
      */
     public String getRewardBatchId() {
         return (String) get(2);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.id_trx_acquirer</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_transactions.id_trx_acquirer</code>.
      */
     public void setIdTrxAcquirer(String value) {
         set(3, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.id_trx_acquirer</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_transactions.id_trx_acquirer</code>.
      */
     public String getIdTrxAcquirer() {
         return (String) get(3);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.acquirer_code</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.acquirer_code</code>.
      */
     public void setAcquirerCode(String value) {
         set(4, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.acquirer_code</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.acquirer_code</code>.
      */
     public String getAcquirerCode() {
         return (String) get(4);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.trx_date</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.trx_date</code>.
      */
     public void setTrxDate(LocalDateTime value) {
         set(5, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.trx_date</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.trx_date</code>.
      */
     public LocalDateTime getTrxDate() {
         return (LocalDateTime) get(5);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.operation_type</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_transactions.operation_type</code>.
      */
     public void setOperationType(String value) {
         set(6, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.operation_type</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_transactions.operation_type</code>.
      */
     public String getOperationType() {
         return (String) get(6);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.circuit_type</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.circuit_type</code>.
      */
     public void setCircuitType(String value) {
         set(7, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.circuit_type</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.circuit_type</code>.
      */
     public String getCircuitType() {
         return (String) get(7);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.id_trx_issuer</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.id_trx_issuer</code>.
      */
     public void setIdTrxIssuer(String value) {
         set(8, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.id_trx_issuer</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.id_trx_issuer</code>.
      */
     public String getIdTrxIssuer() {
         return (String) get(8);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.correlation_id</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_transactions.correlation_id</code>.
      */
     public void setCorrelationId(String value) {
         set(9, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.correlation_id</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_transactions.correlation_id</code>.
      */
     public String getCorrelationId() {
         return (String) get(9);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.amount_cents</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.amount_cents</code>.
      */
     public void setAmountCents(Long value) {
         set(10, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.amount_cents</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.amount_cents</code>.
      */
     public Long getAmountCents() {
         return (Long) get(10);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.amount_currency</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_transactions.amount_currency</code>.
      */
     public void setAmountCurrency(String value) {
         set(11, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.amount_currency</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_transactions.amount_currency</code>.
      */
     public String getAmountCurrency() {
         return (String) get(11);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.acquirer_id</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.acquirer_id</code>.
      */
     public void setAcquirerId(String value) {
         set(12, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.acquirer_id</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.acquirer_id</code>.
      */
     public String getAcquirerId() {
         return (String) get(12);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.merchant_id</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.merchant_id</code>.
      */
     public void setMerchantId(String value) {
         set(13, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.merchant_id</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.merchant_id</code>.
      */
     public String getMerchantId() {
         return (String) get(13);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.point_of_sale_id</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_transactions.point_of_sale_id</code>.
      */
     public void setPointOfSaleId(String value) {
         set(14, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.point_of_sale_id</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_transactions.point_of_sale_id</code>.
      */
     public String getPointOfSaleId() {
         return (String) get(14);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.pos_type</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.pos_type</code>.
      */
     public void setPosType(String value) {
         set(15, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.pos_type</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.pos_type</code>.
      */
     public String getPosType() {
         return (String) get(15);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.status</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.status</code>.
      */
     public void setStatus(String value) {
         set(16, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.status</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.status</code>.
      */
     public String getStatus() {
         return (String) get(16);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.rejection_reasons</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_transactions.rejection_reasons</code>.
      */
     public void setRejectionReasons(JSONB value) {
         set(17, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.rejection_reasons</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_transactions.rejection_reasons</code>.
      */
     public JSONB getRejectionReasons() {
         return (JSONB) get(17);
@@ -275,7 +291,7 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
 
     /**
      * Setter for
-     * <code>public.reward_transactions.initiative_rejection_reasons</code>.
+     * <code>idpay-rimborsi.reward_transactions.initiative_rejection_reasons</code>.
      */
     public void setInitiativeRejectionReasons(JSONB value) {
         set(18, value);
@@ -283,35 +299,35 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
 
     /**
      * Getter for
-     * <code>public.reward_transactions.initiative_rejection_reasons</code>.
+     * <code>idpay-rimborsi.reward_transactions.initiative_rejection_reasons</code>.
      */
     public JSONB getInitiativeRejectionReasons() {
         return (JSONB) get(18);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.rewards</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.rewards</code>.
      */
     public void setRewards(JSONB value) {
         set(19, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.rewards</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.rewards</code>.
      */
     public JSONB getRewards() {
         return (JSONB) get(19);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.user_id</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.user_id</code>.
      */
     public void setUserId(String value) {
         set(20, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.user_id</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.user_id</code>.
      */
     public String getUserId() {
         return (String) get(20);
@@ -319,7 +335,7 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
 
     /**
      * Setter for
-     * <code>public.reward_transactions.operation_type_transcoded</code>.
+     * <code>idpay-rimborsi.reward_transactions.operation_type_transcoded</code>.
      */
     public void setOperationTypeTranscoded(String value) {
         set(21, value);
@@ -327,7 +343,7 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
 
     /**
      * Getter for
-     * <code>public.reward_transactions.operation_type_transcoded</code>.
+     * <code>idpay-rimborsi.reward_transactions.operation_type_transcoded</code>.
      */
     public String getOperationTypeTranscoded() {
         return (String) get(21);
@@ -335,7 +351,7 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
 
     /**
      * Setter for
-     * <code>public.reward_transactions.effective_amount_cents</code>.
+     * <code>idpay-rimborsi.reward_transactions.effective_amount_cents</code>.
      */
     public void setEffectiveAmountCents(Long value) {
         set(22, value);
@@ -343,119 +359,127 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
 
     /**
      * Getter for
-     * <code>public.reward_transactions.effective_amount_cents</code>.
+     * <code>idpay-rimborsi.reward_transactions.effective_amount_cents</code>.
      */
     public Long getEffectiveAmountCents() {
         return (Long) get(22);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.trx_charge_date</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_transactions.trx_charge_date</code>.
      */
     public void setTrxChargeDate(LocalDateTime value) {
         set(23, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.trx_charge_date</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_transactions.trx_charge_date</code>.
      */
     public LocalDateTime getTrxChargeDate() {
         return (LocalDateTime) get(23);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.refund_info</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.refund_info</code>.
      */
     public void setRefundInfo(JSONB value) {
         set(24, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.refund_info</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.refund_info</code>.
      */
     public JSONB getRefundInfo() {
         return (JSONB) get(24);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.elaboration_date_time</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_transactions.elaboration_date_time</code>.
      */
     public void setElaborationDateTime(LocalDateTime value) {
         set(25, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.elaboration_date_time</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_transactions.elaboration_date_time</code>.
      */
     public LocalDateTime getElaborationDateTime() {
         return (LocalDateTime) get(25);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.channel</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.channel</code>.
      */
     public void setChannel(String value) {
         set(26, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.channel</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.channel</code>.
      */
     public String getChannel() {
         return (String) get(26);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.additional_properties</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_transactions.additional_properties</code>.
      */
     public void setAdditionalProperties(JSONB value) {
         set(27, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.additional_properties</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_transactions.additional_properties</code>.
      */
     public JSONB getAdditionalProperties() {
         return (JSONB) get(27);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.invoice_data</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.invoice_data</code>.
      */
     public void setInvoiceData(JSONB value) {
         set(28, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.invoice_data</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.invoice_data</code>.
      */
     public JSONB getInvoiceData() {
         return (JSONB) get(28);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.credit_note_data</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_transactions.credit_note_data</code>.
      */
     public void setCreditNoteData(JSONB value) {
         set(29, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.credit_note_data</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_transactions.credit_note_data</code>.
      */
     public JSONB getCreditNoteData() {
         return (JSONB) get(29);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.trx_code</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.trx_code</code>.
      */
     public void setTrxCode(String value) {
         set(30, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.trx_code</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.trx_code</code>.
      */
     public String getTrxCode() {
         return (String) get(30);
@@ -463,7 +487,7 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
 
     /**
      * Setter for
-     * <code>public.reward_transactions.reward_batch_trx_status</code>.
+     * <code>idpay-rimborsi.reward_transactions.reward_batch_trx_status</code>.
      */
     public void setRewardBatchTrxStatus(String value) {
         set(31, value);
@@ -471,7 +495,7 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
 
     /**
      * Getter for
-     * <code>public.reward_transactions.reward_batch_trx_status</code>.
+     * <code>idpay-rimborsi.reward_transactions.reward_batch_trx_status</code>.
      */
     public String getRewardBatchTrxStatus() {
         return (String) get(31);
@@ -479,7 +503,7 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
 
     /**
      * Setter for
-     * <code>public.reward_transactions.reward_batch_rejection_reasons</code>.
+     * <code>idpay-rimborsi.reward_transactions.reward_batch_rejection_reasons</code>.
      */
     public void setRewardBatchRejectionReasons(JSONB value) {
         set(32, value);
@@ -487,7 +511,7 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
 
     /**
      * Getter for
-     * <code>public.reward_transactions.reward_batch_rejection_reasons</code>.
+     * <code>idpay-rimborsi.reward_transactions.reward_batch_rejection_reasons</code>.
      */
     public JSONB getRewardBatchRejectionReasons() {
         return (JSONB) get(32);
@@ -495,7 +519,7 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
 
     /**
      * Setter for
-     * <code>public.reward_transactions.reward_batch_inclusion_date</code>.
+     * <code>idpay-rimborsi.reward_transactions.reward_batch_inclusion_date</code>.
      */
     public void setRewardBatchInclusionDate(LocalDateTime value) {
         set(33, value);
@@ -503,91 +527,97 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
 
     /**
      * Getter for
-     * <code>public.reward_transactions.reward_batch_inclusion_date</code>.
+     * <code>idpay-rimborsi.reward_transactions.reward_batch_inclusion_date</code>.
      */
     public LocalDateTime getRewardBatchInclusionDate() {
         return (LocalDateTime) get(33);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.franchise_name</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_transactions.franchise_name</code>.
      */
     public void setFranchiseName(String value) {
         set(34, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.franchise_name</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_transactions.franchise_name</code>.
      */
     public String getFranchiseName() {
         return (String) get(34);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.point_of_sale_type</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_transactions.point_of_sale_type</code>.
      */
     public void setPointOfSaleType(String value) {
         set(35, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.point_of_sale_type</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_transactions.point_of_sale_type</code>.
      */
     public String getPointOfSaleType() {
         return (String) get(35);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.business_name</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.business_name</code>.
      */
     public void setBusinessName(String value) {
         set(36, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.business_name</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.business_name</code>.
      */
     public String getBusinessName() {
         return (String) get(36);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.invoice_upload_date</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_transactions.invoice_upload_date</code>.
      */
     public void setInvoiceUploadDate(LocalDateTime value) {
         set(37, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.invoice_upload_date</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_transactions.invoice_upload_date</code>.
      */
     public LocalDateTime getInvoiceUploadDate() {
         return (LocalDateTime) get(37);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.sampling_key</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.sampling_key</code>.
      */
     public void setSamplingKey(Integer value) {
         set(38, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.sampling_key</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.sampling_key</code>.
      */
     public Integer getSamplingKey() {
         return (Integer) get(38);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.update_date</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.update_date</code>.
      */
     public void setUpdateDate(LocalDateTime value) {
         set(39, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.update_date</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.update_date</code>.
      */
     public LocalDateTime getUpdateDate() {
         return (LocalDateTime) get(39);
@@ -595,7 +625,7 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
 
     /**
      * Setter for
-     * <code>public.reward_transactions.extended_authorization</code>.
+     * <code>idpay-rimborsi.reward_transactions.extended_authorization</code>.
      */
     public void setExtendedAuthorization(Boolean value) {
         set(40, value);
@@ -603,21 +633,23 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
 
     /**
      * Getter for
-     * <code>public.reward_transactions.extended_authorization</code>.
+     * <code>idpay-rimborsi.reward_transactions.extended_authorization</code>.
      */
     public Boolean getExtendedAuthorization() {
         return (Boolean) get(40);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.voucher_amount_cents</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_transactions.voucher_amount_cents</code>.
      */
     public void setVoucherAmountCents(Long value) {
         set(41, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.voucher_amount_cents</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_transactions.voucher_amount_cents</code>.
      */
     public Long getVoucherAmountCents() {
         return (Long) get(41);
@@ -625,7 +657,7 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
 
     /**
      * Setter for
-     * <code>public.reward_transactions.reward_batch_last_month_elaborated</code>.
+     * <code>idpay-rimborsi.reward_transactions.reward_batch_last_month_elaborated</code>.
      */
     public void setRewardBatchLastMonthElaborated(String value) {
         set(42, value);
@@ -633,49 +665,53 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
 
     /**
      * Getter for
-     * <code>public.reward_transactions.reward_batch_last_month_elaborated</code>.
+     * <code>idpay-rimborsi.reward_transactions.reward_batch_last_month_elaborated</code>.
      */
     public String getRewardBatchLastMonthElaborated() {
         return (String) get(42);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.checks_error</code>.
+     * Setter for <code>idpay-rimborsi.reward_transactions.checks_error</code>.
      */
     public void setChecksError(JSONB value) {
         set(43, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.checks_error</code>.
+     * Getter for <code>idpay-rimborsi.reward_transactions.checks_error</code>.
      */
     public JSONB getChecksError() {
         return (JSONB) get(43);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.accrued_reward_cents</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_transactions.accrued_reward_cents</code>.
      */
     public void setAccruedRewardCents(Long value) {
         set(44, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.accrued_reward_cents</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_transactions.accrued_reward_cents</code>.
      */
     public Long getAccruedRewardCents() {
         return (Long) get(44);
     }
 
     /**
-     * Setter for <code>public.reward_transactions.transaction_revision</code>.
+     * Setter for
+     * <code>idpay-rimborsi.reward_transactions.transaction_revision</code>.
      */
     public void setTransactionRevision(Long value) {
         set(45, value);
     }
 
     /**
-     * Getter for <code>public.reward_transactions.transaction_revision</code>.
+     * Getter for
+     * <code>idpay-rimborsi.reward_transactions.transaction_revision</code>.
      */
     public Long getTransactionRevision() {
         return (Long) get(45);
@@ -683,7 +719,7 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
 
     /**
      * Setter for
-     * <code>public.reward_transactions.latest_applied_payment_impact_revision</code>.
+     * <code>idpay-rimborsi.reward_transactions.latest_applied_payment_impact_revision</code>.
      */
     public void setLatestAppliedPaymentImpactRevision(Long value) {
         set(46, value);
@@ -691,7 +727,7 @@ public class RewardTransactionsRecord extends UpdatableRecordImpl<RewardTransact
 
     /**
      * Getter for
-     * <code>public.reward_transactions.latest_applied_payment_impact_revision</code>.
+     * <code>idpay-rimborsi.reward_transactions.latest_applied_payment_impact_revision</code>.
      */
     public Long getLatestAppliedPaymentImpactRevision() {
         return (Long) get(46);

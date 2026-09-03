@@ -4,9 +4,9 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables;
 
 
+import it.gov.pagopa.idpay.transactions.persistence.sql.generated.IdpayRimborsi;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.Indexes;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.Keys;
-import it.gov.pagopa.idpay.transactions.persistence.sql.generated.Public;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches.RewardBatchesPath;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardTransactionsRecord;
 
@@ -50,7 +50,7 @@ public class RewardTransactions extends TableImpl<RewardTransactionsRecord> {
     private static final long serialVersionUID = 1L;
 
     /**
-     * The reference instance of <code>public.reward_transactions</code>
+     * The reference instance of <code>idpay-rimborsi.reward_transactions</code>
      */
     public static final RewardTransactions REWARD_TRANSACTIONS = new RewardTransactions();
 
@@ -63,246 +63,264 @@ public class RewardTransactions extends TableImpl<RewardTransactionsRecord> {
     }
 
     /**
-     * The column <code>public.reward_transactions.transaction_id</code>.
+     * The column
+     * <code>idpay-rimborsi.reward_transactions.transaction_id</code>.
      */
     public final TableField<RewardTransactionsRecord, String> TRANSACTION_ID = createField(DSL.name("transaction_id"), SQLDataType.CLOB.nullable(false), this, "");
 
     /**
-     * The column <code>public.reward_transactions.initiative_id</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.initiative_id</code>.
      */
     public final TableField<RewardTransactionsRecord, String> INITIATIVE_ID = createField(DSL.name("initiative_id"), SQLDataType.CLOB.nullable(false), this, "");
 
     /**
-     * The column <code>public.reward_transactions.reward_batch_id</code>.
+     * The column
+     * <code>idpay-rimborsi.reward_transactions.reward_batch_id</code>.
      */
     public final TableField<RewardTransactionsRecord, String> REWARD_BATCH_ID = createField(DSL.name("reward_batch_id"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.id_trx_acquirer</code>.
+     * The column
+     * <code>idpay-rimborsi.reward_transactions.id_trx_acquirer</code>.
      */
     public final TableField<RewardTransactionsRecord, String> ID_TRX_ACQUIRER = createField(DSL.name("id_trx_acquirer"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.acquirer_code</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.acquirer_code</code>.
      */
     public final TableField<RewardTransactionsRecord, String> ACQUIRER_CODE = createField(DSL.name("acquirer_code"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.trx_date</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.trx_date</code>.
      */
     public final TableField<RewardTransactionsRecord, LocalDateTime> TRX_DATE = createField(DSL.name("trx_date"), SQLDataType.LOCALDATETIME(6), this, "");
 
     /**
-     * The column <code>public.reward_transactions.operation_type</code>.
+     * The column
+     * <code>idpay-rimborsi.reward_transactions.operation_type</code>.
      */
     public final TableField<RewardTransactionsRecord, String> OPERATION_TYPE = createField(DSL.name("operation_type"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.circuit_type</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.circuit_type</code>.
      */
     public final TableField<RewardTransactionsRecord, String> CIRCUIT_TYPE = createField(DSL.name("circuit_type"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.id_trx_issuer</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.id_trx_issuer</code>.
      */
     public final TableField<RewardTransactionsRecord, String> ID_TRX_ISSUER = createField(DSL.name("id_trx_issuer"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.correlation_id</code>.
+     * The column
+     * <code>idpay-rimborsi.reward_transactions.correlation_id</code>.
      */
     public final TableField<RewardTransactionsRecord, String> CORRELATION_ID = createField(DSL.name("correlation_id"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.amount_cents</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.amount_cents</code>.
      */
     public final TableField<RewardTransactionsRecord, Long> AMOUNT_CENTS = createField(DSL.name("amount_cents"), SQLDataType.BIGINT, this, "");
 
     /**
-     * The column <code>public.reward_transactions.amount_currency</code>.
+     * The column
+     * <code>idpay-rimborsi.reward_transactions.amount_currency</code>.
      */
     public final TableField<RewardTransactionsRecord, String> AMOUNT_CURRENCY = createField(DSL.name("amount_currency"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.acquirer_id</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.acquirer_id</code>.
      */
     public final TableField<RewardTransactionsRecord, String> ACQUIRER_ID = createField(DSL.name("acquirer_id"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.merchant_id</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.merchant_id</code>.
      */
     public final TableField<RewardTransactionsRecord, String> MERCHANT_ID = createField(DSL.name("merchant_id"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.point_of_sale_id</code>.
+     * The column
+     * <code>idpay-rimborsi.reward_transactions.point_of_sale_id</code>.
      */
     public final TableField<RewardTransactionsRecord, String> POINT_OF_SALE_ID = createField(DSL.name("point_of_sale_id"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.pos_type</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.pos_type</code>.
      */
     public final TableField<RewardTransactionsRecord, String> POS_TYPE = createField(DSL.name("pos_type"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.status</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.status</code>.
      */
     public final TableField<RewardTransactionsRecord, String> STATUS = createField(DSL.name("status"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.rejection_reasons</code>.
+     * The column
+     * <code>idpay-rimborsi.reward_transactions.rejection_reasons</code>.
      */
     public final TableField<RewardTransactionsRecord, JSONB> REJECTION_REASONS = createField(DSL.name("rejection_reasons"), SQLDataType.JSONB, this, "");
 
     /**
      * The column
-     * <code>public.reward_transactions.initiative_rejection_reasons</code>.
+     * <code>idpay-rimborsi.reward_transactions.initiative_rejection_reasons</code>.
      */
     public final TableField<RewardTransactionsRecord, JSONB> INITIATIVE_REJECTION_REASONS = createField(DSL.name("initiative_rejection_reasons"), SQLDataType.JSONB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.rewards</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.rewards</code>.
      */
     public final TableField<RewardTransactionsRecord, JSONB> REWARDS = createField(DSL.name("rewards"), SQLDataType.JSONB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.user_id</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.user_id</code>.
      */
     public final TableField<RewardTransactionsRecord, String> USER_ID = createField(DSL.name("user_id"), SQLDataType.CLOB, this, "");
 
     /**
      * The column
-     * <code>public.reward_transactions.operation_type_transcoded</code>.
+     * <code>idpay-rimborsi.reward_transactions.operation_type_transcoded</code>.
      */
     public final TableField<RewardTransactionsRecord, String> OPERATION_TYPE_TRANSCODED = createField(DSL.name("operation_type_transcoded"), SQLDataType.CLOB, this, "");
 
     /**
      * The column
-     * <code>public.reward_transactions.effective_amount_cents</code>.
+     * <code>idpay-rimborsi.reward_transactions.effective_amount_cents</code>.
      */
     public final TableField<RewardTransactionsRecord, Long> EFFECTIVE_AMOUNT_CENTS = createField(DSL.name("effective_amount_cents"), SQLDataType.BIGINT, this, "");
 
     /**
-     * The column <code>public.reward_transactions.trx_charge_date</code>.
+     * The column
+     * <code>idpay-rimborsi.reward_transactions.trx_charge_date</code>.
      */
     public final TableField<RewardTransactionsRecord, LocalDateTime> TRX_CHARGE_DATE = createField(DSL.name("trx_charge_date"), SQLDataType.LOCALDATETIME(6), this, "");
 
     /**
-     * The column <code>public.reward_transactions.refund_info</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.refund_info</code>.
      */
     public final TableField<RewardTransactionsRecord, JSONB> REFUND_INFO = createField(DSL.name("refund_info"), SQLDataType.JSONB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.elaboration_date_time</code>.
+     * The column
+     * <code>idpay-rimborsi.reward_transactions.elaboration_date_time</code>.
      */
     public final TableField<RewardTransactionsRecord, LocalDateTime> ELABORATION_DATE_TIME = createField(DSL.name("elaboration_date_time"), SQLDataType.LOCALDATETIME(6), this, "");
 
     /**
-     * The column <code>public.reward_transactions.channel</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.channel</code>.
      */
     public final TableField<RewardTransactionsRecord, String> CHANNEL = createField(DSL.name("channel"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.additional_properties</code>.
+     * The column
+     * <code>idpay-rimborsi.reward_transactions.additional_properties</code>.
      */
     public final TableField<RewardTransactionsRecord, JSONB> ADDITIONAL_PROPERTIES = createField(DSL.name("additional_properties"), SQLDataType.JSONB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.invoice_data</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.invoice_data</code>.
      */
     public final TableField<RewardTransactionsRecord, JSONB> INVOICE_DATA = createField(DSL.name("invoice_data"), SQLDataType.JSONB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.credit_note_data</code>.
+     * The column
+     * <code>idpay-rimborsi.reward_transactions.credit_note_data</code>.
      */
     public final TableField<RewardTransactionsRecord, JSONB> CREDIT_NOTE_DATA = createField(DSL.name("credit_note_data"), SQLDataType.JSONB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.trx_code</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.trx_code</code>.
      */
     public final TableField<RewardTransactionsRecord, String> TRX_CODE = createField(DSL.name("trx_code"), SQLDataType.CLOB, this, "");
 
     /**
      * The column
-     * <code>public.reward_transactions.reward_batch_trx_status</code>.
+     * <code>idpay-rimborsi.reward_transactions.reward_batch_trx_status</code>.
      */
     public final TableField<RewardTransactionsRecord, String> REWARD_BATCH_TRX_STATUS = createField(DSL.name("reward_batch_trx_status"), SQLDataType.CLOB, this, "");
 
     /**
      * The column
-     * <code>public.reward_transactions.reward_batch_rejection_reasons</code>.
+     * <code>idpay-rimborsi.reward_transactions.reward_batch_rejection_reasons</code>.
      */
     public final TableField<RewardTransactionsRecord, JSONB> REWARD_BATCH_REJECTION_REASONS = createField(DSL.name("reward_batch_rejection_reasons"), SQLDataType.JSONB, this, "");
 
     /**
      * The column
-     * <code>public.reward_transactions.reward_batch_inclusion_date</code>.
+     * <code>idpay-rimborsi.reward_transactions.reward_batch_inclusion_date</code>.
      */
     public final TableField<RewardTransactionsRecord, LocalDateTime> REWARD_BATCH_INCLUSION_DATE = createField(DSL.name("reward_batch_inclusion_date"), SQLDataType.LOCALDATETIME(6), this, "");
 
     /**
-     * The column <code>public.reward_transactions.franchise_name</code>.
+     * The column
+     * <code>idpay-rimborsi.reward_transactions.franchise_name</code>.
      */
     public final TableField<RewardTransactionsRecord, String> FRANCHISE_NAME = createField(DSL.name("franchise_name"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.point_of_sale_type</code>.
+     * The column
+     * <code>idpay-rimborsi.reward_transactions.point_of_sale_type</code>.
      */
     public final TableField<RewardTransactionsRecord, String> POINT_OF_SALE_TYPE = createField(DSL.name("point_of_sale_type"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.business_name</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.business_name</code>.
      */
     public final TableField<RewardTransactionsRecord, String> BUSINESS_NAME = createField(DSL.name("business_name"), SQLDataType.CLOB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.invoice_upload_date</code>.
+     * The column
+     * <code>idpay-rimborsi.reward_transactions.invoice_upload_date</code>.
      */
     public final TableField<RewardTransactionsRecord, LocalDateTime> INVOICE_UPLOAD_DATE = createField(DSL.name("invoice_upload_date"), SQLDataType.LOCALDATETIME(6), this, "");
 
     /**
-     * The column <code>public.reward_transactions.sampling_key</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.sampling_key</code>.
      */
     public final TableField<RewardTransactionsRecord, Integer> SAMPLING_KEY = createField(DSL.name("sampling_key"), SQLDataType.INTEGER.nullable(false).defaultValue(DSL.field(DSL.raw("0"), SQLDataType.INTEGER)), this, "");
 
     /**
-     * The column <code>public.reward_transactions.update_date</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.update_date</code>.
      */
     public final TableField<RewardTransactionsRecord, LocalDateTime> UPDATE_DATE = createField(DSL.name("update_date"), SQLDataType.LOCALDATETIME(6), this, "");
 
     /**
      * The column
-     * <code>public.reward_transactions.extended_authorization</code>.
+     * <code>idpay-rimborsi.reward_transactions.extended_authorization</code>.
      */
     public final TableField<RewardTransactionsRecord, Boolean> EXTENDED_AUTHORIZATION = createField(DSL.name("extended_authorization"), SQLDataType.BOOLEAN, this, "");
 
     /**
-     * The column <code>public.reward_transactions.voucher_amount_cents</code>.
+     * The column
+     * <code>idpay-rimborsi.reward_transactions.voucher_amount_cents</code>.
      */
     public final TableField<RewardTransactionsRecord, Long> VOUCHER_AMOUNT_CENTS = createField(DSL.name("voucher_amount_cents"), SQLDataType.BIGINT, this, "");
 
     /**
      * The column
-     * <code>public.reward_transactions.reward_batch_last_month_elaborated</code>.
+     * <code>idpay-rimborsi.reward_transactions.reward_batch_last_month_elaborated</code>.
      */
     public final TableField<RewardTransactionsRecord, String> REWARD_BATCH_LAST_MONTH_ELABORATED = createField(DSL.name("reward_batch_last_month_elaborated"), SQLDataType.CHAR(7), this, "");
 
     /**
-     * The column <code>public.reward_transactions.checks_error</code>.
+     * The column <code>idpay-rimborsi.reward_transactions.checks_error</code>.
      */
     public final TableField<RewardTransactionsRecord, JSONB> CHECKS_ERROR = createField(DSL.name("checks_error"), SQLDataType.JSONB, this, "");
 
     /**
-     * The column <code>public.reward_transactions.accrued_reward_cents</code>.
+     * The column
+     * <code>idpay-rimborsi.reward_transactions.accrued_reward_cents</code>.
      */
     public final TableField<RewardTransactionsRecord, Long> ACCRUED_REWARD_CENTS = createField(DSL.name("accrued_reward_cents"), SQLDataType.BIGINT.nullable(false), this, "");
 
     /**
-     * The column <code>public.reward_transactions.transaction_revision</code>.
+     * The column
+     * <code>idpay-rimborsi.reward_transactions.transaction_revision</code>.
      */
     public final TableField<RewardTransactionsRecord, Long> TRANSACTION_REVISION = createField(DSL.name("transaction_revision"), SQLDataType.BIGINT.nullable(false).defaultValue(DSL.field(DSL.raw("0"), SQLDataType.BIGINT)), this, "");
 
     /**
      * The column
-     * <code>public.reward_transactions.latest_applied_payment_impact_revision</code>.
+     * <code>idpay-rimborsi.reward_transactions.latest_applied_payment_impact_revision</code>.
      */
     public final TableField<RewardTransactionsRecord, Long> LATEST_APPLIED_PAYMENT_IMPACT_REVISION = createField(DSL.name("latest_applied_payment_impact_revision"), SQLDataType.BIGINT.nullable(false).defaultValue(DSL.field(DSL.raw("0"), SQLDataType.BIGINT)), this, "");
 
@@ -315,21 +333,23 @@ public class RewardTransactions extends TableImpl<RewardTransactionsRecord> {
     }
 
     /**
-     * Create an aliased <code>public.reward_transactions</code> table reference
+     * Create an aliased <code>idpay-rimborsi.reward_transactions</code> table
+     * reference
      */
     public RewardTransactions(String alias) {
         this(DSL.name(alias), REWARD_TRANSACTIONS);
     }
 
     /**
-     * Create an aliased <code>public.reward_transactions</code> table reference
+     * Create an aliased <code>idpay-rimborsi.reward_transactions</code> table
+     * reference
      */
     public RewardTransactions(Name alias) {
         this(alias, REWARD_TRANSACTIONS);
     }
 
     /**
-     * Create a <code>public.reward_transactions</code> table reference
+     * Create a <code>idpay-rimborsi.reward_transactions</code> table reference
      */
     public RewardTransactions() {
         this(DSL.name("reward_transactions"), null);
@@ -370,7 +390,7 @@ public class RewardTransactions extends TableImpl<RewardTransactionsRecord> {
 
     @Override
     public Schema getSchema() {
-        return aliased() ? null : Public.PUBLIC;
+        return aliased() ? null : IdpayRimborsi.IDPAY_RIMBORSI;
     }
 
     @Override
@@ -391,8 +411,8 @@ public class RewardTransactions extends TableImpl<RewardTransactionsRecord> {
     private transient RewardBatchesPath _rewardBatches;
 
     /**
-     * Get the implicit join path to the <code>public.reward_batches</code>
-     * table.
+     * Get the implicit join path to the
+     * <code>idpay-rimborsi.reward_batches</code> table.
      */
     public RewardBatchesPath rewardBatches() {
         if (_rewardBatches == null)

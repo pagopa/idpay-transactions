@@ -10,23 +10,23 @@ import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardT
 
 
 /**
- * Convenience access to all tables in public.
+ * Convenience access to all tables in idpay-rimborsi.
  */
 @SuppressWarnings({ "all", "unchecked", "rawtypes", "this-escape" })
 public class Tables {
 
     /**
-     * The table <code>public.reports</code>.
+     * The table <code>idpay-rimborsi.reports</code>.
      */
     public static final Reports REPORTS = Reports.REPORTS;
 
     /**
-     * The table <code>public.reward_batches</code>.
+     * The table <code>idpay-rimborsi.reward_batches</code>.
      */
     public static final RewardBatches REWARD_BATCHES = RewardBatches.REWARD_BATCHES;
 
     /**
-     * The table <code>public.reward_transactions</code>.
+     * The table <code>idpay-rimborsi.reward_transactions</code>.
      */
     public static final RewardTransactions REWARD_TRANSACTIONS = RewardTransactions.REWARD_TRANSACTIONS;
 }

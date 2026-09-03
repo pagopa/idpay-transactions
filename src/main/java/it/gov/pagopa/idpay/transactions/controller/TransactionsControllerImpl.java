@@ -1,7 +1,12 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
+import it.gov.pagopa.idpay.transactions.dto.InvoiceLifecycleEligibilityRequest;
+import it.gov.pagopa.idpay.transactions.dto.InvoiceLifecycleEligibilityResponse;
+import it.gov.pagopa.idpay.transactions.enums.InvoiceLifecycleOperation;
+import it.gov.pagopa.idpay.transactions.model.PaymentBatchEligibility;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.service.InvoiceLifecycleEligibilityService;
 import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import java.util.UUID;
@@ -14,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 
@@ -21,9 +27,14 @@ import java.time.LocalDateTime;
 @Slf4j
 public class TransactionsControllerImpl implements TransactionsController{
     private final RewardTransactionService rewardTransactionService;
+    private final InvoiceLifecycleEligibilityService invoiceLifecycleEligibilityService;
 
-    public TransactionsControllerImpl(RewardTransactionService rewardTransactionService) {
+    public TransactionsControllerImpl(
+            RewardTransactionService rewardTransactionService,
+            InvoiceLifecycleEligibilityService invoiceLifecycleEligibilityService
+    ) {
         this.rewardTransactionService = rewardTransactionService;
+        this.invoiceLifecycleEligibilityService = invoiceLifecycleEligibilityService;
     }
 
     @Override
@@ -43,6 +54,50 @@ public class TransactionsControllerImpl implements TransactionsController{
             return rewardTransactionService.findByInitiativeIdAndUserId(initiativeId, userId);
         }
         throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST, ExceptionConstants.ExceptionCode.TRANSACTIONS_MISSING_MANDATORY_FILTERS,ExceptionConstants.ExceptionMessage.TRANSACTIONS_MISSING_MANDATORY_FILTERS);
+    }
+
+    @Override
+    public Mono<ResponseEntity<PaymentBatchEligibility>> findEligibility(String merchantId, String transactionId) {
+        return rewardTransactionService.findEligibility(merchantId, transactionId)
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.<PaymentBatchEligibility>noContent().build());
+    }
+
+    @Override
+    public Mono<ResponseEntity<InvoiceLifecycleEligibilityResponse>> evaluateInvoiceLifecycleEligibility(
+            String authorization,
+            String transactionId,
+            InvoiceLifecycleEligibilityRequest request
+    ) {
+        return invoiceLifecycleEligibilityService.evaluate(
+                        transactionId,
+                        parseOperation(request),
+                        authorization
+                )
+                .map(decision -> ResponseEntity.ok(
+                        new InvoiceLifecycleEligibilityResponse(decision)
+                ));
+    }
+
+    private static InvoiceLifecycleOperation parseOperation(
+            InvoiceLifecycleEligibilityRequest request
+    ) {
+        if (request == null || request.operation() == null || request.operation().isBlank()) {
+            throw invalidInvoiceLifecycleOperation();
+        }
+        try {
+            return InvoiceLifecycleOperation.valueOf(request.operation());
+        } catch (IllegalArgumentException _) {
+            throw invalidInvoiceLifecycleOperation();
+        }
+    }
+
+    private static ClientExceptionWithBody invalidInvoiceLifecycleOperation() {
+        return new ClientExceptionWithBody(
+                HttpStatus.BAD_REQUEST,
+                ExceptionConstants.ExceptionCode.INVALID_INVOICE_LIFECYCLE_OPERATION,
+                ExceptionConstants.ExceptionMessage.INVALID_INVOICE_LIFECYCLE_OPERATION
+        );
     }
 
     @Override

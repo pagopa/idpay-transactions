@@ -17,6 +17,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.PaymentRewardBatchImpactPort;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
@@ -40,7 +41,7 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
     private final RewardBatchSqlMapper batchMapper;
 
     @Override
-    public Mono<PaymentBatchEligibility> findEligibility(String merchantId, String transactionId) {
+    public Mono<PaymentBatchEligibility> findEligibility(String transactionId) {
         return Mono.from(dslContext.select(
                         REWARD_TRANSACTIONS.TRANSACTION_ID,
                         REWARD_TRANSACTIONS.INITIATIVE_ID,
@@ -48,26 +49,33 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
                         REWARD_TRANSACTIONS.REWARD_BATCH_ID,
                         REWARD_TRANSACTIONS.STATUS,
                         REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS,
-                        REWARD_BATCHES.STATUS
+                        REWARD_BATCHES.STATUS,
+                        REWARD_BATCHES.MERCHANT_ID
                 )
                 .from(REWARD_TRANSACTIONS)
                 .join(REWARD_BATCHES)
                 .on(REWARD_BATCHES.ID.eq(REWARD_TRANSACTIONS.REWARD_BATCH_ID)
                         .and(REWARD_BATCHES.INITIATIVE_ID.eq(REWARD_TRANSACTIONS.INITIATIVE_ID)))
-                .where(REWARD_TRANSACTIONS.MERCHANT_ID.eq(merchantId)
-                        .and(REWARD_BATCHES.MERCHANT_ID.eq(merchantId))
-                        .and(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId))))
-                .map(queryResult -> new PaymentBatchEligibility(
-                        queryResult.get(REWARD_TRANSACTIONS.TRANSACTION_ID),
-                        queryResult.get(REWARD_TRANSACTIONS.INITIATIVE_ID),
-                        queryResult.get(REWARD_TRANSACTIONS.MERCHANT_ID),
-                        queryResult.get(REWARD_TRANSACTIONS.REWARD_BATCH_ID),
-                        queryResult.get(REWARD_TRANSACTIONS.STATUS),
-                        RewardBatchStatus.valueOf(queryResult.get(REWARD_BATCHES.STATUS)),
-                        rewardBatchTrxStatus(
-                                queryResult.get(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS)
-                        )
-                ));
+                .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId)))
+                .map(queryResult -> {
+                    String transactionMerchantId = queryResult.get(REWARD_TRANSACTIONS.MERCHANT_ID);
+                    String batchMerchantId = queryResult.get(REWARD_BATCHES.MERCHANT_ID);
+                    if (!Objects.equals(transactionMerchantId, batchMerchantId)) {
+                        throw new IllegalStateException(
+                                "Reward batch merchant does not match transaction merchant");
+                    }
+                    return new PaymentBatchEligibility(
+                            queryResult.get(REWARD_TRANSACTIONS.TRANSACTION_ID),
+                            queryResult.get(REWARD_TRANSACTIONS.INITIATIVE_ID),
+                            transactionMerchantId,
+                            queryResult.get(REWARD_TRANSACTIONS.REWARD_BATCH_ID),
+                            queryResult.get(REWARD_TRANSACTIONS.STATUS),
+                            RewardBatchStatus.valueOf(queryResult.get(REWARD_BATCHES.STATUS)),
+                            rewardBatchTrxStatus(
+                                    queryResult.get(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS)
+                            )
+                    );
+                });
     }
 
     @Override
@@ -188,56 +196,40 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
                             .formatted(impact.transaction().getId(), source.getMerchantId())
             ));
         }
-        if (impact.transactionRevision() <= locked.latestAppliedPaymentImpactRevision()) {
+        if (impact.transactionRevision() <= locked.transaction().getTransactionRevision()) {
             return Mono.just(locked.transaction());
         }
         return transactionAdapter.upsertImpactWithinTransaction(impact.transaction(), transactionDslContext)
                 .flatMap(persisted -> applyLockedMembership(
                         transactionDslContext,
-                        impact,
                         source,
                         persisted
-                ))
-                .flatMap(updated -> markImpactApplied(
-                        transactionDslContext,
-                        updated.getId(),
-                        impact.transactionRevision()
-                ).thenReturn(updated));
+                ));
     }
 
     private Mono<RewardTransaction> applyLockedMembership(
             DSLContext transactionDslContext,
-            PaymentRewardBatchImpact impact,
             RewardBatch source,
             RewardTransaction transaction
     ) {
         if (source == null) {
             return Mono.just(transaction);
         }
-        return switch (impact.impactType()) {
-            case INVOICE_REPLACED -> RewardBatchStatus.CREATED.equals(source.getStatus())
-                    ? Mono.just(transaction)
-                    : moveToOutcomeMonth(
-                            transactionDslContext,
-                            impact,
-                            source,
-                            transaction
-                    );
-            case INVOICED_REVERSED -> detachMembership(
-                    transactionDslContext,
-                    source,
-                    transaction
-            );
-        };
+        return RewardBatchStatus.CREATED.equals(source.getStatus())
+                ? Mono.just(transaction)
+                : moveToCurrentMonth(
+                        transactionDslContext,
+                        source,
+                        transaction
+                );
     }
 
-    private Mono<RewardTransaction> moveToOutcomeMonth(
+    private Mono<RewardTransaction> moveToCurrentMonth(
             DSLContext transactionDslContext,
-            PaymentRewardBatchImpact impact,
             RewardBatch source,
             RewardTransaction transaction
     ) {
-        return lockOrCreateOutcomeBatch(transactionDslContext, impact, source)
+        return lockOrCreateCurrentMonthBatch(transactionDslContext, source, transaction)
                 .flatMap(target -> Mono.from(transactionDslContext.update(REWARD_TRANSACTIONS)
                                 .set(REWARD_TRANSACTIONS.REWARD_BATCH_ID, target.getId())
                                 .set(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS,
@@ -250,36 +242,17 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
                         .switchIfEmpty(Mono.error(new MembershipChangedException())));
     }
 
-    private Mono<RewardTransaction> detachMembership(
+    private Mono<RewardBatch> lockOrCreateCurrentMonthBatch(
             DSLContext transactionDslContext,
             RewardBatch source,
             RewardTransaction transaction
     ) {
-        return Mono.from(transactionDslContext.update(REWARD_TRANSACTIONS)
-                        .set(REWARD_TRANSACTIONS.REWARD_BATCH_ID, (String) null)
-                        .set(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS, (String) null)
-                        .set(REWARD_TRANSACTIONS.REWARD_BATCH_INCLUSION_DATE, (java.time.LocalDateTime) null)
-                        .set(REWARD_TRANSACTIONS.SAMPLING_KEY, 0)
-                        .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transaction.getId())
-                                .and(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(source.getInitiativeId()))
-                                .and(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(source.getId())))
-                        .returning())
-                .map(transactionMapper::fromRecord)
-                .switchIfEmpty(Mono.error(new MembershipChangedException()));
-    }
-
-    private Mono<RewardBatch> lockOrCreateOutcomeBatch(
-            DSLContext transactionDslContext,
-            PaymentRewardBatchImpact impact,
-            RewardBatch source
-    ) {
-        RewardTransaction transaction = impact.transaction();
-        String outcomeMonth = YearMonth.from(impact.occurredAt().atZoneSameInstant(ZONEID)).toString();
+        String currentMonth = YearMonth.now(ZONEID).toString();
         RewardBatch candidate = RewardBatchFactory.create(
                 source.getInitiativeId(),
                 source.getMerchantId(),
                 transaction.getPointOfSaleType(),
-                outcomeMonth,
+                currentMonth,
                 transaction.getBusinessName()
         );
         candidate.setId(UUID.randomUUID().toString());
@@ -320,28 +293,11 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
                         .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId))
                         .forUpdate())
                 .map(transactionRecord -> new LockedTransaction(
-                        transactionMapper.fromRecord(transactionRecord),
-                        transactionRecord.getLatestAppliedPaymentImpactRevision()
+                        transactionMapper.fromRecord(transactionRecord)
                 ))
                 .switchIfEmpty(Mono.error(new IllegalStateException(
                         "Transaction %s was not persisted".formatted(transactionId)
                 )));
-    }
-
-    private Mono<Void> markImpactApplied(
-            DSLContext transactionDslContext,
-            String transactionId,
-            long transactionRevision
-    ) {
-        return Mono.from(transactionDslContext.update(REWARD_TRANSACTIONS)
-                        .set(REWARD_TRANSACTIONS.LATEST_APPLIED_PAYMENT_IMPACT_REVISION,
-                                transactionRevision)
-                        .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId)
-                                .and(REWARD_TRANSACTIONS.LATEST_APPLIED_PAYMENT_IMPACT_REVISION
-                                        .lt(transactionRevision)))
-                        .returning(REWARD_TRANSACTIONS.TRANSACTION_ID))
-                .switchIfEmpty(Mono.error(new MembershipChangedException()))
-                .then();
     }
 
     private static RewardBatchTrxStatus rewardBatchTrxStatus(String value) {
@@ -389,14 +345,17 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
                 && !SyncTrxStatus.INVOICED.name().equals(impact.transaction().getStatus())) {
             throw new IllegalArgumentException("An invoice replacement impact must be INVOICED");
         }
-        if (impact.impactType() == PaymentRewardBatchImpactType.INVOICED_REVERSED
-                && !SyncTrxStatus.REFUNDED.name().equals(impact.transaction().getStatus())) {
-            throw new IllegalArgumentException("An invoiced reversal impact must be REFUNDED");
-        }
         if (impact.impactType() == PaymentRewardBatchImpactType.INVOICE_REPLACED
                 && impact.transaction().getPointOfSaleType() == null) {
             throw new IllegalArgumentException(
                     "An invoice replacement impact requires a point of sale type"
+            );
+        }
+        if (impact.impactType() == PaymentRewardBatchImpactType.INVOICE_REPLACED
+                && (impact.transaction().getBusinessName() == null
+                    || impact.transaction().getBusinessName().isBlank())) {
+            throw new IllegalArgumentException(
+                    "An invoice replacement impact requires a business name"
             );
         }
     }
@@ -406,8 +365,7 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
     }
 
     private record LockedTransaction(
-            RewardTransaction transaction,
-            long latestAppliedPaymentImpactRevision
+            RewardTransaction transaction
     ) {
     }
 

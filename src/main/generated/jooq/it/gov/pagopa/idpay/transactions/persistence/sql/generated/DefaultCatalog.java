@@ -26,9 +26,9 @@ public class DefaultCatalog extends CatalogImpl {
     public static final DefaultCatalog DEFAULT_CATALOG = new DefaultCatalog();
 
     /**
-     * The schema <code>public</code>.
+     * The schema <code>idpay-rimborsi</code>.
      */
-    public final Public PUBLIC = Public.PUBLIC;
+    public final IdpayRimborsi IDPAY_RIMBORSI = IdpayRimborsi.IDPAY_RIMBORSI;
 
     /**
      * No further instances allowed
@@ -40,7 +40,7 @@ public class DefaultCatalog extends CatalogImpl {
     @Override
     public final List<Schema> getSchemas() {
         return Arrays.asList(
-            Public.PUBLIC
+            IdpayRimborsi.IDPAY_RIMBORSI
         );
     }
 

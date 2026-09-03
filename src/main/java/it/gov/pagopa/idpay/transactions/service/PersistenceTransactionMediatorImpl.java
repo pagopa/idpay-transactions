@@ -4,6 +4,7 @@ import it.gov.pagopa.common.reactive.kafka.consumer.BaseKafkaConsumer;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.model.RewardTransactionEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.Message;
@@ -25,11 +26,8 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
     private final RewardTransactionService rewardTransactionService;
     private final TransactionErrorNotifierService transactionErrorNotifierService;
     private final RewardTransactionMapper rewardTransactionMapper;
-    private static final String OPERATION_TYPE_HEADER = "operationType";
-    private static final String OPERATION_TYPE_REFUNDED = "REFUNDED";
 
-
-  private final Duration commitDelay;
+    private final Duration commitDelay;
 
     private final ObjectReader objectReader;
 
@@ -78,17 +76,14 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
       Message<String> message,
       Map<String, Object> ctx) {
 
-    Object opTypeHeader = message.getHeaders().get(OPERATION_TYPE_HEADER);
-
-    if (OPERATION_TYPE_REFUNDED.equals(opTypeHeader)) {
-      log.info("[REWARD-TRANSACTION-CONSUMER] Skipping REFUNDED transaction with id {}", payload.getId());
-      return Mono.empty();
-
-    }
-
-    return Mono.just(payload)
-        .map(this.rewardTransactionMapper::mapFromDTO)
-        .flatMap(this.rewardTransactionService::save);
+    return rewardTransactionService.save(new RewardTransactionEvent(
+                payload.getEventId(),
+                payload.getSchemaVersion() == null ? 0 : payload.getSchemaVersion(),
+                payload.getEventType(),
+                payload.getOccurredAt(),
+                payload.getTransactionRevision() == null ? 0L : payload.getTransactionRevision(),
+                rewardTransactionMapper.mapFromDTO(payload)
+        ));
   }
 
   @Override
