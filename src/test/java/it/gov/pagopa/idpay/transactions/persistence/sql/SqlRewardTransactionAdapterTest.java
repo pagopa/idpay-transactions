@@ -100,6 +100,25 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
     }
 
     @Test
+    void shouldPersistNegativeAccruedRewardThroughGenericUpsert() {
+        RewardTransaction transaction = transactionWithAccruedReward(
+                "transaction-negative-accrued-reward",
+                "initiative-1",
+                -6000L
+        );
+        transaction.setTransactionRevision(1L);
+
+        StepVerifier.create(adapter.upsert(transaction))
+                .assertNext(saved -> assertEquals(
+                        -6000L,
+                        saved.getRewards().get("initiative-1").getAccruedRewardCents()
+                ))
+                .verifyComplete();
+
+        assertPersistedNegativeAccruedReward(transaction.getId());
+    }
+
+    @Test
     void shouldRejectTransactionsWithoutExactlyOneInitiative() {
         RewardTransaction transaction = transaction("transaction-invalid", "initiative-1");
         transaction.setInitiatives(List.of("initiative-1", "initiative-2"));
@@ -216,13 +235,17 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
     }
 
     @Test
-    void shouldDetachAssignedMembershipWhenPersistingANewerRefundedSnapshot() {
+    void shouldDetachAssignedMembershipAndPersistNegativeRewardWhenPersistingANewerRefundedSnapshot() {
         RewardTransaction invoiced = invoicedTransaction("transaction-refunded-detach", "initiative-1", 1L);
         ChecksError checksError = new ChecksError(
                 true, false, false, false, false, false, false, false
         );
         invoiced.setChecksError(checksError);
-        RewardTransaction refunded = transaction("transaction-refunded-detach", "initiative-1");
+        RewardTransaction refunded = transactionWithAccruedReward(
+                "transaction-refunded-detach",
+                "initiative-1",
+                -6000L
+        );
         refunded.setTransactionRevision(2L);
         refunded.setStatus(SyncTrxStatus.REFUNDED.name());
 
@@ -235,6 +258,10 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
                 .assertNext(saved -> {
                     assertEquals(SyncTrxStatus.REFUNDED.name(), saved.getStatus());
                     assertEquals(2L, saved.getTransactionRevision());
+                    assertEquals(
+                            -6000L,
+                            saved.getRewards().get("initiative-1").getAccruedRewardCents()
+                    );
                     assertNull(saved.getRewardBatchId());
                     assertNull(saved.getRewardBatchTrxStatus());
                     assertNull(saved.getRewardBatchInclusionDate());
@@ -242,6 +269,8 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
                     assertEquals(checksError, saved.getChecksError());
                 })
                 .verifyComplete();
+
+        assertPersistedNegativeAccruedReward(refunded.getId());
     }
 
     @Test
@@ -448,6 +477,38 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
         return transaction;
     }
 
+    private static RewardTransaction transactionWithAccruedReward(
+            String id,
+            String initiativeId,
+            long accruedRewardCents
+    ) {
+        RewardTransaction transaction = transaction(id, initiativeId);
+        transaction.setRewards(Map.of(
+                initiativeId,
+                Reward.builder().accruedRewardCents(accruedRewardCents).build()
+        ));
+        return transaction;
+    }
+
+    private static void assertPersistedNegativeAccruedReward(String transactionId) {
+        StepVerifier.create(databaseClient()
+                        .sql("""
+                                SELECT accrued_reward_cents,
+                                       rewards -> 'initiative-1' ->> 'accruedRewardCents'
+                                           AS json_accrued_reward_cents
+                                FROM reward_transactions
+                                WHERE transaction_id = :transactionId
+                                """)
+                        .bind("transactionId", transactionId)
+                        .map((row, metadata) -> new PersistedAccruedReward(
+                                row.get("accrued_reward_cents", Long.class),
+                                row.get("json_accrued_reward_cents", String.class)
+                        ))
+                        .one())
+                .expectNext(new PersistedAccruedReward(-6000L, "-6000"))
+                .verifyComplete();
+    }
+
     private static RewardTransaction transaction(String id, String initiativeId) {
         return RewardTransaction.builder()
                 .id(id)
@@ -477,5 +538,8 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
                 .samplingKey(123)
                 .extendedAuthorization(true)
                 .build();
+    }
+
+    private record PersistedAccruedReward(Long typedAccruedRewardCents, String jsonAccruedRewardCents) {
     }
 }

@@ -43,16 +43,18 @@ remediation; this service must not select a value or batch membership
 arbitrarily.
 
 After the audit is clean, start the application against an empty final target
-database so Flyway applies migrations `V001` through `V007`. Then backfill
-batches, transactions, and reports before cutover.
+database so Flyway applies migrations `V001` through `V008`. Apply `V008`
+before backfilling batches, transactions, and reports before cutover.
 
 The transaction backfill must load `accrued_reward_cents` for every transaction
-as a non-negative typed value. Migration `004` removes the temporary views and
+as a signed typed value. Negative values are valid for cancellation and refund
+events and must be preserved. Migration `004` removes the temporary views and
 mutable counter columns, so it must not be applied to the populated audit
-database. The report backfill must preserve each report ID, initiative, scope
-(`merchant_id` or `operator_level`), period, status, filename, and request and
-elaboration dates so report list, download, retry, and force-generation APIs
-remain available after cutover.
+database; `V008` removes the obsolete non-negative reward constraint from the
+final target schema. The report backfill must preserve each report ID,
+initiative, scope (`merchant_id` or `operator_level`), period, status, filename,
+and request and elaboration dates so report list, download, retry, and
+force-generation APIs remain available after cutover.
 
 Thereafter, batch amounts and counts are read from SQL aggregates over assigned
 transactions; the application neither runs this audit nor persists counters.

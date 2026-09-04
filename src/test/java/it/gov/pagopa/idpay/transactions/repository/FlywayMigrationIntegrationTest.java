@@ -39,7 +39,7 @@ class FlywayMigrationIntegrationTest {
             Flyway flyway = context.getBean(Flyway.class);
 
             assertEquals(
-                    "001,002,003,004,005,006,007",
+                    "001,002,003,004,005,006,007,008",
                     java.util.Arrays.stream(flyway.info().applied())
                             .filter(migration -> migration.getVersion() != null)
                             .map(migration -> migration.getVersion().getVersion())
@@ -74,7 +74,7 @@ class FlywayMigrationIntegrationTest {
             Flyway flyway = context.getBean(Flyway.class);
 
             assertEquals(
-                    "7",
+                    "8",
                     query(flyway, """
                             SELECT COUNT(*)
                             FROM "idpay-rimborsi".flyway_schema_history

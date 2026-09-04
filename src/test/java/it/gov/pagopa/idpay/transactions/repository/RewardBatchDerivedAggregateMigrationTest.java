@@ -111,19 +111,26 @@ class RewardBatchDerivedAggregateMigrationTest extends PostgresqlMigrationTestSu
     }
 
     @Test
-    void shouldRequireNonNegativeTypedAccruedReward() {
+    void shouldIncludeNegativeTypedAccruedRewardInDerivedBatchAggregates() {
+        insertBatchWithNegativeTransaction();
+
         StepVerifier.create(databaseClient()
                         .sql("""
-                                INSERT INTO reward_transactions (
-                                    transaction_id, initiative_id, accrued_reward_cents
-                                )
-                                VALUES ('transaction-negative', 'initiative-1', -1)
+                                SELECT
+                                    COALESCE(SUM(accrued_reward_cents), 0) AS initial_amount_cents,
+                                    COALESCE(SUM(accrued_reward_cents) FILTER (
+                                        WHERE reward_batch_trx_status IN ('TO_CHECK', 'CONSULTABLE', 'APPROVED')
+                                    ), 0) AS approved_amount_cents
+                                FROM reward_transactions
+                                WHERE reward_batch_id = 'batch-negative'
                                 """)
-                        .fetch()
-                        .rowsUpdated())
-                .expectErrorMatches(throwable -> throwable.getMessage()
-                        .contains("ck_reward_transactions_accrued_reward_non_negative"))
-                .verify();
+                        .map((row, metadata) -> new SignedBatchAmounts(
+                                row.get("initial_amount_cents", Long.class),
+                                row.get("approved_amount_cents", Long.class)
+                        ))
+                        .one())
+                .expectNext(new SignedBatchAmounts(-6000L, -6000L))
+                .verifyComplete();
     }
 
     @Test
@@ -176,7 +183,40 @@ class RewardBatchDerivedAggregateMigrationTest extends PostgresqlMigrationTestSu
                 .verifyComplete();
     }
 
+    private static void insertBatchWithNegativeTransaction() {
+        StepVerifier.create(databaseClient()
+                        .sql("""
+                                INSERT INTO reward_batches (
+                                    id, initiative_id, merchant_id, month, pos_type, status, name, assignee_level
+                                )
+                                VALUES (
+                                    'batch-negative', 'initiative-1', 'merchant-1', '2026-07', 'PHYSICAL',
+                                    'EVALUATING', 'July batch', 'L1'
+                                )
+                                """)
+                        .fetch()
+                        .rowsUpdated()
+                        .concatWith(databaseClient()
+                                .sql("""
+                                        INSERT INTO reward_transactions (
+                                            transaction_id, initiative_id, reward_batch_id,
+                                            reward_batch_trx_status, accrued_reward_cents
+                                        )
+                                        VALUES (
+                                            'transaction-negative', 'initiative-1', 'batch-negative',
+                                            'APPROVED', -6000
+                                        )
+                                        """)
+                                .fetch()
+                                .rowsUpdated()))
+                .expectNext(1L, 1L)
+                .verifyComplete();
+    }
+
     private record Counts(Long legacyCounterColumns, Long reconciliationViews) {
+    }
+
+    private record SignedBatchAmounts(Long initialAmountCents, Long approvedAmountCents) {
     }
 
     private record BatchAggregate(
