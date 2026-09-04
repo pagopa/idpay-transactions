@@ -437,4 +437,16 @@ public class SqlRewardTransactionSearchAdapter implements
         }
         return condition;
     }
+
+    @Override
+    public Flux<String> findBatchTransactionIds(String rewardBatchId, String initiativeId, int limit, int offset) {
+        return Flux.from(dslContext.select(REWARD_TRANSACTIONS.TRANSACTION_ID)
+                        .from(REWARD_TRANSACTIONS)
+                        .where(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(rewardBatchId)
+                                .and(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(initiativeId)))
+                        .orderBy(REWARD_TRANSACTIONS.TRANSACTION_ID.asc())
+                        .limit(limit)
+                        .offset(offset))
+                .map(row -> row.get(REWARD_TRANSACTIONS.TRANSACTION_ID));
+    }
 }

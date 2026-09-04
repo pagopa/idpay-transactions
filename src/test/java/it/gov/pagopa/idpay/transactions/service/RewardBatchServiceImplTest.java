@@ -4,6 +4,7 @@ import com.azure.storage.blob.models.BlobStorageException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
@@ -12,12 +13,14 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.InitiativeDetailDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.MerchantDetailDTO;
@@ -33,6 +36,7 @@ import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
+import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.MerchantRewardBatchLookupPort;
@@ -51,6 +55,8 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -79,6 +85,7 @@ class RewardBatchServiceImplTest {
     @Mock private ChecksErrorMapper checksErrorMapper;
     @Mock private AuditUtilities auditUtilities;
     @Mock private MerchantRestClient merchantRestClient;
+    @Mock private PaymentRestClient paymentRestClient;
     @Mock private SelfcareInstitutionsRestClient selfcareClient;
     @Mock private ErogazioniRestClient erogazioniClient;
     @Mock private InitiativeDataService initiativeDataService;
@@ -90,7 +97,7 @@ class RewardBatchServiceImplTest {
                 lifecyclePort, listPort, merchantLookupPort, transactionReadPort, decisionPort,
                 postponementPort, finalApprovalPort, promotionPort, deliveryPort, reassignmentPort,
                 userRestClient, batchBlobService, checksErrorMapper, auditUtilities, merchantRestClient,
-                selfcareClient, erogazioniClient, initiativeDataService, 10);
+                paymentRestClient, selfcareClient, erogazioniClient, initiativeDataService, 10);
     }
 
     @Test
@@ -123,6 +130,10 @@ class RewardBatchServiceImplTest {
         RewardBatch sent = RewardBatch.builder().id("batch").build();
         when(lifecyclePort.findBatchesWithStatus(RewardBatchStatus.SENT, "initiative"))
                 .thenReturn(reactor.core.publisher.Flux.just(sent));
+        when(transactionReadPort.findBatchTransactionIds(eq("batch"), eq("initiative"), anyInt(), anyInt()))
+                .thenReturn(Flux.just("trx-1", "trx-2"), Flux.empty());
+        when(paymentRestClient.updateTransactionsStatus(java.util.Set.of("trx-1", "trx-2"), SyncTrxStatus.REWARDED))
+                .thenReturn(Mono.just(2));
         when(decisionPort.prepareEvaluation("batch", "initiative")).thenReturn(Mono.just(sent));
 
         StepVerifier.create(service.evaluatingRewardBatches(null, "initiative"))
@@ -132,6 +143,36 @@ class RewardBatchServiceImplTest {
         verify(lifecyclePort).findBatchesWithStatus(RewardBatchStatus.SENT, "initiative");
         verify(lifecyclePort, never()).findBatchWithStatus(
                 anyString(), eq("initiative"), eq(RewardBatchStatus.SENT));
+        verify(paymentRestClient).updateTransactionsStatus(java.util.Set.of("trx-1", "trx-2"), SyncTrxStatus.REWARDED);
+        verify(decisionPort).prepareEvaluation("batch", "initiative");
+    }
+
+    @Test
+    void evaluationSplitsPaymentStatusUpdateIntoBatchesOfAtMost100Ids() {
+        RewardBatch sent = RewardBatch.builder().id("batch").build();
+        List<String> transactionIds = IntStream.rangeClosed(1, 205)
+                .mapToObj(i -> "trx-" + i)
+                .toList();
+
+        when(lifecyclePort.findBatchesWithStatus(RewardBatchStatus.SENT, "initiative"))
+                .thenReturn(Flux.just(sent));
+        when(transactionReadPort.findBatchTransactionIds(eq("batch"), eq("initiative"), anyInt(), anyInt()))
+                .thenReturn(Flux.fromIterable(transactionIds), Flux.empty());
+        when(paymentRestClient.updateTransactionsStatus(any(), eq(SyncTrxStatus.REWARDED)))
+                .thenAnswer(invocation -> {
+                    Set<String> chunk = invocation.getArgument(0);
+                    if (chunk.size() > 100) {
+                        return Mono.error(new IllegalArgumentException("Chunk size exceeds 100"));
+                    }
+                    return Mono.just(chunk.size());
+                });
+        when(decisionPort.prepareEvaluation("batch", "initiative")).thenReturn(Mono.just(sent));
+
+        StepVerifier.create(service.evaluatingRewardBatches(null, "initiative"))
+                .expectNext(1L)
+                .verifyComplete();
+
+        verify(paymentRestClient, times(3)).updateTransactionsStatus(any(), eq(SyncTrxStatus.REWARDED));
         verify(decisionPort).prepareEvaluation("batch", "initiative");
     }
 
@@ -510,6 +551,10 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Mono.just(sent));
         when(lifecyclePort.findBatchWithStatus("missing", "initiative", RewardBatchStatus.SENT))
                 .thenReturn(Mono.empty());
+        when(transactionReadPort.findBatchTransactionIds(eq("sent"), eq("initiative"), anyInt(), anyInt()))
+                .thenReturn(Flux.just("trx-1"), Flux.empty());
+        when(paymentRestClient.updateTransactionsStatus(java.util.Set.of("trx-1"), SyncTrxStatus.REWARDED))
+                .thenReturn(Mono.just(1));
         when(decisionPort.prepareEvaluation("sent", "initiative")).thenReturn(Mono.just(sent));
 
         StepVerifier.create(service.evaluatingRewardBatches(List.of("sent", "missing"), "initiative"))

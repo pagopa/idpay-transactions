@@ -4,37 +4,24 @@ import com.azure.storage.blob.models.BlobStorageException;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.config.InitiativeNotFoundException;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
-import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.InitiativeDetailDTO;
+import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.SelfcareInstitutionsRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionDTO;
 import it.gov.pagopa.idpay.transactions.dto.*;
-import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
-import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
-import it.gov.pagopa.common.web.exception.RewardBatchException;
-import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.*;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
-import it.gov.pagopa.idpay.transactions.persistence.port.MerchantTransactionPostponementPort;
-import it.gov.pagopa.idpay.transactions.persistence.port.MerchantRewardBatchLookupPort;
-import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchAssigneePromotionPort;
-import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchDeliveryPort;
-import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchFinalApprovalPort;
-import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchLifecyclePort;
-import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchListPort;
-import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionDecisionPort;
-import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionReadPort;
-import it.gov.pagopa.idpay.transactions.persistence.port.SuspendedTransactionReassignmentPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.*;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
-import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -50,12 +37,11 @@ import reactor.core.publisher.Mono;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.NumberFormat;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Locale;
 import java.util.Set;
 import java.util.function.BiFunction;
@@ -88,6 +74,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     private final AuditUtilities auditUtilities;
     private final MerchantRestClient merchantRestClient;
+    private final PaymentRestClient paymentRestClient;
     private final SelfcareInstitutionsRestClient selfcareInstitutionsRestClient;
     private final ErogazioniRestClient erogazioniRestClient;
     private final InitiativeDataService initiativeDataService;
@@ -120,6 +107,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "%s_%s_%s.csv";
     private static final String PROCESSING_BATCH_LOG = "Processing batch {}";
     private static final String FAILED_TO_PROCESS_BATCH_LOG = "Failed to process batch {}: {}";
+    private static final int PAYMENT_STATUS_UPDATE_BATCH_SIZE = 100;
+    private static final int PAYMENT_STATUS_READ_PAGE_SIZE = 1000;
 
     public RewardBatchServiceImpl(RewardBatchLifecyclePort rewardBatchLifecyclePort,
                                   RewardBatchListPort rewardBatchListPort,
@@ -136,6 +125,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                   ChecksErrorMapper checksErrorMapper,
                                   AuditUtilities auditUtilities,
                                   MerchantRestClient merchantRestClient,
+                                  PaymentRestClient paymentRestClient,
                                   SelfcareInstitutionsRestClient selfcareInstitutionsRestClient,
                                   ErogazioniRestClient erogazioniRestClient,
                                   InitiativeDataService initiativeDataService,
@@ -155,6 +145,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         this.checksErrorMapper = checksErrorMapper;
         this.auditUtilities = auditUtilities;
         this.merchantRestClient = merchantRestClient;
+        this.paymentRestClient = paymentRestClient;
         this.selfcareInstitutionsRestClient = selfcareInstitutionsRestClient;
         this.erogazioniRestClient = erogazioniRestClient;
         this.initiativeDataService = initiativeDataService;
@@ -306,14 +297,42 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             "[EVALUATING_REWARD_BATCH] Evaluating reward batch {}",
                             Utilities.sanitizeString(rewardBatch.getId())
                     );
-                    return rewardBatchTransactionDecisionPort.prepareEvaluation(
-                            rewardBatch.getId(),
-                            initiativeId
-                    );
+                    return syncPaymentTransactionsToRewarded(rewardBatch.getId(), initiativeId)
+                            .then(rewardBatchTransactionDecisionPort.prepareEvaluation(
+                                    rewardBatch.getId(),
+                                    initiativeId
+                            ));
                 })
                 .count()
                 .doOnSuccess(count ->
                         log.info("[EVALUATING_REWARD_BATCH] Completed evaluation. Total batches processed: {}", count));
+    }
+
+    private Mono<Void> syncPaymentTransactionsToRewarded(String rewardBatchId, String initiativeId) {
+        return syncPaymentTransactionsToRewarded(rewardBatchId, initiativeId, 0);
+    }
+
+    private Mono<Void> syncPaymentTransactionsToRewarded(String rewardBatchId, String initiativeId, int offset) {
+        return rewardBatchTransactionReadPort
+                .findBatchTransactionIds(rewardBatchId, initiativeId, PAYMENT_STATUS_READ_PAGE_SIZE, offset)
+                .filter(Objects::nonNull)
+                .collectList()
+                .flatMap(pageTransactionIds -> {
+                    if (pageTransactionIds.isEmpty()) {
+                        return Mono.empty();
+                    }
+
+                    return Flux.fromIterable(pageTransactionIds)
+                            .buffer(PAYMENT_STATUS_UPDATE_BATCH_SIZE)
+                            .concatMap(chunk -> paymentRestClient
+                                    .updateTransactionsStatus(Set.copyOf(chunk), SyncTrxStatus.REWARDED)
+                                    .then())
+                            .then(Mono.defer(() -> syncPaymentTransactionsToRewarded(
+                                    rewardBatchId,
+                                    initiativeId,
+                                    offset + PAYMENT_STATUS_READ_PAGE_SIZE
+                            )));
+                });
     }
 
     private Mono<RewardBatch> updateTransactionStatuses(
