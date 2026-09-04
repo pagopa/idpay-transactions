@@ -58,8 +58,8 @@ public class PaymentRestClientImpl implements PaymentRestClient {
                 .bodyToMono(Integer.class)
                 .retryWhen(Retry.fixedDelay(maxAttempts, Duration.ofMillis(retryDelay))
                         .filter(ex -> {
-                            boolean retry = ex.getMessage() != null
-                                    && ex.getMessage().startsWith("Connection refused");
+                            boolean retry = ex instanceof org.springframework.web.reactive.function.client.WebClientRequestException wcre
+                                    && wcre.getCause() instanceof java.net.ConnectException;
                             if (retry) {
                                 log.info("[PAYMENT_INTEGRATION] Retrying invocation due to exception: {}: {}",
                                         ex.getClass().getSimpleName(), ex.getMessage());
