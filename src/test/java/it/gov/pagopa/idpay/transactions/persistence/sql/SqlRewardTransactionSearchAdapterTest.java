@@ -24,7 +24,6 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDateTime;
 import java.time.Month;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -710,7 +709,8 @@ class SqlRewardTransactionSearchAdapterTest extends PostgresqlMigrationTestSuppo
                         .then(createCustomBatch("other-initiative-batch", "other-initiative", MERCHANT_ID, "2026-08"))
                         .then(seed(trx1, trx2, otherBatchTrx, otherInitiativeTrx))
                         .thenMany(adapter.findBatchTransactionIds(BATCH_ID, INITIATIVE_ID)))
-                .assertNext(ids -> assertEquals(java.util.Set.of("batch-trx-1", "batch-trx-2"), new java.util.HashSet<>(Collections.singleton(ids))))
+                .expectNextMatches(id -> List.of("batch-trx-1", "batch-trx-2").contains(id))
+                .expectNextMatches(id -> List.of("batch-trx-1", "batch-trx-2").contains(id))
                 .verifyComplete();
     }
 
