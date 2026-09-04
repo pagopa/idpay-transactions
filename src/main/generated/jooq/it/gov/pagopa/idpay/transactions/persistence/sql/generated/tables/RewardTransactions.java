@@ -424,7 +424,6 @@ public class RewardTransactions extends TableImpl<RewardTransactionsRecord> {
     @Override
     public List<Check<RewardTransactionsRecord>> getChecks() {
         return Arrays.asList(
-            Internal.createCheck(this, DSL.name("ck_reward_transactions_accrued_reward_non_negative"), "((accrued_reward_cents >= 0))", true),
             Internal.createCheck(this, DSL.name("ck_reward_transactions_latest_impact_revision_non_negative"), "((latest_applied_payment_impact_revision >= 0))", true),
             Internal.createCheck(this, DSL.name("ck_reward_transactions_revision_non_negative"), "((transaction_revision >= 0))", true)
         );
