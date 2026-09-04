@@ -40,8 +40,8 @@ import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
-import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Locale;
 import java.util.Set;
 import java.util.function.BiFunction;
@@ -108,6 +108,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private static final String PROCESSING_BATCH_LOG = "Processing batch {}";
     private static final String FAILED_TO_PROCESS_BATCH_LOG = "Failed to process batch {}: {}";
     private static final int PAYMENT_STATUS_UPDATE_BATCH_SIZE = 100;
+    private static final int PAYMENT_STATUS_READ_PAGE_SIZE = 1000;
 
     public RewardBatchServiceImpl(RewardBatchLifecyclePort rewardBatchLifecyclePort,
                                   RewardBatchListPort rewardBatchListPort,
@@ -308,13 +309,30 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     }
 
     private Mono<Void> syncPaymentTransactionsToRewarded(String rewardBatchId, String initiativeId) {
-        return rewardBatchTransactionReadPort.findBatchTransactionIds(rewardBatchId, initiativeId)
-                .distinct()
-                .buffer(PAYMENT_STATUS_UPDATE_BATCH_SIZE)
-                .concatMap(chunk -> chunk.isEmpty()
-                        ? Mono.empty()
-                        : paymentRestClient.updateTransactionsStatus(new HashSet<>(chunk), SyncTrxStatus.REWARDED).then())
-                .then();
+        return syncPaymentTransactionsToRewarded(rewardBatchId, initiativeId, 0);
+    }
+
+    private Mono<Void> syncPaymentTransactionsToRewarded(String rewardBatchId, String initiativeId, int offset) {
+        return rewardBatchTransactionReadPort
+                .findBatchTransactionIds(rewardBatchId, initiativeId, PAYMENT_STATUS_READ_PAGE_SIZE, offset)
+                .filter(Objects::nonNull)
+                .collectList()
+                .flatMap(pageTransactionIds -> {
+                    if (pageTransactionIds.isEmpty()) {
+                        return Mono.empty();
+                    }
+
+                    return Flux.fromIterable(pageTransactionIds)
+                            .buffer(PAYMENT_STATUS_UPDATE_BATCH_SIZE)
+                            .concatMap(chunk -> paymentRestClient
+                                    .updateTransactionsStatus(Set.copyOf(chunk), SyncTrxStatus.REWARDED)
+                                    .then())
+                            .then(Mono.defer(() -> syncPaymentTransactionsToRewarded(
+                                    rewardBatchId,
+                                    initiativeId,
+                                    offset + PAYMENT_STATUS_READ_PAGE_SIZE
+                            )));
+                });
     }
 
     private Mono<RewardBatch> updateTransactionStatuses(

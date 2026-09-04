@@ -4,6 +4,7 @@ import com.azure.storage.blob.models.BlobStorageException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
@@ -129,8 +130,8 @@ class RewardBatchServiceImplTest {
         RewardBatch sent = RewardBatch.builder().id("batch").build();
         when(lifecyclePort.findBatchesWithStatus(RewardBatchStatus.SENT, "initiative"))
                 .thenReturn(reactor.core.publisher.Flux.just(sent));
-        when(transactionReadPort.findBatchTransactionIds("batch", "initiative"))
-                .thenReturn(Flux.just("trx-1", "trx-2"));
+        when(transactionReadPort.findBatchTransactionIds(eq("batch"), eq("initiative"), anyInt(), anyInt()))
+                .thenReturn(Flux.just("trx-1", "trx-2"), Flux.empty());
         when(paymentRestClient.updateTransactionsStatus(java.util.Set.of("trx-1", "trx-2"), SyncTrxStatus.REWARDED))
                 .thenReturn(Mono.just(2));
         when(decisionPort.prepareEvaluation("batch", "initiative")).thenReturn(Mono.just(sent));
@@ -155,8 +156,8 @@ class RewardBatchServiceImplTest {
 
         when(lifecyclePort.findBatchesWithStatus(RewardBatchStatus.SENT, "initiative"))
                 .thenReturn(Flux.just(sent));
-        when(transactionReadPort.findBatchTransactionIds("batch", "initiative"))
-                .thenReturn(Flux.fromIterable(transactionIds));
+        when(transactionReadPort.findBatchTransactionIds(eq("batch"), eq("initiative"), anyInt(), anyInt()))
+                .thenReturn(Flux.fromIterable(transactionIds), Flux.empty());
         when(paymentRestClient.updateTransactionsStatus(any(), eq(SyncTrxStatus.REWARDED)))
                 .thenAnswer(invocation -> {
                     Set<String> chunk = invocation.getArgument(0);
@@ -550,7 +551,8 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Mono.just(sent));
         when(lifecyclePort.findBatchWithStatus("missing", "initiative", RewardBatchStatus.SENT))
                 .thenReturn(Mono.empty());
-        when(transactionReadPort.findBatchTransactionIds("sent", "initiative")).thenReturn(Flux.just("trx-1"));
+        when(transactionReadPort.findBatchTransactionIds(eq("sent"), eq("initiative"), anyInt(), anyInt()))
+                .thenReturn(Flux.just("trx-1"), Flux.empty());
         when(paymentRestClient.updateTransactionsStatus(java.util.Set.of("trx-1"), SyncTrxStatus.REWARDED))
                 .thenReturn(Mono.just(1));
         when(decisionPort.prepareEvaluation("sent", "initiative")).thenReturn(Mono.just(sent));

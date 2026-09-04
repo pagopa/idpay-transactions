@@ -708,7 +708,7 @@ class SqlRewardTransactionSearchAdapterTest extends PostgresqlMigrationTestSuppo
                         .then(createBatch("other-batch", "2026-08"))
                         .then(createCustomBatch("other-initiative-batch", "other-initiative", MERCHANT_ID, "2026-08"))
                         .then(seed(trx1, trx2, otherBatchTrx, otherInitiativeTrx))
-                        .thenMany(adapter.findBatchTransactionIds(BATCH_ID, INITIATIVE_ID)))
+                        .thenMany(adapter.findBatchTransactionIds(BATCH_ID, INITIATIVE_ID, 10, 0)))
                 .expectNextMatches(id -> List.of("batch-trx-1", "batch-trx-2").contains(id))
                 .expectNextMatches(id -> List.of("batch-trx-1", "batch-trx-2").contains(id))
                 .verifyComplete();
