@@ -225,6 +225,22 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
                 .map(this::toBatch);
     }
 
+    public Flux<RewardBatch> findBatchesToProcessAfter(
+            RewardBatchStatus status, String initiativeId, String afterId, int limit) {
+        Condition condition = REWARD_BATCHES.STATUS.eq(status.name())
+                .and(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId));
+        if (afterId != null) {
+            condition = condition.and(REWARD_BATCHES.ID.gt(afterId));
+        }
+        return Flux.from(projectedBatches(condition)
+                        .having(status == RewardBatchStatus.APPROVED
+                                ? APPROVED_AMOUNT_CENTS_VALUE.gt(0L)
+                                : org.jooq.impl.DSL.noCondition())
+                        .orderBy(REWARD_BATCHES.ID.asc())
+                        .limit(limit))
+                .map(this::toBatch);
+    }
+
     public Flux<RewardBatch> findDeliverableBatches(String initiativeId, Pageable pageable) {
         Pageable effectivePageable = effectivePageable(pageable);
         return Flux.from(projectedBatches(REWARD_BATCHES.STATUS.eq(RewardBatchStatus.APPROVED.name())
