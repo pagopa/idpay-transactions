@@ -8,7 +8,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -520,18 +519,17 @@ class RewardBatchServiceImplTest {
     void batchOrchestratorsUsePaginatedPortsAndIsolatePerBatchFailures() {
         RewardBatch approving = batch("batch", RewardBatchStatus.APPROVING);
         RewardBatchServiceImpl worker = spy(service);
-        doReturn(Mono.just(approving)).when(worker)
+        doReturn(Mono.error(new IllegalStateException("Confirmation failed"))).when(worker)
                 .processSingleBatchConfirmation(approving, "initiative");
-        when(lifecyclePort.findBatchesWithStatus(
-                eq(RewardBatchStatus.APPROVING),
-                eq("initiative"), any()))
-                .thenReturn(Flux.just(approving), Flux.empty());
+        when(lifecyclePort.findBatchesToProcessAfter(RewardBatchStatus.APPROVING, "initiative", null, 10))
+                .thenReturn(Flux.just(approving));
+        when(lifecyclePort.findBatchesToProcessAfter(RewardBatchStatus.APPROVING, "initiative", "batch", 10))
+                .thenReturn(Flux.empty());
 
         StepVerifier.create(worker.rewardBatchConfirmationBatch("initiative", List.of()))
-                .verifyComplete();
-        verify(lifecyclePort, atLeastOnce()).findBatchesWithStatus(
-                eq(RewardBatchStatus.APPROVING),
-                eq("initiative"), any());
+                .expectComplete().verify(java.time.Duration.ofSeconds(3));
+        verify(worker).processSingleBatchConfirmation(approving, "initiative");
+        verify(lifecyclePort).findBatchesToProcessAfter(RewardBatchStatus.APPROVING, "initiative", "batch", 10);
     }
 
     @Test
@@ -693,11 +691,49 @@ class RewardBatchServiceImplTest {
         StepVerifier.create(worker.rewardBatchDeliveryBatch("initiative", List.of("batch")))
                 .verifyComplete();
 
-        when(lifecyclePort.findDeliverableBatches(
-                eq("initiative"), any()))
-                .thenReturn(Flux.just(batch), Flux.empty());
+        when(lifecyclePort.findBatchesToProcessAfter(RewardBatchStatus.APPROVED, "initiative", null, 10))
+                .thenReturn(Flux.just(batch));
+        when(lifecyclePort.findBatchesToProcessAfter(RewardBatchStatus.APPROVED, "initiative", "batch", 10))
+                .thenReturn(Flux.empty());
         StepVerifier.create(worker.rewardBatchDeliveryBatch("initiative", List.of()))
                 .verifyComplete();
+    }
+
+    @Test
+    void deliveryWithoutInstitutionsAdvancesToNextPageAndCanBeRetriedOnNextRun() {
+        RewardBatch missing = batch("a", RewardBatchStatus.APPROVED);
+        RewardBatch rejected = batch("b", RewardBatchStatus.APPROVED);
+        RewardBatch accepted = batch("c", RewardBatchStatus.APPROVED);
+        RewardBatchServiceImpl worker = spy(service);
+        when(lifecyclePort.findBatchesToProcessAfter(RewardBatchStatus.APPROVED, "initiative", null, 10))
+                .thenReturn(Flux.just(missing));
+        when(lifecyclePort.findBatchesToProcessAfter(RewardBatchStatus.APPROVED, "initiative", "a", 10))
+                .thenReturn(Flux.just(rejected, accepted));
+        when(lifecyclePort.findBatchesToProcessAfter(RewardBatchStatus.APPROVED, "initiative", "c", 10))
+                .thenReturn(Flux.empty());
+        when(lifecyclePort.findBatch("a", "initiative")).thenReturn(Mono.just(missing));
+        when(deliveryPort.snapshotDeliveryAmount("a", "initiative")).thenReturn(Mono.just(missing));
+        when(merchantRestClient.getMerchantDetail("merchant", "initiative"))
+                .thenReturn(Mono.just(MerchantDetailDTO.builder().fiscalCode("fiscal").build()));
+        when(selfcareClient.getInstitutions("fiscal"))
+                .thenReturn(Mono.just(new InstitutionList(List.of())));
+        org.mockito.Mockito.doCallRealMethod().when(worker).processSingleBatchDelivery(missing, "initiative");
+        doReturn(Mono.just(rejected)).when(worker).processSingleBatchDelivery(rejected, "initiative");
+        doReturn(Mono.fromSupplier(() -> {
+            accepted.setStatus(RewardBatchStatus.PENDING_REFUND);
+            return accepted;
+        })).when(worker).processSingleBatchDelivery(accepted, "initiative");
+
+        Mono<Void> execution = worker.rewardBatchDeliveryBatch("initiative", List.of());
+        StepVerifier.create(execution).expectComplete().verify(java.time.Duration.ofSeconds(3));
+        verify(selfcareClient).getInstitutions("fiscal");
+        verify(worker).processSingleBatchDelivery(rejected, "initiative");
+        verify(worker).processSingleBatchDelivery(accepted, "initiative");
+        assertEquals(RewardBatchStatus.APPROVED, missing.getStatus());
+        verifyNoInteractions(erogazioniClient);
+
+        StepVerifier.create(execution).expectComplete().verify(java.time.Duration.ofSeconds(3));
+        verify(selfcareClient, org.mockito.Mockito.times(2)).getInstitutions("fiscal");
     }
 
     @Test

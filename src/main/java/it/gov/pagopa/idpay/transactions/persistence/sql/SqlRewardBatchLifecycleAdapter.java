@@ -18,6 +18,12 @@ public class SqlRewardBatchLifecycleAdapter implements RewardBatchLifecyclePort 
     private final SqlRewardBatchListAdapter batchListAdapter;
 
     @Override
+    public Flux<RewardBatch> findBatchesToProcessAfter(
+            RewardBatchStatus status, String initiativeId, String afterId, int limit) {
+        return batchListAdapter.findBatchesToProcessAfter(status, initiativeId, afterId, limit);
+    }
+
+    @Override
     public Mono<RewardBatch> findBatch(String rewardBatchId) {
         return batchListAdapter.findBatch(rewardBatchId);
     }
