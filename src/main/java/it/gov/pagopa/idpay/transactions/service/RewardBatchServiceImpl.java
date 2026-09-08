@@ -298,10 +298,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             Utilities.sanitizeString(rewardBatch.getId())
                     );
                     return syncPaymentTransactionsToRewarded(rewardBatch.getId(), initiativeId)
-                            .then(rewardBatchTransactionDecisionPort.prepareEvaluation(
+                            .then(Mono.defer(() -> rewardBatchTransactionDecisionPort.prepareEvaluation(
                                     rewardBatch.getId(),
                                     initiativeId
-                            ));
+                            )));
                 })
                 .count()
                 .doOnSuccess(count ->
