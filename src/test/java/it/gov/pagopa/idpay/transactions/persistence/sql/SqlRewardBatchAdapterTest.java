@@ -264,6 +264,14 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                 .assertNext(projected -> assertEquals("batch-deliverable", projected.getId()))
                 .verifyComplete();
 
+        StepVerifier.create(listAdapter.findBatchesToProcessAfter(
+                        RewardBatchStatus.APPROVED, "initiative-1", null, 1))
+                .expectNextMatches(projected -> projected.getId().equals("batch-deliverable"))
+                .verifyComplete();
+        StepVerifier.create(listAdapter.findBatchesToProcessAfter(
+                        RewardBatchStatus.APPROVED, "initiative-1", "batch-deliverable", 1))
+                .verifyComplete();
+
         StepVerifier.create(listAdapter.findOutcomeBatches(
                         "initiative-1",
                         PageRequest.of(0, 10)
@@ -295,6 +303,18 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                         adapter.createOrRead(otherMerchant),
                         adapter.createOrRead(otherInitiative)
                 ).then())
+                .verifyComplete();
+
+        StepVerifier.create(listAdapter.findBatchesToProcessAfter(
+                        RewardBatchStatus.SENT, "initiative-1", null, 1))
+                .expectNextMatches(projected -> projected.getId().equals("batch-earlier-sent"))
+                .verifyComplete();
+        StepVerifier.create(listAdapter.findBatchesToProcessAfter(
+                        RewardBatchStatus.SENT, "initiative-1", "batch-earlier-sent", 1))
+                .expectNextMatches(projected -> projected.getId().equals("batch-scoped"))
+                .verifyComplete();
+        StepVerifier.create(listAdapter.findBatchesToProcessAfter(
+                        RewardBatchStatus.SENT, "initiative-1", "batch-scoped", 1))
                 .verifyComplete();
 
         StepVerifier.create(listAdapter.findBatch("batch-scoped"))

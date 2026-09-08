@@ -20,6 +20,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.time.LocalDateTime;
 
+import static it.gov.pagopa.common.utils.CommonConstants.ZONEID;
 import static it.gov.pagopa.idpay.transactions.utils.Utilities.sanitizeString;
 
 @Service
@@ -115,7 +116,7 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
                     return Mono.just(DeliveryOutcomeDTO.builder()
                             .succeded(false)
                             .message("Technical error: " + detailedMessage)
-                            .timestamp(LocalDateTime.now())
+                            .timestamp(LocalDateTime.now(ZONEID))
                             .build());
                 });
     }

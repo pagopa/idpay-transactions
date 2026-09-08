@@ -12,6 +12,9 @@ import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOu
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.SelfcareInstitutionsRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionDTO;
 import it.gov.pagopa.idpay.transactions.dto.*;
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
+import it.gov.pagopa.common.web.exception.RewardBatchException;
+import it.gov.pagopa.common.web.exception.RewardBatchNotFound;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.*;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
@@ -501,11 +504,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         return processBatchesByStatusPaginated(
                 initiativeId,
                 RewardBatchStatus.APPROVING,
-                pageable -> rewardBatchLifecyclePort.findBatchesWithStatus(
-                        RewardBatchStatus.APPROVING,
-                        initiativeId,
-                        pageable
-                ),
+                null,
                 this::processSingleBatchConfirmation
         );
     }
@@ -605,7 +604,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         return processBatchesByStatusPaginated(
                 initiativeId,
                 RewardBatchStatus.APPROVED,
-                pageable -> rewardBatchLifecyclePort.findDeliverableBatches(initiativeId, pageable),
+                null,
                 this::processSingleBatchDelivery
         );
     }
@@ -626,10 +625,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private Mono<Void> processBatchesByStatusPaginated(
             String initiativeId,
             RewardBatchStatus status,
-            Function<Pageable, Flux<RewardBatch>> batchFinder,
+            String afterId,
             BiFunction<RewardBatch, String, Mono<?>> businessLogic) {
 
-        return batchFinder.apply(Pageable.ofSize(pagesize))
+        return Mono.defer(() -> rewardBatchLifecyclePort.findBatchesToProcessAfter(
+                        status, initiativeId, afterId, pagesize)
                 .collectList()
                 .flatMap(batchList -> {
                     if (batchList.isEmpty()) {
@@ -640,17 +640,19 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                     log.info("Found {} batches with status {} to process in current page.",
                             batchList.size(), status);
 
+                    // Advance even when a failed or rejected batch keeps its original status.
+                    // Offsets would skip batches when successful processing removes earlier rows.
                     return Flux.fromIterable(batchList)
                             .concatMap(batch -> processBatch(batch, initiativeId, businessLogic))
                             .then(Mono.defer(() ->
                                     processBatchesByStatusPaginated(
                                             initiativeId,
                                             status,
-                                            batchFinder,
+                                            batchList.getLast().getId(),
                                             businessLogic
                                     )
                             ));
-                });
+                }));
     }
 
     private Mono<?> processBatch(
