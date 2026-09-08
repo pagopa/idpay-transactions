@@ -1,25 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import com.azure.storage.blob.models.BlobStorageException;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.*;
-
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
@@ -29,44 +10,37 @@ import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRest
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.SelfcareInstitutionsRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionList;
+import it.gov.pagopa.idpay.transactions.dto.ChecksErrorDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryOutcomeDTO;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
-import it.gov.pagopa.idpay.transactions.dto.ChecksErrorDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
-import it.gov.pagopa.idpay.transactions.enums.PosType;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
-import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
-import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
+import it.gov.pagopa.idpay.transactions.enums.*;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
-import it.gov.pagopa.idpay.transactions.persistence.port.MerchantRewardBatchLookupPort;
-import it.gov.pagopa.idpay.transactions.persistence.port.MerchantTransactionPostponementPort;
-import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchAssigneePromotionPort;
-import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchDeliveryPort;
-import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchFinalApprovalPort;
-import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchLifecyclePort;
-import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchListPort;
-import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionDecisionPort;
-import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionReadPort;
-import it.gov.pagopa.idpay.transactions.persistence.port.SuspendedTransactionReassignmentPort;
+import it.gov.pagopa.idpay.transactions.persistence.port.*;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
-import java.time.LocalDate;
-import java.time.YearMonth;
-import java.io.InputStream;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
-import reactor.core.publisher.Mono;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+
+import java.io.InputStream;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.IntStream;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class RewardBatchServiceImplTest {
