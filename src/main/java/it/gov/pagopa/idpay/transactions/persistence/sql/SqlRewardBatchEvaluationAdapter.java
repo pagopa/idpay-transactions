@@ -8,7 +8,6 @@ import io.r2dbc.spi.ConnectionFactory;
 import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
-import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
@@ -97,17 +96,12 @@ public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDe
                                 rewardBatchId,
                                 initiativeId
                         )
-                        .flatMap(total -> markBatchTransactionsRewarded(
-                                        transactionDslContext,
-                                        rewardBatchId,
-                                        initiativeId
-                                )
-                                .then(markSampleTransactionsForCheck(
+                        .flatMap(total -> markSampleTransactionsForCheck(
                                         transactionDslContext,
                                         rewardBatchId,
                                         initiativeId,
                                         numberOfTransactionsToCheck(total)
-                                ))
+                                )
                                 .then(moveBatchToEvaluating(
                                         transactionDslContext,
                                         rewardBatchId,
@@ -160,17 +154,6 @@ public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDe
                         .from(REWARD_TRANSACTIONS)
                         .where(batchMembershipCondition(rewardBatchId, initiativeId)))
                 .map(result -> result.value1().longValue());
-    }
-
-    private Mono<Void> markBatchTransactionsRewarded(
-            DSLContext transactionDslContext,
-            String rewardBatchId,
-            String initiativeId
-    ) {
-        return Mono.from(transactionDslContext.update(REWARD_TRANSACTIONS)
-                        .set(REWARD_TRANSACTIONS.STATUS, SyncTrxStatus.REWARDED.name())
-                        .where(batchMembershipCondition(rewardBatchId, initiativeId)))
-                .then();
     }
 
     private Mono<Void> markSampleTransactionsForCheck(
