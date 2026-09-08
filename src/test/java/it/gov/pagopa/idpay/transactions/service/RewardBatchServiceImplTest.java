@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import com.azure.storage.blob.models.BlobStorageException;
+import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
@@ -20,6 +21,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.*;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -193,18 +195,18 @@ class RewardBatchServiceImplTest {
 
     @Test
     void sendBatchRejectsMissingWrongMerchantAndInvalidLifecycleStates() {
-        when(lifecyclePort.findBatch("missing")).thenReturn(Mono.empty());
+        when(lifecyclePort.findBatch("missing", "initiative")).thenReturn(Mono.empty());
         StepVerifier.create(service.sendRewardBatch("initiative", "merchant", "missing"))
                 .expectError().verify();
 
         RewardBatch wrongMerchant = batch("wrong", RewardBatchStatus.CREATED);
         wrongMerchant.setMerchantId("other");
-        when(lifecyclePort.findBatch("wrong")).thenReturn(Mono.just(wrongMerchant));
+        when(lifecyclePort.findBatch("wrong", "initiative")).thenReturn(Mono.just(wrongMerchant));
         StepVerifier.create(service.sendRewardBatch("initiative", "merchant", "wrong"))
                 .expectError().verify();
 
         RewardBatch sent = batch("sent", RewardBatchStatus.SENT);
-        when(lifecyclePort.findBatch("sent")).thenReturn(Mono.just(sent));
+        when(lifecyclePort.findBatch("sent", "initiative")).thenReturn(Mono.just(sent));
         StepVerifier.create(service.sendRewardBatch("initiative", "merchant", "sent"))
                 .expectError().verify();
     }
@@ -213,7 +215,7 @@ class RewardBatchServiceImplTest {
     void sendHistoricalBatchPersistsSentAfterPreviousBatchesAreClear() {
         RewardBatch batch = batch("batch", RewardBatchStatus.CREATED);
         batch.setMonth(YearMonth.now().minusMonths(1).toString());
-        when(lifecyclePort.findBatch("batch")).thenReturn(Mono.just(batch));
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(batch));
         when(lifecyclePort.findMerchantBatches("merchant", "initiative", PosType.PHYSICAL))
                 .thenReturn(Flux.empty());
         when(lifecyclePort.saveBatch(batch)).thenReturn(Mono.just(batch));
@@ -223,6 +225,39 @@ class RewardBatchServiceImplTest {
 
         assertEquals(RewardBatchStatus.SENT, batch.getStatus());
         verify(lifecyclePort).saveBatch(batch);
+    }
+
+    @Test
+    void sendBatchRejectsEmptyBatch() {
+        RewardBatch emptyBatch = batch("empty", RewardBatchStatus.CREATED);
+        emptyBatch.setNumberOfTransactions(0L);
+        when(lifecyclePort.findBatch("empty", "initiative")).thenReturn(Mono.just(emptyBatch));
+
+        StepVerifier.create(service.sendRewardBatch("initiative", "merchant", "empty"))
+                .expectErrorSatisfies(error -> {
+                    RewardBatchException exception = (RewardBatchException) error;
+                    assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, exception.getHttpStatus());
+                    assertEquals(ExceptionConstants.ExceptionCode.REWARD_BATCH_EMPTY, exception.getMessage());
+                })
+                .verify();
+
+        verify(lifecyclePort, never()).findMerchantBatches(anyString(), anyString(), any());
+        verify(lifecyclePort, never()).saveBatch(any());
+    }
+
+    @Test
+    void sendBatchRejectsBatchFromAnotherInitiative() {
+        when(lifecyclePort.findBatch("batch", "requested-initiative")).thenReturn(Mono.empty());
+
+        StepVerifier.create(service.sendRewardBatch("requested-initiative", "merchant", "batch"))
+                .expectErrorSatisfies(error -> {
+                    RewardBatchException exception = (RewardBatchException) error;
+                    assertEquals(org.springframework.http.HttpStatus.NOT_FOUND, exception.getHttpStatus());
+                    assertEquals(ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND, exception.getMessage());
+                })
+                .verify();
+
+        verify(lifecyclePort, never()).saveBatch(any());
     }
 
     @Test
@@ -647,7 +682,7 @@ class RewardBatchServiceImplTest {
         current.setMonth(YearMonth.now().minusMonths(1).toString());
         RewardBatch earlier = batch("earlier", RewardBatchStatus.CREATED);
         earlier.setMonth(YearMonth.now().minusMonths(2).toString());
-        when(lifecyclePort.findBatch("current")).thenReturn(Mono.just(current));
+        when(lifecyclePort.findBatch("current", "initiative")).thenReturn(Mono.just(current));
         when(lifecyclePort.findMerchantBatches("merchant", "initiative", PosType.PHYSICAL))
                 .thenReturn(Flux.just(earlier));
 
