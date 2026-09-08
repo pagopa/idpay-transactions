@@ -88,7 +88,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
     }
 
     @Test
-    void shouldPrepareSentBatchUsingAllAssignedRowsForDeterministicSampling() {
+    void shouldPrepareSentBatchUsingAllAssignedRowsWithoutMutatingPaymentStatus() {
         StepVerifier.create(Flux.concat(
                         insertBatch(BATCH_ID, RewardBatchStatus.SENT),
                         insertTransaction("sample-first", RewardBatchTrxStatus.CONSULTABLE, 1),
@@ -107,7 +107,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                 .assertNext(states -> {
                     assertEquals(8, states.size());
                     assertTrue(states.values().stream()
-                            .allMatch(state -> state.syncStatus().equals(SyncTrxStatus.REWARDED.name())));
+                            .allMatch(state -> state.syncStatus().equals(SyncTrxStatus.INVOICED.name())));
                     assertEquals(RewardBatchTrxStatus.TO_CHECK.name(),
                             states.get("null-status").batchStatus());
                     assertEquals(RewardBatchTrxStatus.TO_CHECK.name(),
