@@ -23,6 +23,7 @@ import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
@@ -118,8 +119,28 @@ class RewardBatchServiceImplTest {
         verify(lifecyclePort).findBatchesWithStatus(RewardBatchStatus.SENT, "initiative");
         verify(lifecyclePort, never()).findBatchWithStatus(
                 anyString(), eq("initiative"), eq(RewardBatchStatus.SENT));
-        verify(paymentRestClient).updateTransactionsStatus(java.util.Set.of("trx-1", "trx-2"), SyncTrxStatus.REWARDED);
-        verify(decisionPort).prepareEvaluation("batch", "initiative");
+        InOrder inOrder = inOrder(paymentRestClient, decisionPort);
+        inOrder.verify(paymentRestClient)
+                .updateTransactionsStatus(java.util.Set.of("trx-1", "trx-2"), SyncTrxStatus.REWARDED);
+        inOrder.verify(decisionPort).prepareEvaluation("batch", "initiative");
+    }
+
+    @Test
+    void evaluationStopsBeforeSqlPreparationWhenPaymentStatusSyncFails() {
+        RewardBatch sent = RewardBatch.builder().id("batch").build();
+        RuntimeException failure = new IllegalStateException("payment status update failed");
+        when(lifecyclePort.findBatchesWithStatus(RewardBatchStatus.SENT, "initiative"))
+                .thenReturn(Flux.just(sent));
+        when(transactionReadPort.findBatchTransactionIds(eq("batch"), eq("initiative"), anyInt(), anyInt()))
+                .thenReturn(Flux.just("trx-1"));
+        when(paymentRestClient.updateTransactionsStatus(Set.of("trx-1"), SyncTrxStatus.REWARDED))
+                .thenReturn(Mono.error(failure));
+
+        StepVerifier.create(service.evaluatingRewardBatches(null, "initiative"))
+                .expectErrorMatches(error -> error == failure)
+                .verify();
+
+        verify(decisionPort, never()).prepareEvaluation("batch", "initiative");
     }
 
     @Test
