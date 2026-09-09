@@ -24,6 +24,7 @@ public final class ExceptionConstants {
         public static final String REWARD_BATCH_ALREADY_APPROVED = "REWARD_BATCH_ALREADY_APPROVED";
         public static final String REWARD_BATCH_INVALID_REQUEST = "REWARD_BATCH_INVALID_REQUEST";
         public static final String REWARD_BATCH_MONTH_TOO_EARLY = "REWARD_BATCH_MONTH_TOO_EARLY";
+        public static final String REWARD_BATCH_EMPTY = "REWARD_BATCH_EMPTY";
         public static final String REWARD_BATCH_TOO_MANY_REQUESTS = "REWARD_BATCH_TOO_MANY_REQUESTS";
         public static final String REWARD_BATCH_GENERIC_ERROR = "REWARD_BATCH_GENERIC_ERROR";
         public static final String POINT_OF_SALE_NOT_ALLOWED = "POINT_OF_SALE_NOT_ALLOWED";
