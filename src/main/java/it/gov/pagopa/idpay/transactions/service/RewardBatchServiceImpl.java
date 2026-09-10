@@ -168,7 +168,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     @Override
     public Mono<Void> sendRewardBatch(String initiativeId, String merchantId, String batchId) {
-        return rewardBatchLifecyclePort.findBatch(batchId)
+        return rewardBatchLifecyclePort.findBatch(batchId, initiativeId)
                 .switchIfEmpty(Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
                         ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)))
                 .flatMap(batch -> {
@@ -180,6 +180,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                     if (batch.getStatus() != RewardBatchStatus.CREATED) {
                         return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
                                 ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST));
+                    }
+                    if (batch.getNumberOfTransactions() == null || batch.getNumberOfTransactions() == 0) {
+                        log.warn("[SEND_REWARD_BATCHES] Empty batch cannot be sent !");
+                        return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
+                                ExceptionConstants.ExceptionCode.REWARD_BATCH_EMPTY));
                     }
                     YearMonth batchMonth = YearMonth.parse(batch.getMonth());
                     if (!YearMonth.now(ZONEID).isAfter(batchMonth)) {

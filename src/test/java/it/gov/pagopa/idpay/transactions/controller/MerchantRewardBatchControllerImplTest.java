@@ -354,6 +354,26 @@ class MerchantRewardBatchControllerImplTest {
     }
 
     @Test
+    void sendRewardBatchesRejectsEmptyBatch() {
+        String batchId = "EMPTY_BATCH";
+        when(rewardBatchService.sendRewardBatch(INITIATIVE_ID, MERCHANT_ID, batchId))
+                .thenReturn(Mono.error(new RewardBatchException(
+                        HttpStatus.BAD_REQUEST,
+                        ExceptionCode.REWARD_BATCH_EMPTY)));
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{batchId}/send")
+                        .build(INITIATIVE_ID, batchId))
+                .header("x-merchant-id", MERCHANT_ID)
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.code").isEqualTo(ExceptionCode.REWARD_BATCH_EMPTY)
+                .jsonPath("$.message").isEqualTo(ExceptionCode.REWARD_BATCH_EMPTY);
+    }
+
+    @Test
     void getRewardBatches_shouldThrowBadRequest_whenNoMerchantAndNoRole() {
         webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder
