@@ -181,9 +181,9 @@ The batch read projection must use this state matrix:
 | `APPROVING`, `APPROVED`, `PENDING_REFUND`, `NOT_REFUNDED`, `REFUNDED` | Stored send snapshot | Stored approval snapshot |
 
 Do not use `COALESCE(snapshot, live)` after the freeze state. A missing
-snapshot after `SENT` or `APPROVING` is a data-integrity error and must be
-surfaced to reconciliation or fail the read; it must not silently become a
-new live value.
+snapshot after `SENT` or `APPROVING` must fail the read with an explicit
+data-integrity error. Reconciliation may report the same condition
+separately, but it must not silently substitute a new live value.
 
 The live current, excluded, and count projections remain database-side
 aggregates. The effective amount expressions above must also be used for
@@ -226,12 +226,23 @@ ID order.
 Lifecycle mutations must be guarded by the expected old status and a null
 snapshot. A retry after a committed transition returns the existing target
 state and snapshot successfully; it never overwrites the snapshot. An
-unexpected state or a missing snapshot after the freeze point is a conflict
-or data-integrity error.
+unexpected state or a missing snapshot after the freeze point must fail with
+an explicit conflict or data-integrity error.
 
 The transaction row continues to have at most one current `reward_batch_id`.
 Moving a transaction updates that assignment; it does not create a second
 membership record.
+
+### Payment-impact idempotency
+
+Payment-driven invoice replacement and reversal handling use
+`transactionRevision` as the sole ordering and idempotency boundary. Equal or
+stale revisions are no-ops. This design does not introduce an impact inbox or
+a second payment-impact watermark.
+
+The existing `latest_applied_payment_impact_revision` schema field, if
+retained for compatibility, is not authoritative for this contract and must
+not establish a second idempotency boundary.
 
 ## Post-approval behavior
 
@@ -306,6 +317,8 @@ Add focused reactive unit and PostgreSQL integration coverage for:
    change while captured snapshots remain unchanged.
 5. List/detail mapping and amount sorting, proving the same effective values
    are returned and ordered.
+6. Payment-impact retries with equal and stale `transactionRevision` values,
+   proving that they are no-ops without a second inbox or watermark.
 
 ## Acceptance criteria
 
@@ -324,6 +337,8 @@ Add focused reactive unit and PostgreSQL integration coverage for:
 - Empty batches remain sendable and approvable under the ordinary lifecycle
   rules; post-approval impacts preserve payment ownership and do not change
   captured snapshots.
+- Payment-driven impacts use `transactionRevision` as their sole ordering and
+  idempotency boundary; equal and stale revisions are no-ops.
 - No second membership table, mutable counter-update workflow, new routing
   algorithm, or transaction snapshot is introduced. Existing endpoints remain
   compatible with the additive DTO fields.
