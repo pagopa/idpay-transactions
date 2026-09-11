@@ -181,11 +181,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
                                 ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST));
                     }
-                    if (batch.getNumberOfTransactions() == null || batch.getNumberOfTransactions() == 0) {
-                        log.warn("[SEND_REWARD_BATCHES] Empty batch cannot be sent !");
-                        return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
-                                ExceptionConstants.ExceptionCode.REWARD_BATCH_EMPTY));
-                    }
                     YearMonth batchMonth = YearMonth.parse(batch.getMonth());
                     if (!YearMonth.now(ZONEID).isAfter(batchMonth)) {
                         log.warn("[SEND_REWARD_BATCHES] Batch month too early to be sent !");
@@ -219,7 +214,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                     return batchMonth.isBefore(currentMonth);
                 })
                 .filter(batch -> batch.getStatus() == RewardBatchStatus.CREATED)
-                .filter(batch -> batch.getNumberOfTransactions() != 0)
+                .filter(batch -> batch.getNumberOfTransactions() != null
+                        && batch.getNumberOfTransactions() > 0)
                 .hasElements();
     }
 

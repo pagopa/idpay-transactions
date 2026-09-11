@@ -354,12 +354,10 @@ class MerchantRewardBatchControllerImplTest {
     }
 
     @Test
-    void sendRewardBatchesRejectsEmptyBatch() {
+    void sendRewardBatchesAcceptsEmptyBatch() {
         String batchId = "EMPTY_BATCH";
         when(rewardBatchService.sendRewardBatch(INITIATIVE_ID, MERCHANT_ID, batchId))
-                .thenReturn(Mono.error(new RewardBatchException(
-                        HttpStatus.BAD_REQUEST,
-                        ExceptionCode.REWARD_BATCH_EMPTY)));
+                .thenReturn(Mono.empty());
 
         webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
                 .uri(uriBuilder -> uriBuilder
@@ -367,10 +365,10 @@ class MerchantRewardBatchControllerImplTest {
                         .build(INITIATIVE_ID, batchId))
                 .header("x-merchant-id", MERCHANT_ID)
                 .exchange()
-                .expectStatus().isBadRequest()
-                .expectBody()
-                .jsonPath("$.code").isEqualTo(ExceptionCode.REWARD_BATCH_EMPTY)
-                .jsonPath("$.message").isEqualTo(ExceptionCode.REWARD_BATCH_EMPTY);
+                .expectStatus().isNoContent()
+                .expectBody().isEmpty();
+
+        verify(rewardBatchService).sendRewardBatch(INITIATIVE_ID, MERCHANT_ID, batchId);
     }
 
     @Test
