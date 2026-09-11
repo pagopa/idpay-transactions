@@ -115,7 +115,9 @@ public class RewardBatchSqlMapper {
             Record result,
             BatchAggregateProjection aggregateProjection
     ) {
-        RewardBatch batch = fromRecord(result.into(RewardBatchesRecord.class));
+        RewardBatchesRecord batchRecord = result.into(RewardBatchesRecord.class);
+        RewardBatch batch = fromRecord(batchRecord);
+        validateRequiredSnapshots(batchRecord);
         batch.setNumberOfTransactions(result.get(aggregateProjection.numberOfTransactions()));
         batch.setInitialAmountCents(result.get(aggregateProjection.initialAmountCents()));
         batch.setNumberOfTransactionsElaborated(result.get(aggregateProjection.numberOfTransactionsElaborated()));
@@ -123,6 +125,8 @@ public class RewardBatchSqlMapper {
         batch.setNumberOfTransactionsRejected(result.get(aggregateProjection.numberOfTransactionsRejected()));
         batch.setSuspendedAmountCents(result.get(aggregateProjection.suspendedAmountCents()));
         batch.setApprovedAmountCents(result.get(aggregateProjection.approvedAmountCents()));
+        batch.setCurrentAmountCents(result.get(aggregateProjection.currentAmountCents()));
+        batch.setExcludedAmountCents(result.get(aggregateProjection.excludedAmountCents()));
         return batch;
     }
 
@@ -133,8 +137,37 @@ public class RewardBatchSqlMapper {
             org.jooq.Field<Long> numberOfTransactionsSuspended,
             org.jooq.Field<Long> numberOfTransactionsRejected,
             org.jooq.Field<Long> suspendedAmountCents,
-            org.jooq.Field<Long> approvedAmountCents
+            org.jooq.Field<Long> approvedAmountCents,
+            org.jooq.Field<Long> currentAmountCents,
+            org.jooq.Field<Long> excludedAmountCents
     ) {
+    }
+
+    private static void validateRequiredSnapshots(RewardBatchesRecord batchRecord) {
+        RewardBatchStatus status = RewardBatchStatus.valueOf(batchRecord.getStatus());
+        if (status != RewardBatchStatus.CREATED && batchRecord.getInitialAmountCentsAtSend() == null) {
+            throw missingSnapshot(batchRecord, "initial_amount_cents_at_send");
+        }
+        if (requiresSuspendedSnapshot(status) && batchRecord.getSuspendedAmountCentsAtApproving() == null) {
+            throw missingSnapshot(batchRecord, "suspended_amount_cents_at_approving");
+        }
+    }
+
+    private static boolean requiresSuspendedSnapshot(RewardBatchStatus status) {
+        return switch (status) {
+            case APPROVING, APPROVED, PENDING_REFUND, NOT_REFUNDED, REFUNDED -> true;
+            default -> false;
+        };
+    }
+
+    private static IllegalStateException missingSnapshot(
+            RewardBatchesRecord batchRecord,
+            String snapshotColumn
+    ) {
+        return new IllegalStateException(
+                "Data integrity error: reward batch %s is missing required snapshot %s"
+                        .formatted(batchRecord.getId(), snapshotColumn)
+        );
     }
 
     private Json toJson(DeliveryOutcomeDTO deliveryOutcome) {

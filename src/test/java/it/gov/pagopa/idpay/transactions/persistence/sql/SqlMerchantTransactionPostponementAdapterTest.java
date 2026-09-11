@@ -136,8 +136,8 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
                         transactionSnapshot("moved")
                 ))
                 .assertNext(result -> {
-                    assertAggregate(result.getT1(), 1L, 50L, 0L, 0L, 0L, 0L, 50L);
-                    assertAggregate(result.getT2(), 2L, 130L, 1L, 1L, 0L, 100L, 30L);
+                    assertAggregate(result.getT1(), 1L, 50L, 0L, 0L, 0L, 0L, 0L);
+                    assertAggregate(result.getT2(), 2L, 130L, 1L, 1L, 0L, 100L, 0L);
                     assertEquals(TARGET_BATCH_ID, result.getT3().batchId());
                     assertEquals(SyncTrxStatus.REWARDED.name(), result.getT3().syncStatus());
                     assertEquals(RewardBatchTrxStatus.SUSPENDED.name(), result.getT3().batchStatus());
@@ -213,7 +213,14 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
             RewardBatchStatus targetStatus
     ) {
         StepVerifier.create(Flux.concat(
-                        insertBatch(SOURCE_BATCH_ID, INITIATIVE_ID, MERCHANT_ID, SOURCE_MONTH, sourceStatus),
+                        insertBatch(
+                                SOURCE_BATCH_ID,
+                                INITIATIVE_ID,
+                                MERCHANT_ID,
+                                SOURCE_MONTH,
+                                sourceStatus,
+                                sourceStatus == RewardBatchStatus.SENT ? 100L : null
+                        ),
                         insertBatch(TARGET_BATCH_ID, INITIATIVE_ID, MERCHANT_ID, TARGET_MONTH, targetStatus),
                         insertTransaction("protected", INITIATIVE_ID, MERCHANT_ID, SOURCE_BATCH_ID,
                                 SyncTrxStatus.REWARDED, RewardBatchTrxStatus.CONSULTABLE, 100L)
@@ -235,7 +242,7 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
                 ))
                 .assertNext(result -> {
                     assertEquals(SOURCE_BATCH_ID, result.getT1().batchId());
-                    assertAggregate(result.getT2(), 1L, 100L, 0L, 0L, 0L, 0L, 100L);
+                    assertAggregate(result.getT2(), 1L, 100L, 0L, 0L, 0L, 0L, 0L);
                     assertAggregate(result.getT3(), 0L, 0L, 0L, 0L, 0L, 0L, 0L);
                 })
                 .verifyComplete();
@@ -460,25 +467,44 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
             String month,
             RewardBatchStatus status
     ) {
-        return databaseClient()
+        return insertBatch(
+                batchId,
+                initiativeId,
+                merchantId,
+                month,
+                status,
+                status == RewardBatchStatus.CREATED ? null : 0L
+        );
+    }
+
+    private static Mono<Void> insertBatch(
+            String batchId,
+            String initiativeId,
+            String merchantId,
+            String month,
+            RewardBatchStatus status,
+            Long initialAmountCentsAtSend
+    ) {
+        var specification = databaseClient()
                 .sql("""
                         INSERT INTO reward_batches (
                             id, initiative_id, merchant_id, business_name, month, pos_type, status, name,
-                            assignee_level
+                            assignee_level, initial_amount_cents_at_send
                         )
                         VALUES (
                             :id, :initiativeId, :merchantId, 'Business', :month, 'PHYSICAL', :status, 'Batch',
-                            'L1'
+                            'L1', :initialAmountCentsAtSend
                         )
                         """)
                 .bind("id", batchId)
                 .bind("initiativeId", initiativeId)
                 .bind("merchantId", merchantId)
                 .bind("month", month)
-                .bind("status", status.name())
-                .fetch()
-                .rowsUpdated()
-                .then();
+                .bind("status", status.name());
+        specification = initialAmountCentsAtSend == null
+                ? specification.bindNull("initialAmountCentsAtSend", Long.class)
+                : specification.bind("initialAmountCentsAtSend", initialAmountCentsAtSend);
+        return specification.fetch().rowsUpdated().then();
     }
 
     private static Mono<Void> insertTransaction(
