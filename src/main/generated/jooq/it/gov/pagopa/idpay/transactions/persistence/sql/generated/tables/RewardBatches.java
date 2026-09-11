@@ -187,6 +187,18 @@ public class RewardBatches extends TableImpl<RewardBatchesRecord> {
      */
     public final TableField<RewardBatchesRecord, Long> DELIVERY_AMOUNT_CENTS = createField(DSL.name("delivery_amount_cents"), SQLDataType.BIGINT, this, "");
 
+    /**
+     * The column
+     * <code>idpay-rimborsi.reward_batches.initial_amount_cents_at_send</code>.
+     */
+    public final TableField<RewardBatchesRecord, Long> INITIAL_AMOUNT_CENTS_AT_SEND = createField(DSL.name("initial_amount_cents_at_send"), SQLDataType.BIGINT, this, "");
+
+    /**
+     * The column
+     * <code>idpay-rimborsi.reward_batches.suspended_amount_cents_at_approving</code>.
+     */
+    public final TableField<RewardBatchesRecord, Long> SUSPENDED_AMOUNT_CENTS_AT_APPROVING = createField(DSL.name("suspended_amount_cents_at_approving"), SQLDataType.BIGINT, this, "");
+
     private RewardBatches(Name alias, Table<RewardBatchesRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);
     }

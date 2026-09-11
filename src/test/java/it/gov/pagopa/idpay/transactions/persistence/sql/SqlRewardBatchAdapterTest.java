@@ -143,6 +143,46 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
     }
 
     @Test
+    void shouldPreserveRawLifecycleSnapshotsWhenGenericBatchSaveUpdatesMetadata() {
+        RewardBatch batch = batch("batch-snapshot-protection");
+
+        StepVerifier.create(adapter.createOrRead(batch)
+                        .flatMap(created -> databaseClient()
+                                .sql("""
+                                        UPDATE reward_batches
+                                        SET initial_amount_cents_at_send = 1234,
+                                            suspended_amount_cents_at_approving = 567
+                                        WHERE id = 'batch-snapshot-protection'
+                                        """)
+                                .fetch()
+                                .rowsUpdated()
+                                .then(adapter.findById(created.getId())))
+                        .flatMap(loaded -> {
+                            loaded.setBusinessName("Updated merchant");
+                            loaded.setFilename("updated.csv");
+                            return adapter.save(loaded);
+                        })
+                        .flatMap(saved -> databaseClient()
+                                .sql("""
+                                        SELECT business_name, filename,
+                                               initial_amount_cents_at_send,
+                                               suspended_amount_cents_at_approving
+                                        FROM reward_batches
+                                        WHERE id = :id
+                                        """)
+                                .bind("id", saved.getId())
+                                .map((row, metadata) -> new PersistedBatchValues(
+                                        row.get("business_name", String.class),
+                                        row.get("filename", String.class),
+                                        row.get("initial_amount_cents_at_send", Long.class),
+                                        row.get("suspended_amount_cents_at_approving", Long.class)
+                                ))
+                                .one()))
+                .expectNext(new PersistedBatchValues("Updated merchant", "updated.csv", 1234L, 567L))
+                .verifyComplete();
+    }
+
+    @Test
     void shouldUpdateStatusAndMetadataWithoutChangingBatchIdentity() {
         RewardBatch batch = batch("batch-metadata");
         DeliveryOutcomeDTO deliveryOutcome = DeliveryOutcomeDTO.builder()
@@ -515,5 +555,13 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                 .updateDate(LocalDateTime.of(2026, Month.JULY, 1, 0, 0))
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .build();
+    }
+
+    private record PersistedBatchValues(
+            String businessName,
+            String filename,
+            Long initialAmountCentsAtSend,
+            Long suspendedAmountCentsAtApproving
+    ) {
     }
 }
