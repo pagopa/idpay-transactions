@@ -7,15 +7,21 @@ import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.Exceptio
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_MONTH_TOO_EARLY;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_PREVIOUS_NOT_SENT;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_INVALID_STATE_BATCH;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_PREVIOUS_BATCH_TO_APPROVE;
 import static org.jooq.impl.DSL.coalesce;
 import static org.jooq.impl.DSL.currentLocalDateTime;
 import static org.jooq.impl.DSL.sum;
 import static org.jooq.impl.DSL.val;
 
 import io.r2dbc.spi.ConnectionFactory;
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardBatchesRecord;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +47,10 @@ import java.util.Objects;
 public class SqlRewardBatchAdapter {
 
     private static final Field<Long> ASSIGNED_REWARD_AMOUNT_CENTS = coalesce(
+            sum(REWARD_TRANSACTIONS.ACCRUED_REWARD_CENTS),
+            val(0L)
+    ).cast(Long.class);
+    private static final Field<Long> SUSPENDED_REWARD_AMOUNT_CENTS = coalesce(
             sum(REWARD_TRANSACTIONS.ACCRUED_REWARD_CENTS),
             val(0L)
     ).cast(Long.class);
@@ -130,18 +140,240 @@ public class SqlRewardBatchAdapter {
                 }));
     }
 
-    public Mono<RewardBatch> updateStatus(
-            String id,
-            String initiativeId,
-            RewardBatchStatus status
+    public Mono<RewardBatch> enterApproval(String rewardBatchId, String initiativeId) {
+        return SqlTransactionRetrySupport.retryOnConcurrencyFailure(Mono.defer(() -> {
+            validateApprovalRequest(rewardBatchId, initiativeId);
+            return transactionalOperator.transactional(
+                    ConnectionFactoryUtils.getConnection(connectionFactory)
+                            .flatMap(connection -> enterApprovalWithinTransaction(
+                                    DSL.using(connection, SQLDialect.POSTGRES),
+                                    rewardBatchId,
+                                    initiativeId
+                            ))
+            );
+        }));
+    }
+
+    private Mono<RewardBatch> enterApprovalWithinTransaction(
+            DSLContext transactionDslContext,
+            String rewardBatchId,
+            String initiativeId
     ) {
-        return transactionalOperator.transactional(Mono.from(dslContext.update(REWARD_BATCHES)
-                        .set(REWARD_BATCHES.STATUS, status.name())
-                        .set(REWARD_BATCHES.UPDATE_DATE, currentLocalDateTime())
-                        .where(REWARD_BATCHES.ID.eq(id))
-                        .and(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId))
+        return lockBatchForApprovalWithGroupLock(transactionDslContext, rewardBatchId, initiativeId)
+                .flatMap(batch -> validateApprovalBatch(batch)
+                        .switchIfEmpty(Mono.defer(() -> continueApproval(
+                                transactionDslContext,
+                                batch,
+                                rewardBatchId,
+                                initiativeId
+                        ))));
+    }
+
+    private Mono<RewardBatch> continueApproval(
+            DSLContext transactionDslContext,
+            RewardBatchesRecord batch,
+            String rewardBatchId,
+            String initiativeId
+    ) {
+        return hasPreviousBatchToApprove(
+                transactionDslContext,
+                batch.getId(),
+                batch.getInitiativeId(),
+                batch.getMerchantId(),
+                batch.getPosType(),
+                batch.getMonth()
+        ).flatMap(hasPreviousBatch -> {
+            if (hasPreviousBatch) {
+                return Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.BAD_REQUEST,
+                        REWARD_BATCH_INVALID_REQUEST,
+                        ERROR_MESSAGE_PREVIOUS_BATCH_TO_APPROVE.formatted(rewardBatchId)
+                ));
+            }
+            return captureApprovalSnapshot(transactionDslContext, rewardBatchId, initiativeId);
+        });
+    }
+
+    private Mono<RewardBatch> validateApprovalBatch(RewardBatchesRecord batch) {
+        RewardBatchStatus status = RewardBatchStatus.valueOf(batch.getStatus());
+        if (status != RewardBatchStatus.CREATED && batch.getInitialAmountCentsAtSend() == null) {
+            return Mono.error(missingSendSnapshot(batch.getId()));
+        }
+        if (status == RewardBatchStatus.APPROVING) {
+            return returnExistingApproval(batch);
+        }
+        if (requiresApprovalSnapshot(status)
+                && batch.getSuspendedAmountCentsAtApproving() == null) {
+            return Mono.error(missingApprovalSnapshot(batch.getId()));
+        }
+        if (status != RewardBatchStatus.EVALUATING) {
+            return invalidApprovalState(batch.getId());
+        }
+        if (batch.getSuspendedAmountCentsAtApproving() != null) {
+            return Mono.error(inconsistentApprovalSnapshot(batch.getId()));
+        }
+        if (!RewardBatchAssignee.L3.name().equals(batch.getAssigneeLevel())) {
+            return invalidApprovalState(batch.getId());
+        }
+        return Mono.empty();
+    }
+
+    private Mono<RewardBatchesRecord> lockBatchForApprovalWithGroupLock(
+            DSLContext transactionDslContext,
+            String rewardBatchId,
+            String initiativeId
+    ) {
+        return readBatchForApproval(transactionDslContext, rewardBatchId, initiativeId)
+                .flatMap(batch -> SqlRewardBatchGroupLock.acquire(
+                                transactionDslContext,
+                                batch.getInitiativeId(),
+                                batch.getMerchantId(),
+                                batch.getPosType()
+                        )
+                        .then(lockBatchForApproval(transactionDslContext, rewardBatchId, initiativeId)));
+    }
+
+    private Mono<RewardBatch> returnExistingApproval(RewardBatchesRecord batch) {
+        if (batch.getSuspendedAmountCentsAtApproving() == null) {
+            return Mono.error(missingApprovalSnapshot(batch.getId()));
+        }
+        if (!RewardBatchAssignee.L3.name().equals(batch.getAssigneeLevel())) {
+            return invalidApprovalState(batch.getId());
+        }
+        return Mono.just(mapper.fromRecord(batch));
+    }
+
+    private Mono<RewardBatch> captureApprovalSnapshot(
+            DSLContext transactionDslContext,
+            String rewardBatchId,
+            String initiativeId
+    ) {
+        return lockAssignedTransactions(transactionDslContext, rewardBatchId, initiativeId)
+                .then(sumSuspendedRewards(transactionDslContext, rewardBatchId, initiativeId))
+                .flatMap(amount -> captureApprovalSnapshotAndStatus(
+                        transactionDslContext,
+                        rewardBatchId,
+                        initiativeId,
+                        amount
+                ));
+    }
+
+    private Mono<RewardBatchesRecord> lockBatchForApproval(
+            DSLContext transactionDslContext,
+            String rewardBatchId,
+            String initiativeId
+    ) {
+        return Mono.from(transactionDslContext.selectFrom(REWARD_BATCHES)
+                        .where(REWARD_BATCHES.ID.eq(rewardBatchId)
+                                .and(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId)))
+                        .forUpdate())
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.NOT_FOUND,
+                        REWARD_BATCH_NOT_FOUND,
+                        ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId)
+                )));
+    }
+
+    private Mono<RewardBatchesRecord> readBatchForApproval(
+            DSLContext transactionDslContext,
+            String rewardBatchId,
+            String initiativeId
+    ) {
+        return Mono.from(transactionDslContext.selectFrom(REWARD_BATCHES)
+                        .where(REWARD_BATCHES.ID.eq(rewardBatchId)
+                                .and(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId))))
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.NOT_FOUND,
+                        REWARD_BATCH_NOT_FOUND,
+                        ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId)
+                )));
+    }
+
+    private Mono<Boolean> hasPreviousBatchToApprove(
+            DSLContext transactionDslContext,
+            String rewardBatchId,
+            String initiativeId,
+            String merchantId,
+            String posType,
+            String month
+    ) {
+        return Mono.from(transactionDslContext.selectOne()
+                        .from(REWARD_BATCHES)
+                        .where(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId)
+                                .and(REWARD_BATCHES.MERCHANT_ID.eq(merchantId))
+                                .and(REWARD_BATCHES.POS_TYPE.eq(posType))
+                                .and(REWARD_BATCHES.MONTH.lt(month))
+                                .and(REWARD_BATCHES.ID.ne(rewardBatchId))
+                                .and(REWARD_BATCHES.STATUS.notIn(
+                                        RewardBatchStatus.APPROVED.name(),
+                                        RewardBatchStatus.PENDING_REFUND.name(),
+                                        RewardBatchStatus.NOT_REFUNDED.name(),
+                                        RewardBatchStatus.REFUNDED.name()
+                                )))
+                        .limit(1))
+                .hasElement();
+    }
+
+    private Mono<Long> sumSuspendedRewards(
+            DSLContext transactionDslContext,
+            String rewardBatchId,
+            String initiativeId
+    ) {
+        return Mono.from(transactionDslContext.select(SUSPENDED_REWARD_AMOUNT_CENTS)
+                        .from(REWARD_TRANSACTIONS)
+                        .where(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(rewardBatchId)
+                                .and(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(initiativeId))
+                                .and(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS.eq(
+                                        RewardBatchTrxStatus.SUSPENDED.name()
+                                ))))
+                .map(Record1::value1);
+    }
+
+    private Mono<RewardBatch> captureApprovalSnapshotAndStatus(
+            DSLContext transactionDslContext,
+            String rewardBatchId,
+            String initiativeId,
+            Long amount
+    ) {
+        Field<LocalDateTime> now = currentLocalDateTime();
+        return Mono.from(transactionDslContext.update(REWARD_BATCHES)
+                        .set(REWARD_BATCHES.SUSPENDED_AMOUNT_CENTS_AT_APPROVING, amount)
+                        .set(REWARD_BATCHES.STATUS, RewardBatchStatus.APPROVING.name())
+                        .set(REWARD_BATCHES.APPROVAL_DATE, now)
+                        .set(REWARD_BATCHES.UPDATE_DATE, now)
+                        .where(REWARD_BATCHES.ID.eq(rewardBatchId)
+                                .and(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId))
+                                .and(REWARD_BATCHES.STATUS.eq(RewardBatchStatus.EVALUATING.name()))
+                                .and(REWARD_BATCHES.ASSIGNEE_LEVEL.eq(RewardBatchAssignee.L3.name()))
+                                .and(REWARD_BATCHES.SUSPENDED_AMOUNT_CENTS_AT_APPROVING.isNull()))
                         .returning())
-                .map(mapper::fromRecord));
+                .map(mapper::fromRecord)
+                .switchIfEmpty(Mono.error(new IllegalStateException(
+                        "Data integrity error: reward batch %s changed while capturing approval snapshot"
+                                .formatted(rewardBatchId)
+                )));
+    }
+
+    private Mono<RewardBatch> invalidApprovalState(String rewardBatchId) {
+        return Mono.error(new ClientExceptionWithBody(
+                HttpStatus.BAD_REQUEST,
+                REWARD_BATCH_INVALID_REQUEST,
+                ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
+        ));
+    }
+
+    private static IllegalStateException missingApprovalSnapshot(String rewardBatchId) {
+        return new IllegalStateException(
+                "Data integrity error: reward batch %s is past EVALUATING without suspended approval snapshot"
+                        .formatted(rewardBatchId)
+        );
+    }
+
+    private static IllegalStateException inconsistentApprovalSnapshot(String rewardBatchId) {
+        return new IllegalStateException(
+                "Data integrity error: reward batch %s is EVALUATING with a suspended approval snapshot"
+                        .formatted(rewardBatchId)
+        );
     }
 
     public Mono<RewardBatch> updateMetadata(RewardBatch batch) {
@@ -409,6 +641,23 @@ public class SqlRewardBatchAdapter {
                     REWARD_BATCH_NOT_FOUND
             );
         }
+    }
+
+    private static void validateApprovalRequest(String rewardBatchId, String initiativeId) {
+        if (isBlank(rewardBatchId) || isBlank(initiativeId)) {
+            throw new ClientExceptionWithBody(
+                    HttpStatus.NOT_FOUND,
+                    REWARD_BATCH_NOT_FOUND,
+                    ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId)
+            );
+        }
+    }
+
+    private static boolean requiresApprovalSnapshot(RewardBatchStatus status) {
+        return switch (status) {
+            case APPROVING, APPROVED, PENDING_REFUND, NOT_REFUNDED, REFUNDED -> true;
+            default -> false;
+        };
     }
 
     private static boolean isBlank(String value) {

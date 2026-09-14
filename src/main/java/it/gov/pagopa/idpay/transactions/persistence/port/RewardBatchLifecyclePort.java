@@ -50,9 +50,8 @@ public interface RewardBatchLifecyclePort {
             String merchantId
     );
 
-    Mono<RewardBatch> updateEvaluationStatus(
+    Mono<RewardBatch> enterApproval(
             String rewardBatchId,
-            String initiativeId,
-            long approvedAmountCents
+            String initiativeId
     );
 }
