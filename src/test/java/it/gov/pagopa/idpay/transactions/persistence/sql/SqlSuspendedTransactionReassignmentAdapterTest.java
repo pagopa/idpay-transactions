@@ -117,7 +117,13 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
     @Test
     void shouldMoveOnlySuspendedRowsToNewCurrentMonthBatchAndProjectBothBatchAggregates() {
         StepVerifier.create(Flux.concat(
-                        insertBatch(SOURCE_BATCH_ID, INITIATIVE_ID, PAST_MONTH, RewardBatchStatus.EVALUATING),
+                        insertBatch(
+                                SOURCE_BATCH_ID,
+                                INITIATIVE_ID,
+                                PAST_MONTH,
+                                RewardBatchStatus.EVALUATING,
+                                500L
+                        ),
                         insertTransaction(
                                 "suspended-without-last-month",
                                 INITIATIVE_ID,
@@ -172,7 +178,7 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
                         transactionRows()
                 ))
                 .assertNext(result -> {
-                    assertAggregate(result.getT1(), 3L, 150L, 2L, 0L, 1L, 0L, 75L);
+                    assertAggregate(result.getT1(), 3L, 500L, 2L, 0L, 1L, 0L, 75L);
 
                     RewardBatch target = result.getT2();
                     assertEquals(RewardBatchStatus.CREATED, target.getStatus());
@@ -197,11 +203,22 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
     @Test
     void shouldReuseExistingTargetAndKeepFutureSourceAsItsOwnSingleTarget() {
         StepVerifier.create(Flux.concat(
-                        insertBatch(SOURCE_BATCH_ID, INITIATIVE_ID, PAST_MONTH, RewardBatchStatus.EVALUATING),
+                        insertBatch(
+                                SOURCE_BATCH_ID,
+                                INITIATIVE_ID,
+                                PAST_MONTH,
+                                RewardBatchStatus.EVALUATING,
+                                100L
+                        ),
                         insertBatch(TARGET_BATCH_ID, INITIATIVE_ID, CURRENT_MONTH.toString(),
                                 RewardBatchStatus.CREATED),
-                        insertBatch(FUTURE_SOURCE_BATCH_ID, INITIATIVE_ID, FUTURE_MONTH,
-                                RewardBatchStatus.EVALUATING),
+                        insertBatch(
+                                FUTURE_SOURCE_BATCH_ID,
+                                INITIATIVE_ID,
+                                FUTURE_MONTH,
+                                RewardBatchStatus.EVALUATING,
+                                200L
+                        ),
                         insertTransaction(
                                 "past-suspended",
                                 INITIATIVE_ID,
@@ -250,7 +267,13 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
     @Test
     void shouldBeIdempotentWhenReassignmentIsRetriedAfterCompletion() {
         StepVerifier.create(Flux.concat(
-                        insertBatch(SOURCE_BATCH_ID, INITIATIVE_ID, PAST_MONTH, RewardBatchStatus.EVALUATING),
+                        insertBatch(
+                                SOURCE_BATCH_ID,
+                                INITIATIVE_ID,
+                                PAST_MONTH,
+                                RewardBatchStatus.EVALUATING,
+                                350L
+                        ),
                         insertTransaction(
                                 "first-suspended",
                                 INITIATIVE_ID,
@@ -288,7 +311,13 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
     @Test
     void shouldMoveMembershipExactlyOnceWhenCommandsRunConcurrently() {
         StepVerifier.create(Flux.concat(
-                        insertBatch(SOURCE_BATCH_ID, INITIATIVE_ID, PAST_MONTH, RewardBatchStatus.EVALUATING),
+                        insertBatch(
+                                SOURCE_BATCH_ID,
+                                INITIATIVE_ID,
+                                PAST_MONTH,
+                                RewardBatchStatus.EVALUATING,
+                                60L
+                        ),
                         insertTransaction(
                                 "concurrent-first",
                                 INITIATIVE_ID,
@@ -330,7 +359,7 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
                 ))
                 .assertNext(result -> {
                     assertEquals(1L, result.getT1());
-                    assertAggregate(result.getT2(), 0L, 0L, 0L, 0L, 0L, 0L, 0L);
+                    assertAggregate(result.getT2(), 0L, 60L, 0L, 0L, 0L, 0L, 0L);
                     assertAggregate(result.getT3(), 3L, 60L, 3L, 3L, 0L, 60L, 0L);
                     result.getT4().values().forEach(row -> assertRow(
                             row,
@@ -351,7 +380,13 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
         String impactTransactionId = "impact-suspended";
 
         StepVerifier.create(Flux.concat(
-                        insertBatch(sourceBatchId, INITIATIVE_ID, PAST_MONTH, RewardBatchStatus.EVALUATING),
+                        insertBatch(
+                                sourceBatchId,
+                                INITIATIVE_ID,
+                                PAST_MONTH,
+                                RewardBatchStatus.EVALUATING,
+                                200L
+                        ),
                         insertBatch(targetBatchId, INITIATIVE_ID, CURRENT_MONTH.toString(),
                                 RewardBatchStatus.CREATED),
                         insertTransaction(
@@ -401,7 +436,7 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
                 ))
                 .assertNext(result -> {
                     assertEquals(1L, result.getT1());
-                    assertAggregate(result.getT2(), 0L, 0L, 0L, 0L, 0L, 0L, 0L);
+                    assertAggregate(result.getT2(), 0L, 200L, 0L, 0L, 0L, 0L, 0L);
                     assertAggregate(result.getT3(), 2L, 225L, 2L, 2L, 0L, 225L, 0L);
 
                     assertMovedToTarget(result.getT4().get(reassignedTransactionId), targetBatchId);
@@ -460,23 +495,42 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
             String month,
             RewardBatchStatus status
     ) {
-        return databaseClient()
+        return insertBatch(
+                batchId,
+                initiativeId,
+                month,
+                status,
+                status == RewardBatchStatus.CREATED ? null : 0L
+        );
+    }
+
+    private static Mono<Void> insertBatch(
+            String batchId,
+            String initiativeId,
+            String month,
+            RewardBatchStatus status,
+            Long initialAmountCentsAtSend
+    ) {
+        var specification = databaseClient()
                 .sql("""
                         INSERT INTO reward_batches (
-                            id, initiative_id, merchant_id, month, pos_type, status, name, assignee_level
+                            id, initiative_id, merchant_id, month, pos_type, status, name, assignee_level,
+                            initial_amount_cents_at_send
                         )
                         VALUES (
-                            :id, :initiativeId, :merchantId, :month, 'PHYSICAL', :status, 'Batch', 'L1'
+                            :id, :initiativeId, :merchantId, :month, 'PHYSICAL', :status, 'Batch', 'L1',
+                            :initialAmountCentsAtSend
                         )
                         """)
                 .bind("id", batchId)
                 .bind("initiativeId", initiativeId)
                 .bind("merchantId", MERCHANT_ID)
                 .bind("month", month)
-                .bind("status", status.name())
-                .fetch()
-                .rowsUpdated()
-                .then();
+                .bind("status", status.name());
+        specification = initialAmountCentsAtSend == null
+                ? specification.bindNull("initialAmountCentsAtSend", Long.class)
+                : specification.bind("initialAmountCentsAtSend", initialAmountCentsAtSend);
+        return specification.fetch().rowsUpdated().then();
     }
 
     private static Mono<Void> insertTransaction(

@@ -18,6 +18,7 @@ import org.springframework.r2dbc.connection.TransactionAwareConnectionFactoryPro
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -226,6 +227,7 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
         toApprove.setAssigneeLevel(RewardBatchAssignee.L3);
 
         StepVerifier.create(adapter.createOrRead(toApprove)
+                        .then(setSnapshots("batch-to-approve", 1_000L, 200L))
                         .thenMany(databaseClient()
                                 .sql("""
                                         INSERT INTO reward_transactions (
@@ -297,7 +299,12 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                                 """)
                         .fetch()
                         .rowsUpdated())
-                        .thenMany(listAdapter.findDeliverableBatches(
+                                .thenMany(Flux.concat(
+                                        setSnapshots("batch-deliverable", 0L, 0L),
+                                        setSnapshots("batch-zero", 0L, 0L),
+                                        setSnapshots("batch-pending-refund", 0L, 0L)
+                                ))
+                                .thenMany(listAdapter.findDeliverableBatches(
                                 "initiative-1",
                                 PageRequest.of(0, 1)
                         )))
@@ -342,7 +349,11 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                         adapter.createOrRead(merchantCreated),
                         adapter.createOrRead(otherMerchant),
                         adapter.createOrRead(otherInitiative)
-                ).then())
+                ).thenMany(Flux.concat(
+                        setSnapshots("batch-scoped", 0L, 0L),
+                        setSnapshots("batch-earlier-sent", 0L, 0L),
+                        setSnapshots("batch-other-initiative", 0L, 0L)
+                )).then())
                 .verifyComplete();
 
         StepVerifier.create(listAdapter.findBatchesToProcessAfter(
@@ -435,6 +446,11 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                         adapter.createOrRead(toApprove),
                         adapter.createOrRead(sent)
                 )
+                .thenMany(Flux.concat(
+                        setSnapshots("batch-to-work", 0L, 0L),
+                        setSnapshots("batch-to-approve-virtual", 0L, 0L),
+                        setSnapshots("batch-sent", 0L, 0L)
+                ))
                 .thenMany(listAdapter.findRewardBatches(
                         null, null, null, null, null, true, PageRequest.of(0, 10)
                 ))
@@ -555,6 +571,23 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                 .updateDate(LocalDateTime.of(2026, Month.JULY, 1, 0, 0))
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .build();
+    }
+
+    private static Mono<Void> setSnapshots(String id, long initialAmountCentsAtSend,
+                                           long suspendedAmountCentsAtApproving) {
+        return databaseClient()
+                .sql("""
+                        UPDATE reward_batches
+                        SET initial_amount_cents_at_send = :initialAmountCentsAtSend,
+                            suspended_amount_cents_at_approving = :suspendedAmountCentsAtApproving
+                        WHERE id = :id
+                        """)
+                .bind("id", id)
+                .bind("initialAmountCentsAtSend", initialAmountCentsAtSend)
+                .bind("suspendedAmountCentsAtApproving", suspendedAmountCentsAtApproving)
+                .fetch()
+                .rowsUpdated()
+                .then();
     }
 
     private record PersistedBatchValues(

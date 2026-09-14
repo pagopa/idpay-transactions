@@ -90,7 +90,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
     @Test
     void shouldPrepareSentBatchUsingAllAssignedRowsWithoutMutatingPaymentStatus() {
         StepVerifier.create(Flux.concat(
-                        insertBatch(BATCH_ID, RewardBatchStatus.SENT),
+                        insertBatch(BATCH_ID, RewardBatchStatus.SENT, BATCH_MONTH, 800L),
                         insertTransaction("sample-first", RewardBatchTrxStatus.CONSULTABLE, 1),
                         insertTransaction("sample-tie-a", RewardBatchTrxStatus.CONSULTABLE, 2),
                         insertTransaction("sample-tie-b", RewardBatchTrxStatus.CONSULTABLE, 2),
@@ -134,7 +134,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
 
     @Test
     void shouldPrepareEmptySentBatchWithoutSamplingRows() {
-        StepVerifier.create(insertBatch(BATCH_ID, RewardBatchStatus.SENT)
+        StepVerifier.create(insertBatch(BATCH_ID, RewardBatchStatus.SENT, BATCH_MONTH, 0L)
                         .then(adapter.prepareEvaluation(BATCH_ID, INITIATIVE_ID)))
                 .assertNext(batch -> assertEquals(RewardBatchStatus.EVALUATING, batch.getStatus()))
                 .verifyComplete();
@@ -453,17 +453,28 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
     }
 
     private static Mono<Void> insertBatch(String batchId, RewardBatchStatus status) {
-        return insertBatch(batchId, status, BATCH_MONTH);
+        return insertBatch(batchId, status, BATCH_MONTH, 100L);
     }
 
     private static Mono<Void> insertBatch(String batchId, RewardBatchStatus status, String month) {
+        return insertBatch(batchId, status, month, 100L);
+    }
+
+    private static Mono<Void> insertBatch(
+            String batchId,
+            RewardBatchStatus status,
+            String month,
+            long initialAmountCentsAtSend
+    ) {
         return databaseClient()
                 .sql("""
                         INSERT INTO reward_batches (
-                            id, initiative_id, merchant_id, month, pos_type, status, name, assignee_level
+                            id, initiative_id, merchant_id, month, pos_type, status, name, assignee_level,
+                            initial_amount_cents_at_send
                         )
                         VALUES (
-                            :id, :initiativeId, :merchantId, :month, 'PHYSICAL', :status, 'Luglio 2026', 'L1'
+                            :id, :initiativeId, :merchantId, :month, 'PHYSICAL', :status, 'Luglio 2026', 'L1',
+                            :initialAmountCentsAtSend
                         )
                         """)
                 .bind("id", batchId)
@@ -471,6 +482,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                 .bind("merchantId", MERCHANT_ID)
                 .bind("month", month)
                 .bind("status", status.name())
+                .bind("initialAmountCentsAtSend", initialAmountCentsAtSend)
                 .fetch()
                 .rowsUpdated()
                 .then();

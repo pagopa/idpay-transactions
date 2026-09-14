@@ -159,9 +159,15 @@ class SqlRewardBatchFinalApprovalAdapterTest extends PostgresqlMigrationTestSupp
             String id, String initiative, RewardBatchStatus status, RewardBatchAssignee assignee
     ) {
         return databaseClient().sql("""
-                        INSERT INTO reward_batches (id, initiative_id, merchant_id, month, pos_type, status, name, assignee_level)
-                        VALUES (:id, :initiative, :merchant, '2026-07', 'PHYSICAL', :status, 'July', :assignee)
-                        """)
+                INSERT INTO reward_batches (
+                    id, initiative_id, merchant_id, month, pos_type, status, name, assignee_level,
+                    initial_amount_cents_at_send, suspended_amount_cents_at_approving
+                )
+                VALUES (
+                    :id, :initiative, :merchant, '2026-07', 'PHYSICAL', :status, 'July', :assignee,
+                    0, 0
+                )
+                """)
                 .bind("id", id).bind("initiative", initiative).bind("merchant", id).bind("status", status.name())
                 .bind("assignee", assignee.name()).fetch().rowsUpdated().then();
     }
