@@ -11,6 +11,9 @@ final class SqlTransactionRetrySupport {
 
     static boolean isRetryableConcurrencyFailure(Throwable error) {
         for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause instanceof SqlMembershipChangedException) {
+                return true;
+            }
             if (cause instanceof R2dbcException exception
                     && ("40001".equals(exception.getSqlState())
                     || "40P01".equals(exception.getSqlState()))) {
