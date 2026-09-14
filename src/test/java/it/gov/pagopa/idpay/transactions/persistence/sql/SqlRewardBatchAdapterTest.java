@@ -900,6 +900,7 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                         assertEquals(100L, state.initialAmountCentsAtSend());
                         assertNull(state.suspendedAmountCentsAtApproving());
                         assertNull(state.approvalDate());
+                        assertEquals(batch.getUpdateDate(), state.updateDate());
                     })
                     .verifyComplete();
         } finally {
