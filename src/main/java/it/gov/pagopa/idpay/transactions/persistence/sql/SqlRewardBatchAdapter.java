@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.Field;
 import org.jooq.JSONB;
+import org.jooq.Record1;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 import org.springframework.r2dbc.connection.ConnectionFactoryUtils;
@@ -173,74 +174,117 @@ public class SqlRewardBatchAdapter {
             String initiativeId,
             String merchantId
     ) {
-    return readBatchForSend(transactionDslContext, rewardBatchId, initiativeId)
-        .flatMap(
-            batch ->
-                SqlRewardBatchGroupLock.acquire(
+        return lockBatchForSendWithGroupLock(transactionDslContext, rewardBatchId, initiativeId)
+                .flatMap(batch -> processLockedBatch(
                         transactionDslContext,
-                        batch.getInitiativeId(),
+                        batch,
+                        rewardBatchId,
+                        initiativeId,
+                        merchantId
+                ));
+    }
+
+    private Mono<RewardBatchesRecord> lockBatchForSendWithGroupLock(
+            DSLContext transactionDslContext,
+            String rewardBatchId,
+            String initiativeId
+    ) {
+        return readBatchForSend(transactionDslContext, rewardBatchId, initiativeId)
+                .flatMap(batch -> SqlRewardBatchGroupLock.acquire(
+                                transactionDslContext,
+                                batch.getInitiativeId(),
+                                batch.getMerchantId(),
+                                batch.getPosType()
+                        )
+                        .then(lockBatchForSend(transactionDslContext, rewardBatchId, initiativeId)));
+    }
+
+    private Mono<RewardBatch> processLockedBatch(
+            DSLContext transactionDslContext,
+            RewardBatchesRecord batch,
+            String rewardBatchId,
+            String initiativeId,
+            String merchantId
+    ) {
+        if (!Objects.equals(merchantId, batch.getMerchantId())) {
+            return Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND, REWARD_BATCH_NOT_FOUND));
+        }
+
+        return switch (RewardBatchStatus.valueOf(batch.getStatus())) {
+            case SENT -> returnSentBatch(batch);
+            case CREATED -> sendCreatedBatch(
+                    transactionDslContext,
+                    batch,
+                    rewardBatchId,
+                    initiativeId
+            );
+            default -> rejectNonCreatedBatch(batch);
+        };
+    }
+
+    private Mono<RewardBatch> returnSentBatch(RewardBatchesRecord batch) {
+        return batch.getInitialAmountCentsAtSend() == null
+                ? Mono.error(missingSendSnapshot(batch.getId()))
+                : Mono.just(mapper.fromRecord(batch));
+    }
+
+    private Mono<RewardBatch> rejectNonCreatedBatch(RewardBatchesRecord batch) {
+        return batch.getInitialAmountCentsAtSend() == null
+                ? Mono.error(missingSendSnapshot(batch.getId()))
+                : Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST, REWARD_BATCH_INVALID_REQUEST));
+    }
+
+    private Mono<RewardBatch> sendCreatedBatch(
+            DSLContext transactionDslContext,
+            RewardBatchesRecord batch,
+            String rewardBatchId,
+            String initiativeId
+    ) {
+        if (batch.getInitialAmountCentsAtSend() != null) {
+            return Mono.error(inconsistentSendSnapshot(batch.getId()));
+        }
+
+        YearMonth batchMonth = YearMonth.parse(batch.getMonth());
+        if (!YearMonth.now(ZONEID).isAfter(batchMonth)) {
+            return Mono.error(new RewardBatchException(
+                    HttpStatus.BAD_REQUEST,
+                    REWARD_BATCH_MONTH_TOO_EARLY
+            ));
+        }
+
+        return hasPreviousCreatedBatchWithTransactions(
+                        transactionDslContext,
+                        rewardBatchId,
+                        initiativeId,
                         batch.getMerchantId(),
-                        batch.getPosType())
-                    .then(lockBatchForSend(transactionDslContext, rewardBatchId, initiativeId)))
-        .flatMap(
-            batch -> {
-              if (!Objects.equals(merchantId, batch.getMerchantId())) {
-                return Mono.error(
-                    new RewardBatchException(HttpStatus.NOT_FOUND, REWARD_BATCH_NOT_FOUND));
-              }
+                        batch.getPosType(),
+                        batchMonth
+                )
+                .flatMap(hasPreviousBatch -> hasPreviousBatch
+                        ? Mono.error(new RewardBatchException(
+                                HttpStatus.BAD_REQUEST,
+                                REWARD_BATCH_PREVIOUS_NOT_SENT
+                        ))
+                        : captureBatchRewardSnapshot(
+                                transactionDslContext,
+                                rewardBatchId,
+                                initiativeId
+                        ));
+    }
 
-              RewardBatchStatus status = RewardBatchStatus.valueOf(batch.getStatus());
-              if (status == RewardBatchStatus.SENT) {
-                return batch.getInitialAmountCentsAtSend() == null
-                    ? Mono.error(missingSendSnapshot(batch.getId()))
-                    : Mono.just(mapper.fromRecord(batch));
-              }
-              if (status != RewardBatchStatus.CREATED) {
-                if (batch.getInitialAmountCentsAtSend() == null) {
-                  return Mono.error(missingSendSnapshot(batch.getId()));
-                }
-                return Mono.error(
-                    new RewardBatchException(HttpStatus.BAD_REQUEST, REWARD_BATCH_INVALID_REQUEST));
-              }
-              if (batch.getInitialAmountCentsAtSend() != null) {
-                return Mono.error(inconsistentSendSnapshot(batch.getId()));
-              }
-
-              YearMonth batchMonth = YearMonth.parse(batch.getMonth());
-              if (!YearMonth.now(ZONEID).isAfter(batchMonth)) {
-                return Mono.error(
-                    new RewardBatchException(HttpStatus.BAD_REQUEST, REWARD_BATCH_MONTH_TOO_EARLY));
-              }
-
-              return hasPreviousCreatedBatchWithTransactions(
-                      transactionDslContext,
-                      rewardBatchId,
-                      initiativeId,
-                      batch.getMerchantId(),
-                      batch.getPosType(),
-                      batchMonth)
-                  .flatMap(
-                      hasPreviousBatch -> {
-                        if (hasPreviousBatch) {
-                          return Mono.error(
-                              new RewardBatchException(
-                                  HttpStatus.BAD_REQUEST, REWARD_BATCH_PREVIOUS_NOT_SENT));
-                        }
-
-                        return lockAssignedTransactions(
-                                transactionDslContext, rewardBatchId, initiativeId)
-                            .then(
-                                sumAssignedRewards(
-                                    transactionDslContext, rewardBatchId, initiativeId))
-                            .flatMap(
-                                amount ->
-                                    captureSendSnapshotAndStatus(
-                                        transactionDslContext,
-                                        rewardBatchId,
-                                        initiativeId,
-                                        amount));
-                      });
-            });
+    private Mono<RewardBatch> captureBatchRewardSnapshot(
+            DSLContext transactionDslContext,
+            String rewardBatchId,
+            String initiativeId
+    ) {
+        return lockAssignedTransactions(transactionDslContext, rewardBatchId, initiativeId)
+                .then(sumAssignedRewards(transactionDslContext, rewardBatchId, initiativeId))
+                .flatMap(amount -> captureSendSnapshotAndStatus(
+                        transactionDslContext,
+                        rewardBatchId,
+                        initiativeId,
+                        amount
+                ));
     }
 
     private Mono<RewardBatchesRecord> lockBatchForSend(
@@ -317,7 +361,7 @@ public class SqlRewardBatchAdapter {
                         .from(REWARD_TRANSACTIONS)
                         .where(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(rewardBatchId)
                                 .and(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(initiativeId))))
-                .map(result -> result.value1());
+                .map(Record1::value1);
     }
 
     private Mono<RewardBatch> captureSendSnapshotAndStatus(
