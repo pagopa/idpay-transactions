@@ -1,10 +1,9 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import com.azure.storage.blob.models.BlobStorageException;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
-import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
+import it.gov.pagopa.idpay.transactions.data.factory.DataFactoryService;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.InitiativeDetailDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.MerchantDetailDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRestClient;
@@ -33,7 +32,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
@@ -59,7 +57,6 @@ class RewardBatchServiceImplTest {
     @Mock private RewardBatchAssigneePromotionPort promotionPort;
     @Mock private RewardBatchDeliveryPort deliveryPort;
     @Mock private SuspendedTransactionReassignmentPort reassignmentPort;
-    @Mock private UserRestClient userRestClient;
     @Mock private ApprovedRewardBatchBlobService batchBlobService;
     @Mock private ChecksErrorMapper checksErrorMapper;
     @Mock private AuditUtilities auditUtilities;
@@ -68,6 +65,7 @@ class RewardBatchServiceImplTest {
     @Mock private SelfcareInstitutionsRestClient selfcareClient;
     @Mock private ErogazioniRestClient erogazioniClient;
     @Mock private InitiativeDataService initiativeDataService;
+    @Mock private DataFactoryService dataFactoryService;
     private RewardBatchServiceImpl service;
 
     @BeforeEach
@@ -75,8 +73,8 @@ class RewardBatchServiceImplTest {
         service = new RewardBatchServiceImpl(
                 lifecyclePort, listPort, merchantLookupPort, transactionReadPort, decisionPort,
                 postponementPort, finalApprovalPort, promotionPort, deliveryPort, reassignmentPort,
-                userRestClient, batchBlobService, checksErrorMapper, auditUtilities, merchantRestClient,
-                paymentRestClient, selfcareClient, erogazioniClient, initiativeDataService, 10);
+                batchBlobService, checksErrorMapper, auditUtilities, merchantRestClient,
+                paymentRestClient, selfcareClient, erogazioniClient, initiativeDataService, dataFactoryService, 10);
     }
 
     @Test
@@ -581,27 +579,19 @@ class RewardBatchServiceImplTest {
     @Test
     void csvGenerationReadsApprovedTransactionsUploadsAndPersistsFilename() {
         RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
-        @SuppressWarnings("unchecked")
-        com.azure.core.http.rest.Response<com.azure.storage.blob.models.BlockBlobItem> response =
-                mock(com.azure.core.http.rest.Response.class);
-        when(response.getStatusCode()).thenReturn(201);
         when(lifecyclePort.findBatch("batch")).thenReturn(Mono.just(approved));
-        when(transactionReadPort.findBatchTransactions(
-                "batch", "initiative", List.of(RewardBatchTrxStatus.APPROVED, RewardBatchTrxStatus.REJECTED)))
-                .thenReturn(Flux.empty());
-        when(batchBlobService.upload(
-                any(InputStream.class), anyString(),
-                anyString())).thenReturn(Mono.just(response));
         when(lifecyclePort.saveBatch(approved)).thenReturn(Mono.just(approved));
+        when(dataFactoryService.triggerRewardBatchCsvPipeline(
+                "initiative", "merchant", "batch", "business_name_FISICO.csv"
+        )).thenReturn(Mono.just("run-123"));
 
         StepVerifier.create(service.generateAndSaveCsv("batch", "initiative", "merchant"))
                 .expectNext("business_name_FISICO.csv").verifyComplete();
 
         assertEquals("business_name_FISICO.csv", approved.getFilename());
-        verify(batchBlobService).upload(
-                any(InputStream.class),
-                contains("initiative/initiative/merchant/merchant/batch/batch/"),
-                eq("text/csv; charset=UTF-8"));
+        verify(dataFactoryService).triggerRewardBatchCsvPipeline(
+                "initiative", "merchant", "batch", "business_name_FISICO.csv"
+        );
     }
 
     @Test
@@ -611,30 +601,15 @@ class RewardBatchServiceImplTest {
                 .expectError().verify();
 
         RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
-        @SuppressWarnings("unchecked")
-        com.azure.core.http.rest.Response<com.azure.storage.blob.models.BlockBlobItem> failedResponse =
-                mock(com.azure.core.http.rest.Response.class);
-        when(failedResponse.getStatusCode()).thenReturn(500);
         when(lifecyclePort.findBatch("batch")).thenReturn(Mono.just(approved));
-        when(transactionReadPort.findBatchTransactions(
-                "batch", "initiative", List.of(RewardBatchTrxStatus.APPROVED, RewardBatchTrxStatus.REJECTED)))
-                .thenReturn(Flux.empty());
-        when(batchBlobService.upload(
-                any(), anyString(),
-                anyString())).thenReturn(Mono.just(failedResponse));
+        when(lifecyclePort.saveBatch(approved)).thenReturn(Mono.just(approved));
+        when(dataFactoryService.triggerRewardBatchCsvPipeline(
+                "initiative", "merchant", "batch", "business_name_FISICO.csv"
+        )).thenReturn(Mono.error(new IllegalStateException("adf failed")));
         StepVerifier.create(service.generateAndSaveCsv("batch", "initiative", "merchant"))
                 .expectError().verify();
 
-        BlobStorageException storageError =
-                new BlobStorageException("upload failed", null, null);
-        when(batchBlobService.upload(
-                any(), anyString(),
-                anyString())).thenReturn(Mono.error(storageError));
-        StepVerifier.create(service.generateAndSaveCsv("batch", "initiative", "merchant"))
-                .expectErrorMatches(error -> error instanceof RuntimeException
-                        && error.getCause() == storageError)
-                .verify();
-        verify(lifecyclePort, never()).saveBatch(any());
+        verify(lifecyclePort, times(1)).saveBatch(approved);
     }
 
     @Test
@@ -700,35 +675,18 @@ class RewardBatchServiceImplTest {
     @Test
     void csvGenerationMapsTransactionRowsAndResolvesMissingFiscalCodes() {
         RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
-        RewardTransaction transaction = RewardTransaction.builder()
-                .id("transaction").userId("user").trxCode("code")
-                .trxChargeDate(java.time.LocalDateTime.parse("2026-01-01T12:30:00"))
-                .effectiveAmountCents(1000L).fiscalCode(null).franchiseName("franchise")
-                .additionalProperties(java.util.Map.of("productName", "product", "productGtin", "gtin"))
-                .rewards(java.util.Map.of("initiative",
-                        it.gov.pagopa.idpay.transactions.model.Reward.builder().accruedRewardCents(100L).build()))
-                .invoiceData(it.gov.pagopa.idpay.transactions.dto.InvoiceData.builder()
-                        .docNumber("document").filename("invoice.pdf").build())
-                .rewardBatchTrxStatus(RewardBatchTrxStatus.APPROVED).build();
-        @SuppressWarnings("unchecked")
-        com.azure.core.http.rest.Response<com.azure.storage.blob.models.BlockBlobItem> response =
-                mock(com.azure.core.http.rest.Response.class);
-        when(response.getStatusCode()).thenReturn(201);
         when(lifecyclePort.findBatch("batch")).thenReturn(Mono.just(approved));
-        when(transactionReadPort.findBatchTransactions(
-                "batch", "initiative", List.of(RewardBatchTrxStatus.APPROVED, RewardBatchTrxStatus.REJECTED)))
-                .thenReturn(Flux.just(transaction));
-        when(userRestClient.retrieveUserInfo("user")).thenReturn(Mono.just(
-                it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV.builder().pii("fiscal-code").build()));
-        when(batchBlobService.upload(
-                any(), anyString(),
-                anyString())).thenReturn(Mono.just(response));
         when(lifecyclePort.saveBatch(approved)).thenReturn(Mono.just(approved));
+        when(dataFactoryService.triggerRewardBatchCsvPipeline(
+                "initiative", "merchant", "batch", "business_name_FISICO.csv"
+        )).thenReturn(Mono.just("run-123"));
 
         StepVerifier.create(service.generateAndSaveCsv("batch", "initiative", "merchant"))
                 .expectNext("business_name_FISICO.csv").verifyComplete();
 
-        assertEquals("fiscal-code", transaction.getFiscalCode());
+        verify(dataFactoryService).triggerRewardBatchCsvPipeline(
+                "initiative", "merchant", "batch", "business_name_FISICO.csv"
+        );
     }
 
     @Test
