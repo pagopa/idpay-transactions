@@ -98,29 +98,72 @@ public class SqlInvoicedTransactionAssignmentAdapter implements InvoicedTransact
                                 batch.getMerchantId(),
                                 batch.getPosType().name()
                         )
-                .then(transactionAdapter.upsertWithinTransaction(transaction, transactionDslContext))
-                .flatMap(persisted -> SyncTrxStatus.INVOICED.name().equals(persisted.getStatus())
-                        && persisted.getRewardBatchId() == null
-                        ? lockOrCreateBatch(transactionDslContext, batch)
-                                .flatMap(lockedBatch -> {
-                                    if (lockedBatch.getStatus() != RewardBatchStatus.CREATED) {
-                                        return Mono.error(new BatchStatusMismatchException());
-                                    }
-                                    return hasLaterProcessedBatch(
+                .then(findExistingTransaction(transactionDslContext, transaction.getId()))
+                .flatMap(existing -> shouldAssign(existing)
+                        ? assignUnassignedTransaction(
+                                transactionDslContext,
+                                transaction,
+                                batch,
+                                samplingKey,
+                                initiativeId
+                        )
+                        : transactionAdapter.upsertWithinTransaction(transaction, transactionDslContext))
+                .switchIfEmpty(assignUnassignedTransaction(
+                        transactionDslContext,
+                        transaction,
+                        batch,
+                        samplingKey,
+                        initiativeId
+                ));
+    }
+
+    private Mono<RewardTransaction> assignUnassignedTransaction(
+            DSLContext transactionDslContext,
+            RewardTransaction transaction,
+            RewardBatch batch,
+            int samplingKey,
+            String initiativeId
+    ) {
+        return lockOrCreateBatch(transactionDslContext, batch)
+                .flatMap(lockedBatch -> {
+                    if (lockedBatch.getStatus() != RewardBatchStatus.CREATED) {
+                        return Mono.error(new BatchStatusMismatchException());
+                    }
+                    return hasLaterProcessedBatch(
+                                    transactionDslContext,
+                                    lockedBatch
+                            )
+                            .flatMap(hasLaterBatch -> hasLaterBatch
+                                    ? Mono.error(new BatchStatusMismatchException())
+                                    : transactionAdapter.upsertWithinTransaction(
+                                            transaction,
+                                            transactionDslContext
+                                    )
+                                    .flatMap(persisted -> SyncTrxStatus.INVOICED.name().equals(persisted.getStatus())
+                                            && persisted.getRewardBatchId() == null
+                                            ? claimTransaction(
                                                     transactionDslContext,
-                                                    lockedBatch
+                                                    persisted.getId(),
+                                                    initiativeId,
+                                                    lockedBatch.getId(),
+                                                    samplingKey
                                             )
-                                            .flatMap(hasLaterBatch -> hasLaterBatch
-                                                    ? Mono.error(new BatchStatusMismatchException())
-                                                    : claimTransaction(
-                                                            transactionDslContext,
-                                                            persisted.getId(),
-                                                            initiativeId,
-                                                            lockedBatch.getId(),
-                                                            samplingKey
-                                                    ));
-                                })
-                        : Mono.just(persisted));
+                                            : Mono.just(persisted)));
+                });
+    }
+
+    private Mono<RewardTransaction> findExistingTransaction(
+            DSLContext transactionDslContext,
+            String transactionId
+    ) {
+        return Mono.from(transactionDslContext.selectFrom(REWARD_TRANSACTIONS)
+                        .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId)))
+                .map(transactionMapper::fromRecord);
+    }
+
+    private static boolean shouldAssign(RewardTransaction transaction) {
+        return SyncTrxStatus.INVOICED.name().equals(transaction.getStatus())
+                && transaction.getRewardBatchId() == null;
     }
 
     private Mono<RewardBatch> lockOrCreateBatch(DSLContext transactionDslContext, RewardBatch batch) {

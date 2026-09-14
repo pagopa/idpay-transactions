@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
@@ -47,6 +48,7 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
 
     private static SqlInvoicedTransactionAssignmentAdapter adapter;
     private static SqlRewardBatchAdapter batchAdapter;
+    private static SqlRewardTransactionAdapter transactionAdapter;
     private static DSLContext dslContext;
 
     @BeforeAll
@@ -66,7 +68,7 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
                         .getRepository(RewardBatchSqlRepository.class),
                 batchMapper
         );
-        SqlRewardTransactionAdapter transactionAdapter = new SqlRewardTransactionAdapter(
+        transactionAdapter = new SqlRewardTransactionAdapter(
                 transactionalOperator(),
                 dslContext,
                 transactionMapper
@@ -397,6 +399,77 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
                                 .and(REWARD_TRANSACTIONS.REWARD_BATCH_ID.isNotNull()))))
                 .expectNextMatches(result -> result.value1() == 0)
                 .verifyComplete();
+    }
+
+    @Test
+    void shouldAcquireBatchLockBeforeUpdatingAnUnassignedTransaction() {
+        String batchId = "assignment-lock-batch";
+        String transactionId = "assignment-lock-transaction";
+        RewardBatch targetBatch = batch();
+        targetBatch.setId(batchId);
+        RewardTransaction transaction = transaction(transactionId, 750L);
+        transaction.setStatus(SyncTrxStatus.INVOICED.name());
+
+        StepVerifier.create(batchAdapter.createOrRead(targetBatch)
+                        .then(transactionAdapter.upsert(transaction))
+                        .then(SqlBatchLockTestSupport.holdBatch(
+                                connectionFactory(),
+                                batchId,
+                                INITIATIVE_ID
+                        ).flatMap(batchLock -> {
+                            var pending = adapter.assignInvoicedTransaction(
+                                    transaction,
+                                    targetBatch,
+                                    123
+                            ).toFuture();
+                            return SqlBatchLockTestSupport.blockedByWithin(
+                                            connectionFactory(),
+                                            batchLock.backendPid()
+                                    )
+                                    .flatMap(blocked -> {
+                                        Mono<Void> evidence = blocked
+                                                ? persistedAssignmentState(transactionId)
+                                                        .doOnNext(state -> {
+                                                            assertNull(state.batchId());
+                                                            assertNull(state.batchStatus());
+                                                        })
+                                                        .then()
+                                                : Mono.empty();
+                                        return evidence
+                                                .then(batchLock.release())
+                                                .then(Mono.fromFuture(pending))
+                                                .map(assigned -> {
+                                                    assertTrue(blocked,
+                                                            "assignment must wait for the batch row lock");
+                                                    return assigned;
+                                                });
+                                    })
+                                    .onErrorResume(error -> batchLock.release().then(Mono.error(error)));
+                        })))
+                .assertNext(assigned -> {
+                    assertEquals(batchId, assigned.getRewardBatchId());
+                    assertEquals(RewardBatchTrxStatus.CONSULTABLE, assigned.getRewardBatchTrxStatus());
+                    assertEquals(123, assigned.getSamplingKey());
+                })
+                .verifyComplete();
+    }
+
+    private static Mono<AssignmentState> persistedAssignmentState(String transactionId) {
+        return databaseClient()
+                .sql("""
+                        SELECT reward_batch_id, reward_batch_trx_status
+                        FROM reward_transactions
+                        WHERE transaction_id = :transactionId
+                        """)
+                .bind("transactionId", transactionId)
+                .map((row, metadata) -> new AssignmentState(
+                        row.get("reward_batch_id", String.class),
+                        row.get("reward_batch_trx_status", String.class)
+                ))
+                .one();
+    }
+
+    private record AssignmentState(String batchId, String batchStatus) {
     }
 
     private static RewardBatch batch() {
