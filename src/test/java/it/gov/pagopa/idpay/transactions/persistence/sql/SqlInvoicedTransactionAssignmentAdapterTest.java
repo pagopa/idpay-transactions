@@ -158,6 +158,33 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
     }
 
     @Test
+    void shouldNotClaimATransactionWhenANewerSnapshotIsNoLongerInvoiced() {
+        RewardTransaction existing = transaction("transaction-no-claim", 750L);
+        existing.setStatus(SyncTrxStatus.INVOICED.name());
+        existing.setTransactionRevision(1L);
+        RewardTransaction newer = transaction("transaction-no-claim", 750L);
+        newer.setStatus(SyncTrxStatus.AUTHORIZED.name());
+        newer.setTransactionRevision(2L);
+
+        StepVerifier.create(transactionAdapter.upsert(existing)
+                        .then(adapter.assignInvoicedTransaction(newer, batch(), 123)))
+                .assertNext(persisted -> {
+                    assertEquals(SyncTrxStatus.AUTHORIZED.name(), persisted.getStatus());
+                    assertEquals(2L, persisted.getTransactionRevision());
+                    assertNull(persisted.getRewardBatchId());
+                    assertNull(persisted.getRewardBatchTrxStatus());
+                })
+                .verifyComplete();
+
+        StepVerifier.create(Mono.from(dslContext.selectCount()
+                        .from(REWARD_TRANSACTIONS)
+                        .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq("transaction-no-claim")
+                                .and(REWARD_TRANSACTIONS.REWARD_BATCH_ID.isNotNull()))))
+                .expectNextMatches(result -> result.value1() == 0)
+                .verifyComplete();
+    }
+
+    @Test
     void shouldFindOnlyOrderedInvoicedTransactionsWithoutABatch() {
         StepVerifier.create(databaseClient()
                         .sql("""

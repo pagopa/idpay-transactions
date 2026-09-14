@@ -34,6 +34,13 @@ class SqlTransactionRetrySupportTest {
     }
 
     @Test
+    void shouldClassifyMembershipChangesAsRetryable() {
+        assertTrue(SqlTransactionRetrySupport.isRetryableConcurrencyFailure(
+                new SqlMembershipChangedException("membership changed")
+        ));
+    }
+
+    @Test
     void shouldRetryAnOperationAfterAConcurrencyFailure() {
         AtomicInteger attempts = new AtomicInteger();
 

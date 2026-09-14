@@ -29,7 +29,9 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
 
     @Override
     public Mono<RewardTransaction> upsert(RewardTransaction transaction) {
-        return transactionalOperator.transactional(upsertWithinTransaction(transaction, dslContext));
+        return SqlTransactionRetrySupport.retryOnConcurrencyFailure(
+                transactionalOperator.transactional(upsertWithinTransaction(transaction, dslContext))
+        );
     }
 
     @Override
@@ -39,8 +41,10 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
                     "Only REFUNDED transactions can be persisted through the detach operation"
             ));
         }
-        return transactionalOperator.transactional(
-                upsertRefundedAndDetachWithinTransaction(transaction, dslContext)
+        return SqlTransactionRetrySupport.retryOnConcurrencyFailure(
+                transactionalOperator.transactional(
+                        upsertRefundedAndDetachWithinTransaction(transaction, dslContext)
+                )
         );
     }
 
@@ -143,9 +147,43 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
                                     "Reward batch %s for transaction %s was not found"
                                             .formatted(rewardBatchId, transactionId)
                             )))
-                            .then();
+                            .then(lockCurrentTransaction(
+                                    transactionDslContext,
+                                    transactionId,
+                                    rewardBatchId,
+                                    transactionRecord.get(REWARD_TRANSACTIONS.INITIATIVE_ID)
+                            ));
                 })
                 .then();
+    }
+
+    private Mono<Void> lockCurrentTransaction(
+            DSLContext transactionDslContext,
+            String transactionId,
+            String expectedBatchId,
+            String expectedInitiativeId
+    ) {
+        return Mono.from(transactionDslContext.select(
+                                REWARD_TRANSACTIONS.REWARD_BATCH_ID,
+                                REWARD_TRANSACTIONS.INITIATIVE_ID
+                        )
+                        .from(REWARD_TRANSACTIONS)
+                        .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId))
+                        .forUpdate())
+                .switchIfEmpty(Mono.error(new SqlMembershipChangedException(
+                        "Transaction %s disappeared while acquiring its batch lock".formatted(transactionId)
+                )))
+                .flatMap(current -> expectedBatchId.equals(
+                                current.get(REWARD_TRANSACTIONS.REWARD_BATCH_ID)
+                        )
+                        && expectedInitiativeId.equals(
+                                current.get(REWARD_TRANSACTIONS.INITIATIVE_ID)
+                        )
+                        ? Mono.empty()
+                        : Mono.error(new SqlMembershipChangedException(
+                                "Transaction %s changed membership while acquiring its batch lock"
+                                        .formatted(transactionId)
+                        )));
     }
 
     private InsertResultStep<?> insertOrUpdateProjection(

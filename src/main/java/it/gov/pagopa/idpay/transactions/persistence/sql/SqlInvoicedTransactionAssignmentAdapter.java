@@ -71,14 +71,16 @@ public class SqlInvoicedTransactionAssignmentAdapter implements InvoicedTransact
             ));
         }
 
-        return transactionalOperator.transactional(ConnectionFactoryUtils.getConnection(connectionFactory)
-                        .flatMap(connection -> assignWithinTransaction(
-                                DSL.using(connection, SQLDialect.POSTGRES),
-                                transaction,
-                                batch,
-                                samplingKey,
-                                initiativeId
-                        )))
+        return SqlTransactionRetrySupport.retryOnConcurrencyFailure(
+                        transactionalOperator.transactional(ConnectionFactoryUtils.getConnection(connectionFactory)
+                                .flatMap(connection -> assignWithinTransaction(
+                                        DSL.using(connection, SQLDialect.POSTGRES),
+                                        transaction,
+                                        batch,
+                                        samplingKey,
+                                        initiativeId
+                                )))
+                )
                 .onErrorMap(
                         BatchStatusMismatchException.class,
                         exception -> new ClientExceptionNoBody(HttpStatus.BAD_REQUEST, REWARD_BATCH_STATUS_MISMATCH)

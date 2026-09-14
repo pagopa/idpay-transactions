@@ -11,9 +11,9 @@ import reactor.core.publisher.Mono;
 /**
  * Test-only PostgreSQL lock coordination.
  *
- * <p>The lock holders deliberately use connections that are independent from
- * the connection pool used by the adapter under test. This lets the tests
- * distinguish waiting for the batch row from waiting for the transaction row.
+ * <p>The lock holder deliberately uses a connection that is independent from
+ * the connection pool used by the adapter under test, so the tests can hold
+ * the batch row lock while observing the adapter's pending operation.
  */
 final class SqlBatchLockTestSupport {
 
@@ -22,7 +22,6 @@ final class SqlBatchLockTestSupport {
 
     private SqlBatchLockTestSupport() {
     }
-
     static Mono<HeldRowLock> holdBatch(
             ConnectionFactory connectionFactory,
             String batchId,
@@ -35,6 +34,37 @@ final class SqlBatchLockTestSupport {
                 batchId,
                 initiativeId
         );
+    }
+
+    static Mono<HeldRowLock> holdBatchAndMoveTransaction(
+            ConnectionFactory connectionFactory,
+            String sourceBatchId,
+            String targetBatchId,
+            String initiativeId,
+            String transactionId
+    ) {
+        return Mono.from(connectionFactory.create())
+                .flatMap(connection -> Mono.from(connection.beginTransaction())
+                        .then(executeAndConsume(
+                                connection,
+                                "SELECT id FROM reward_batches "
+                                        + "WHERE id = $1 AND initiative_id = $2 FOR UPDATE",
+                                sourceBatchId,
+                                initiativeId
+                        ))
+                        .then(executeAndConsume(
+                                connection,
+                                "UPDATE reward_transactions "
+                                        + "SET reward_batch_id = $1, reward_batch_trx_status = 'CONSULTABLE' "
+                                        + "WHERE transaction_id = $2 AND initiative_id = $3",
+                                targetBatchId,
+                                transactionId,
+                                initiativeId
+                        ))
+                        .then(backendPid(connection))
+                        .map(pid -> new HeldRowLock(connection, pid))
+                        .onErrorResume(error -> Mono.from(connection.close())
+                                .then(Mono.error(error))));
     }
 
     /**
@@ -129,6 +159,14 @@ final class SqlBatchLockTestSupport {
             }
             return Mono.from(connection.rollbackTransaction())
                     .onErrorResume(error -> Mono.empty())
+                    .then(Mono.from(connection.close()));
+        }
+
+        Mono<Void> commit() {
+            if (!released.compareAndSet(false, true)) {
+                return Mono.empty();
+            }
+            return Mono.from(connection.commitTransaction())
                     .then(Mono.from(connection.close()));
         }
     }
