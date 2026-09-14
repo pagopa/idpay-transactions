@@ -1,10 +1,12 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql;
 
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryOutcomeDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
+import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
 import org.jooq.SQLDialect;
@@ -13,6 +15,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -45,6 +49,7 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
 
     private static SqlRewardBatchAdapter adapter;
     private static SqlRewardBatchListAdapter listAdapter;
+    private static SqlRewardBatchEvaluationAdapter evaluationAdapter;
 
     @BeforeAll
     static void setUpDatabase() {
@@ -66,6 +71,12 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                         SQLDialect.POSTGRES
                 ),
                 new RewardBatchSqlMapper(JsonMapper.builder().build())
+        );
+        evaluationAdapter = new SqlRewardBatchEvaluationAdapter(
+                transactionalOperator(),
+                connectionFactory(),
+                new RewardBatchSqlMapper(JsonMapper.builder().build()),
+                new RewardTransactionSqlMapper(JsonMapper.builder().build())
         );
     }
 
@@ -455,6 +466,448 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
     }
 
     @Test
+    void shouldAtomicallyCaptureSignedSuspendedRewardsWhenEnteringApproval() {
+        RewardBatch batch = approvalBatch("approval-signed");
+
+        StepVerifier.create(adapter.createOrRead(batch)
+                        .then(setSendSnapshot(batch.getId(), 1_000L))
+                        .then(insertTransaction(
+                                "approval-suspended-positive",
+                                batch.getId(),
+                                "SUSPENDED",
+                                250L
+                        ))
+                        .then(insertTransaction(
+                                "approval-suspended-negative",
+                                batch.getId(),
+                                "SUSPENDED",
+                                -75L
+                        ))
+                        .then(insertTransaction(
+                                "approval-consultable",
+                                batch.getId(),
+                                "CONSULTABLE",
+                                900L
+                        ))
+                        .then(adapter.enterApproval(batch.getId(), batch.getInitiativeId())))
+                .assertNext(entered -> {
+                    assertEquals(RewardBatchStatus.APPROVING, entered.getStatus());
+                    assertNotNull(entered.getApprovalDate());
+                    assertNotNull(entered.getUpdateDate());
+                })
+                .verifyComplete();
+
+        StepVerifier.create(approvalState(batch.getId()))
+                .assertNext(state -> {
+                    assertEquals(RewardBatchStatus.APPROVING.name(), state.status());
+                    assertEquals(1_000L, state.initialAmountCentsAtSend());
+                    assertEquals(175L, state.suspendedAmountCentsAtApproving());
+                    assertNotNull(state.approvalDate());
+                    assertEquals(state.approvalDate(), state.updateDate());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldCaptureZeroSuspendedAmountForAnEmptyBatch() {
+        RewardBatch batch = approvalBatch("approval-empty");
+
+        StepVerifier.create(adapter.createOrRead(batch)
+                        .then(setSendSnapshot(batch.getId(), 0L))
+                        .then(adapter.enterApproval(batch.getId(), batch.getInitiativeId())))
+                .assertNext(entered -> assertEquals(RewardBatchStatus.APPROVING, entered.getStatus()))
+                .verifyComplete();
+
+        StepVerifier.create(approvalState(batch.getId()))
+                .assertNext(state -> {
+                    assertEquals(0L, state.suspendedAmountCentsAtApproving());
+                    assertEquals(RewardBatchStatus.APPROVING.name(), state.status());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldCaptureZeroSuspendedAmountWhenAssignedRowsAreNotSuspended() {
+        RewardBatch batch = approvalBatch("approval-no-suspended-rows");
+
+        StepVerifier.create(adapter.createOrRead(batch)
+                        .then(setSendSnapshot(batch.getId(), 300L))
+                        .then(insertTransaction(
+                                "approval-consultable-only",
+                                batch.getId(),
+                                "CONSULTABLE",
+                                300L
+                        ))
+                        .then(insertTransaction(
+                                "approval-approved-only",
+                                batch.getId(),
+                                "APPROVED",
+                                -50L
+                        ))
+                        .then(adapter.enterApproval(batch.getId(), batch.getInitiativeId())))
+                .assertNext(entered -> assertEquals(RewardBatchStatus.APPROVING, entered.getStatus()))
+                .verifyComplete();
+
+        StepVerifier.create(approvalState(batch.getId()))
+                .assertNext(state -> assertEquals(0L, state.suspendedAmountCentsAtApproving()))
+                .verifyComplete();
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+            value = RewardBatchStatus.class,
+            names = {"APPROVED", "PENDING_REFUND", "NOT_REFUNDED", "REFUNDED"}
+    )
+    void shouldAllowApprovalWhenEveryEarlierBatchIsInAnAllowedState(RewardBatchStatus previousStatus) {
+        RewardBatch previous = approvalBatch("approval-previous-" + previousStatus.name().toLowerCase());
+        previous.setMonth("2026-06");
+        previous.setStatus(previousStatus);
+        RewardBatch current = approvalBatch("approval-current-" + previousStatus.name().toLowerCase());
+
+        StepVerifier.create(adapter.createOrRead(previous)
+                        .then(adapter.createOrRead(current))
+                        .then(setSnapshots(previous.getId(), 1L, 2L))
+                        .then(setSendSnapshot(current.getId(), 10L))
+                        .then(adapter.enterApproval(current.getId(), current.getInitiativeId())))
+                .assertNext(entered -> assertEquals(RewardBatchStatus.APPROVING, entered.getStatus()))
+                .verifyComplete();
+
+        StepVerifier.create(approvalState(current.getId()))
+                .assertNext(state -> assertEquals(0L, state.suspendedAmountCentsAtApproving()))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldIgnoreEarlierBatchesOutsideTheMerchantInitiativeAndPosGrouping() {
+        RewardBatch differentMerchant = approvalBatch("approval-other-merchant");
+        differentMerchant.setMonth("2026-06");
+        differentMerchant.setMerchantId("other-merchant");
+
+        RewardBatch differentInitiative = approvalBatch("approval-other-initiative");
+        differentInitiative.setMonth("2026-05");
+        differentInitiative.setInitiativeId("other-initiative");
+
+        RewardBatch differentPos = approvalBatch("approval-other-pos");
+        differentPos.setMonth("2026-04");
+        differentPos.setPosType(PosType.ONLINE);
+
+        RewardBatch current = approvalBatch("approval-grouping-current");
+
+        StepVerifier.create(Flux.concat(
+                                adapter.createOrRead(differentMerchant),
+                                adapter.createOrRead(differentInitiative),
+                                adapter.createOrRead(differentPos),
+                                adapter.createOrRead(current)
+                        )
+                        .then(setSendSnapshot(current.getId(), 10L))
+                        .then(adapter.enterApproval(current.getId(), current.getInitiativeId())))
+                .assertNext(entered -> assertEquals(RewardBatchStatus.APPROVING, entered.getStatus()))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldRejectAnEarlierBatchOutsideTheAllowedFinalApprovalStatesWithoutWriting() {
+        RewardBatch previous = approvalBatch("approval-blocking-previous");
+        previous.setMonth("2026-06");
+        previous.setStatus(RewardBatchStatus.CREATED);
+        RewardBatch current = approvalBatch("approval-blocked-current");
+
+        StepVerifier.create(adapter.createOrRead(previous)
+                        .then(adapter.createOrRead(current))
+                        .then(setSendSnapshot(current.getId(), 10L))
+                        .then(adapter.enterApproval(current.getId(), current.getInitiativeId())))
+                .expectErrorSatisfies(error -> assertApprovalRequestError(error, HttpStatus.BAD_REQUEST))
+                .verify();
+
+        StepVerifier.create(approvalState(current.getId()))
+                .assertNext(state -> {
+                    assertEquals(RewardBatchStatus.EVALUATING.name(), state.status());
+                    assertEquals(10L, state.initialAmountCentsAtSend());
+                    assertNull(state.suspendedAmountCentsAtApproving());
+                    assertNull(state.approvalDate());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldRejectNonEvaluatingApprovalWithoutPartialLifecycleWrites() {
+        RewardBatch batch = approvalBatch("approval-invalid-status");
+        batch.setStatus(RewardBatchStatus.SENT);
+
+        StepVerifier.create(adapter.createOrRead(batch)
+                        .then(setSendSnapshot(batch.getId(), 10L))
+                        .then(adapter.enterApproval(batch.getId(), batch.getInitiativeId())))
+                .expectErrorSatisfies(error -> assertApprovalRequestError(error, HttpStatus.BAD_REQUEST))
+                .verify();
+
+        StepVerifier.create(approvalState(batch.getId()))
+                .assertNext(state -> {
+                    assertEquals(RewardBatchStatus.SENT.name(), state.status());
+                    assertEquals(10L, state.initialAmountCentsAtSend());
+                    assertNull(state.suspendedAmountCentsAtApproving());
+                    assertNull(state.approvalDate());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldRejectMissingApprovalScopeBeforeOpeningTheMutation() {
+        RewardBatch batch = approvalBatch("approval-scope");
+
+        StepVerifier.create(adapter.createOrRead(batch).then())
+                .verifyComplete();
+
+        StepVerifier.create(adapter.enterApproval(null, batch.getInitiativeId()))
+                .expectErrorSatisfies(error -> assertApprovalRequestError(
+                        error,
+                        HttpStatus.NOT_FOUND,
+                        REWARD_BATCH_NOT_FOUND
+                ))
+                .verify();
+        StepVerifier.create(adapter.enterApproval(batch.getId(), "other-initiative"))
+                .expectErrorSatisfies(error -> assertApprovalRequestError(
+                        error,
+                        HttpStatus.NOT_FOUND,
+                        REWARD_BATCH_NOT_FOUND
+                ))
+                .verify();
+
+        StepVerifier.create(approvalState(batch.getId()))
+                .assertNext(state -> {
+                    assertEquals(RewardBatchStatus.EVALUATING.name(), state.status());
+                    assertNull(state.initialAmountCentsAtSend());
+                    assertNull(state.suspendedAmountCentsAtApproving());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldRejectApprovalByANonL3AssigneeWithoutPartialLifecycleWrites() {
+        RewardBatch batch = approvalBatch("approval-invalid-assignee");
+        batch.setAssigneeLevel(RewardBatchAssignee.L2);
+
+        StepVerifier.create(adapter.createOrRead(batch)
+                        .then(setSendSnapshot(batch.getId(), 10L))
+                        .then(adapter.enterApproval(batch.getId(), batch.getInitiativeId())))
+                .expectErrorSatisfies(error -> assertApprovalRequestError(error, HttpStatus.BAD_REQUEST))
+                .verify();
+
+        StepVerifier.create(approvalState(batch.getId()))
+                .assertNext(state -> {
+                    assertEquals(RewardBatchStatus.EVALUATING.name(), state.status());
+                    assertEquals(10L, state.initialAmountCentsAtSend());
+                    assertNull(state.suspendedAmountCentsAtApproving());
+                    assertNull(state.approvalDate());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldFailClosedForMissingOrInconsistentApprovalSnapshots() {
+        RewardBatch missingSendSnapshot = approvalBatch("approval-missing-send-snapshot");
+        RewardBatch missingApprovalSnapshot = approvalBatch("approval-missing-approval-snapshot");
+        missingApprovalSnapshot.setMonth("2026-08");
+        missingApprovalSnapshot.setStatus(RewardBatchStatus.APPROVING);
+        RewardBatch inconsistentSnapshot = approvalBatch("approval-inconsistent-snapshot");
+        inconsistentSnapshot.setMonth("2026-09");
+
+        StepVerifier.create(Flux.concat(
+                                adapter.createOrRead(missingSendSnapshot),
+                                adapter.createOrRead(missingApprovalSnapshot),
+                                adapter.createOrRead(inconsistentSnapshot)
+                        )
+                        .then(setSendSnapshot(missingApprovalSnapshot.getId(), 10L))
+                        .then(setSnapshots(inconsistentSnapshot.getId(), 10L, 20L)))
+                .verifyComplete();
+
+        StepVerifier.create(adapter.enterApproval(
+                        missingSendSnapshot.getId(),
+                        missingSendSnapshot.getInitiativeId()))
+                .expectErrorMatches(error -> error instanceof IllegalStateException
+                        && error.getMessage().contains("without initial send snapshot"))
+                .verify();
+        StepVerifier.create(adapter.enterApproval(
+                        missingApprovalSnapshot.getId(),
+                        missingApprovalSnapshot.getInitiativeId()))
+                .expectErrorMatches(error -> error instanceof IllegalStateException
+                        && error.getMessage().contains("without suspended approval snapshot"))
+                .verify();
+        StepVerifier.create(adapter.enterApproval(
+                        inconsistentSnapshot.getId(),
+                        inconsistentSnapshot.getInitiativeId()))
+                .expectErrorMatches(error -> error instanceof IllegalStateException
+                        && error.getMessage().contains("with a suspended approval snapshot"))
+                .verify();
+
+        StepVerifier.create(Mono.zip(
+                        approvalState(missingSendSnapshot.getId()),
+                        approvalState(missingApprovalSnapshot.getId()),
+                        approvalState(inconsistentSnapshot.getId())
+                ))
+                .assertNext(states -> {
+                    assertEquals(RewardBatchStatus.EVALUATING.name(), states.getT1().status());
+                    assertNull(states.getT1().initialAmountCentsAtSend());
+                    assertNull(states.getT1().suspendedAmountCentsAtApproving());
+                    assertEquals(RewardBatchStatus.APPROVING.name(), states.getT2().status());
+                    assertEquals(10L, states.getT2().initialAmountCentsAtSend());
+                    assertNull(states.getT2().suspendedAmountCentsAtApproving());
+                    assertEquals(RewardBatchStatus.EVALUATING.name(), states.getT3().status());
+                    assertEquals(20L, states.getT3().suspendedAmountCentsAtApproving());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldReturnTheCapturedApprovalSnapshotOnRetryWithoutOverwritingIt() {
+        RewardBatch batch = approvalBatch("approval-idempotent");
+
+        StepVerifier.create(adapter.createOrRead(batch)
+                        .then(setSendSnapshot(batch.getId(), 100L))
+                        .then(insertTransaction(
+                                "approval-idempotent-first",
+                                batch.getId(),
+                                "SUSPENDED",
+                                300L
+                        ))
+                        .then(adapter.enterApproval(batch.getId(), batch.getInitiativeId()))
+                        .flatMap(first -> approvalState(batch.getId())
+                                .flatMap(firstState -> insertTransaction(
+                                                "approval-idempotent-late",
+                                                batch.getId(),
+                                                "SUSPENDED",
+                                                900L
+                                        )
+                                        .then(adapter.enterApproval(
+                                                batch.getId(),
+                                                batch.getInitiativeId()
+                                        ))
+                                        .flatMap(retried -> approvalState(batch.getId())
+                                                .map(retriedState -> new ApprovalAttempt(
+                                                        first,
+                                                        retried,
+                                                        firstState,
+                                                        retriedState
+                                                ))))))
+                .assertNext(attempt -> {
+                    assertEquals(RewardBatchStatus.APPROVING, attempt.firstResult().getStatus());
+                    assertEquals(RewardBatchStatus.APPROVING, attempt.retryResult().getStatus());
+                    assertEquals(300L, attempt.firstState().suspendedAmountCentsAtApproving());
+                    assertEquals(attempt.firstState(), attempt.retryState());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldSerializeConcurrentApprovalRequestsAndPersistOneSnapshot() {
+        RewardBatch batch = approvalBatch("approval-concurrent");
+
+        StepVerifier.create(adapter.createOrRead(batch)
+                        .then(setSendSnapshot(batch.getId(), 100L))
+                        .then(insertTransaction(
+                                "approval-concurrent-transaction",
+                                batch.getId(),
+                                "SUSPENDED",
+                                550L
+                        ))
+                        .thenMany(Flux.merge(
+                                Mono.defer(() -> adapter.enterApproval(
+                                        batch.getId(),
+                                        batch.getInitiativeId()
+                                )),
+                                Mono.defer(() -> adapter.enterApproval(
+                                        batch.getId(),
+                                        batch.getInitiativeId()
+                                ))
+                        ).collectList()))
+                .assertNext(results -> {
+                    assertEquals(2, results.size());
+                    assertTrue(results.stream()
+                            .allMatch(result -> result.getStatus() == RewardBatchStatus.APPROVING));
+                })
+                .verifyComplete();
+
+        StepVerifier.create(approvalState(batch.getId()))
+                .assertNext(state -> assertEquals(550L, state.suspendedAmountCentsAtApproving()))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldSerializeApprovalEntryWithAConcurrentTransactionDecision() {
+        RewardBatch batch = approvalBatch("approval-decision-race");
+
+        StepVerifier.create(adapter.createOrRead(batch)
+                        .then(setSendSnapshot(batch.getId(), 100L))
+                        .then(insertTransaction(
+                                "approval-decision-race-transaction",
+                                batch.getId(),
+                                "SUSPENDED",
+                                400L
+                        ))
+                        .thenMany(Flux.merge(
+                                Mono.defer(() -> adapter.enterApproval(
+                                        batch.getId(),
+                                        batch.getInitiativeId()
+                                )),
+                                Mono.defer(() -> evaluationAdapter.updateStatusAndReturnOld(
+                                                batch.getInitiativeId(),
+                                                batch.getId(),
+                                                "approval-decision-race-transaction",
+                                                RewardBatchTrxStatus.APPROVED,
+                                                null,
+                                                batch.getMonth(),
+                                                null
+                                        ))
+                        ))
+                        .then(Mono.zip(
+                                approvalState(batch.getId()),
+                                transactionBatchStatus("approval-decision-race-transaction")
+                        )))
+                .assertNext(result -> {
+                    ApprovalState state = result.getT1();
+                    String transactionStatus = result.getT2();
+                    assertEquals(RewardBatchStatus.APPROVING.name(), state.status());
+                    assertTrue(
+                            (state.suspendedAmountCentsAtApproving() == 0L
+                                    && "APPROVED".equals(transactionStatus))
+                                    || (state.suspendedAmountCentsAtApproving() == 400L
+                                    && "SUSPENDED".equals(transactionStatus))
+                    );
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldRollBackApprovalStatusAndSnapshotWhenTheMutationCannotPersist() {
+        RewardBatch batch = approvalBatch("approval-rollback");
+
+        try {
+            StepVerifier.create(adapter.createOrRead(batch)
+                            .then(setSendSnapshot(batch.getId(), 100L))
+                            .then(insertTransaction(
+                                    "approval-rollback-transaction",
+                                    batch.getId(),
+                                    "SUSPENDED",
+                                    400L
+                            ))
+                            .then(installApprovalMutationFailureTrigger())
+                            .then(adapter.enterApproval(batch.getId(), batch.getInitiativeId())))
+                    .expectErrorMatches(error -> hasMessage(error, "forced approval mutation failure"))
+                    .verify();
+
+            StepVerifier.create(approvalState(batch.getId()))
+                    .assertNext(state -> {
+                        assertEquals(RewardBatchStatus.EVALUATING.name(), state.status());
+                        assertEquals(100L, state.initialAmountCentsAtSend());
+                        assertNull(state.suspendedAmountCentsAtApproving());
+                        assertNull(state.approvalDate());
+                    })
+                    .verifyComplete();
+        } finally {
+            dropApprovalMutationFailureTrigger().block();
+        }
+    }
+
+    @Test
     void shouldUpdateStatusAndMetadataWithoutChangingBatchIdentity() {
         RewardBatch batch = batch("batch-metadata");
         DeliveryOutcomeDTO deliveryOutcome = DeliveryOutcomeDTO.builder()
@@ -465,11 +918,10 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                 .build();
 
         StepVerifier.create(adapter.createOrRead(batch)
-                        .flatMap(created -> adapter.updateStatus(
-                                created.getId(),
-                                created.getInitiativeId(),
-                                RewardBatchStatus.SENT
-                        ))
+                        .flatMap(created -> {
+                            created.setStatus(RewardBatchStatus.SENT);
+                            return adapter.save(created);
+                        })
                         .flatMap(updated -> {
                             updated.setFilename("approved.csv");
                             updated.setReportPath("initiative/initiative-1/batch/approved.csv");
@@ -844,6 +1296,13 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                 .build();
     }
 
+    private static RewardBatch approvalBatch(String id) {
+        RewardBatch batch = batch(id);
+        batch.setStatus(RewardBatchStatus.EVALUATING);
+        batch.setAssigneeLevel(RewardBatchAssignee.L3);
+        return batch;
+    }
+
     private static RewardBatch sendableBatch(String id, long monthsAgo) {
         RewardBatch batch = batch(id);
         YearMonth month = YearMonth.now(ZONEID).minusMonths(monthsAgo);
@@ -853,20 +1312,61 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
     }
 
     private static Mono<Void> insertTransaction(String transactionId, String batchId, long accruedRewardCents) {
+        return insertTransaction(transactionId, batchId, "CONSULTABLE", accruedRewardCents);
+    }
+
+    private static Mono<Void> insertTransaction(
+            String transactionId,
+            String batchId,
+            String batchTransactionStatus,
+            long accruedRewardCents
+    ) {
         return databaseClient()
                 .sql("""
                         INSERT INTO reward_transactions (
                             transaction_id, initiative_id, reward_batch_id,
                             reward_batch_trx_status, accrued_reward_cents
                         )
-                        VALUES (:transactionId, 'initiative-1', :batchId, 'CONSULTABLE', :accruedRewardCents)
+                        VALUES (:transactionId, 'initiative-1', :batchId, :batchTransactionStatus, :accruedRewardCents)
                         """)
                 .bind("transactionId", transactionId)
                 .bind("batchId", batchId)
+                .bind("batchTransactionStatus", batchTransactionStatus)
                 .bind("accruedRewardCents", accruedRewardCents)
                 .fetch()
                 .rowsUpdated()
                 .then();
+    }
+
+    private static Mono<ApprovalState> approvalState(String id) {
+        return databaseClient()
+                .sql("""
+                        SELECT status, initial_amount_cents_at_send,
+                               suspended_amount_cents_at_approving, approval_date, update_date
+                        FROM reward_batches
+                        WHERE id = :id
+                        """)
+                .bind("id", id)
+                .map((row, metadata) -> new ApprovalState(
+                        row.get("status", String.class),
+                        row.get("initial_amount_cents_at_send", Long.class),
+                        row.get("suspended_amount_cents_at_approving", Long.class),
+                        row.get("approval_date", LocalDateTime.class),
+                        row.get("update_date", LocalDateTime.class)
+                ))
+                .one();
+    }
+
+    private static Mono<String> transactionBatchStatus(String transactionId) {
+        return databaseClient()
+                .sql("""
+                        SELECT reward_batch_trx_status
+                        FROM reward_transactions
+                        WHERE transaction_id = :transactionId
+                        """)
+                .bind("transactionId", transactionId)
+                .map((row, metadata) -> row.get("reward_batch_trx_status", String.class))
+                .one();
     }
 
     private static Mono<Void> setSendSnapshot(String id, long initialAmountCentsAtSend) {
@@ -881,6 +1381,38 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                 .fetch()
                 .rowsUpdated()
                 .then();
+    }
+
+    private static Mono<Void> installApprovalMutationFailureTrigger() {
+        return databaseClient()
+                .sql("""
+                        CREATE OR REPLACE FUNCTION fail_reward_batch_approval_mutation()
+                        RETURNS trigger AS $$
+                        BEGIN
+                            IF NEW.status = 'APPROVING' AND OLD.status = 'EVALUATING' THEN
+                                RAISE EXCEPTION 'forced approval mutation failure';
+                            END IF;
+                            RETURN NEW;
+                        END;
+                        $$ LANGUAGE plpgsql
+                        """)
+                .then()
+                .then(databaseClient()
+                        .sql("""
+                                CREATE TRIGGER fail_reward_batch_approval_mutation
+                                BEFORE UPDATE ON reward_batches
+                                FOR EACH ROW EXECUTE FUNCTION fail_reward_batch_approval_mutation()
+                                """)
+                        .then());
+    }
+
+    private static Mono<Void> dropApprovalMutationFailureTrigger() {
+        return databaseClient()
+                .sql("DROP TRIGGER IF EXISTS fail_reward_batch_approval_mutation ON reward_batches")
+                .then()
+                .then(databaseClient()
+                        .sql("DROP FUNCTION IF EXISTS fail_reward_batch_approval_mutation()")
+                        .then());
     }
 
     private static Mono<SendState> sendState(String id) {
@@ -904,6 +1436,27 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
         RewardBatchException exception = assertInstanceOf(RewardBatchException.class, error);
         assertEquals(status, exception.getHttpStatus());
         assertEquals(code, exception.getMessage());
+    }
+
+    private static void assertApprovalRequestError(Throwable error, HttpStatus status) {
+        assertApprovalRequestError(error, status, REWARD_BATCH_INVALID_REQUEST);
+    }
+
+    private static void assertApprovalRequestError(Throwable error, HttpStatus status, String code) {
+        ClientExceptionWithBody exception = assertInstanceOf(ClientExceptionWithBody.class, error);
+        assertEquals(status, exception.getHttpStatus());
+        assertEquals(code, exception.getCode());
+    }
+
+    private static boolean hasMessage(Throwable error, String expectedMessage) {
+        Throwable current = error;
+        while (current != null) {
+            if (current.getMessage() != null && current.getMessage().contains(expectedMessage)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private static void assertUnsent(SendState state) {
@@ -946,5 +1499,22 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
     }
 
     private record SendAttempt(SendState first, SendState retry, RewardBatch retryResult) {
+    }
+
+    private record ApprovalState(
+            String status,
+            Long initialAmountCentsAtSend,
+            Long suspendedAmountCentsAtApproving,
+            LocalDateTime approvalDate,
+            LocalDateTime updateDate
+    ) {
+    }
+
+    private record ApprovalAttempt(
+            RewardBatch firstResult,
+            RewardBatch retryResult,
+            ApprovalState firstState,
+            ApprovalState retryState
+    ) {
     }
 }

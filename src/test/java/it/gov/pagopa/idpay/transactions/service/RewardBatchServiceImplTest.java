@@ -279,20 +279,17 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void confirmationChecksStateAndPersistsApprovingBatchWhenPreviousBatchesAreClear() {
-        when(lifecyclePort.findBatch("missing", "initiative")).thenReturn(Mono.empty());
-        StepVerifier.create(service.rewardBatchConfirmation("initiative", "missing"))
-                .expectError().verify();
+    void confirmationDelegatesAtomicApprovalEntryToTheLifecyclePort() {
+        RewardBatch approving = batch("batch", RewardBatchStatus.APPROVING);
+        when(lifecyclePort.enterApproval("batch", "initiative")).thenReturn(Mono.just(approving));
 
-        RewardBatch evaluating = batch("batch", RewardBatchStatus.EVALUATING);
-        evaluating.setAssigneeLevel(RewardBatchAssignee.L3);
-        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(evaluating));
-        when(listPort.findBatchesBeforeMonth("merchant", "initiative", PosType.PHYSICAL, evaluating.getMonth()))
-                .thenReturn(Flux.empty());
-        when(lifecyclePort.saveBatch(evaluating)).thenReturn(Mono.just(evaluating));
         StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
                 .assertNext(result -> assertEquals(RewardBatchStatus.APPROVING, result.getStatus()))
                 .verifyComplete();
+
+        verify(lifecyclePort).enterApproval("batch", "initiative");
+        verify(lifecyclePort, never()).saveBatch(any());
+        verifyNoInteractions(listPort);
     }
 
     @Test
@@ -668,16 +665,16 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void confirmationRejectsPreviousNonRefundedBatch() {
-        RewardBatch evaluating = batch("batch", RewardBatchStatus.EVALUATING);
-        evaluating.setAssigneeLevel(RewardBatchAssignee.L3);
-        RewardBatch previous = batch("previous", RewardBatchStatus.CREATED);
-        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(evaluating));
-        when(listPort.findBatchesBeforeMonth("merchant", "initiative", PosType.PHYSICAL, evaluating.getMonth()))
-                .thenReturn(Flux.just(previous));
+    void confirmationPropagatesAtomicApprovalEntryFailure() {
+        IllegalStateException failure = new IllegalStateException("approval entry failed");
+        when(lifecyclePort.enterApproval("batch", "initiative")).thenReturn(Mono.error(failure));
 
         StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
-                .expectError().verify();
+                .expectErrorMatches(error -> error == failure)
+                .verify();
+
+        verify(lifecyclePort).enterApproval("batch", "initiative");
+        verifyNoInteractions(listPort);
     }
 
     @Test

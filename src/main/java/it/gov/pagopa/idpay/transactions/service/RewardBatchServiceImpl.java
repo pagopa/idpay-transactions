@@ -398,46 +398,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     @Override
     public Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId) {
-        return rewardBatchLifecyclePort.findBatch(rewardBatchId, initiativeId)
-                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
-                        NOT_FOUND,
-                        REWARD_BATCH_NOT_FOUND,
-                        ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
-                .filter(rewardBatch -> rewardBatch.getStatus().equals(RewardBatchStatus.EVALUATING)
-                        && rewardBatch.getAssigneeLevel().equals(RewardBatchAssignee.L3))
-                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
-                        BAD_REQUEST,
-                        REWARD_BATCH_INVALID_REQUEST,
-                        ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
-                )))
-                .flatMap(rewardBatch -> {
-                    Flux<RewardBatch> previousBatchesFlux = rewardBatchListPort.findBatchesBeforeMonth(
-                            rewardBatch.getMerchantId(),
-                            rewardBatch.getInitiativeId(),
-                            rewardBatch.getPosType(),
-                            rewardBatch.getMonth());
-                    Mono<Boolean> hasUnapprovedBatch = previousBatchesFlux
-                            .filter(batch -> !batch.getStatus().equals(RewardBatchStatus.APPROVED) && !isRefundState(batch.getStatus()))
-                            .hasElements();
-                    return hasUnapprovedBatch
-                            .flatMap(isUnapprovedPresent ->
-                                    Boolean.TRUE.equals(isUnapprovedPresent)
-                                            ? Mono.error(new ClientExceptionWithBody(
-                                            BAD_REQUEST,
-                                            REWARD_BATCH_INVALID_REQUEST,
-                                            ERROR_MESSAGE_PREVIOUS_BATCH_TO_APPROVE.formatted(rewardBatchId)
-                                    ))
-                                            : Mono.just(rewardBatch)
-                            );
-                })
-                .map(rewardBatch -> {
-                    LocalDateTime nowDateTime = LocalDateTime.now(ZONEID);
-                    rewardBatch.setStatus(RewardBatchStatus.APPROVING);
-                    rewardBatch.setApprovalDate(nowDateTime);
-                    rewardBatch.setUpdateDate(nowDateTime);
-                    return rewardBatch;
-                })
-                .flatMap(rewardBatchLifecyclePort::saveBatch);
+        return rewardBatchLifecyclePort.enterApproval(rewardBatchId, initiativeId);
     }
 
 

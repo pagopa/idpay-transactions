@@ -89,13 +89,12 @@ public class SqlRewardBatchLifecycleAdapter implements RewardBatchLifecyclePort 
     }
 
     @Override
-    public Mono<RewardBatch> updateEvaluationStatus(
+    public Mono<RewardBatch> enterApproval(
             String rewardBatchId,
-            String initiativeId,
-            long approvedAmountCents
+            String initiativeId
     ) {
-        return batchAdapter.updateStatus(rewardBatchId, initiativeId, RewardBatchStatus.EVALUATING)
-                .flatMap(saved -> batchListAdapter.findBatch(saved.getId(), saved.getInitiativeId())
-                        .switchIfEmpty(Mono.just(saved)));
+        return batchAdapter.enterApproval(rewardBatchId, initiativeId)
+                .flatMap(entered -> batchListAdapter.findBatch(entered.getId(), entered.getInitiativeId())
+                        .switchIfEmpty(Mono.just(entered)));
     }
 }
