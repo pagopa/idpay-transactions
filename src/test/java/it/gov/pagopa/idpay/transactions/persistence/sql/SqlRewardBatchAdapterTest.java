@@ -671,6 +671,13 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                         REWARD_BATCH_NOT_FOUND
                 ))
                 .verify();
+        StepVerifier.create(adapter.enterApproval(batch.getId(), " "))
+                .expectErrorSatisfies(error -> assertApprovalRequestError(
+                        error,
+                        HttpStatus.NOT_FOUND,
+                        REWARD_BATCH_NOT_FOUND
+                ))
+                .verify();
 
         StepVerifier.create(approvalState(batch.getId()))
                 .assertNext(state -> {
@@ -703,20 +710,46 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
     }
 
     @Test
+    void shouldRejectRetryForAnApprovingBatchWithANonL3Assignee() {
+        RewardBatch batch = approvalBatch("approval-invalid-retry-assignee");
+        batch.setStatus(RewardBatchStatus.APPROVING);
+        batch.setAssigneeLevel(RewardBatchAssignee.L2);
+
+        StepVerifier.create(adapter.createOrRead(batch)
+                        .then(setSnapshots(batch.getId(), 10L, 20L))
+                        .then(adapter.enterApproval(batch.getId(), batch.getInitiativeId())))
+                .expectErrorSatisfies(error -> assertApprovalRequestError(error, HttpStatus.BAD_REQUEST))
+                .verify();
+
+        StepVerifier.create(approvalState(batch.getId()))
+                .assertNext(state -> {
+                    assertEquals(RewardBatchStatus.APPROVING.name(), state.status());
+                    assertEquals(10L, state.initialAmountCentsAtSend());
+                    assertEquals(20L, state.suspendedAmountCentsAtApproving());
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void shouldFailClosedForMissingOrInconsistentApprovalSnapshots() {
         RewardBatch missingSendSnapshot = approvalBatch("approval-missing-send-snapshot");
         RewardBatch missingApprovalSnapshot = approvalBatch("approval-missing-approval-snapshot");
         missingApprovalSnapshot.setMonth("2026-08");
         missingApprovalSnapshot.setStatus(RewardBatchStatus.APPROVING);
+        RewardBatch missingFrozenApprovalSnapshot = approvalBatch("approval-missing-frozen-snapshot");
+        missingFrozenApprovalSnapshot.setMonth("2026-09");
+        missingFrozenApprovalSnapshot.setStatus(RewardBatchStatus.APPROVED);
         RewardBatch inconsistentSnapshot = approvalBatch("approval-inconsistent-snapshot");
-        inconsistentSnapshot.setMonth("2026-09");
+        inconsistentSnapshot.setMonth("2026-10");
 
         StepVerifier.create(Flux.concat(
                                 adapter.createOrRead(missingSendSnapshot),
                                 adapter.createOrRead(missingApprovalSnapshot),
+                                adapter.createOrRead(missingFrozenApprovalSnapshot),
                                 adapter.createOrRead(inconsistentSnapshot)
                         )
                         .then(setSendSnapshot(missingApprovalSnapshot.getId(), 10L))
+                        .then(setSendSnapshot(missingFrozenApprovalSnapshot.getId(), 15L))
                         .then(setSnapshots(inconsistentSnapshot.getId(), 10L, 20L)))
                 .verifyComplete();
 
@@ -733,6 +766,12 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                         && error.getMessage().contains("without suspended approval snapshot"))
                 .verify();
         StepVerifier.create(adapter.enterApproval(
+                        missingFrozenApprovalSnapshot.getId(),
+                        missingFrozenApprovalSnapshot.getInitiativeId()))
+                .expectErrorMatches(error -> error instanceof IllegalStateException
+                        && error.getMessage().contains("without suspended approval snapshot"))
+                .verify();
+        StepVerifier.create(adapter.enterApproval(
                         inconsistentSnapshot.getId(),
                         inconsistentSnapshot.getInitiativeId()))
                 .expectErrorMatches(error -> error instanceof IllegalStateException
@@ -742,6 +781,7 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
         StepVerifier.create(Mono.zip(
                         approvalState(missingSendSnapshot.getId()),
                         approvalState(missingApprovalSnapshot.getId()),
+                        approvalState(missingFrozenApprovalSnapshot.getId()),
                         approvalState(inconsistentSnapshot.getId())
                 ))
                 .assertNext(states -> {
@@ -751,8 +791,11 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                     assertEquals(RewardBatchStatus.APPROVING.name(), states.getT2().status());
                     assertEquals(10L, states.getT2().initialAmountCentsAtSend());
                     assertNull(states.getT2().suspendedAmountCentsAtApproving());
-                    assertEquals(RewardBatchStatus.EVALUATING.name(), states.getT3().status());
-                    assertEquals(20L, states.getT3().suspendedAmountCentsAtApproving());
+                    assertEquals(RewardBatchStatus.APPROVED.name(), states.getT3().status());
+                    assertEquals(15L, states.getT3().initialAmountCentsAtSend());
+                    assertNull(states.getT3().suspendedAmountCentsAtApproving());
+                    assertEquals(RewardBatchStatus.EVALUATING.name(), states.getT4().status());
+                    assertEquals(20L, states.getT4().suspendedAmountCentsAtApproving());
                 })
                 .verifyComplete();
     }

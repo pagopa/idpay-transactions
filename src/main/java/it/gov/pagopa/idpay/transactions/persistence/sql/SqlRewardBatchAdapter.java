@@ -159,50 +159,63 @@ public class SqlRewardBatchAdapter {
             String rewardBatchId,
             String initiativeId
     ) {
-    return lockBatchForApprovalWithGroupLock(transactionDslContext, rewardBatchId, initiativeId)
-        .flatMap(
-            batch -> {
-              RewardBatchStatus status = RewardBatchStatus.valueOf(batch.getStatus());
-              if (status != RewardBatchStatus.CREATED
-                  && batch.getInitialAmountCentsAtSend() == null) {
-                return Mono.error(missingSendSnapshot(batch.getId()));
-              }
-              if (status == RewardBatchStatus.APPROVING) {
-                return returnExistingApproval(batch);
-              }
-              if (requiresApprovalSnapshot(status)
-                  && batch.getSuspendedAmountCentsAtApproving() == null) {
-                return Mono.error(missingApprovalSnapshot(batch.getId()));
-              }
-              if (status != RewardBatchStatus.EVALUATING) {
-                return invalidApprovalState(batch.getId());
-              }
-              if (batch.getSuspendedAmountCentsAtApproving() != null) {
-                return Mono.error(inconsistentApprovalSnapshot(batch.getId()));
-              }
-              if (!RewardBatchAssignee.L3.name().equals(batch.getAssigneeLevel())) {
-                return invalidApprovalState(batch.getId());
-              }
+        return lockBatchForApprovalWithGroupLock(transactionDslContext, rewardBatchId, initiativeId)
+                .flatMap(batch -> validateApprovalBatch(batch)
+                        .switchIfEmpty(Mono.defer(() -> continueApproval(
+                                transactionDslContext,
+                                batch,
+                                rewardBatchId,
+                                initiativeId
+                        ))));
+    }
 
-              return hasPreviousBatchToApprove(
-                      transactionDslContext,
-                      batch.getId(),
-                      batch.getInitiativeId(),
-                      batch.getMerchantId(),
-                      batch.getPosType(),
-                      batch.getMonth())
-                  .flatMap(
-                      hasPreviousBatch ->
-                          Boolean.TRUE.equals(hasPreviousBatch)
-                              ? Mono.error(
-                                  new ClientExceptionWithBody(
-                                      HttpStatus.BAD_REQUEST,
-                                      REWARD_BATCH_INVALID_REQUEST,
-                                      ERROR_MESSAGE_PREVIOUS_BATCH_TO_APPROVE.formatted(
-                                          rewardBatchId)))
-                              : captureApprovalSnapshot(
-                                  transactionDslContext, rewardBatchId, initiativeId));
-            });
+    private Mono<RewardBatch> continueApproval(
+            DSLContext transactionDslContext,
+            RewardBatchesRecord batch,
+            String rewardBatchId,
+            String initiativeId
+    ) {
+        return hasPreviousBatchToApprove(
+                transactionDslContext,
+                batch.getId(),
+                batch.getInitiativeId(),
+                batch.getMerchantId(),
+                batch.getPosType(),
+                batch.getMonth()
+        ).flatMap(hasPreviousBatch -> {
+            if (hasPreviousBatch) {
+                return Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.BAD_REQUEST,
+                        REWARD_BATCH_INVALID_REQUEST,
+                        ERROR_MESSAGE_PREVIOUS_BATCH_TO_APPROVE.formatted(rewardBatchId)
+                ));
+            }
+            return captureApprovalSnapshot(transactionDslContext, rewardBatchId, initiativeId);
+        });
+    }
+
+    private Mono<RewardBatch> validateApprovalBatch(RewardBatchesRecord batch) {
+        RewardBatchStatus status = RewardBatchStatus.valueOf(batch.getStatus());
+        if (status != RewardBatchStatus.CREATED && batch.getInitialAmountCentsAtSend() == null) {
+            return Mono.error(missingSendSnapshot(batch.getId()));
+        }
+        if (status == RewardBatchStatus.APPROVING) {
+            return returnExistingApproval(batch);
+        }
+        if (requiresApprovalSnapshot(status)
+                && batch.getSuspendedAmountCentsAtApproving() == null) {
+            return Mono.error(missingApprovalSnapshot(batch.getId()));
+        }
+        if (status != RewardBatchStatus.EVALUATING) {
+            return invalidApprovalState(batch.getId());
+        }
+        if (batch.getSuspendedAmountCentsAtApproving() != null) {
+            return Mono.error(inconsistentApprovalSnapshot(batch.getId()));
+        }
+        if (!RewardBatchAssignee.L3.name().equals(batch.getAssigneeLevel())) {
+            return invalidApprovalState(batch.getId());
+        }
+        return Mono.empty();
     }
 
     private Mono<RewardBatchesRecord> lockBatchForApprovalWithGroupLock(
