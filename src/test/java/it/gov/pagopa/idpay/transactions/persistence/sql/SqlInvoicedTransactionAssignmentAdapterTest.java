@@ -364,6 +364,41 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
                 .verifyComplete();
     }
 
+    @Test
+    void shouldRejectAssignmentToEarlierBatchAfterLaterBatchWasSent() {
+        RewardBatch earlier = batch();
+        earlier.setId("sent-first-earlier");
+        earlier.setMonth("2026-06");
+        RewardBatch current = batch();
+        current.setId("sent-first-current");
+        current.setMonth("2026-07");
+
+        StepVerifier.create(Flux.concat(
+                        batchAdapter.createOrRead(earlier),
+                        batchAdapter.createOrRead(current)
+                )
+                .then(batchAdapter.sendBatch(
+                        current.getId(),
+                        current.getInitiativeId(),
+                        current.getMerchantId()
+                ))
+                .then(adapter.assignInvoicedTransaction(
+                        transaction("transaction-after-send", 750L),
+                        earlier,
+                        123
+                )))
+                .expectErrorMatches(error -> error instanceof ClientExceptionNoBody
+                        && ((ClientExceptionNoBody) error).getHttpStatus() == HttpStatus.BAD_REQUEST)
+                .verify();
+
+        StepVerifier.create(Mono.from(dslContext.selectCount()
+                        .from(REWARD_TRANSACTIONS)
+                        .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq("transaction-after-send")
+                                .and(REWARD_TRANSACTIONS.REWARD_BATCH_ID.isNotNull()))))
+                .expectNextMatches(result -> result.value1() == 0)
+                .verifyComplete();
+    }
+
     private static RewardBatch batch() {
         return RewardBatchFactory.create(
                 INITIATIVE_ID,

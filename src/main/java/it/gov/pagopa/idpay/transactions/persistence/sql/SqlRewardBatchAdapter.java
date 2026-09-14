@@ -30,7 +30,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.util.retry.Retry;
 
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -116,7 +115,7 @@ public class SqlRewardBatchAdapter {
             String initiativeId,
             String merchantId
     ) {
-        return Mono.defer(() -> {
+        return SqlTransactionRetrySupport.retryOnConcurrencyFailure(Mono.defer(() -> {
                     validateSendRequest(rewardBatchId, initiativeId);
                     return transactionalOperator.transactional(
                             ConnectionFactoryUtils.getConnection(connectionFactory)
@@ -127,8 +126,7 @@ public class SqlRewardBatchAdapter {
                                             merchantId
                                     ))
                     );
-                })
-                .retryWhen(Retry.max(3).filter(SqlTransactionRetrySupport::isRetryableConcurrencyFailure));
+                }));
     }
 
     public Mono<RewardBatch> updateStatus(
@@ -175,83 +173,74 @@ public class SqlRewardBatchAdapter {
             String initiativeId,
             String merchantId
     ) {
-        return readBatchForSend(transactionDslContext, rewardBatchId, initiativeId)
-                .flatMap(batch -> SqlRewardBatchGroupLock.acquire(
-                                transactionDslContext,
-                                batch.getInitiativeId(),
-                                batch.getMerchantId(),
-                                batch.getPosType()
-                        )
-                        .then(lockBatchForSend(transactionDslContext, rewardBatchId, initiativeId)))
-                .flatMap(batch -> {
-                    if (!Objects.equals(merchantId, batch.getMerchantId())) {
-                        return Mono.error(new RewardBatchException(
-                                HttpStatus.NOT_FOUND,
-                                REWARD_BATCH_NOT_FOUND
-                        ));
-                    }
+    return readBatchForSend(transactionDslContext, rewardBatchId, initiativeId)
+        .flatMap(
+            batch ->
+                SqlRewardBatchGroupLock.acquire(
+                        transactionDslContext,
+                        batch.getInitiativeId(),
+                        batch.getMerchantId(),
+                        batch.getPosType())
+                    .then(lockBatchForSend(transactionDslContext, rewardBatchId, initiativeId)))
+        .flatMap(
+            batch -> {
+              if (!Objects.equals(merchantId, batch.getMerchantId())) {
+                return Mono.error(
+                    new RewardBatchException(HttpStatus.NOT_FOUND, REWARD_BATCH_NOT_FOUND));
+              }
 
-                    RewardBatchStatus status = RewardBatchStatus.valueOf(batch.getStatus());
-                    if (status == RewardBatchStatus.SENT) {
-                        return batch.getInitialAmountCentsAtSend() == null
-                                ? Mono.error(missingSendSnapshot(batch.getId()))
-                                : Mono.just(mapper.fromRecord(batch));
-                    }
-                    if (status != RewardBatchStatus.CREATED) {
-                        if (batch.getInitialAmountCentsAtSend() == null) {
-                            return Mono.error(missingSendSnapshot(batch.getId()));
+              RewardBatchStatus status = RewardBatchStatus.valueOf(batch.getStatus());
+              if (status == RewardBatchStatus.SENT) {
+                return batch.getInitialAmountCentsAtSend() == null
+                    ? Mono.error(missingSendSnapshot(batch.getId()))
+                    : Mono.just(mapper.fromRecord(batch));
+              }
+              if (status != RewardBatchStatus.CREATED) {
+                if (batch.getInitialAmountCentsAtSend() == null) {
+                  return Mono.error(missingSendSnapshot(batch.getId()));
+                }
+                return Mono.error(
+                    new RewardBatchException(HttpStatus.BAD_REQUEST, REWARD_BATCH_INVALID_REQUEST));
+              }
+              if (batch.getInitialAmountCentsAtSend() != null) {
+                return Mono.error(inconsistentSendSnapshot(batch.getId()));
+              }
+
+              YearMonth batchMonth = YearMonth.parse(batch.getMonth());
+              if (!YearMonth.now(ZONEID).isAfter(batchMonth)) {
+                return Mono.error(
+                    new RewardBatchException(HttpStatus.BAD_REQUEST, REWARD_BATCH_MONTH_TOO_EARLY));
+              }
+
+              return hasPreviousCreatedBatchWithTransactions(
+                      transactionDslContext,
+                      rewardBatchId,
+                      initiativeId,
+                      batch.getMerchantId(),
+                      batch.getPosType(),
+                      batchMonth)
+                  .flatMap(
+                      hasPreviousBatch -> {
+                        if (hasPreviousBatch) {
+                          return Mono.error(
+                              new RewardBatchException(
+                                  HttpStatus.BAD_REQUEST, REWARD_BATCH_PREVIOUS_NOT_SENT));
                         }
-                        return Mono.error(new RewardBatchException(
-                                HttpStatus.BAD_REQUEST,
-                                REWARD_BATCH_INVALID_REQUEST
-                        ));
-                    }
-                    if (batch.getInitialAmountCentsAtSend() != null) {
-                        return Mono.error(inconsistentSendSnapshot(batch.getId()));
-                    }
 
-                    YearMonth batchMonth = YearMonth.parse(batch.getMonth());
-                    if (!YearMonth.now(ZONEID).isAfter(batchMonth)) {
-                        return Mono.error(new RewardBatchException(
-                                HttpStatus.BAD_REQUEST,
-                                REWARD_BATCH_MONTH_TOO_EARLY
-                        ));
-                    }
-
-                    return hasPreviousCreatedBatchWithTransactions(
-                                    transactionDslContext,
-                                    rewardBatchId,
-                                    initiativeId,
-                                    batch.getMerchantId(),
-                                    batch.getPosType(),
-                                    batchMonth
-                            )
-                            .flatMap(hasPreviousBatch -> {
-                                if (hasPreviousBatch) {
-                                    return Mono.error(new RewardBatchException(
-                                            HttpStatus.BAD_REQUEST,
-                                            REWARD_BATCH_PREVIOUS_NOT_SENT
-                                    ));
-                                }
-
-                                return lockAssignedTransactions(
-                                                transactionDslContext,
-                                                rewardBatchId,
-                                                initiativeId
-                                        )
-                                        .then(sumAssignedRewards(
-                                                transactionDslContext,
-                                                rewardBatchId,
-                                                initiativeId
-                                        ))
-                                        .flatMap(amount -> captureSendSnapshotAndStatus(
-                                                transactionDslContext,
-                                                rewardBatchId,
-                                                initiativeId,
-                                                amount
-                                        ));
-                            });
-                });
+                        return lockAssignedTransactions(
+                                transactionDslContext, rewardBatchId, initiativeId)
+                            .then(
+                                sumAssignedRewards(
+                                    transactionDslContext, rewardBatchId, initiativeId))
+                            .flatMap(
+                                amount ->
+                                    captureSendSnapshotAndStatus(
+                                        transactionDslContext,
+                                        rewardBatchId,
+                                        initiativeId,
+                                        amount));
+                      });
+            });
     }
 
     private Mono<RewardBatchesRecord> lockBatchForSend(
