@@ -39,7 +39,7 @@ Semantics:
 
 Successful processing returns `200 OK`, preserving the current endpoint contract.
 
-An absent or malformed JSON body continues to use Spring's existing request-binding error behavior. It is not treated as cron mode; cron mode requires a valid object such as `{}`.
+An absent body is treated like `{}` and selects all `SENT` batches for the initiative. A malformed JSON body continues to use Spring's existing request-binding error behavior.
 
 ## Validation
 
