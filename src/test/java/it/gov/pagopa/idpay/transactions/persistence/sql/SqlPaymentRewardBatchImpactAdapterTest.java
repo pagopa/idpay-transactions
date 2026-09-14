@@ -3,6 +3,7 @@ package it.gov.pagopa.idpay.transactions.persistence.sql;
 import static it.gov.pagopa.common.utils.CommonConstants.ZONEID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.r2dbc.spi.Connection;
 import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
@@ -79,6 +80,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
         SqlRewardBatchAdapter batchAdapter = new SqlRewardBatchAdapter(
                 transactionalOperator(),
                 dslContext,
+                connectionFactory(),
                 new R2dbcRepositoryFactory(r2dbcEntityTemplate())
                         .getRepository(RewardBatchSqlRepository.class),
                 batchMapper
@@ -368,6 +370,156 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                                     10
                             ), result.getT1());
                     assertEquals(6L, result.getT2());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldAcquireSourceBatchLockBeforePaymentImpactMutationAndKeepSnapshotsUnchanged() {
+        String transactionId = "impact-lock-transaction";
+
+        StepVerifier.create(insertBatch(SOURCE_BATCH_ID, RewardBatchStatus.CREATED, "2026-07")
+                        .then(insertMembership(
+                                transactionId,
+                                SOURCE_BATCH_ID,
+                                RewardBatchTrxStatus.CONSULTABLE,
+                                SyncTrxStatus.AUTHORIZED,
+                                5L,
+                                10
+                        ))
+                        .then(databaseClient()
+                                .sql("""
+                                        UPDATE reward_batches
+                                        SET initial_amount_cents_at_send = 321,
+                                            suspended_amount_cents_at_approving = 654
+                                        WHERE id = :batchId
+                                        """)
+                                .bind("batchId", SOURCE_BATCH_ID)
+                                .fetch()
+                                .rowsUpdated()
+                                .then())
+                        .then(SqlBatchLockTestSupport.holdBatch(
+                                connectionFactory(),
+                                SOURCE_BATCH_ID,
+                                INITIATIVE_ID
+                        ).flatMap(batchLock -> {
+                            var pending = adapter.applyImpact(replacement(
+                                    transactionId,
+                                    "impact-lock-event",
+                                    6L,
+                                    eventTime()
+                            )).toFuture();
+                            return SqlBatchLockTestSupport.blockedByWithin(
+                                            connectionFactory(),
+                                            batchLock.backendPid()
+                                    )
+                                    .flatMap(blocked -> {
+                                        Mono<Void> evidence = blocked
+                                                ? Mono.zip(
+                                                                transactionState(transactionId),
+                                                                lifecycleSnapshots(SOURCE_BATCH_ID)
+                                                        )
+                                                        .doOnNext(state -> {
+                                                            assertEquals(5L, state.getT1().revision());
+                                                            assertEquals(
+                                                                    SOURCE_BATCH_ID,
+                                                                    state.getT1().batchId()
+                                                            );
+                                                            assertEquals(
+                                                                    new LifecycleSnapshots(321L, 654L),
+                                                                    state.getT2()
+                                                            );
+                                                        })
+                                                        .then()
+                                                : Mono.empty();
+                                        return evidence
+                                                .then(batchLock.release())
+                                                .then(Mono.fromFuture(pending))
+                                                .map(transaction -> {
+                                                    assertTrue(blocked,
+                                                            "payment impact must wait for the source batch row lock");
+                                                    return transaction;
+                                                });
+                                    })
+                                    .onErrorResume(error -> batchLock.release().then(Mono.error(error)));
+                        })))
+                .assertNext(transaction -> {
+                    assertEquals(6L, transaction.getTransactionRevision());
+                    assertEquals(SOURCE_BATCH_ID, transaction.getRewardBatchId());
+                    assertEquals(RewardBatchTrxStatus.CONSULTABLE, transaction.getRewardBatchTrxStatus());
+                })
+                .verifyComplete();
+
+        StepVerifier.create(lifecycleSnapshots(SOURCE_BATCH_ID))
+                .expectNext(new LifecycleSnapshots(321L, 654L))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldTreatEqualAndStaleImpactRevisionsAsNoOpsWithoutChangingSnapshotsOrSecondWatermark() {
+        String transactionId = "impact-equal-stale-no-op";
+
+        StepVerifier.create(insertBatch(SOURCE_BATCH_ID, RewardBatchStatus.CREATED, "2026-07")
+                        .then(insertMembership(
+                                transactionId,
+                                SOURCE_BATCH_ID,
+                                RewardBatchTrxStatus.CONSULTABLE,
+                                SyncTrxStatus.AUTHORIZED,
+                                6L,
+                                10
+                        ))
+                        .then(databaseClient()
+                                .sql("""
+                                        UPDATE reward_batches
+                                        SET initial_amount_cents_at_send = 321,
+                                            suspended_amount_cents_at_approving = 654
+                                        WHERE id = :batchId
+                                        """)
+                                .bind("batchId", SOURCE_BATCH_ID)
+                                .fetch()
+                                .rowsUpdated()
+                                .then())
+                        .then(adapter.applyImpact(replacement(
+                                transactionId,
+                                "impact-equal-first",
+                                6L,
+                                eventTime()
+                        )))
+                        .then(adapter.applyImpact(replacement(
+                                transactionId,
+                                "impact-equal-retry",
+                                6L,
+                                eventTime()
+                        )))
+                        .then(adapter.applyImpact(replacement(
+                                transactionId,
+                                "impact-stale-retry",
+                                5L,
+                                previousMonthEventTime()
+                        ))))
+                .assertNext(transaction -> {
+                    assertEquals(SyncTrxStatus.AUTHORIZED.name(), transaction.getStatus());
+                    assertEquals(6L, transaction.getTransactionRevision());
+                    assertEquals(SOURCE_BATCH_ID, transaction.getRewardBatchId());
+                    assertEquals(RewardBatchTrxStatus.CONSULTABLE, transaction.getRewardBatchTrxStatus());
+                })
+                .verifyComplete();
+
+        StepVerifier.create(Mono.zip(
+                        transactionState(transactionId),
+                        lifecycleSnapshots(SOURCE_BATCH_ID),
+                        paymentImpactWatermarks(transactionId),
+                        batchCount()
+                ))
+                .assertNext(state -> {
+                    assertEquals(6L, state.getT1().revision());
+                    assertEquals(SOURCE_BATCH_ID, state.getT1().batchId());
+                    assertEquals(
+                            new LifecycleSnapshots(321L, 654L),
+                            state.getT2()
+                    );
+                    assertEquals(new PaymentImpactWatermarks(6L, 0L), state.getT3());
+                    assertEquals(1L, state.getT4());
                 })
                 .verifyComplete();
     }
@@ -1801,6 +1953,36 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                 .one();
     }
 
+    private static Mono<LifecycleSnapshots> lifecycleSnapshots(String batchId) {
+        return databaseClient()
+                .sql("""
+                        SELECT initial_amount_cents_at_send, suspended_amount_cents_at_approving
+                        FROM reward_batches
+                        WHERE id = :batchId
+                        """)
+                .bind("batchId", batchId)
+                .map((row, metadata) -> new LifecycleSnapshots(
+                        row.get("initial_amount_cents_at_send", Long.class),
+                        row.get("suspended_amount_cents_at_approving", Long.class)
+                ))
+                .one();
+    }
+
+    private static Mono<PaymentImpactWatermarks> paymentImpactWatermarks(String transactionId) {
+        return databaseClient()
+                .sql("""
+                        SELECT transaction_revision, latest_applied_payment_impact_revision
+                        FROM reward_transactions
+                        WHERE transaction_id = :transactionId
+                        """)
+                .bind("transactionId", transactionId)
+                .map((row, metadata) -> new PaymentImpactWatermarks(
+                        row.get("transaction_revision", Long.class),
+                        row.get("latest_applied_payment_impact_revision", Long.class)
+                ))
+                .one();
+    }
+
     private static Mono<RewardBatch> batchForGrouping(String month) {
         return Mono.from(dslContext.selectFrom(
                         it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches.REWARD_BATCHES
@@ -1900,6 +2082,15 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
             String batchId,
             String batchStatus,
             int samplingKey
+    ) {
+    }
+
+    private record LifecycleSnapshots(Long initialAmountCentsAtSend, Long suspendedAmountCentsAtApproving) {
+    }
+
+    private record PaymentImpactWatermarks(
+            Long transactionRevision,
+            Long latestAppliedPaymentImpactRevision
     ) {
     }
 }
