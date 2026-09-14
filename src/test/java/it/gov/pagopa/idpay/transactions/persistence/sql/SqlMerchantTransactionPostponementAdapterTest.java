@@ -68,6 +68,7 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
         SqlRewardBatchAdapter batchAdapter = new SqlRewardBatchAdapter(
                 transactionalOperator(),
                 dslContext,
+                connectionFactory(),
                 new R2dbcRepositoryFactory(r2dbcEntityTemplate())
                         .getRepository(RewardBatchSqlRepository.class),
                 batchMapper

@@ -78,6 +78,17 @@ public class SqlRewardBatchLifecycleAdapter implements RewardBatchLifecyclePort 
     }
 
     @Override
+    public Mono<RewardBatch> sendBatch(
+            String rewardBatchId,
+            String initiativeId,
+            String merchantId
+    ) {
+        return batchAdapter.sendBatch(rewardBatchId, initiativeId, merchantId)
+                .flatMap(sent -> batchListAdapter.findBatch(sent.getId(), sent.getInitiativeId())
+                        .switchIfEmpty(Mono.just(sent)));
+    }
+
+    @Override
     public Mono<RewardBatch> updateEvaluationStatus(
             String rewardBatchId,
             String initiativeId,
