@@ -1,11 +1,10 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import com.azure.storage.blob.models.BlobStorageException;
 import it.gov.pagopa.common.web.exception.*;
 import it.gov.pagopa.idpay.transactions.config.InitiativeNotFoundException;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
-import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
+import it.gov.pagopa.idpay.transactions.data.factory.DataFactoryService;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.InitiativeDetailDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO;
@@ -16,7 +15,6 @@ import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.*;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
-import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.*;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
@@ -34,9 +32,6 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
-import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -69,7 +64,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private final RewardBatchAssigneePromotionPort rewardBatchAssigneePromotionPort;
     private final RewardBatchDeliveryPort rewardBatchDeliveryPort;
     private final SuspendedTransactionReassignmentPort suspendedTransactionReassignmentPort;
-    private final UserRestClient userRestClient;
     private final ChecksErrorMapper checksErrorMapper;
 
     private final AuditUtilities auditUtilities;
@@ -78,6 +72,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private final SelfcareInstitutionsRestClient selfcareInstitutionsRestClient;
     private final ErogazioniRestClient erogazioniRestClient;
     private final InitiativeDataService initiativeDataService;
+    private final DataFactoryService dataFactoryService;
 
     private final int pagesize;
 
@@ -88,20 +83,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     private static final Set<String> OPERATORS = Set.of(OPERATOR_1, OPERATOR_2, OPERATOR_3);
     private final ApprovedRewardBatchBlobService approvedRewardBatchBlobService;
-
-    private static final String CSV_HEADER = String.join(";",
-            "Data e ora",
-            "Elettrodomestico",
-            "Codice Fiscale Beneficiario",
-            "ID transazione",
-            "Codice sconto",
-            "Totale della spesa",
-            "Sconto applicato", // "Importo autorizzato",
-            "Numero fattura",
-            "Fattura",
-            "Stato",
-            "Punto vendita"
-    );
 
     private static final String REWARD_BATCHES_PATH_STORAGE_FORMAT = "initiative/%s/merchant/%s/batch/%s/";
     private static final String REWARD_BATCHES_REPORT_NAME_FORMAT = "%s_%s_%s.csv";
@@ -120,7 +101,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                   RewardBatchAssigneePromotionPort rewardBatchAssigneePromotionPort,
                                   RewardBatchDeliveryPort rewardBatchDeliveryPort,
                                   SuspendedTransactionReassignmentPort suspendedTransactionReassignmentPort,
-                                  UserRestClient userRestClient,
                                   ApprovedRewardBatchBlobService approvedRewardBatchBlobService,
                                   ChecksErrorMapper checksErrorMapper,
                                   AuditUtilities auditUtilities,
@@ -129,6 +109,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                   SelfcareInstitutionsRestClient selfcareInstitutionsRestClient,
                                   ErogazioniRestClient erogazioniRestClient,
                                   InitiativeDataService initiativeDataService,
+                                  DataFactoryService dataFactoryService,
                                   @Value("${app.batch.paginationSize}") int pagesize) {
         this.rewardBatchLifecyclePort = rewardBatchLifecyclePort;
         this.rewardBatchListPort = rewardBatchListPort;
@@ -140,7 +121,6 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         this.rewardBatchAssigneePromotionPort = rewardBatchAssigneePromotionPort;
         this.rewardBatchDeliveryPort = rewardBatchDeliveryPort;
         this.suspendedTransactionReassignmentPort = suspendedTransactionReassignmentPort;
-        this.userRestClient = userRestClient;
         this.approvedRewardBatchBlobService = approvedRewardBatchBlobService;
         this.checksErrorMapper = checksErrorMapper;
         this.auditUtilities = auditUtilities;
@@ -149,6 +129,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         this.selfcareInstitutionsRestClient = selfcareInstitutionsRestClient;
         this.erogazioniRestClient = erogazioniRestClient;
         this.initiativeDataService = initiativeDataService;
+        this.dataFactoryService = dataFactoryService;
         this.pagesize = pagesize;
     }
 
@@ -924,138 +905,28 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(Utilities.sanitizeString(rewardBatchId))));
                 }))
                 .flatMap(batch -> {
-
-                    String pathPrefix = String.format(REWARD_BATCHES_PATH_STORAGE_FORMAT,
-                            Utilities.sanitizeString(initiativeId),
-                            Utilities.sanitizeString(batch.getMerchantId()),
-                            Utilities.sanitizeString(rewardBatchId));
-
                     String reportFilename = String.format(REWARD_BATCHES_REPORT_NAME_FORMAT,
                             batch.getBusinessName(),
                             batch.getName(),
                             batch.getPosType().getDescription()).trim();
 
-                    String filename = pathPrefix + reportFilename;
+                    batch.setFilename(reportFilename);
 
-                    Flux<RewardTransaction> transactionFlux = rewardBatchTransactionReadPort.findBatchTransactions(
-                            rewardBatchId, initiativeId, List.of(RewardBatchTrxStatus.APPROVED, RewardBatchTrxStatus.REJECTED));
-
-                    Flux<String> csvRowsFlux = transactionFlux
-                            .concatMap(transaction -> {
-                                if (transaction.getFiscalCode() == null || transaction.getFiscalCode().isEmpty()) {
-                                    return userRestClient.retrieveUserInfo(transaction.getUserId())
-                                            .map(cf -> {
-                                                transaction.setFiscalCode(cf.getPii());
-                                                return this.mapTransactionToCsvRow(transaction, initiativeId);});
-                                } else {
-                                    return Mono.just(this.mapTransactionToCsvRow(transaction, initiativeId));
-                                }
-                            });
-
-                    Flux<String> fullCsvFlux = Flux.just(CSV_HEADER).concatWith(csvRowsFlux);
-
-                    return fullCsvFlux
-                            .collect(StringBuilder::new, (sb, s) -> sb.append(s).append("\n"))
-                            .map(StringBuilder::toString)
-                            .flatMap(csvContent -> this.uploadCsvToBlob(filename, csvContent))
-                            .flatMap(uploadedPath -> {
-                                batch.setFilename(reportFilename);
-                                log.info("Updated batch {} with filename: {}", Utilities.sanitizeString(rewardBatchId), reportFilename);
-                                return rewardBatchLifecyclePort.saveBatch(batch)
-                                        .thenReturn(reportFilename);
-                            });
+                    return rewardBatchLifecyclePort.saveBatch(batch)
+                            .then(dataFactoryService.triggerRewardBatchCsvPipeline(
+                                    initiativeId,
+                                    batch.getMerchantId(),
+                                    rewardBatchId,
+                                    reportFilename
+                            ))
+                            .doOnNext(runId -> log.info(
+                                    "[GENERATE_AND_SAVE_CSV] Triggered ADF pipeline for batch {}. Run ID: {}",
+                                    Utilities.sanitizeString(rewardBatchId),
+                                    Utilities.sanitizeString(runId)
+                            ))
+                            .thenReturn(reportFilename);
                 })
-                .doOnSuccess(result -> log.info("[GENERATE_AND_SAVE_CSV] CSV generation completed successfully for batch: {}", Utilities.sanitizeString(rewardBatchId)));
-    }
-
-    private String mapTransactionToCsvRow(RewardTransaction trx, String initiativeId) {
-
-        Function<LocalDateTime, String> safeDateToString =
-                date -> date != null
-                        ? date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy hh:mm"))
-                        : "";
-
-        LongFunction<String> centsToEuroString = cents -> {
-            NumberFormat numberFormat = NumberFormat.getNumberInstance(Locale.ITALY);
-            numberFormat.setMinimumFractionDigits(2);
-            numberFormat.setMaximumFractionDigits(2);
-            return numberFormat.format(cents / 100.0);
-        };
-
-        String productName = trx.getAdditionalProperties() != null &&
-                trx.getAdditionalProperties().get("productName") != null
-                ? trx.getAdditionalProperties().get("productName")
-                : "";
-        String productGtin = trx.getAdditionalProperties() != null &&
-                trx.getAdditionalProperties().get("productGtin") != null
-                ? trx.getAdditionalProperties().get("productGtin")
-                : "";
-
-        String productInfo = productName + "\n" + productGtin;
-
-        String invoiceNumber =
-                trx.getInvoiceData() != null && trx.getInvoiceData().getDocNumber() != null
-                        ? trx.getInvoiceData().getDocNumber()
-                        : "";
-
-        return String.join(";",
-                safeDateToString.apply(trx.getTrxChargeDate()),
-                csvField(productInfo),
-                csvField(trx.getFiscalCode()),
-                csvField(trx.getId()),
-                csvField(trx.getTrxCode()),
-                trx.getEffectiveAmountCents() != null
-                        ? csvField(centsToEuroString.apply(trx.getEffectiveAmountCents()))
-                        : "",
-                trx.getRewards().get(initiativeId).getAccruedRewardCents() != null
-                        ? csvField(centsToEuroString.apply(
-                        trx.getRewards().get(initiativeId).getAccruedRewardCents()))
-                        : "",
-                csvField(invoiceNumber),
-                csvField(trx.getInvoiceData().getFilename()),
-                csvField(trx.getRewardBatchTrxStatus().getDescription()),
-                csvField(trx.getFranchiseName())
-        );
-    }
-
-    private String csvField(String s) {
-        if (s == null) {
-            return "";
-        }
-
-        String escaped = s.replace("\"", "\"\"");
-
-        boolean mustQuote =
-                escaped.contains(";") ||
-                        escaped.contains(",") ||
-                        escaped.contains("\n") ||
-                        escaped.contains("\r") ||
-                        escaped.contains("\"");
-
-        return mustQuote ? "\"" + escaped + "\"" : escaped;
-    }
-
-    public Mono<String> uploadCsvToBlob(String filename, String csvContent) {
-
-        return Mono.defer(() -> approvedRewardBatchBlobService.upload(
-                        new ByteArrayInputStream(csvContent.getBytes(StandardCharsets.UTF_8)),
-                        filename,
-                        "text/csv; charset=UTF-8"
-                )
-                .flatMap(response -> {
-                    if (response.getStatusCode() != HttpStatus.CREATED.value()) {
-                        log.error("Error uploading file to storage for file [{}]",
-                                Utilities.sanitizeString(filename));
-                        return Mono.error(new ClientExceptionWithBody(HttpStatus.INTERNAL_SERVER_ERROR,
-                                ExceptionConstants.ExceptionCode.GENERIC_ERROR,
-                                "Error uploading csv file"));
-                    }
-                    return Mono.just(filename);
-                }))
-                .onErrorMap(BlobStorageException.class, e -> {
-                    log.error("Azure Blob Storage upload failed for file {}", filename, e);
-                    return new RuntimeException("Error uploading CSV to Blob Storage.", e);
-                });
+                .doOnSuccess(ignored -> log.info("[GENERATE_AND_SAVE_CSV] CSV generation completed successfully for batch: {}", Utilities.sanitizeString(rewardBatchId)));
     }
 
 
