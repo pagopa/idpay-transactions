@@ -74,6 +74,27 @@ class SqlRewardBatchLifecycleAdapterTest {
     }
 
     @Test
+    void sendReturnsFreshAggregateOrAtomicSendResultWhenAggregateIsAbsent() {
+        RewardBatch sent = batch("batch", "initiative");
+        sent.setStatus(RewardBatchStatus.SENT);
+        RewardBatch refreshed = batch("batch", "initiative");
+        refreshed.setStatus(RewardBatchStatus.SENT);
+        refreshed.setInitialAmountCents(700L);
+        when(batchAdapter.sendBatch("batch", "initiative", "merchant")).thenReturn(Mono.just(sent));
+        when(batchListAdapter.findBatch("batch", "initiative")).thenReturn(Mono.just(refreshed));
+
+        StepVerifier.create(adapter.sendBatch("batch", "initiative", "merchant"))
+                .expectNext(refreshed)
+                .verifyComplete();
+        verify(batchAdapter).sendBatch("batch", "initiative", "merchant");
+
+        when(batchListAdapter.findBatch("batch", "initiative")).thenReturn(Mono.empty());
+        StepVerifier.create(adapter.sendBatch("batch", "initiative", "merchant"))
+                .expectNext(sent)
+                .verifyComplete();
+    }
+
+    @Test
     void evaluationUpdateReturnsFreshAggregateOrUpdatedObjectWhenAggregateIsAbsent() {
         RewardBatch updated = batch("batch", "initiative");
         updated.setStatus(RewardBatchStatus.EVALUATING);

@@ -57,6 +57,7 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
                 new SqlRewardBatchAdapter(
                         transactionalOperator(),
                         dslContext,
+                        connectionFactory(),
                         new R2dbcRepositoryFactory(r2dbcEntityTemplate())
                                 .getRepository(RewardBatchSqlRepository.class),
                         new RewardBatchSqlMapper(jsonMapper)

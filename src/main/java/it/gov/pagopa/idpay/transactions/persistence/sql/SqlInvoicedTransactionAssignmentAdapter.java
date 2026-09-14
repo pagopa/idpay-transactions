@@ -92,7 +92,13 @@ public class SqlInvoicedTransactionAssignmentAdapter implements InvoicedTransact
             int samplingKey,
             String initiativeId
     ) {
-        return transactionAdapter.upsertWithinTransaction(transaction, transactionDslContext)
+        return SqlRewardBatchGroupLock.acquire(
+                                transactionDslContext,
+                                initiativeId,
+                                batch.getMerchantId(),
+                                batch.getPosType().name()
+                        )
+                .then(transactionAdapter.upsertWithinTransaction(transaction, transactionDslContext))
                 .flatMap(persisted -> SyncTrxStatus.INVOICED.name().equals(persisted.getStatus())
                         && persisted.getRewardBatchId() == null
                         ? lockOrCreateBatch(transactionDslContext, batch)

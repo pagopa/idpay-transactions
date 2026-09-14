@@ -46,6 +46,7 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
     private static final String MERCHANT_ID = "merchant-1";
 
     private static SqlInvoicedTransactionAssignmentAdapter adapter;
+    private static SqlRewardBatchAdapter batchAdapter;
     private static DSLContext dslContext;
 
     @BeforeAll
@@ -57,9 +58,10 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
         );
         RewardBatchSqlMapper batchMapper = new RewardBatchSqlMapper(JsonMapper.builder().build());
         RewardTransactionSqlMapper transactionMapper = new RewardTransactionSqlMapper(JsonMapper.builder().build());
-        SqlRewardBatchAdapter batchAdapter = new SqlRewardBatchAdapter(
+        batchAdapter = new SqlRewardBatchAdapter(
                 transactionalOperator(),
                 dslContext,
+                connectionFactory(),
                 new R2dbcRepositoryFactory(r2dbcEntityTemplate())
                         .getRepository(RewardBatchSqlRepository.class),
                 batchMapper
@@ -326,6 +328,39 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
                         .from(REWARD_TRANSACTIONS)
                         .where(REWARD_TRANSACTIONS.REWARD_BATCH_ID.isNotNull())))
                 .expectNextMatches(result -> result.value1().longValue() == 750L)
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldSerializeAssignmentToEarlierBatchAgainstLaterBatchSend() {
+        RewardBatch earlier = batch();
+        earlier.setId("concurrent-earlier");
+        earlier.setMonth("2026-06");
+        RewardBatch current = batch();
+        current.setId("concurrent-current");
+        current.setMonth("2026-07");
+        RewardTransaction transaction = transaction("transaction-concurrent-send", 750L);
+
+        StepVerifier.create(Flux.concat(
+                        batchAdapter.createOrRead(earlier),
+                        batchAdapter.createOrRead(current)
+                )
+                .thenMany(Flux.merge(
+                        adapter.assignInvoicedTransaction(transaction, earlier, 123)
+                                .thenReturn(true)
+                                .onErrorReturn(false),
+                        batchAdapter.sendBatch(
+                                        current.getId(),
+                                        current.getInitiativeId(),
+                                        current.getMerchantId()
+                                )
+                                .thenReturn(true)
+                                .onErrorReturn(false)
+                ))
+                .collectList())
+                .assertNext(results -> assertEquals(1, results.stream()
+                        .filter(Boolean::booleanValue)
+                        .count()))
                 .verifyComplete();
     }
 
