@@ -101,7 +101,7 @@ public class SqlInvoicedTransactionAssignmentAdapter implements InvoicedTransact
                                 batch.getPosType().name()
                         )
                 .then(findExistingTransaction(transactionDslContext, transaction.getId()))
-                .flatMap(existing -> shouldAssign(existing)
+                .flatMap(existing -> shouldAssign(existing, transaction)
                         ? assignUnassignedTransaction(
                                 transactionDslContext,
                                 transaction,
@@ -163,9 +163,17 @@ public class SqlInvoicedTransactionAssignmentAdapter implements InvoicedTransact
                 .map(transactionMapper::fromRecord);
     }
 
-    private static boolean shouldAssign(RewardTransaction transaction) {
-        return SyncTrxStatus.INVOICED.name().equals(transaction.getStatus())
-                && transaction.getRewardBatchId() == null;
+    private static boolean shouldAssign(
+            RewardTransaction existing,
+            RewardTransaction incoming
+    ) {
+        if (existing.getRewardBatchId() != null
+                || !SyncTrxStatus.INVOICED.name().equals(incoming.getStatus())) {
+            return false;
+        }
+
+        return SyncTrxStatus.INVOICED.name().equals(existing.getStatus())
+                || incoming.getTransactionRevision() > existing.getTransactionRevision();
     }
 
     private Mono<RewardBatch> lockOrCreateBatch(DSLContext transactionDslContext, RewardBatch batch) {

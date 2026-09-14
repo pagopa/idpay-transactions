@@ -185,6 +185,24 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
     }
 
     @Test
+    void shouldAssignAnInvoicedSnapshotAfterAnExistingCapturedTransaction() {
+        RewardTransaction captured = transaction("transaction-captured-to-invoiced", 750L);
+        captured.setStatus("CAPTURED");
+        captured.setTransactionRevision(1L);
+        RewardTransaction invoiced = transaction("transaction-captured-to-invoiced", 750L);
+        invoiced.setTransactionRevision(2L);
+
+        StepVerifier.create(transactionAdapter.upsert(captured)
+                        .then(adapter.assignInvoicedTransaction(invoiced, batch(), 123)))
+                .assertNext(assigned -> {
+                    assertNotNull(assigned.getRewardBatchId());
+                    assertEquals(RewardBatchTrxStatus.CONSULTABLE, assigned.getRewardBatchTrxStatus());
+                    assertEquals(2L, assigned.getTransactionRevision());
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void shouldFindOnlyOrderedInvoicedTransactionsWithoutABatch() {
         StepVerifier.create(databaseClient()
                         .sql("""
