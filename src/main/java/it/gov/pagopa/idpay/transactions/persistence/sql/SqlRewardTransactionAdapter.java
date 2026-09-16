@@ -1,6 +1,5 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql;
 
-import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches.REWARD_BATCHES;
 import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions.REWARD_TRANSACTIONS;
 import static org.jooq.impl.DSL.excluded;
 import static org.jooq.impl.DSL.val;
@@ -136,54 +135,20 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
                         return Mono.empty();
                     }
 
-                    return Mono.from(transactionDslContext.select(REWARD_BATCHES.ID)
-                                    .from(REWARD_BATCHES)
-                                    .where(REWARD_BATCHES.ID.eq(rewardBatchId)
-                                            .and(REWARD_BATCHES.INITIATIVE_ID.eq(
-                                                    transactionRecord.get(REWARD_TRANSACTIONS.INITIATIVE_ID)
-                                            )))
-                                    .forUpdate())
-                            .switchIfEmpty(Mono.error(new IllegalStateException(
-                                    "Reward batch %s for transaction %s was not found"
-                                            .formatted(rewardBatchId, transactionId)
-                            )))
-                            .then(lockCurrentTransaction(
+                    String initiativeId = transactionRecord.get(REWARD_TRANSACTIONS.INITIATIVE_ID);
+                    return SqlRewardBatchRowLock.acquireSingle(
+                                    transactionDslContext,
+                                    initiativeId,
+                                    rewardBatchId
+                            )
+                            .then(SqlRewardBatchRowLock.acquireTransaction(
                                     transactionDslContext,
                                     transactionId,
-                                    rewardBatchId,
-                                    transactionRecord.get(REWARD_TRANSACTIONS.INITIATIVE_ID)
+                                    initiativeId,
+                                    rewardBatchId
                             ));
                 })
                 .then();
-    }
-
-    private Mono<Void> lockCurrentTransaction(
-            DSLContext transactionDslContext,
-            String transactionId,
-            String expectedBatchId,
-            String expectedInitiativeId
-    ) {
-        return Mono.from(transactionDslContext.select(
-                                REWARD_TRANSACTIONS.REWARD_BATCH_ID,
-                                REWARD_TRANSACTIONS.INITIATIVE_ID
-                        )
-                        .from(REWARD_TRANSACTIONS)
-                        .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId))
-                        .forUpdate())
-                .switchIfEmpty(Mono.error(new SqlMembershipChangedException(
-                        "Transaction %s disappeared while acquiring its batch lock".formatted(transactionId)
-                )))
-                .flatMap(current -> expectedBatchId.equals(
-                                current.get(REWARD_TRANSACTIONS.REWARD_BATCH_ID)
-                        )
-                        && expectedInitiativeId.equals(
-                                current.get(REWARD_TRANSACTIONS.INITIATIVE_ID)
-                        )
-                        ? Mono.empty()
-                        : Mono.error(new SqlMembershipChangedException(
-                                "Transaction %s changed membership while acquiring its batch lock"
-                                        .formatted(transactionId)
-                        )));
     }
 
     private InsertResultStep<?> insertOrUpdateProjection(

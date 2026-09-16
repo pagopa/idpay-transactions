@@ -28,6 +28,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.YearMonth;
@@ -391,6 +392,41 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                     assertEquals(RewardBatchStatus.SENT, attempt.retryResult().getStatus());
                     assertEquals(300L, attempt.first().initialAmountCentsAtSend());
                     assertEquals(attempt.first(), attempt.retry());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldCaptureSendSnapshotWithoutLockingAssignedTransactionRows() {
+        RewardBatch batch = sendableBatch("send-without-transaction-row-lock", 1);
+        String transactionId = "send-without-transaction-row-lock-transaction";
+
+        StepVerifier.create(adapter.createOrRead(batch)
+                        .then(insertTransaction(transactionId, batch.getId(), 300L)))
+                .verifyComplete();
+
+        SqlBatchLockTestSupport.HeldRowLock transactionLock = SqlBatchLockTestSupport
+                .holdTransaction(connectionFactory(), transactionId, batch.getInitiativeId())
+                .block();
+        try {
+            // The batch row is the aggregate coordination point; a transaction-row lock must
+            // not block the snapshot calculation.
+            StepVerifier.create(adapter.sendBatch(
+                                    batch.getId(),
+                                    batch.getInitiativeId(),
+                                    batch.getMerchantId()
+                            )
+                            .timeout(Duration.ofSeconds(5)))
+                    .assertNext(sent -> assertEquals(RewardBatchStatus.SENT, sent.getStatus()))
+                    .verifyComplete();
+        } finally {
+            transactionLock.release().block();
+        }
+
+        StepVerifier.create(sendState(batch.getId()))
+                .assertNext(state -> {
+                    assertEquals(RewardBatchStatus.SENT.name(), state.status());
+                    assertEquals(300L, state.initialAmountCentsAtSend());
                 })
                 .verifyComplete();
     }
@@ -836,6 +872,40 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                     assertEquals(RewardBatchStatus.APPROVING, attempt.retryResult().getStatus());
                     assertEquals(300L, attempt.firstState().suspendedAmountCentsAtApproving());
                     assertEquals(attempt.firstState(), attempt.retryState());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldCaptureApprovalSnapshotWithoutLockingAssignedTransactionRows() {
+        RewardBatch batch = approvalBatch("approval-without-transaction-row-lock");
+        String transactionId = "approval-without-transaction-row-lock-transaction";
+
+        StepVerifier.create(adapter.createOrRead(batch)
+                        .then(setSendSnapshot(batch.getId(), 100L))
+                        .then(insertTransaction(transactionId, batch.getId(), "SUSPENDED", 300L)))
+                .verifyComplete();
+
+        SqlBatchLockTestSupport.HeldRowLock transactionLock = SqlBatchLockTestSupport
+                .holdTransaction(connectionFactory(), transactionId, batch.getInitiativeId())
+                .block();
+        try {
+            // Approval must use the batch row lock rather than locking every assigned row.
+            StepVerifier.create(adapter.enterApproval(
+                                    batch.getId(),
+                                    batch.getInitiativeId()
+                            )
+                            .timeout(Duration.ofSeconds(5)))
+                    .assertNext(entered -> assertEquals(RewardBatchStatus.APPROVING, entered.getStatus()))
+                    .verifyComplete();
+        } finally {
+            transactionLock.release().block();
+        }
+
+        StepVerifier.create(approvalState(batch.getId()))
+                .assertNext(state -> {
+                    assertEquals(RewardBatchStatus.APPROVING.name(), state.status());
+                    assertEquals(300L, state.suspendedAmountCentsAtApproving());
                 })
                 .verifyComplete();
     }

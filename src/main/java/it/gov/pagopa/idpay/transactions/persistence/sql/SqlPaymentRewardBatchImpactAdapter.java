@@ -26,7 +26,6 @@ import org.springframework.r2dbc.connection.ConnectionFactoryUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Mono;
-import reactor.util.retry.Retry;
 
 @RequiredArgsConstructor
 @Component
@@ -80,18 +79,15 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
 
     @Override
     public Mono<RewardTransaction> applyImpact(PaymentRewardBatchImpact impact) {
-        return Mono.defer(() -> {
-                    validateImpact(impact);
-                    impact.transaction().setTransactionRevision(impact.transactionRevision());
-                    return transactionalOperator.transactional(ConnectionFactoryUtils.getConnection(connectionFactory)
-                            .flatMap(connection -> applyWithinTransaction(
-                                    org.jooq.impl.DSL.using(connection, SQLDialect.POSTGRES),
-                                    impact
-                            )));
-                })
-                .retryWhen(Retry.max(3)
-                        .filter(error -> error instanceof MembershipChangedException
-                                || SqlTransactionRetrySupport.isRetryableConcurrencyFailure(error)));
+        return SqlTransactionRetrySupport.retryOnConcurrencyFailure(Mono.defer(() -> {
+            validateImpact(impact);
+            impact.transaction().setTransactionRevision(impact.transactionRevision());
+            return transactionalOperator.transactional(ConnectionFactoryUtils.getConnection(connectionFactory)
+                    .flatMap(connection -> applyWithinTransaction(
+                            org.jooq.impl.DSL.using(connection, SQLDialect.POSTGRES),
+                            impact
+                    )));
+        }));
     }
 
     private Mono<RewardTransaction> applyWithinTransaction(
@@ -113,23 +109,36 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
             RewardTransaction observed
     ) {
         if (observed.getRewardBatchId() != null) {
-            return lockCurrentMembership(transactionDslContext, observed)
+            return lockCurrentMembership(transactionDslContext, observed, impact)
                     .flatMap(locked -> applyIfNewerImpact(
                             transactionDslContext,
                             impact,
                             locked.transaction(),
-                            locked.source()
+                            locked.source(),
+                            locked.target()
                     ));
         }
-        return lockTransaction(transactionDslContext, observed.getId())
+        return SqlRewardBatchRowLock.acquireTransaction(
+                        transactionDslContext,
+                        observed.getId(),
+                        observed.getInitiatives().getFirst(),
+                        null
+                )
+                .map(transactionRecord -> new LockedTransaction(
+                        transactionMapper.fromRecord(transactionRecord)
+                ))
                 .flatMap(locked -> {
                     if (locked.transaction().getRewardBatchId() != null) {
-                        return Mono.error(new MembershipChangedException());
+                        return Mono.error(new SqlMembershipChangedException(
+                                "Transaction %s acquired a batch while applying its payment impact"
+                                        .formatted(observed.getId())
+                        ));
                     }
                     return applyIfNewerImpact(
                             transactionDslContext,
                             impact,
                             locked,
+                            null,
                             null
                     );
                 });
@@ -145,11 +154,20 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
                         .onConflict(REWARD_TRANSACTIONS.TRANSACTION_ID)
                         .doNothing()
                         .returning(REWARD_TRANSACTIONS.TRANSACTION_ID))
-                .flatMap(ignored -> lockTransaction(transactionDslContext, entity.id())
+                .flatMap(ignored -> SqlRewardBatchRowLock.acquireTransaction(
+                                transactionDslContext,
+                                entity.id(),
+                                entity.initiativeId(),
+                                null
+                        )
+                        .map(transactionRecord -> new LockedTransaction(
+                                transactionMapper.fromRecord(transactionRecord)
+                        ))
                         .flatMap(locked -> applyIfNewerImpact(
                                 transactionDslContext,
                                 impact,
                                 locked,
+                                null,
                                 null
                         )))
                 .switchIfEmpty(findTransaction(transactionDslContext, entity.id())
@@ -158,27 +176,137 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
                                 impact,
                                 observed
                         ))
-                        .switchIfEmpty(Mono.error(new MembershipChangedException())));
+                        .switchIfEmpty(Mono.error(new SqlMembershipChangedException(
+                                "Transaction %s changed while applying its payment impact"
+                                        .formatted(entity.id())
+                        ))));
     }
 
     private Mono<LockedMembership> lockCurrentMembership(
             DSLContext transactionDslContext,
-            RewardTransaction observed
+            RewardTransaction observed,
+            PaymentRewardBatchImpact impact
     ) {
         String sourceBatchId = observed.getRewardBatchId();
         String sourceInitiativeId = observed.getInitiatives().getFirst();
-        return lockBatch(transactionDslContext, sourceBatchId, sourceInitiativeId)
-                .flatMap(source -> lockTransaction(transactionDslContext, observed.getId())
-                        .flatMap(locked -> sourceBatchId.equals(locked.transaction().getRewardBatchId())
-                                ? Mono.just(new LockedMembership(locked, source))
-                                : Mono.error(new MembershipChangedException())));
+        return readBatch(transactionDslContext, sourceBatchId, sourceInitiativeId)
+                .flatMap(source -> validateImpactMembership(impact, observed, source)
+                        .then(prepareTargetBatch(
+                                transactionDslContext,
+                                source,
+                                observed,
+                                impact.transaction()
+                        ))
+                        .flatMap(target -> lockBatchPairAndTransaction(
+                                transactionDslContext,
+                                observed,
+                                source,
+                                target,
+                                impact.transactionRevision()
+                        )));
+    }
+
+    private Mono<RewardBatch> prepareTargetBatch(
+            DSLContext transactionDslContext,
+            RewardBatch source,
+            RewardTransaction observed,
+            RewardTransaction incoming
+    ) {
+        if (source.getStatus() == RewardBatchStatus.CREATED
+                || incoming.getTransactionRevision() <= observed.getTransactionRevision()) {
+            return Mono.just(source);
+        }
+
+        return createOrReadCurrentMonthBatch(transactionDslContext, source, incoming);
+    }
+
+    private Mono<LockedMembership> lockBatchPairAndTransaction(
+            DSLContext transactionDslContext,
+            RewardTransaction observed,
+            RewardBatch source,
+            RewardBatch target,
+            long incomingRevision
+    ) {
+        return SqlRewardBatchRowLock.acquirePair(
+                        transactionDslContext,
+                        source.getInitiativeId(),
+                        source.getId(),
+                        target.getId()
+                )
+                .flatMap(lockedBatches -> SqlRewardBatchRowLock.acquireTransaction(
+                                transactionDslContext,
+                                observed.getId(),
+                                source.getInitiativeId(),
+                                source.getId()
+                        )
+                        .map(transactionRecord -> new LockedTransaction(
+                                transactionMapper.fromRecord(transactionRecord)
+                        ))
+                        .flatMap(locked -> {
+                            RewardBatch lockedSource = batchMapper.fromRecord(lockedBatches.source());
+                            RewardBatch lockedTarget = batchMapper.fromRecord(lockedBatches.target());
+                            if (!source.getStatus().equals(lockedSource.getStatus())) {
+                                return Mono.error(new SqlMembershipChangedException(
+                                        "Source reward batch changed while applying payment impact"
+                                ));
+                            }
+                            if (!source.getId().equals(target.getId())
+                                    && locked.transaction().getTransactionRevision() >= incomingRevision) {
+                                return Mono.error(new SqlMembershipChangedException(
+                                        "Transaction %s has a newer payment impact revision"
+                                                .formatted(observed.getId())
+                                ));
+                            }
+                            return Mono.just(new LockedMembership(
+                                    locked,
+                                    lockedSource,
+                                    lockedTarget
+                            ));
+                        }));
+    }
+
+    private Mono<RewardBatch> readBatch(
+            DSLContext transactionDslContext,
+            String batchId,
+            String initiativeId
+    ) {
+        return Mono.from(transactionDslContext.selectFrom(REWARD_BATCHES)
+                        .where(REWARD_BATCHES.ID.eq(batchId)
+                                .and(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId))))
+                .map(batchMapper::fromRecord)
+                .switchIfEmpty(Mono.error(new SqlMembershipChangedException(
+                        "Reward batch %s changed while applying payment impact".formatted(batchId)
+                )));
+    }
+
+    private static Mono<Void> validateImpactMembership(
+            PaymentRewardBatchImpact impact,
+            RewardTransaction observed,
+            RewardBatch source
+    ) {
+        String observedInitiative = observed.getInitiatives().getFirst();
+        String incomingInitiative = impact.transaction().getInitiatives().getFirst();
+        if (!observedInitiative.equals(incomingInitiative)) {
+            return Mono.error(new IllegalStateException(
+                    "Transaction %s already belongs to initiative %s"
+                            .formatted(impact.transaction().getId(), observedInitiative)
+            ));
+        }
+        if (!source.getMerchantId().equals(impact.transaction().getMerchantId())) {
+            return Mono.error(new IllegalStateException(
+                    "Transaction %s does not belong to source batch merchant %s"
+                            .formatted(impact.transaction().getId(), source.getMerchantId())
+            ));
+        }
+        return Mono.empty();
     }
 
     private Mono<RewardTransaction> applyIfNewerImpact(
             DSLContext transactionDslContext,
             PaymentRewardBatchImpact impact,
             LockedTransaction locked,
-            RewardBatch source
+            RewardBatch source,
+            RewardBatch target
     ) {
         if (!locked.transaction().getInitiatives().getFirst()
                 .equals(impact.transaction().getInitiatives().getFirst())) {
@@ -203,6 +331,7 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
                 .flatMap(persisted -> applyLockedMembership(
                         transactionDslContext,
                         source,
+                        target,
                         persisted
                 ));
     }
@@ -210,6 +339,7 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
     private Mono<RewardTransaction> applyLockedMembership(
             DSLContext transactionDslContext,
             RewardBatch source,
+            RewardBatch target,
             RewardTransaction transaction
     ) {
         if (source == null) {
@@ -217,32 +347,30 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
         }
         return RewardBatchStatus.CREATED.equals(source.getStatus())
                 ? Mono.just(transaction)
-                : moveToCurrentMonth(
-                        transactionDslContext,
-                        source,
-                        transaction
-                );
+                : moveToCurrentMonth(transactionDslContext, source, target, transaction);
     }
 
     private Mono<RewardTransaction> moveToCurrentMonth(
             DSLContext transactionDslContext,
             RewardBatch source,
+            RewardBatch target,
             RewardTransaction transaction
     ) {
-        return lockOrCreateCurrentMonthBatch(transactionDslContext, source, transaction)
-                .flatMap(target -> Mono.from(transactionDslContext.update(REWARD_TRANSACTIONS)
-                                .set(REWARD_TRANSACTIONS.REWARD_BATCH_ID, target.getId())
-                                .set(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS,
-                                        RewardBatchTrxStatus.SUSPENDED.name())
-                                .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transaction.getId())
-                                        .and(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(source.getInitiativeId()))
-                                        .and(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(source.getId())))
-                                .returning())
-                        .map(transactionMapper::fromRecord)
-                        .switchIfEmpty(Mono.error(new MembershipChangedException())));
+        return SqlRewardBatchMembership.moveTransaction(
+                        transactionDslContext,
+                        transaction.getId(),
+                        source.getInitiativeId(),
+                        source.getId(),
+                        target.getId(),
+                        update -> update.set(
+                                REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS,
+                                RewardBatchTrxStatus.SUSPENDED.name()
+                        )
+                )
+                .map(transactionMapper::fromRecord);
     }
 
-    private Mono<RewardBatch> lockOrCreateCurrentMonthBatch(
+    private Mono<RewardBatch> createOrReadCurrentMonthBatch(
             DSLContext transactionDslContext,
             RewardBatch source,
             RewardTransaction transaction
@@ -256,24 +384,7 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
                 transaction.getBusinessName()
         );
         candidate.setId(UUID.randomUUID().toString());
-
-        return batchAdapter.createOrReadWithinTransaction(candidate, transactionDslContext)
-                .flatMap(target -> target.getId().equals(source.getId())
-                        ? Mono.just(source)
-                        : lockBatch(transactionDslContext, target.getId(), source.getInitiativeId()));
-    }
-
-    private Mono<RewardBatch> lockBatch(
-            DSLContext transactionDslContext,
-            String batchId,
-            String initiativeId
-    ) {
-        return Mono.from(transactionDslContext.selectFrom(REWARD_BATCHES)
-                        .where(REWARD_BATCHES.ID.eq(batchId)
-                                .and(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId)))
-                        .forUpdate())
-                .map(batchMapper::fromRecord)
-                .switchIfEmpty(Mono.error(new MembershipChangedException()));
+        return batchAdapter.createOrReadWithinTransaction(candidate, transactionDslContext);
     }
 
     private Mono<RewardTransaction> findTransaction(
@@ -283,21 +394,6 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
         return Mono.from(transactionDslContext.selectFrom(REWARD_TRANSACTIONS)
                         .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId)))
                 .map(transactionMapper::fromRecord);
-    }
-
-    private Mono<LockedTransaction> lockTransaction(
-            DSLContext transactionDslContext,
-            String transactionId
-    ) {
-        return Mono.from(transactionDslContext.selectFrom(REWARD_TRANSACTIONS)
-                        .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId))
-                        .forUpdate())
-                .map(transactionRecord -> new LockedTransaction(
-                        transactionMapper.fromRecord(transactionRecord)
-                ))
-                .switchIfEmpty(Mono.error(new IllegalStateException(
-                        "Transaction %s was not persisted".formatted(transactionId)
-                )));
     }
 
     private static RewardBatchTrxStatus rewardBatchTrxStatus(String value) {
@@ -336,7 +432,10 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
             );
         }
         List<String> initiatives = impact.transaction().getInitiatives();
-        if (initiatives == null || initiatives.size() != 1 || initiatives.getFirst().isBlank()) {
+        if (initiatives == null
+                || initiatives.size() != 1
+                || initiatives.getFirst() == null
+                || initiatives.getFirst().isBlank()) {
             throw new IllegalArgumentException(
                     "Payment reward batch impact transaction must have exactly one initiative"
             );
@@ -360,10 +459,6 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
         }
     }
 
-    private static final class MembershipChangedException extends RuntimeException {
-        private static final long serialVersionUID = 1L;
-    }
-
     private record LockedTransaction(
             RewardTransaction transaction
     ) {
@@ -371,7 +466,8 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
 
     private record LockedMembership(
             LockedTransaction transaction,
-            RewardBatch source
+            RewardBatch source,
+            RewardBatch target
     ) {
     }
 }

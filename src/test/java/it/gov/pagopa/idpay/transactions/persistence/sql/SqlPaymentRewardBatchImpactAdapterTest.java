@@ -26,6 +26,7 @@ import java.time.Month;
 import java.time.OffsetDateTime;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -171,6 +172,27 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                                 5L,
                                 11
                         ))
+                        .then(databaseClient()
+                                .sql("""
+                                        UPDATE reward_batches
+                                        SET initial_amount_cents_at_send = 321,
+                                            suspended_amount_cents_at_approving = 654
+                                        WHERE id = :batchId
+                                        """)
+                                .bind("batchId", SOURCE_BATCH_ID)
+                                .fetch()
+                                .rowsUpdated()
+                                .then())
+                        .then(databaseClient()
+                                .sql("""
+                                        UPDATE reward_transactions
+                                        SET reward_batch_last_month_elaborated = '2025-01'
+                                        WHERE transaction_id = :transactionId
+                                        """)
+                                .bind("transactionId", transactionId)
+                                .fetch()
+                                .rowsUpdated()
+                                .then())
                         .then(adapter.applyImpact(replacement(
                                 transactionId,
                                 "move-created-target-event",
@@ -181,6 +203,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                     assertEquals(SyncTrxStatus.INVOICED.name(), transaction.getStatus());
                     assertEquals(RewardBatchTrxStatus.SUSPENDED, transaction.getRewardBatchTrxStatus());
                     assertEquals(6L, transaction.getTransactionRevision());
+                    assertEquals("2025-01", transaction.getRewardBatchLastMonthElaborated());
                 })
                 .verifyComplete();
 
@@ -188,13 +211,15 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                         batchCount(),
                         batchForGrouping(currentMonth),
                         aggregate(SOURCE_BATCH_ID),
-                        aggregateForGrouping(currentMonth)
+                        aggregateForGrouping(currentMonth),
+                        lifecycleSnapshots(SOURCE_BATCH_ID)
                 ).collectList())
                 .assertNext(result -> {
                     assertEquals(2L, result.get(0));
                     assertEquals(RewardBatchStatus.CREATED, ((RewardBatch) result.get(1)).getStatus());
                     assertEquals(new BatchAggregate(0L, 0L, 0L), result.get(2));
                     assertEquals(new BatchAggregate(1L, 125L, 1L), result.get(3));
+                    assertEquals(new LifecycleSnapshots(321L, 654L), result.get(4));
                 })
                 .verifyComplete();
     }
@@ -239,14 +264,20 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                             .contains("forced membership move failure"))
                     .verify();
 
-            StepVerifier.create(transactionState(transactionId))
-                    .expectNext(new TransactionState(
-                            SyncTrxStatus.AUTHORIZED.name(),
-                            5L,
-                            SOURCE_BATCH_ID,
-                            RewardBatchTrxStatus.CONSULTABLE.name(),
-                            11
+            StepVerifier.create(Mono.zip(
+                            transactionState(transactionId),
+                            batchCount()
                     ))
+                    .assertNext(result -> {
+                        assertEquals(new TransactionState(
+                                SyncTrxStatus.AUTHORIZED.name(),
+                                5L,
+                                SOURCE_BATCH_ID,
+                                RewardBatchTrxStatus.CONSULTABLE.name(),
+                                11
+                        ), result.getT1());
+                        assertEquals(1L, result.getT2());
+                    })
                     .verifyComplete();
         } finally {
             databaseClient().sql(
@@ -375,6 +406,76 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
     }
 
     @Test
+    void shouldIgnoreAnOlderImpactAfterANewerRevisionWinsWhileItWaitsForTheBatchLock() {
+        String transactionId = "older-impact-waits-for-newer";
+
+        StepVerifier.create(insertBatch(SOURCE_BATCH_ID, RewardBatchStatus.SENT, "2026-07")
+                        .then(insertMembership(
+                                transactionId,
+                                SOURCE_BATCH_ID,
+                                RewardBatchTrxStatus.CONSULTABLE,
+                                SyncTrxStatus.AUTHORIZED,
+                                5L,
+                                10
+                        )))
+                .verifyComplete();
+
+        SqlBatchLockTestSupport.HeldRowLock batchLock = SqlBatchLockTestSupport
+                .holdBatch(connectionFactory(), SOURCE_BATCH_ID, INITIATIVE_ID)
+                .block();
+        try {
+            CompletableFuture<RewardTransaction> pending = adapter.applyImpact(
+                    replacement(transactionId, "older-impact-event", 6L, eventTime())
+            ).toFuture();
+
+            boolean blocked = SqlBatchLockTestSupport.blockedByWithin(
+                    connectionFactory(),
+                    batchLock.backendPid()
+            ).block();
+
+            databaseClient()
+                    .sql("""
+                            UPDATE reward_transactions
+                            SET status = 'INVOICED',
+                                transaction_revision = 7,
+                                latest_applied_payment_impact_revision = 7
+                            WHERE transaction_id = :transactionId
+                            """)
+                    .bind("transactionId", transactionId)
+                    .fetch()
+                    .rowsUpdated()
+                    .block();
+
+            batchLock.release().block();
+
+            StepVerifier.create(Mono.fromFuture(pending))
+                    .assertNext(transaction -> {
+                        assertEquals(SyncTrxStatus.INVOICED.name(), transaction.getStatus());
+                        assertEquals(7L, transaction.getTransactionRevision());
+                        assertEquals(SOURCE_BATCH_ID, transaction.getRewardBatchId());
+                    })
+                    .verifyComplete();
+
+            assertTrue(blocked, "older impact must wait for the source batch row lock");
+        } finally {
+            batchLock.release().block();
+        }
+
+        StepVerifier.create(Mono.zip(
+                        transactionState(transactionId),
+                        latestAppliedImpactRevision(transactionId),
+                        batchCount()
+                ))
+                .assertNext(result -> {
+                    assertEquals(7L, result.getT1().revision());
+                    assertEquals(SOURCE_BATCH_ID, result.getT1().batchId());
+                    assertEquals(7L, result.getT2());
+                    assertEquals(1L, result.getT3());
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void shouldAcquireSourceBatchLockBeforePaymentImpactMutationAndKeepSnapshotsUnchanged() {
         String transactionId = "impact-lock-transaction";
 
@@ -452,6 +553,84 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
 
         StepVerifier.create(lifecycleSnapshots(SOURCE_BATCH_ID))
                 .expectNext(new LifecycleSnapshots(321L, 654L))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldRecomputeTargetWhenSourceLeavesCreatedWhileImpactWaitsForBatchLock() {
+        String transactionId = "created-to-sent-race";
+        String currentMonth = YearMonth.now(ZONEID).toString();
+
+        StepVerifier.create(insertBatch(SOURCE_BATCH_ID, RewardBatchStatus.CREATED, "2026-07")
+                        .then(insertMembership(
+                                transactionId,
+                                SOURCE_BATCH_ID,
+                                RewardBatchTrxStatus.CONSULTABLE,
+                                SyncTrxStatus.AUTHORIZED,
+                                5L,
+                                10
+                        )))
+                .verifyComplete();
+
+        Connection lockHolder = openConnection();
+        try {
+            Mono.from(lockHolder.beginTransaction())
+                    .then(Mono.from(lockHolder.createStatement("""
+                            SELECT id
+                            FROM reward_batches
+                            WHERE id = $1 AND initiative_id = $2
+                            FOR UPDATE
+                            """)
+                            .bind(0, SOURCE_BATCH_ID)
+                            .bind(1, INITIATIVE_ID)
+                            .execute()))
+                    .flatMapMany(result -> result.map((row, metadata) -> row))
+                    .then()
+                    .block();
+
+            CompletableFuture<RewardTransaction> impactFuture = adapter.applyImpact(
+                    replacement(transactionId, "created-to-sent-race-event", 6L, eventTime())
+            ).toFuture();
+            awaitBlockedBackends(1);
+
+            Mono.from(lockHolder.createStatement("""
+                            UPDATE reward_batches
+                            SET status = 'SENT',
+                                initial_amount_cents_at_send = 125
+                            WHERE id = $1 AND initiative_id = $2
+                            """)
+                            .bind(0, SOURCE_BATCH_ID)
+                            .bind(1, INITIATIVE_ID)
+                            .execute())
+                    .flatMapMany(result -> result.map((row, metadata) -> row))
+                    .then()
+                    .block();
+            Mono.from(lockHolder.commitTransaction())
+                    .then(Mono.from(lockHolder.close()))
+                    .block();
+            lockHolder = null;
+
+            RewardTransaction applied = impactFuture.join();
+            assertEquals(SyncTrxStatus.INVOICED.name(), applied.getStatus());
+            assertEquals(RewardBatchTrxStatus.SUSPENDED, applied.getRewardBatchTrxStatus());
+            assertEquals(6L, applied.getTransactionRevision());
+        } finally {
+            if (lockHolder != null) {
+                releaseConnection(lockHolder);
+            }
+        }
+
+        StepVerifier.create(Mono.zip(
+                        transactionState(transactionId),
+                        aggregate(SOURCE_BATCH_ID),
+                        aggregateForGrouping(currentMonth)
+                ))
+                .assertNext(result -> {
+                    assertEquals(RewardBatchTrxStatus.SUSPENDED.name(), result.getT1().batchStatus());
+                    assertEquals(0L, result.getT2().numberOfTransactions());
+                    assertEquals(1L, result.getT3().numberOfTransactions());
+                    assertTrue(!SOURCE_BATCH_ID.equals(result.getT1().batchId()));
+                })
                 .verifyComplete();
     }
 
@@ -1633,6 +1812,26 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                                 null
                         ),
                         "incomplete"
+                ),
+                Arguments.of(
+                        "null-initiative-element",
+                        (BiFunction<String, String, PaymentRewardBatchImpact>) (txId, eventId) -> {
+                            RewardTransaction invalid = generic(
+                                    txId,
+                                    SyncTrxStatus.INVOICED,
+                                    6L
+                            );
+                            invalid.setInitiatives(Collections.singletonList(null));
+                            return new PaymentRewardBatchImpact(
+                                    eventId,
+                                    1,
+                                    PaymentRewardBatchImpactType.INVOICE_REPLACED,
+                                    eventTime(),
+                                    6L,
+                                    invalid
+                            );
+                        },
+                        "exactly one initiative"
                 ),
                 Arguments.of(
                         "blank-transaction-id",

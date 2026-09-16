@@ -19,6 +19,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardBatchFactory;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.List;
@@ -300,6 +301,63 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
     }
 
     @Test
+    void shouldRollbackNewBatchAndTransactionWhenMembershipClaimFails() {
+        String functionName = "fail_invoiced_assignment_claim";
+        String triggerName = "fail_invoiced_assignment_claim_trigger";
+
+        try {
+            StepVerifier.create(
+                            databaseClient()
+                                    .sql("""
+                                            CREATE OR REPLACE FUNCTION fail_invoiced_assignment_claim()
+                                            RETURNS trigger AS $$
+                                            BEGIN
+                                                IF NEW.reward_batch_id IS DISTINCT FROM OLD.reward_batch_id THEN
+                                                    RAISE EXCEPTION 'forced invoiced assignment failure';
+                                                END IF;
+                                                RETURN NEW;
+                                            END;
+                                            $$ LANGUAGE plpgsql
+                                            """)
+                                    .then()
+                                    .then(databaseClient()
+                                            .sql("""
+                                                    CREATE TRIGGER fail_invoiced_assignment_claim_trigger
+                                                    BEFORE UPDATE ON reward_transactions
+                                                    FOR EACH ROW
+                                                    EXECUTE FUNCTION fail_invoiced_assignment_claim()
+                                                    """)
+                                            .then())
+                                    .then(adapter.assignInvoicedTransaction(
+                                            transaction("rollback-assignment", 750L),
+                                            batch(),
+                                            123
+                                    )))
+                    .expectErrorMatches(error -> error.getMessage() != null
+                            && error.getMessage().contains("forced invoiced assignment failure"))
+                    .verify();
+        } finally {
+            databaseClient()
+                    .sql("DROP TRIGGER IF EXISTS " + triggerName + " ON reward_transactions")
+                    .then()
+                    .then(databaseClient().sql("DROP FUNCTION IF EXISTS " + functionName + "()").then())
+                    .block();
+        }
+
+        StepVerifier.create(Mono.zip(
+                        Mono.from(dslContext.selectCount().from(REWARD_BATCHES))
+                                .map(Record1::value1),
+                        Mono.from(dslContext.selectCount().from(REWARD_TRANSACTIONS))
+                                .map(Record1::value1)
+                ))
+                .assertNext(counts -> {
+                    assertEquals(0, counts.getT1());
+                    assertEquals(0, counts.getT2());
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void shouldAssignUsingTheProvidedBatchIdentifier() {
         RewardBatch batch = batch();
         batch.setId("provided-batch-id");
@@ -495,6 +553,75 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
                     assertEquals(batchId, assigned.getRewardBatchId());
                     assertEquals(RewardBatchTrxStatus.CONSULTABLE, assigned.getRewardBatchTrxStatus());
                     assertEquals(123, assigned.getSamplingKey());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldCaptureCommittedAssignmentInTheSendSnapshot() {
+        String batchId = "assignment-before-send";
+        String transactionId = "assignment-before-send-transaction";
+        RewardBatch targetBatch = batch();
+        targetBatch.setId(batchId);
+        RewardTransaction transaction = transaction(transactionId, 750L);
+
+        StepVerifier.create(batchAdapter.createOrRead(targetBatch)
+                        .then(transactionAdapter.upsert(transaction))
+                        .then())
+                .verifyComplete();
+
+        StepVerifier.create(SqlBatchLockTestSupport
+                        .holdTransaction(connectionFactory(), transactionId, INITIATIVE_ID)
+                        .flatMap(transactionLock -> {
+                            var pendingAssignment = adapter.assignInvoicedTransaction(
+                                    transaction,
+                                    targetBatch,
+                                    123
+                            ).toFuture();
+                            return SqlBatchLockTestSupport.blockedByWithin(
+                                            connectionFactory(),
+                                            transactionLock.backendPid()
+                                    )
+                                    .flatMap(blocked -> {
+                                        assertTrue(
+                                                blocked,
+                                                "assignment must reach the transaction row after acquiring the batch row"
+                                        );
+                                        var pendingSend = batchAdapter.sendBatch(
+                                                batchId,
+                                                INITIATIVE_ID,
+                                                MERCHANT_ID
+                                        ).toFuture();
+                                        return transactionLock.release()
+                                                .then(Mono.fromFuture(pendingAssignment))
+                                                .then(Mono.fromFuture(pendingSend));
+                                    })
+                                    .onErrorResume(error -> transactionLock.release()
+                                            .then(Mono.error(error)));
+                        })
+                        .timeout(Duration.ofSeconds(15)))
+                .assertNext(sent -> assertEquals(RewardBatchStatus.SENT, sent.getStatus()))
+                .verifyComplete();
+
+        StepVerifier.create(Mono.zip(
+                        persistedAssignmentState(transactionId),
+                        databaseClient()
+                                .sql("""
+                                        SELECT initial_amount_cents_at_send
+                                        FROM reward_batches
+                                        WHERE id = :batchId
+                                        """)
+                                .bind("batchId", batchId)
+                                .map((row, metadata) -> row.get(
+                                        "initial_amount_cents_at_send",
+                                        Long.class
+                                ))
+                                .one()
+                ))
+                .assertNext(result -> {
+                    assertEquals(new AssignmentState(batchId, RewardBatchTrxStatus.CONSULTABLE.name()),
+                            result.getT1());
+                    assertEquals(750L, result.getT2());
                 })
                 .verifyComplete();
     }

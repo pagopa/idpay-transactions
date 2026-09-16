@@ -66,6 +66,10 @@ Every slice must preserve these rules:
 14. Payment-driven impact handling uses `transactionRevision` as its sole
     ordering and idempotency boundary. Equal or stale revisions are no-ops;
     no impact inbox or second watermark is introduced.
+15. Historical snapshots preserve headline amounts only. No transaction-level
+    membership history or audit ledger is introduced by this plan.
+16. Snapshot aggregation uses the batch-row lock as its coordination point; it
+    must not lock every assigned transaction row solely to calculate a sum.
 
 ## Implementation slices
 
@@ -81,7 +85,7 @@ produce:
 - existing behavior that must remain unchanged;
 - conflicts, missing infrastructure, or assumptions requiring human
   decisions;
-- a proposed dependency graph for D1-D8.
+- a proposed dependency graph for D1-D6, D6S, D7, and D8.
 
 The agent must not edit files, create migrations, or refactor code.
 
@@ -193,6 +197,10 @@ The operation must:
 8. Return the existing target state and snapshot on a retry after commit.
 9. Never overwrite an already captured snapshot.
 
+The batch-row lock is the serialization mechanism for compliant aggregate
+writers. Do not add a second `SELECT FOR UPDATE` over every assigned
+transaction merely to make the aggregate read appear consistent.
+
 Adapt the service and port to call this semantic operation. Do not use a
 generic full-row save for this transition.
 
@@ -231,6 +239,9 @@ The operation must:
   snapshot is missing; reconciliation may report the condition separately;
 - avoid generic full-row save.
 
+Use the batch-row lock, not an all-assigned-transaction row lock, to serialize
+the snapshot aggregate with compliant writers.
+
 Add tests for:
 
 - suspended and non-suspended amounts;
@@ -266,6 +277,10 @@ Each operation must:
 - avoid mutable batch counter updates;
 - leave captured snapshots unchanged.
 
+Centralize the batch-lock and retryable-membership-change behavior so that
+single-batch writers do not introduce adapter-specific concurrency exceptions
+or retry filters.
+
 For payment-driven impact handling, use `transactionRevision` as the sole
 ordering and idempotency boundary. Equal or stale revisions are no-ops. Do
 not introduce an impact inbox or a second watermark.
@@ -275,8 +290,8 @@ membership is established. When a membership exists, the corresponding batch
 must be locked before the aggregate-affecting transaction update.
 
 Add integration coverage for concurrent writers and retries, proving that
-the lifecycle snapshots cannot observe an inconsistent set of transaction
-rows.
+the lifecycle snapshots observe a committed aggregate while writers obey the
+batch-row lock protocol.
 
 **Human review question:** is there one consistent lock-before-row-update
 protocol for every single-batch aggregate writer?
@@ -314,9 +329,52 @@ opposite-direction moves.
 **Human review question:** can two concurrent moves deadlock or leave a
 transaction associated with two memberships?
 
+### D6S - Simplify the batch concurrency implementation
+
+**Depends on:** D6.
+
+This is a follow-up implementation slice for the merged D5 baseline and the
+current local D6 implementation. If D6 has not yet been merged, use the
+current D6 worktree as the baseline and do not revert it. Preserve the D6
+behavior and public contracts, but remove concurrency machinery that does not
+add correctness for the headline-amount requirement.
+
+The implementation must:
+
+- use the batch row as the coordination point for compliant
+  aggregate-affecting writers;
+- remove all-assigned-transaction `SELECT FOR UPDATE` operations used only to
+  calculate send or approval snapshots;
+- retain transaction-row locking only where a specific canonical projection
+  or membership mutation requires it;
+- extract one shared deterministic source/target batch-lock and membership
+  mutation protocol;
+- use one shared retryable membership-change exception and retry policy;
+- preserve the existing grouping uniqueness constraint for target
+  create-or-read operations;
+- document and enforce a single lock-acquisition order when advisory group
+  locks and batch-row locks coexist;
+- preserve single membership, initiative integrity, payment revision
+  idempotency, lifecycle snapshots, and all existing error semantics.
+
+Add or update focused PostgreSQL/Testcontainers coverage for:
+
+- snapshot capture racing with assignment, reward updates, and moves;
+- opposite-direction two-batch moves;
+- duplicate target creation and rollback;
+- equal and stale payment revisions;
+- retries after committed transitions;
+- preservation of `INVOICED`/`SUSPENDED` and last-elaborated-month behavior.
+
+Do not add transaction-level historical membership, mutable counters, new
+endpoints, new status values, or a new payment event contract.
+
+**Human review question:** does the simplified protocol preserve correctness
+while eliminating redundant all-row locks and adapter-specific retry logic?
+
 ### D7 - Harden compatibility and generic write paths
 
-**Depends on:** D2, D3, D4, and D6.
+**Depends on:** D2, D3, D4, and D6S.
 
 Audit all remaining batch writes and ensure that:
 
@@ -426,6 +484,7 @@ Review each slice against one primary question:
 | D4 | Is `EVALUATING -> APPROVING` and its snapshot one atomic operation? |
 | D5 | Do all single-batch aggregate writers lock before changing transaction rows? |
 | D6 | Are two-batch operations atomic and deterministically locked? |
+| D6S | Is the concurrency protocol minimal while preserving D6 invariants? |
 | D7 | Are snapshots immutable through every remaining write path? |
 | D8 | Does the full acceptance matrix pass without contract changes? |
 
@@ -450,6 +509,7 @@ This plan does not introduce:
 - mutable application-maintained batch counters;
 - a second transaction-membership table;
 - a transaction snapshot or send-time Excel report;
+- transaction-level historical batch composition or an audit ledger;
 - a new batch-routing or month-selection algorithm;
 - a generic move endpoint;
 - new public endpoints or status values;

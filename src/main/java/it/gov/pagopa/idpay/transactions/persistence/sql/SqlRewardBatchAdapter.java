@@ -35,7 +35,6 @@ import org.springframework.r2dbc.connection.ConnectionFactoryUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
@@ -248,8 +247,7 @@ public class SqlRewardBatchAdapter {
             String rewardBatchId,
             String initiativeId
     ) {
-        return lockAssignedTransactions(transactionDslContext, rewardBatchId, initiativeId)
-                .then(sumSuspendedRewards(transactionDslContext, rewardBatchId, initiativeId))
+        return sumSuspendedRewards(transactionDslContext, rewardBatchId, initiativeId)
                 .flatMap(amount -> captureApprovalSnapshotAndStatus(
                         transactionDslContext,
                         rewardBatchId,
@@ -509,8 +507,7 @@ public class SqlRewardBatchAdapter {
             String rewardBatchId,
             String initiativeId
     ) {
-        return lockAssignedTransactions(transactionDslContext, rewardBatchId, initiativeId)
-                .then(sumAssignedRewards(transactionDslContext, rewardBatchId, initiativeId))
+        return sumAssignedRewards(transactionDslContext, rewardBatchId, initiativeId)
                 .flatMap(amount -> captureSendSnapshotAndStatus(
                         transactionDslContext,
                         rewardBatchId,
@@ -569,19 +566,6 @@ public class SqlRewardBatchAdapter {
                                 .and(REWARD_BATCHES.ID.ne(rewardBatchId)))
                         .limit(1))
                 .hasElement();
-    }
-
-    private Mono<Void> lockAssignedTransactions(
-            DSLContext transactionDslContext,
-            String rewardBatchId,
-            String initiativeId
-    ) {
-        return Flux.from(transactionDslContext.select(REWARD_TRANSACTIONS.TRANSACTION_ID)
-                        .from(REWARD_TRANSACTIONS)
-                        .where(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(rewardBatchId)
-                                .and(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(initiativeId)))
-                        .forUpdate())
-                .then();
     }
 
     private Mono<Long> sumAssignedRewards(
