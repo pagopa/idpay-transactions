@@ -25,6 +25,8 @@ public class RewardBatchMapper {
         .approvedAmountCents(rewardBatch.getApprovedAmountCents())
         .suspendedAmountCents(rewardBatch.getSuspendedAmountCents() == null ? 0L : rewardBatch.getSuspendedAmountCents())
         .initialAmountCents(rewardBatch.getInitialAmountCents())
+        .currentAmountCents(amountOrZero(rewardBatch.getCurrentAmountCents()))
+        .excludedAmountCents(amountOrZero(rewardBatch.getExcludedAmountCents()))
         .numberOfTransactions(rewardBatch.getNumberOfTransactions())
         .numberOfTransactionsElaborated(rewardBatch.getNumberOfTransactionsElaborated())
         .numberOfTransactionsSuspended(rewardBatch.getNumberOfTransactionsSuspended())
@@ -38,6 +40,10 @@ public class RewardBatchMapper {
         .build();
 
     return Mono.just(dto);
+  }
+
+  private static Long amountOrZero(Long amountCents) {
+    return amountCents == null ? 0L : amountCents;
   }
 
 }

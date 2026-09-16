@@ -366,6 +366,38 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
         return (Long) get(23);
     }
 
+    /**
+     * Setter for
+     * <code>idpay-rimborsi.reward_batches.initial_amount_cents_at_send</code>.
+     */
+    public void setInitialAmountCentsAtSend(Long value) {
+        set(24, value);
+    }
+
+    /**
+     * Getter for
+     * <code>idpay-rimborsi.reward_batches.initial_amount_cents_at_send</code>.
+     */
+    public Long getInitialAmountCentsAtSend() {
+        return (Long) get(24);
+    }
+
+    /**
+     * Setter for
+     * <code>idpay-rimborsi.reward_batches.suspended_amount_cents_at_approving</code>.
+     */
+    public void setSuspendedAmountCentsAtApproving(Long value) {
+        set(25, value);
+    }
+
+    /**
+     * Getter for
+     * <code>idpay-rimborsi.reward_batches.suspended_amount_cents_at_approving</code>.
+     */
+    public Long getSuspendedAmountCentsAtApproving() {
+        return (Long) get(25);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -389,7 +421,7 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
     /**
      * Create a detached, initialised RewardBatchesRecord
      */
-    public RewardBatchesRecord(String id, String initiativeId, String merchantId, String businessName, String month, String posType, String status, Boolean partial, String name, LocalDateTime startDate, LocalDateTime endDate, LocalDateTime creationDate, LocalDateTime updateDate, LocalDateTime merchantSendDate, LocalDateTime approvalDate, LocalDateTime deliveryDateRequest, LocalDateTime refundOutcomeTimestamp, String reportPath, String filename, String assigneeLevel, LocalDate refundValutaDate, String refundErrorMessage, JSONB deliveryOutcome, Long deliveryAmountCents) {
+    public RewardBatchesRecord(String id, String initiativeId, String merchantId, String businessName, String month, String posType, String status, Boolean partial, String name, LocalDateTime startDate, LocalDateTime endDate, LocalDateTime creationDate, LocalDateTime updateDate, LocalDateTime merchantSendDate, LocalDateTime approvalDate, LocalDateTime deliveryDateRequest, LocalDateTime refundOutcomeTimestamp, String reportPath, String filename, String assigneeLevel, LocalDate refundValutaDate, String refundErrorMessage, JSONB deliveryOutcome, Long deliveryAmountCents, Long initialAmountCentsAtSend, Long suspendedAmountCentsAtApproving) {
         super(RewardBatches.REWARD_BATCHES);
 
         setId(id);
@@ -416,6 +448,8 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
         setRefundErrorMessage(refundErrorMessage);
         setDeliveryOutcome(deliveryOutcome);
         setDeliveryAmountCents(deliveryAmountCents);
+        setInitialAmountCentsAtSend(initialAmountCentsAtSend);
+        setSuspendedAmountCentsAtApproving(suspendedAmountCentsAtApproving);
         resetChangedOnNotNull();
     }
 }

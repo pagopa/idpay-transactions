@@ -90,7 +90,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
     @Test
     void shouldPrepareSentBatchUsingAllAssignedRowsWithoutMutatingPaymentStatus() {
         StepVerifier.create(Flux.concat(
-                        insertBatch(BATCH_ID, RewardBatchStatus.SENT),
+                        insertBatch(BATCH_ID, RewardBatchStatus.SENT, BATCH_MONTH, 800L),
                         insertTransaction("sample-first", RewardBatchTrxStatus.CONSULTABLE, 1),
                         insertTransaction("sample-tie-a", RewardBatchTrxStatus.CONSULTABLE, 2),
                         insertTransaction("sample-tie-b", RewardBatchTrxStatus.CONSULTABLE, 2),
@@ -134,7 +134,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
 
     @Test
     void shouldPrepareEmptySentBatchWithoutSamplingRows() {
-        StepVerifier.create(insertBatch(BATCH_ID, RewardBatchStatus.SENT)
+        StepVerifier.create(insertBatch(BATCH_ID, RewardBatchStatus.SENT, BATCH_MONTH, 0L)
                         .then(adapter.prepareEvaluation(BATCH_ID, INITIATIVE_ID)))
                 .assertNext(batch -> assertEquals(RewardBatchStatus.EVALUATING, batch.getStatus()))
                 .verifyComplete();
@@ -370,6 +370,159 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
     }
 
     @Test
+    void shouldAcquireBatchLockBeforeUpdatingTheDecidedTransaction() {
+        String transactionId = "decision-lock-transaction";
+
+        StepVerifier.create(insertBatch(BATCH_ID, RewardBatchStatus.EVALUATING)
+                        .then(insertTransaction(transactionId, RewardBatchTrxStatus.TO_CHECK, 1))
+                        .then(databaseClient()
+                                .sql("""
+                                        UPDATE reward_batches
+                                        SET initial_amount_cents_at_send = 321,
+                                            suspended_amount_cents_at_approving = 654
+                                        WHERE id = :batchId
+                                        """)
+                                .bind("batchId", BATCH_ID)
+                                .fetch()
+                                .rowsUpdated()
+                                .then())
+                        .then(SqlBatchLockTestSupport.holdBatch(
+                                connectionFactory(),
+                                BATCH_ID,
+                                INITIATIVE_ID
+                        ).flatMap(batchLock -> {
+                            var pending = adapter.updateStatusAndReturnOld(
+                                    INITIATIVE_ID,
+                                    BATCH_ID,
+                                    transactionId,
+                                    RewardBatchTrxStatus.APPROVED,
+                                    null,
+                                    BATCH_MONTH,
+                                    null
+                            ).toFuture();
+                            return SqlBatchLockTestSupport.blockedByWithin(
+                                            connectionFactory(),
+                                            batchLock.backendPid()
+                                    )
+                                    .flatMap(blocked -> {
+                                        Mono<Void> evidence = blocked
+                                                ? Mono.zip(
+                                                                readTransaction(transactionId),
+                                                                lifecycleSnapshots(BATCH_ID)
+                                                        )
+                                                        .doOnNext(state -> {
+                                                            assertEquals(
+                                                                    RewardBatchTrxStatus.TO_CHECK,
+                                                                    state.getT1().getRewardBatchTrxStatus()
+                                                            );
+                                                            assertEquals(
+                                                                    new LifecycleSnapshots(321L, 654L),
+                                                                    state.getT2()
+                                                            );
+                                                        })
+                                                        .then()
+                                                : Mono.empty();
+                                        return evidence
+                                                .then(batchLock.release())
+                                                .then(Mono.fromFuture(pending))
+                                                .map(previous -> {
+                                                    assertTrue(blocked,
+                                                            "decision must wait for the batch row lock");
+                                                    return previous;
+                                                });
+                                    })
+                                    .onErrorResume(error -> batchLock.release().then(Mono.error(error)));
+                        })))
+                .assertNext(previous -> assertEquals(
+                        RewardBatchTrxStatus.TO_CHECK,
+                        previous.getRewardBatchTrxStatus()
+                ))
+                .verifyComplete();
+
+        StepVerifier.create(lifecycleSnapshots(BATCH_ID))
+                .expectNext(new LifecycleSnapshots(321L, 654L))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldRollbackDecisionAndPreserveSnapshotsWhenTransactionMutationFails() {
+        String transactionId = "decision-rollback-transaction";
+        String functionName = "fail_decision_transaction_update";
+        String triggerName = "fail_decision_transaction_update_trigger";
+
+        try {
+            StepVerifier.create(insertBatch(BATCH_ID, RewardBatchStatus.EVALUATING)
+                            .then(insertTransaction(transactionId, RewardBatchTrxStatus.TO_CHECK, 1))
+                            .then(databaseClient()
+                                    .sql("""
+                                            UPDATE reward_batches
+                                            SET initial_amount_cents_at_send = 321,
+                                                suspended_amount_cents_at_approving = 654
+                                            WHERE id = :batchId
+                                            """)
+                                    .bind("batchId", BATCH_ID)
+                                    .fetch()
+                                    .rowsUpdated()
+                                    .then())
+                            .then(databaseClient()
+                                    .sql("""
+                                            CREATE OR REPLACE FUNCTION fail_decision_transaction_update()
+                                            RETURNS trigger AS $$
+                                            BEGIN
+                                                IF NEW.reward_batch_trx_status = 'APPROVED' THEN
+                                                    RAISE EXCEPTION 'forced decision transaction failure';
+                                                END IF;
+                                                RETURN NEW;
+                                            END;
+                                            $$ LANGUAGE plpgsql
+                                            """)
+                                    .then())
+                            .then(databaseClient()
+                                    .sql("""
+                                            CREATE TRIGGER fail_decision_transaction_update_trigger
+                                            BEFORE UPDATE ON reward_transactions
+                                            FOR EACH ROW EXECUTE FUNCTION fail_decision_transaction_update()
+                                            """)
+                                    .then())
+                            .then(adapter.updateStatusAndReturnOld(
+                                    INITIATIVE_ID,
+                                    BATCH_ID,
+                                    transactionId,
+                                    RewardBatchTrxStatus.APPROVED,
+                                    null,
+                                    BATCH_MONTH,
+                                    null
+                            )))
+                    .expectErrorMatches(error -> error.getMessage()
+                            .contains("forced decision transaction failure"))
+                    .verify();
+
+            StepVerifier.create(Mono.zip(
+                            readTransaction(transactionId),
+                            batchStatus(BATCH_ID),
+                            lifecycleSnapshots(BATCH_ID)
+                    ))
+                    .assertNext(state -> {
+                        assertEquals(
+                                RewardBatchTrxStatus.TO_CHECK,
+                                state.getT1().getRewardBatchTrxStatus()
+                        );
+                        assertEquals(RewardBatchStatus.EVALUATING.name(), state.getT2());
+                        assertEquals(new LifecycleSnapshots(321L, 654L), state.getT3());
+                    })
+                    .verifyComplete();
+        } finally {
+            databaseClient()
+                    .sql("DROP TRIGGER IF EXISTS " + triggerName + " ON reward_transactions")
+                    .then()
+                    .then(databaseClient()
+                            .sql("DROP FUNCTION IF EXISTS " + functionName + "()")
+                            .then())
+                    .block();
+        }
+    }
+
+    @Test
     void shouldSerializeConcurrentDecisionsForTheSameBatch() {
         StepVerifier.create(Flux.concat(
                         insertBatch(BATCH_ID, RewardBatchStatus.EVALUATING),
@@ -453,17 +606,28 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
     }
 
     private static Mono<Void> insertBatch(String batchId, RewardBatchStatus status) {
-        return insertBatch(batchId, status, BATCH_MONTH);
+        return insertBatch(batchId, status, BATCH_MONTH, 100L);
     }
 
     private static Mono<Void> insertBatch(String batchId, RewardBatchStatus status, String month) {
+        return insertBatch(batchId, status, month, 100L);
+    }
+
+    private static Mono<Void> insertBatch(
+            String batchId,
+            RewardBatchStatus status,
+            String month,
+            long initialAmountCentsAtSend
+    ) {
         return databaseClient()
                 .sql("""
                         INSERT INTO reward_batches (
-                            id, initiative_id, merchant_id, month, pos_type, status, name, assignee_level
+                            id, initiative_id, merchant_id, month, pos_type, status, name, assignee_level,
+                            initial_amount_cents_at_send
                         )
                         VALUES (
-                            :id, :initiativeId, :merchantId, :month, 'PHYSICAL', :status, 'Luglio 2026', 'L1'
+                            :id, :initiativeId, :merchantId, :month, 'PHYSICAL', :status, 'Luglio 2026', 'L1',
+                            :initialAmountCentsAtSend
                         )
                         """)
                 .bind("id", batchId)
@@ -471,6 +635,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                 .bind("merchantId", MERCHANT_ID)
                 .bind("month", month)
                 .bind("status", status.name())
+                .bind("initialAmountCentsAtSend", initialAmountCentsAtSend)
                 .fetch()
                 .rowsUpdated()
                 .then();
@@ -556,6 +721,32 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                 .map(transactionMapper::fromRecord);
     }
 
+    private static Mono<String> batchStatus(String batchId) {
+        return databaseClient()
+                .sql("SELECT status FROM reward_batches WHERE id = :batchId")
+                .bind("batchId", batchId)
+                .map((row, metadata) -> row.get("status", String.class))
+                .one();
+    }
+
+    private static Mono<LifecycleSnapshots> lifecycleSnapshots(String batchId) {
+        return databaseClient()
+                .sql("""
+                        SELECT initial_amount_cents_at_send, suspended_amount_cents_at_approving
+                        FROM reward_batches
+                        WHERE id = :batchId
+                        """)
+                .bind("batchId", batchId)
+                .map((row, metadata) -> new LifecycleSnapshots(
+                        row.get("initial_amount_cents_at_send", Long.class),
+                        row.get("suspended_amount_cents_at_approving", Long.class)
+                ))
+                .one();
+    }
+
     private record TransactionState(String syncStatus, String batchStatus) {
+    }
+
+    private record LifecycleSnapshots(Long initialAmountCentsAtSend, Long suspendedAmountCentsAtApproving) {
     }
 }

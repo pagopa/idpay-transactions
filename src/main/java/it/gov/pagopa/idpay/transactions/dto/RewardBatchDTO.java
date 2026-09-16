@@ -33,6 +33,8 @@ public class RewardBatchDTO {
   Long approvedAmountCents;
   Long suspendedAmountCents;
   Long initialAmountCents;
+  Long currentAmountCents;
+  Long excludedAmountCents;
   Long numberOfTransactions;
   Long numberOfTransactionsSuspended;
   Long numberOfTransactionsRejected;

@@ -39,7 +39,7 @@ Semantics:
 
 Successful processing returns `200 OK`, preserving the current endpoint contract.
 
-An absent or malformed JSON body continues to use Spring's existing request-binding error behavior. It is not treated as cron mode; cron mode requires a valid object such as `{}`.
+An absent body is treated like `{}` and selects all `SENT` batches for the initiative. A malformed JSON body continues to use Spring's existing request-binding error behavior.
 
 ## Validation
 
@@ -156,7 +156,7 @@ Do not log an unbounded identifier list. Do not expose whether a skipped ID was 
 13. Successful requests return `200 OK`.
 14. Concurrent attempts evaluate a batch at most once.
 15. An evaluation failure is propagated without rolling back previously committed batches.
-16. A malformed or absent request body retains the existing Spring request-binding response.
+16. An absent request body is treated like `{}` and evaluates all `SENT` batches; malformed JSON retains the existing Spring request-binding response.
 17. Targeted IDs are processed in first-occurrence request order.
 18. A targeted lookup result is revalidated by the transactional `SENT` lock.
 19. A large targeted request is looked up in bounded chunks without changing its result.
