@@ -183,7 +183,7 @@ public class SqlRewardBatchAdapter {
                 batch.getPosType(),
                 batch.getMonth()
         ).flatMap(hasPreviousBatch -> {
-            if (hasPreviousBatch) {
+            if (Boolean.TRUE.equals(hasPreviousBatch)) {
                 return Mono.error(new ClientExceptionWithBody(
                         HttpStatus.BAD_REQUEST,
                         REWARD_BATCH_INVALID_REQUEST,
@@ -461,9 +461,10 @@ public class SqlRewardBatchAdapter {
     }
 
     private Mono<RewardBatch> rejectNonCreatedBatch(RewardBatchesRecord batch) {
-        return batch.getInitialAmountCentsAtSend() == null
-                ? Mono.error(missingSendSnapshot(batch.getId()))
-                : Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST, REWARD_BATCH_INVALID_REQUEST));
+        if (batch.getInitialAmountCentsAtSend() == null) {
+            return Mono.error(missingSendSnapshot(batch.getId()));
+        }
+        return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST, REWARD_BATCH_INVALID_REQUEST));
     }
 
     private Mono<RewardBatch> sendCreatedBatch(
@@ -492,16 +493,19 @@ public class SqlRewardBatchAdapter {
                         batch.getPosType(),
                         batchMonth
                 )
-                .flatMap(hasPreviousBatch -> hasPreviousBatch
-                        ? Mono.error(new RewardBatchException(
+                .flatMap(hasPreviousBatch -> {
+                    if (Boolean.TRUE.equals(hasPreviousBatch)) {
+                        return Mono.error(new RewardBatchException(
                                 HttpStatus.BAD_REQUEST,
                                 REWARD_BATCH_PREVIOUS_NOT_SENT
-                        ))
-                        : captureBatchRewardSnapshot(
-                                transactionDslContext,
-                                rewardBatchId,
-                                initiativeId
                         ));
+                    }
+                    return captureBatchRewardSnapshot(
+                            transactionDslContext,
+                            rewardBatchId,
+                            initiativeId
+                    );
+                });
     }
 
     private Mono<RewardBatch> captureBatchRewardSnapshot(
