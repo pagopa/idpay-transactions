@@ -127,21 +127,13 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
                 .map(transactionRecord -> new LockedTransaction(
                         transactionMapper.fromRecord(transactionRecord)
                 ))
-                .flatMap(locked -> {
-                    if (locked.transaction().getRewardBatchId() != null) {
-                        return Mono.error(new SqlMembershipChangedException(
-                                "Transaction %s acquired a batch while applying its payment impact"
-                                        .formatted(observed.getId())
-                        ));
-                    }
-                    return applyIfNewerImpact(
-                            transactionDslContext,
-                            impact,
-                            locked,
-                            null,
-                            null
-                    );
-                });
+                .flatMap(locked -> applyIfNewerImpact(
+                        transactionDslContext,
+                        impact,
+                        locked,
+                        null,
+                        null
+                ));
     }
 
     private Mono<RewardTransaction> insertAndApplyImpact(

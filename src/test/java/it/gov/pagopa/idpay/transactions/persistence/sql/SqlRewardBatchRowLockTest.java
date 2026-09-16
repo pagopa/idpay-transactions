@@ -217,6 +217,20 @@ class SqlRewardBatchRowLockTest extends PostgresqlMigrationTestSupport {
     }
 
     @Test
+    void shouldRejectTransactionWithUnexpectedInitiative() {
+        StepVerifier.create(insertBatch(SOURCE_BATCH_ID, "other-initiative")
+                        .then(insertTransaction("other-initiative"))
+                        .then(SqlRewardBatchRowLock.acquireTransaction(
+                                dslContext,
+                                TRANSACTION_ID,
+                                INITIATIVE_ID,
+                                SOURCE_BATCH_ID
+                        )))
+                .expectError(SqlMembershipChangedException.class)
+                .verify();
+    }
+
+    @Test
     void shouldRejectAMissingTransactionWhileAcquiringItsRowLock() {
         StepVerifier.create(SqlRewardBatchRowLock.acquireTransaction(
                         dslContext,
@@ -253,6 +267,10 @@ class SqlRewardBatchRowLockTest extends PostgresqlMigrationTestSupport {
     }
 
     private static Mono<Void> insertTransaction() {
+        return insertTransaction(INITIATIVE_ID);
+    }
+
+    private static Mono<Void> insertTransaction(String initiativeId) {
         return databaseClient()
                 .sql("""
                         INSERT INTO reward_transactions (
@@ -265,7 +283,7 @@ class SqlRewardBatchRowLockTest extends PostgresqlMigrationTestSupport {
                         )
                         """)
                 .bind("transactionId", TRANSACTION_ID)
-                .bind("initiativeId", INITIATIVE_ID)
+                .bind("initiativeId", initiativeId)
                 .bind("merchantId", MERCHANT_ID)
                 .bind("batchId", SOURCE_BATCH_ID)
                 .fetch()

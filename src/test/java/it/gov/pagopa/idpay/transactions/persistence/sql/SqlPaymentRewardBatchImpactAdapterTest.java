@@ -326,6 +326,77 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
     }
 
     @Test
+    void shouldRejectSourceMerchantChangeAfterTheTargetBatchLockIsAcquired() {
+        String transactionId = "source-merchant-changes-after-lock";
+        String targetBatchId = "a-target-batch";
+        String currentMonth = YearMonth.now(ZONEID).toString();
+
+        StepVerifier.create(Flux.concat(
+                        insertBatch(SOURCE_BATCH_ID, RewardBatchStatus.SENT, "2026-07"),
+                        insertBatch(targetBatchId, RewardBatchStatus.CREATED, currentMonth),
+                        insertMembership(
+                                transactionId,
+                                SOURCE_BATCH_ID,
+                                RewardBatchTrxStatus.CONSULTABLE,
+                                SyncTrxStatus.AUTHORIZED,
+                                5L,
+                                10
+                        )
+                ).then())
+                .verifyComplete();
+
+        SqlBatchLockTestSupport.HeldRowLock targetLock = SqlBatchLockTestSupport
+                .holdBatch(connectionFactory(), targetBatchId, INITIATIVE_ID)
+                .block();
+        try {
+            CompletableFuture<RewardTransaction> pending = adapter.applyImpact(
+                    replacement(transactionId, "source-merchant-race-event", 6L, eventTime())
+            ).toFuture();
+
+            boolean blocked = SqlBatchLockTestSupport.blockedByWithin(
+                    connectionFactory(),
+                    targetLock.backendPid()
+            ).block();
+
+            databaseClient()
+                    .sql("""
+                            UPDATE reward_batches
+                            SET merchant_id = :merchantId
+                            WHERE id = :batchId
+                            """)
+                    .bind("merchantId", "other-merchant")
+                    .bind("batchId", SOURCE_BATCH_ID)
+                    .fetch()
+                    .rowsUpdated()
+                    .block();
+
+            targetLock.release().block();
+
+            StepVerifier.create(Mono.fromFuture(pending))
+                    .expectErrorMatches(error -> error instanceof IllegalStateException
+                            && error.getMessage().contains("source batch merchant other-merchant"))
+                    .verify();
+
+            assertTrue(blocked, "impact must wait for the lower-ID target batch lock");
+        } finally {
+            targetLock.release().block();
+        }
+
+        StepVerifier.create(Mono.zip(
+                        transactionState(transactionId),
+                        batchMerchant(SOURCE_BATCH_ID),
+                        batchCount()
+                ))
+                .assertNext(result -> {
+                    assertEquals(SOURCE_BATCH_ID, result.getT1().batchId());
+                    assertEquals(5L, result.getT1().revision());
+                    assertEquals("other-merchant", result.getT2());
+                    assertEquals(2L, result.getT3());
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void shouldApplyDuplicateImpactEventOnlyOnce() {
         String transactionId = "duplicate";
         PaymentRewardBatchImpact impact = replacement(transactionId, "duplicate-event", 6L, eventTime());
@@ -471,6 +542,39 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                     assertEquals(SOURCE_BATCH_ID, result.getT1().batchId());
                     assertEquals(7L, result.getT2());
                     assertEquals(1L, result.getT3());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldRejectInitiativeMismatchAfterLockingAnUnassignedTransaction() {
+        String transactionId = "unassigned-initiative-mismatch";
+        RewardTransaction conflicting = generic(transactionId, SyncTrxStatus.INVOICED, 6L);
+        conflicting.setInitiatives(List.of("other-initiative"));
+
+        StepVerifier.create(transactionAdapter.upsert(
+                                generic(transactionId, SyncTrxStatus.AUTHORIZED, 5L)
+                        )
+                        .then(adapter.applyImpact(new PaymentRewardBatchImpact(
+                                "unassigned-initiative-mismatch-event",
+                                1,
+                                PaymentRewardBatchImpactType.INVOICE_REPLACED,
+                                eventTime(),
+                                6L,
+                                conflicting
+                        ))))
+                .expectErrorMatches(error -> error instanceof IllegalStateException
+                        && error.getMessage().contains(INITIATIVE_ID))
+                .verify();
+
+        StepVerifier.create(Mono.zip(
+                        transactionState(transactionId),
+                        latestAppliedImpactRevision(transactionId)
+                ))
+                .assertNext(result -> {
+                    assertEquals(SyncTrxStatus.AUTHORIZED.name(), result.getT1().status());
+                    assertEquals(5L, result.getT1().revision());
+                    assertEquals(5L, result.getT2());
                 })
                 .verifyComplete();
     }
@@ -1477,6 +1581,67 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
     }
 
     @Test
+    void shouldReobserveAnUncommittedTransactionAfterInsertConflict() {
+        String transactionId = "insert-conflict-reobserve";
+        Connection inserter = openConnection();
+        try {
+            Mono.from(inserter.beginTransaction())
+                    .then(Mono.from(inserter.createStatement("""
+                            INSERT INTO reward_transactions (
+                                transaction_id, initiative_id, merchant_id, point_of_sale_id, pos_type,
+                                point_of_sale_type, business_name, status, accrued_reward_cents,
+                                transaction_revision
+                            )
+                            VALUES ($1, $2, $3, 'pos-1', 'PHYSICAL', 'PHYSICAL', 'Business',
+                                    'AUTHORIZED', 125, 5)
+                            """)
+                            .bind(0, transactionId)
+                            .bind(1, INITIATIVE_ID)
+                            .bind(2, MERCHANT_ID)
+                            .execute()))
+                    .flatMapMany(result -> result.map((row, metadata) -> row))
+                    .then()
+                    .block();
+
+            CompletableFuture<RewardTransaction> pending = adapter.applyImpact(
+                    replacement(transactionId, "insert-conflict-reobserve-event", 6L, eventTime())
+            ).toFuture();
+            awaitBlockedBackends(1);
+
+            Mono.from(inserter.commitTransaction())
+                    .then(Mono.from(inserter.close()))
+                    .block();
+            inserter = null;
+
+            StepVerifier.create(Mono.fromFuture(pending))
+                    .assertNext(transaction -> {
+                        assertEquals(SyncTrxStatus.INVOICED.name(), transaction.getStatus());
+                        assertEquals(6L, transaction.getTransactionRevision());
+                        assertNull(transaction.getRewardBatchId());
+                    })
+                    .verifyComplete();
+        } finally {
+            if (inserter != null) {
+                releaseConnection(inserter);
+            }
+        }
+
+        StepVerifier.create(Mono.zip(
+                        transactionState(transactionId),
+                        latestAppliedImpactRevision(transactionId),
+                        batchCount()
+                ))
+                .assertNext(result -> {
+                    assertEquals(SyncTrxStatus.INVOICED.name(), result.getT1().status());
+                    assertEquals(6L, result.getT1().revision());
+                    assertNull(result.getT1().batchId());
+                    assertEquals(6L, result.getT2());
+                    assertEquals(0L, result.getT3());
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void shouldReObserveAndApplyExactlyOnceWhenAConcurrentAssignmentRacesAnUnassignedTransactionObservation() {
         String transactionId = "race-observed-unassigned";
         String batchId = "race-observed-unassigned-batch";
@@ -2268,6 +2433,18 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                         WHERE transaction_id = :transactionId
                         """)
                 .bind("transactionId", transactionId)
+                .map((row, metadata) -> row.get("merchant_id", String.class))
+                .one();
+    }
+
+    private static Mono<String> batchMerchant(String batchId) {
+        return databaseClient()
+                .sql("""
+                        SELECT merchant_id
+                        FROM reward_batches
+                        WHERE id = :batchId
+                        """)
+                .bind("batchId", batchId)
                 .map((row, metadata) -> row.get("merchant_id", String.class))
                 .one();
     }
