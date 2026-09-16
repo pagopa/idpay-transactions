@@ -100,7 +100,7 @@ public interface MerchantRewardBatchController {
 
   @PostMapping("/initiatives/{initiativeId}/reward-batches/evaluate")
   Mono<Void> evaluatingRewardBatches(
-          @RequestBody RewardBatchesRequest rewardBatchIds,
+          @RequestBody(required = false) RewardBatchesRequest rewardBatchIds,
           @PathVariable String initiativeId
   );
 
