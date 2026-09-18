@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.r2dbc.repository.support.R2dbcRepositoryFactory;
 import org.springframework.r2dbc.connection.TransactionAwareConnectionFactoryProxy;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import tools.jackson.databind.json.JsonMapper;
@@ -159,6 +161,65 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
                         .map((row, metadata) -> row.get("count", Long.class))
                         .one())
                 .expectNext(1L)
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldPreserveAssignmentWhenFirstSynchronizationRacesWithAssignment() {
+        String transactionId = "transaction-first-sync-race";
+        RewardBatch batch = batch("first-sync-race-batch");
+        RewardTransaction assigned = invoicedTransaction(transactionId, "initiative-1", 1L);
+        RewardTransaction synchronizedSnapshot = transactionWithAccruedReward(
+                transactionId,
+                "initiative-1",
+                1_100L
+        );
+        synchronizedSnapshot.setStatus(SyncTrxStatus.INVOICED.name());
+        synchronizedSnapshot.setTransactionRevision(2L);
+        synchronizedSnapshot.setAmountCents(2_000L);
+
+        StepVerifier.create(
+                        batchAdapter.createOrRead(batch)
+                                .thenMany(Flux.merge(
+                                        assignmentAdapter.assignInvoicedTransaction(assigned, batch, 77),
+                                        adapter.upsert(synchronizedSnapshot)
+                                ))
+                                .collectList()
+                                .then(persistedTransactionState(transactionId))
+                )
+                .assertNext(state -> {
+                    assertEquals(batch.getId(), state.batchId());
+                    assertEquals(1_100L, state.accruedRewardCents());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldDetachMembershipWhenFirstRefundSynchronizationRacesWithAssignment() {
+        String transactionId = "transaction-first-refund-race";
+        RewardBatch batch = batch("first-refund-race-batch");
+        RewardTransaction assigned = invoicedTransaction(transactionId, "initiative-1", 1L);
+        RewardTransaction refundedSnapshot = transactionWithAccruedReward(
+                transactionId,
+                "initiative-1",
+                900L
+        );
+        refundedSnapshot.setStatus(SyncTrxStatus.REFUNDED.name());
+        refundedSnapshot.setTransactionRevision(2L);
+
+        StepVerifier.create(
+                        batchAdapter.createOrRead(batch)
+                                .thenMany(Flux.merge(
+                                        assignmentAdapter.assignInvoicedTransaction(assigned, batch, 77),
+                                        adapter.upsertRefundedAndDetach(refundedSnapshot)
+                                ))
+                                .collectList()
+                                .then(persistedTransactionState(transactionId))
+                )
+                .assertNext(state -> {
+                    assertNull(state.batchId());
+                    assertEquals(900L, state.accruedRewardCents());
+                })
                 .verifyComplete();
     }
 
@@ -405,116 +466,111 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
     }
 
     @Test
-    void shouldAcquireAssignedBatchLockBeforeSynchronizingAccruedReward() {
-        String batchId = "generic-lock-batch";
-        String transactionId = "generic-lock-transaction";
-        RewardTransaction assigned = invoicedTransaction(transactionId, "initiative-1", 1L);
+    void shouldRevalidateClaimedMembershipBeforeGenericRewardUpdateCanBeSnapshotted() {
+        String batchId = "generic-observed-after-assignment";
+        String observationGateId = "generic-observation-gate";
+        String writeGateId = "generic-write-gate";
+        String transactionId = "generic-observed-after-assignment-transaction";
         RewardBatch batch = batch(batchId);
-        RewardTransaction newer = transactionWithAccruedReward(transactionId, "initiative-1", 1_100L);
-        newer.setStatus(SyncTrxStatus.INVOICED.name());
-        newer.setTransactionRevision(2L);
-        newer.setAmountCents(2_000L);
-
-        StepVerifier.create(assignmentAdapter.assignInvoicedTransaction(assigned, batch, 77)
-                        .then(SqlBatchLockTestSupport.holdBatch(
-                                connectionFactory(),
-                                batchId,
-                                "initiative-1"
-                        ).flatMap(batchLock -> {
-                            var pending = adapter.upsert(newer).toFuture();
-                            return SqlBatchLockTestSupport.blockedByWithin(
-                                            connectionFactory(),
-                                            batchLock.backendPid()
-                                    )
-                                    .flatMap(blocked -> {
-                                        Mono<Void> evidence = blocked
-                                                ? persistedTransactionState(transactionId)
-                                                        .doOnNext(state -> {
-                                                            assertEquals(750L, state.accruedRewardCents());
-                                                            assertEquals(batchId, state.batchId());
-                                                        })
-                                                        .then()
-                                                : Mono.empty();
-                                        return evidence
-                                                .then(batchLock.release())
-                                                .then(Mono.fromFuture(pending))
-                                                .map(saved -> {
-                                                    assertTrue(blocked,
-                                                            "generic synchronization must wait for the batch row lock");
-                                                    return saved;
-                                                });
-                                    })
-                                    .onErrorResume(error -> batchLock.release().then(Mono.error(error)));
-                        })))
-                .assertNext(saved -> {
-                    assertEquals(batchId, saved.getRewardBatchId());
-                    assertEquals(1_100L,
-                            saved.getRewards().get("initiative-1").getAccruedRewardCents());
-                    assertEquals(2L, saved.getTransactionRevision());
-                })
-                .verifyComplete();
-    }
-
-    @Test
-    void shouldRetryWhenMembershipChangesWhileWaitingForTheCurrentBatchLock() {
-        String sourceBatchId = "generic-membership-source";
-        String targetBatchId = "generic-membership-target";
-        String transactionId = "generic-membership-transaction";
         RewardTransaction assigned = invoicedTransaction(transactionId, "initiative-1", 1L);
-        RewardTransaction newer = transactionWithAccruedReward(transactionId, "initiative-1", 1_100L);
-        newer.setStatus(SyncTrxStatus.INVOICED.name());
-        newer.setTransactionRevision(2L);
+        RewardTransaction delayedUpdate = transactionWithAccruedReward(
+                transactionId,
+                "initiative-1",
+                1_100L
+        );
+        delayedUpdate.setStatus(SyncTrxStatus.INVOICED.name());
+        delayedUpdate.setTransactionRevision(2L);
+        delayedUpdate.setCorrelationId("delayed-generic-sync");
 
-        StepVerifier.create(assignmentAdapter.assignInvoicedTransaction(
-                                assigned,
-                                batch(sourceBatchId),
-                                77
-                        )
-                        .then(databaseClient()
-                                .sql("""
-                                        INSERT INTO reward_batches (
-                                            id, initiative_id, merchant_id, month, pos_type,
-                                            status, name, assignee_level
-                                        )
-                                        VALUES (
-                                            :targetBatchId, 'initiative-1', 'merchant', '2026-08',
-                                            'PHYSICAL', 'CREATED', 'August', 'L1'
-                                        )
-                                        """)
-                                .bind("targetBatchId", targetBatchId)
-                                .fetch()
-                                .rowsUpdated()
-                                .then())
-                        .then(SqlBatchLockTestSupport.holdBatchAndMoveTransaction(
-                                connectionFactory(),
-                                sourceBatchId,
-                                targetBatchId,
-                                "initiative-1",
-                                transactionId
-                        ).flatMap(batchLock -> {
-                            var pending = adapter.upsert(newer).toFuture();
-                            return SqlBatchLockTestSupport.blockedByWithin(
-                                            connectionFactory(),
-                                            batchLock.backendPid()
-                                    )
-                                    .flatMap(blocked -> batchLock.commit()
-                                            .then(Mono.fromFuture(pending))
-                                            .map(saved -> {
-                                                assertTrue(blocked,
-                                                        "synchronization must wait for the observed batch lock");
-                                                return saved;
-                                            }))
-                                    .onErrorResume(error -> batchLock.release().then(Mono.error(error)));
-                        })))
-                .assertNext(saved -> {
-                    assertEquals(targetBatchId, saved.getRewardBatchId());
-                    assertEquals(
-                            1_100L,
-                            saved.getRewards().get("initiative-1").getAccruedRewardCents()
-                    );
-                    assertEquals(2L, saved.getTransactionRevision());
-                })
-                .verifyComplete();
+        SqlBatchLockTestSupport.HeldRowLock observationLock = null;
+        SqlBatchLockTestSupport.HeldRowLock batchLock = null;
+        SqlBatchLockTestSupport.HeldRowLock writeLock = null;
+        try {
+            StepVerifier.create(prepareMembershipRace(batch, observationGateId, writeGateId))
+                    .verifyComplete();
+
+            observationLock = SqlBatchLockTestSupport
+                    .holdBatch(connectionFactory(), observationGateId, "initiative-1")
+                    .block();
+            var delayedSynchronization = adapter.upsert(delayedUpdate).toFuture();
+
+            assertTrue(
+                    SqlBatchLockTestSupport.blockedByWithin(
+                            connectionFactory(),
+                            observationLock.backendPid()
+                    ).block(),
+                    "synchronization must reach the no-row observation gate"
+            );
+
+            StepVerifier.create(assignmentAdapter.assignInvoicedTransaction(
+                            assigned,
+                            batch,
+                            77
+                    ))
+                    .assertNext(claimed -> assertEquals(batchId, claimed.getRewardBatchId()))
+                    .verifyComplete();
+
+            writeLock = SqlBatchLockTestSupport
+                    .holdBatch(connectionFactory(), writeGateId, "initiative-1")
+                    .block();
+            batchLock = SqlBatchLockTestSupport
+                    .holdBatch(connectionFactory(), batchId, "initiative-1")
+                    .block();
+            observationLock.release().block();
+
+            assertTrue(
+                    SqlBatchLockTestSupport.blockedByWithin(
+                            connectionFactory(),
+                            batchLock.backendPid()
+                    ).block(),
+                    "delayed synchronization must revalidate and wait for the claimed batch"
+            );
+
+            batchLock.release().block();
+
+            assertTrue(SqlBatchLockTestSupport.blockedByWithin(
+                            connectionFactory(),
+                            writeLock.backendPid()
+                    ).block(),
+                    "synchronization must reach the guarded reward update while holding the batch"
+            );
+            var pendingSend = batchAdapter.sendBatch(
+                    batchId,
+                    "initiative-1",
+                    "merchant"
+            ).toFuture();
+            assertFalse(pendingSend.isDone(), "send completed before synchronization released its batch lock");
+
+            writeLock.release().block();
+
+            StepVerifier.create(Mono.fromFuture(delayedSynchronization))
+                    .assertNext(updated -> {
+                        assertEquals(batchId, updated.getRewardBatchId());
+                        assertEquals(
+                                1_100L,
+                                updated.getRewards().get("initiative-1").getAccruedRewardCents()
+                        );
+                    })
+                    .verifyComplete();
+            StepVerifier.create(Mono.fromFuture(pendingSend))
+                    .assertNext(sent -> assertEquals(RewardBatchStatus.SENT, sent.getStatus()))
+                    .verifyComplete();
+
+            StepVerifier.create(Mono.zip(
+                            persistedTransactionState(transactionId),
+                            lifecycleSnapshots(batchId)
+                    ))
+                    .assertNext(result -> {
+                        assertEquals(new TransactionState(batchId, 1_100L), result.getT1());
+                        assertEquals(new LifecycleSnapshots(1_100L, null), result.getT2());
+                    })
+                    .verifyComplete();
+        } finally {
+            releaseLock(writeLock);
+            releaseLock(batchLock);
+            releaseLock(observationLock);
+            dropMembershipRace().block();
+        }
     }
 
     @Test
@@ -614,6 +670,114 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
         StepVerifier.create(lifecycleSnapshots(batchId))
                 .expectNext(new LifecycleSnapshots(321L, 654L))
                 .verifyComplete();
+    }
+
+    @Test
+    void shouldRevalidateClaimedMembershipBeforeRefundedDetachCanBeSnapshotted() {
+        String batchId = "refunded-observed-after-assignment";
+        String observationGateId = "refunded-observation-gate";
+        String writeGateId = "refunded-write-gate";
+        String transactionId = "refunded-observed-after-assignment-transaction";
+        RewardBatch batch = batch(batchId);
+        RewardTransaction assigned = invoicedTransaction(transactionId, "initiative-1", 1L);
+        RewardTransaction delayedDetach = transactionWithAccruedReward(
+                transactionId,
+                "initiative-1",
+                -6_000L
+        );
+        delayedDetach.setStatus(SyncTrxStatus.REFUNDED.name());
+        delayedDetach.setTransactionRevision(2L);
+        delayedDetach.setCorrelationId("delayed-refunded-detach");
+
+        SqlBatchLockTestSupport.HeldRowLock observationLock = null;
+        SqlBatchLockTestSupport.HeldRowLock batchLock = null;
+        SqlBatchLockTestSupport.HeldRowLock writeLock = null;
+        try {
+            StepVerifier.create(prepareMembershipRace(batch, observationGateId, writeGateId))
+                    .verifyComplete();
+
+            observationLock = SqlBatchLockTestSupport
+                    .holdBatch(connectionFactory(), observationGateId, "initiative-1")
+                    .block();
+            var delayedDetachFuture = adapter.upsertRefundedAndDetach(delayedDetach).toFuture();
+
+            assertTrue(
+                    SqlBatchLockTestSupport.blockedByWithin(
+                            connectionFactory(),
+                            observationLock.backendPid()
+                    ).block(),
+                    "REFUNDED detach must reach the no-row observation gate"
+            );
+
+            StepVerifier.create(assignmentAdapter.assignInvoicedTransaction(
+                            assigned,
+                            batch,
+                            77
+                    ))
+                    .assertNext(claimed -> assertEquals(batchId, claimed.getRewardBatchId()))
+                    .verifyComplete();
+
+            writeLock = SqlBatchLockTestSupport
+                    .holdBatch(connectionFactory(), writeGateId, "initiative-1")
+                    .block();
+            batchLock = SqlBatchLockTestSupport
+                    .holdBatch(connectionFactory(), batchId, "initiative-1")
+                    .block();
+            observationLock.release().block();
+
+            assertTrue(
+                    SqlBatchLockTestSupport.blockedByWithin(
+                            connectionFactory(),
+                            batchLock.backendPid()
+                    ).block(),
+                    "REFUNDED detach must revalidate and wait for the claimed batch"
+            );
+
+            batchLock.release().block();
+
+            assertTrue(SqlBatchLockTestSupport.blockedByWithin(
+                            connectionFactory(),
+                            writeLock.backendPid()
+                    ).block(),
+                    "REFUNDED detach must reach the guarded membership update while holding the batch"
+            );
+            var pendingSend = batchAdapter.sendBatch(
+                    batchId,
+                    "initiative-1",
+                    "merchant"
+            ).toFuture();
+            assertFalse(pendingSend.isDone(), "send completed before REFUNDED detach released its batch lock");
+
+            writeLock.release().block();
+
+            StepVerifier.create(Mono.fromFuture(delayedDetachFuture))
+                    .assertNext(detached -> {
+                        assertEquals(SyncTrxStatus.REFUNDED.name(), detached.getStatus());
+                        assertNull(detached.getRewardBatchId());
+                        assertNull(detached.getRewardBatchTrxStatus());
+                        assertEquals(-6_000L,
+                                detached.getRewards().get("initiative-1").getAccruedRewardCents());
+                    })
+                    .verifyComplete();
+            StepVerifier.create(Mono.fromFuture(pendingSend))
+                    .assertNext(sent -> assertEquals(RewardBatchStatus.SENT, sent.getStatus()))
+                    .verifyComplete();
+
+            StepVerifier.create(Mono.zip(
+                            persistedTransactionState(transactionId),
+                            lifecycleSnapshots(batchId)
+                    ))
+                    .assertNext(result -> {
+                        assertEquals(new TransactionState(null, -6_000L), result.getT1());
+                        assertEquals(new LifecycleSnapshots(0L, null), result.getT2());
+                    })
+                    .verifyComplete();
+        } finally {
+            releaseLock(writeLock);
+            releaseLock(batchLock);
+            releaseLock(observationLock);
+            dropMembershipRace().block();
+        }
     }
 
     @Test
@@ -943,6 +1107,100 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
                         row.get("suspended_amount_cents_at_approving", Long.class)
                 ))
                 .one();
+    }
+
+    private static Mono<Void> prepareMembershipRace(
+            RewardBatch batch,
+            String observationGateId,
+            String writeGateId
+    ) {
+        return batchAdapter.createOrRead(batch)
+                .then(insertRaceControlBatch(observationGateId))
+                .then(insertRaceControlBatch(writeGateId))
+                .then(createMembershipRaceTrigger(observationGateId, writeGateId));
+    }
+
+    private static Mono<Void> insertRaceControlBatch(String batchId) {
+        return databaseClient()
+                .sql("""
+                        INSERT INTO reward_batches (
+                            id, initiative_id, merchant_id, business_name, month, pos_type,
+                            status, name, assignee_level
+                        )
+                        VALUES (
+                            :id, 'initiative-1', :merchantId, 'Control', '2026-08', 'PHYSICAL',
+                            'CREATED', 'Control', 'L1'
+                        )
+                        """)
+                .bind("id", batchId)
+                .bind("merchantId", "control-" + batchId)
+                .fetch()
+                .rowsUpdated()
+                .then();
+    }
+
+    private static Mono<Void> createMembershipRaceTrigger(
+            String observationGateId,
+            String writeGateId
+    ) {
+        return databaseClient()
+                .sql("""
+                        CREATE OR REPLACE FUNCTION pause_reward_transaction_membership_race()
+                        RETURNS trigger AS $$
+                        BEGIN
+                            IF NEW.correlation_id IN (
+                                'delayed-generic-sync',
+                                'delayed-refunded-detach'
+                            ) AND TG_OP = 'INSERT' THEN
+                                PERFORM id
+                                FROM reward_batches
+                                WHERE id = TG_ARGV[0]
+                                  AND initiative_id = 'initiative-1'
+                                FOR UPDATE;
+                            ELSIF NEW.correlation_id IN (
+                                'delayed-generic-sync',
+                                'delayed-refunded-detach'
+                            ) AND TG_OP = 'UPDATE' THEN
+                                PERFORM id
+                                FROM reward_batches
+                                WHERE id = TG_ARGV[1]
+                                  AND initiative_id = 'initiative-1'
+                                FOR UPDATE;
+                            END IF;
+                            RETURN NEW;
+                        END;
+                        $$ LANGUAGE plpgsql
+                        """)
+                .then()
+                .then(databaseClient()
+                        .sql("""
+                                CREATE TRIGGER pause_reward_transaction_membership_race_trigger
+                                BEFORE INSERT OR UPDATE ON reward_transactions
+                                FOR EACH ROW
+                                EXECUTE FUNCTION pause_reward_transaction_membership_race(
+                                    '%s',
+                                    '%s'
+                                )
+                                """.formatted(observationGateId, writeGateId))
+                        .then());
+    }
+
+    private static Mono<Void> dropMembershipRace() {
+        return databaseClient()
+                .sql("""
+                        DROP TRIGGER IF EXISTS pause_reward_transaction_membership_race_trigger
+                        ON reward_transactions
+                        """)
+                .then()
+                .then(databaseClient()
+                        .sql("DROP FUNCTION IF EXISTS pause_reward_transaction_membership_race()")
+                        .then());
+    }
+
+    private static void releaseLock(SqlBatchLockTestSupport.HeldRowLock lock) {
+        if (lock != null) {
+            lock.release().block();
+        }
     }
 
     private static Mono<LiveBatchAggregate> liveBatchAggregate(String batchId) {
