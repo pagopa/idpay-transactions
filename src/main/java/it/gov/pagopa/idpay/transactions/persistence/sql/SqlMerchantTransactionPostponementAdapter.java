@@ -28,7 +28,6 @@ import org.springframework.r2dbc.connection.ConnectionFactoryUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Mono;
-import reactor.util.retry.Retry;
 
 /**
  * Atomically moves a merchant-selected transaction to the next monthly batch.
@@ -52,23 +51,21 @@ public class SqlMerchantTransactionPostponementAdapter implements MerchantTransa
             String transactionId,
             LocalDate initiativeFruitionEndDate
     ) {
-        return Mono.defer(() -> {
-                    PostponementRequest request = new PostponementRequest(
-                            merchantId,
-                            initiativeId,
-                            sourceBatchId,
-                            transactionId,
-                            initiativeFruitionEndDate
-                    );
-                    validateRequest(request);
-                    return transactionalOperator.transactional(ConnectionFactoryUtils.getConnection(connectionFactory)
-                            .flatMap(connection -> postponeWithinTransaction(
-                                    org.jooq.impl.DSL.using(connection, SQLDialect.POSTGRES),
-                                    request
-                            )));
-                })
-                .retryWhen(Retry.max(3).filter(error -> error instanceof MembershipChangedException
-                        || SqlTransactionRetrySupport.isRetryableConcurrencyFailure(error)));
+        return SqlTransactionRetrySupport.retryOnConcurrencyFailure(Mono.defer(() -> {
+            PostponementRequest request = new PostponementRequest(
+                    merchantId,
+                    initiativeId,
+                    sourceBatchId,
+                    transactionId,
+                    initiativeFruitionEndDate
+            );
+            validateRequest(request);
+            return transactionalOperator.transactional(ConnectionFactoryUtils.getConnection(connectionFactory)
+                    .flatMap(connection -> postponeWithinTransaction(
+                            org.jooq.impl.DSL.using(connection, SQLDialect.POSTGRES),
+                            request
+                    )));
+        }));
     }
 
     private Mono<RewardTransaction> postponeWithinTransaction(
@@ -76,18 +73,32 @@ public class SqlMerchantTransactionPostponementAdapter implements MerchantTransa
             PostponementRequest request
     ) {
         return requireTransactionMembership(transactionDslContext, request)
-                .then(lockSourceBatch(transactionDslContext, request))
-                .flatMap(source -> lockTransaction(transactionDslContext, request)
-                        .flatMap(transaction -> validateSourceBatch(source)
-                                .then(validatePostponeLimit(source, request.initiativeFruitionEndDate()))
-                                .then(lockOrCreateTargetBatch(transactionDslContext, source))
-                                .flatMap(target -> validateTargetBatch(target)
-                                        .then(moveTransaction(
-                                                transactionDslContext,
-                                                request,
-                                                source,
-                                                target
-                                        )))));
+                .then(readSourceBatch(transactionDslContext, request))
+                .flatMap(source -> validateSourceBatch(source)
+                        .then(validatePostponeLimit(source, request.initiativeFruitionEndDate()))
+                        .then(createOrReadTargetBatch(transactionDslContext, source))
+                        .flatMap(target -> SqlRewardBatchRowLock.acquirePair(
+                                        transactionDslContext,
+                                        request.initiativeId(),
+                                        source.getId(),
+                                        target.getId()
+                                )
+                                .flatMap(locked -> {
+                                    RewardBatch lockedSource = batchMapper.fromRecord(locked.source());
+                                    RewardBatch lockedTarget = batchMapper.fromRecord(locked.target());
+                                    return validateSourceBatch(lockedSource)
+                                            .then(validatePostponeLimit(
+                                                    lockedSource,
+                                                    request.initiativeFruitionEndDate()
+                                            ))
+                                            .then(validateTargetBatch(lockedTarget))
+                                            .then(moveTransaction(
+                                                    transactionDslContext,
+                                                    request,
+                                                    lockedSource,
+                                                    lockedTarget
+                                            ));
+                                })));
     }
 
     private Mono<Void> requireTransactionMembership(
@@ -104,14 +115,13 @@ public class SqlMerchantTransactionPostponementAdapter implements MerchantTransa
                 .then();
     }
 
-    private Mono<RewardBatch> lockSourceBatch(
+    private Mono<RewardBatch> readSourceBatch(
             DSLContext transactionDslContext,
             PostponementRequest request
     ) {
         return Mono.from(transactionDslContext.selectFrom(REWARD_BATCHES)
                         .where(REWARD_BATCHES.ID.eq(request.sourceBatchId())
-                                .and(REWARD_BATCHES.INITIATIVE_ID.eq(request.initiativeId())))
-                        .forUpdate())
+                                .and(REWARD_BATCHES.INITIATIVE_ID.eq(request.initiativeId()))))
                 .map(batchMapper::fromRecord)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
                         HttpStatus.NOT_FOUND,
@@ -123,21 +133,7 @@ public class SqlMerchantTransactionPostponementAdapter implements MerchantTransa
                         : transactionNotFound(request.transactionId()));
     }
 
-    private Mono<RewardTransaction> lockTransaction(
-            DSLContext transactionDslContext,
-            PostponementRequest request
-    ) {
-        return Mono.from(transactionDslContext.selectFrom(REWARD_TRANSACTIONS)
-                        .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(request.transactionId())
-                                .and(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(request.initiativeId()))
-                                .and(REWARD_TRANSACTIONS.MERCHANT_ID.eq(request.merchantId()))
-                                .and(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(request.sourceBatchId())))
-                        .forUpdate())
-                .map(transactionMapper::fromRecord)
-                .switchIfEmpty(transactionNotFound(request.transactionId()));
-    }
-
-    private Mono<RewardBatch> lockOrCreateTargetBatch(
+    private Mono<RewardBatch> createOrReadTargetBatch(
             DSLContext transactionDslContext,
             RewardBatch source
     ) {
@@ -150,13 +146,7 @@ public class SqlMerchantTransactionPostponementAdapter implements MerchantTransa
         );
         target.setId(UUID.randomUUID().toString());
 
-        return batchAdapter.createOrReadWithinTransaction(target, transactionDslContext)
-                .flatMap(created -> Mono.from(transactionDslContext.selectFrom(REWARD_BATCHES)
-                                .where(REWARD_BATCHES.ID.eq(created.getId())
-                                        .and(REWARD_BATCHES.INITIATIVE_ID.eq(source.getInitiativeId())))
-                                .forUpdate())
-                        .map(batchMapper::fromRecord)
-                        .switchIfEmpty(Mono.error(new MembershipChangedException())));
+        return batchAdapter.createOrReadWithinTransaction(target, transactionDslContext);
     }
 
     private Mono<RewardTransaction> moveTransaction(
@@ -165,17 +155,18 @@ public class SqlMerchantTransactionPostponementAdapter implements MerchantTransa
             RewardBatch source,
             RewardBatch target
     ) {
-        return Mono.from(transactionDslContext.update(REWARD_TRANSACTIONS)
-                        .set(REWARD_TRANSACTIONS.REWARD_BATCH_ID, target.getId())
-                        .set(REWARD_TRANSACTIONS.REWARD_BATCH_INCLUSION_DATE, currentLocalDateTime())
-                        .set(REWARD_TRANSACTIONS.UPDATE_DATE, currentLocalDateTime())
-                        .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(request.transactionId())
-                                .and(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(request.initiativeId()))
-                                .and(REWARD_TRANSACTIONS.MERCHANT_ID.eq(request.merchantId()))
-                                .and(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(source.getId())))
-                        .returning())
-                .map(transactionMapper::fromRecord)
-                .switchIfEmpty(Mono.error(new MembershipChangedException()));
+        return SqlRewardBatchMembership.moveTransaction(
+                        transactionDslContext,
+                        request.transactionId(),
+                        request.initiativeId(),
+                        source.getId(),
+                        target.getId(),
+                        REWARD_TRANSACTIONS.MERCHANT_ID.eq(request.merchantId()),
+                        update -> update
+                                .set(REWARD_TRANSACTIONS.REWARD_BATCH_INCLUSION_DATE, currentLocalDateTime())
+                                .set(REWARD_TRANSACTIONS.UPDATE_DATE, currentLocalDateTime())
+                )
+                .map(transactionMapper::fromRecord);
     }
 
     private static Mono<RewardBatch> validateSourceBatch(RewardBatch source) {
@@ -248,7 +239,4 @@ public class SqlMerchantTransactionPostponementAdapter implements MerchantTransa
     ) {
     }
 
-    private static final class MembershipChangedException extends RuntimeException {
-        private static final long serialVersionUID = 1L;
-    }
 }
