@@ -1,0 +1,61 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "PUT",
+        "url": "/idpay/transactions/status",
+        "bodyPatterns": [
+          {
+            "equalToJson": "{\"transactionIds\": [\"TRX_OK_1\", \"TRX_OK_2\"], \"status\": \"REWARDED\"}",
+            "ignoreArrayOrder": true
+          }
+        ]
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": "2"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "url": "/idpay/transactions/status",
+        "bodyPatterns": [
+          {
+            "equalToJson": "{\"transactionIds\": [\"TRX_BADREQUEST_1\"], \"status\": \"REWARDED\"}",
+            "ignoreArrayOrder": true
+          }
+        ]
+      },
+      "response": {
+        "status": 400,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": "{\"code\":\"BAD_REQUEST\",\"message\":\"Invalid request\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "url": "/idpay/transactions/status",
+        "bodyPatterns": [
+          {
+            "equalToJson": "{\"transactionIds\": [\"TRX_INTERNALSERVERERROR_1\"], \"status\": \"REWARDED\"}",
+            "ignoreArrayOrder": true
+          }
+        ]
+      },
+      "response": {
+        "status": 500,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": "{\"code\":\"GENERIC_ERROR\",\"message\":\"Server Error\"}"
+      }
+    }
+  ]
+}

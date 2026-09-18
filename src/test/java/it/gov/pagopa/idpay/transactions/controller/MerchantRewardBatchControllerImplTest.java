@@ -354,6 +354,24 @@ class MerchantRewardBatchControllerImplTest {
     }
 
     @Test
+    void sendRewardBatchesAcceptsEmptyBatch() {
+        String batchId = "EMPTY_BATCH";
+        when(rewardBatchService.sendRewardBatch(INITIATIVE_ID, MERCHANT_ID, batchId))
+                .thenReturn(Mono.empty());
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{batchId}/send")
+                        .build(INITIATIVE_ID, batchId))
+                .header("x-merchant-id", MERCHANT_ID)
+                .exchange()
+                .expectStatus().isNoContent()
+                .expectBody().isEmpty();
+
+        verify(rewardBatchService).sendRewardBatch(INITIATIVE_ID, MERCHANT_ID, batchId);
+    }
+
+    @Test
     void getRewardBatches_shouldThrowBadRequest_whenNoMerchantAndNoRole() {
         webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder
@@ -684,21 +702,19 @@ class MerchantRewardBatchControllerImplTest {
     }
 
     @Test
-    void evaluatingRewardBatches_absentBodyReturnsCurrentInternalServerError() {
+    void evaluatingRewardBatches_absentBodyDelegatesNullForAllBatches() {
+        when(rewardBatchService.evaluatingRewardBatches(null, INITIATIVE_ID))
+                .thenReturn(Mono.just(1L));
+
         webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/evaluate",
                         INITIATIVE_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .exchange()
-                .expectStatus().isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
-                .expectHeader().contentType(MediaType.APPLICATION_JSON)
-                .expectBody(ErrorDTO.class)
-                .value(error -> {
-                    assertEquals("Error", error.getCode());
-                    assertEquals("Something gone wrong", error.getMessage());
-                });
+                .expectStatus().isOk()
+                .expectBody().isEmpty();
 
-        verifyNoInteractions(rewardBatchService);
+        verify(rewardBatchService).evaluatingRewardBatches(null, INITIATIVE_ID);
     }
 
     @Test

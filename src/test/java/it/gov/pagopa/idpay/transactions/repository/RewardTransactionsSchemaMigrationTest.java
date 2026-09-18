@@ -115,6 +115,29 @@ class RewardTransactionsSchemaMigrationTest extends PostgresqlMigrationTestSuppo
     }
 
     @Test
+    void shouldRoundTripNegativeAccruedRewardCents() {
+        StepVerifier.create(databaseClient()
+                        .sql("""
+                                INSERT INTO reward_transactions (
+                                    transaction_id, initiative_id, accrued_reward_cents
+                                )
+                                VALUES ('transaction-negative-accrued-reward', 'initiative-1', -6000)
+                                """)
+                        .fetch()
+                        .rowsUpdated()
+                        .concatWith(databaseClient()
+                                .sql("""
+                                        SELECT accrued_reward_cents
+                                        FROM reward_transactions
+                                        WHERE transaction_id = 'transaction-negative-accrued-reward'
+                                        """)
+                                .map((row, metadata) -> row.get("accrued_reward_cents", Long.class))
+                                .one()))
+                .expectNext(1L, -6000L)
+                .verifyComplete();
+    }
+
+    @Test
     void shouldNotCreateTheRewardBatchImpactInboxTable() {
         StepVerifier.create(databaseClient()
                         .sql("""

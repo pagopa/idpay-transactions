@@ -229,13 +229,14 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   @Override
   public Mono<Void> evaluatingRewardBatches(RewardBatchesRequest rewardBatchesRequest, String initiativeId) {
     String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
+    List<String> rewardBatchIds = rewardBatchesRequest == null ? null : rewardBatchesRequest.getRewardBatchIds();
     log.info(
-            "[EVALUATING_REWARD_BATCH] Requested to evaluate {}", rewardBatchesRequest.getRewardBatchIds() != null
-                    ? rewardBatchesRequest.getRewardBatchIds().stream()
+            "[EVALUATING_REWARD_BATCH] Requested to evaluate {}", rewardBatchIds != null
+                    ? rewardBatchIds.stream()
                     .map(Utilities::sanitizeString).toList()
                     : "all reward batches with status SENT"
     );
-    return rewardBatchService.evaluatingRewardBatches(rewardBatchesRequest.getRewardBatchIds(), sanitizeInitiativeId)
+    return rewardBatchService.evaluatingRewardBatches(rewardBatchIds, sanitizeInitiativeId)
             .then();
   }
 

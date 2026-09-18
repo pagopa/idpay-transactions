@@ -18,6 +18,12 @@ public class SqlRewardBatchLifecycleAdapter implements RewardBatchLifecyclePort 
     private final SqlRewardBatchListAdapter batchListAdapter;
 
     @Override
+    public Flux<RewardBatch> findBatchesToProcessAfter(
+            RewardBatchStatus status, String initiativeId, String afterId, int limit) {
+        return batchListAdapter.findBatchesToProcessAfter(status, initiativeId, afterId, limit);
+    }
+
+    @Override
     public Mono<RewardBatch> findBatch(String rewardBatchId) {
         return batchListAdapter.findBatch(rewardBatchId);
     }
@@ -72,13 +78,23 @@ public class SqlRewardBatchLifecycleAdapter implements RewardBatchLifecyclePort 
     }
 
     @Override
-    public Mono<RewardBatch> updateEvaluationStatus(
+    public Mono<RewardBatch> sendBatch(
             String rewardBatchId,
             String initiativeId,
-            long approvedAmountCents
+            String merchantId
     ) {
-        return batchAdapter.updateStatus(rewardBatchId, initiativeId, RewardBatchStatus.EVALUATING)
-                .flatMap(saved -> batchListAdapter.findBatch(saved.getId(), saved.getInitiativeId())
-                        .switchIfEmpty(Mono.just(saved)));
+        return batchAdapter.sendBatch(rewardBatchId, initiativeId, merchantId)
+                .flatMap(sent -> batchListAdapter.findBatch(sent.getId(), sent.getInitiativeId())
+                        .switchIfEmpty(Mono.just(sent)));
+    }
+
+    @Override
+    public Mono<RewardBatch> enterApproval(
+            String rewardBatchId,
+            String initiativeId
+    ) {
+        return batchAdapter.enterApproval(rewardBatchId, initiativeId)
+                .flatMap(entered -> batchListAdapter.findBatch(entered.getId(), entered.getInitiativeId())
+                        .switchIfEmpty(Mono.just(entered)));
     }
 }

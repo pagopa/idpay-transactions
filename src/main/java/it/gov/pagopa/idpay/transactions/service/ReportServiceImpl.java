@@ -35,6 +35,7 @@ import java.util.List;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.*;
+import static it.gov.pagopa.common.utils.CommonConstants.ZONEID;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @Slf4j
@@ -271,7 +272,7 @@ public class ReportServiceImpl implements ReportService {
                                                               String initiativeId,
                                                               ReportRequest request) {
 
-        if(!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay())
+        if(!(request.getEndPeriod().isBefore(LocalDate.now(ZONEID).atStartOfDay())
             && request.getStartPeriod().isBefore(request.getEndPeriod()))){
             return Mono.error(new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
@@ -279,7 +280,9 @@ public class ReportServiceImpl implements ReportService {
                     ERROR_MESSAGE_INVALID_PERIOD));
         }
 
-        if(ChronoUnit.DAYS.between(request.getStartPeriod(), request.getEndPeriod()) > periodLengthTransactionsReport){
+        if (ChronoUnit.DAYS.between(
+                request.getStartPeriod().atZone(ZONEID),
+                request.getEndPeriod().atZone(ZONEID)) > periodLengthTransactionsReport) {
             return Mono.error(new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
                     INVALID_LENGTH_PERIOD,
@@ -294,7 +297,7 @@ public class ReportServiceImpl implements ReportService {
                         ERROR_MESSAGE_MERCHANT_NOT_FOUND.formatted(merchantId, initiativeId) )))
                 .flatMap(merchant -> {
 
-                    String formattedDate = LocalDateTime.now().format(FILE_NAME_FORMAT);
+                    String formattedDate = LocalDateTime.now(ZONEID).format(FILE_NAME_FORMAT);
                     String fileName = String.format("Report_%s.csv", formattedDate);
 
                     Report reportEntity = Report.builder()
@@ -304,7 +307,7 @@ public class ReportServiceImpl implements ReportService {
                             .endPeriod(request.getEndPeriod())
                             .merchantId(merchantId)
                             .businessName(merchant.getBusinessName())
-                            .requestDate(LocalDateTime.now())
+                            .requestDate(LocalDateTime.now(ZONEID))
                             .operatorLevel(operatorLevel)
                             .fileName(fileName)
                             .reportType(request.getReportType())
@@ -330,7 +333,7 @@ public class ReportServiceImpl implements ReportService {
                                                      String initiativeId,
                                                      ReportRequest request) {
 
-        if (!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay())
+        if (!(request.getEndPeriod().isBefore(LocalDate.now(ZONEID).atStartOfDay())
                 && request.getStartPeriod().isBefore(request.getEndPeriod()))) {
             return Mono.error(new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
@@ -339,7 +342,7 @@ public class ReportServiceImpl implements ReportService {
         }
 
         RewardBatchAssignee operatorLevel = resolveOperatorLevel(organizationRole);
-        String formattedDate = LocalDateTime.now().format(FILE_NAME_FORMAT);
+        String formattedDate = LocalDateTime.now(ZONEID).format(FILE_NAME_FORMAT);
         String fileName = String.format("Report_%s.csv", formattedDate);
 
         Report reportEntity = Report.builder()
@@ -347,7 +350,7 @@ public class ReportServiceImpl implements ReportService {
                 .reportStatus(ReportStatus.INSERTED)
                 .startPeriod(request.getStartPeriod())
                 .endPeriod(request.getEndPeriod())
-                .requestDate(LocalDateTime.now())
+                .requestDate(LocalDateTime.now(ZONEID))
                 .operatorLevel(operatorLevel)
                 .fileName(fileName)
                 .reportType(request.getReportType())
@@ -393,7 +396,7 @@ public class ReportServiceImpl implements ReportService {
                         report.setReportStatus(request.getReportStatus());
                     }
                     if(ReportStatus.GENERATED.equals(request.getReportStatus())){
-                        report.setElaborationDate(LocalDateTime.now());
+                        report.setElaborationDate(LocalDateTime.now(ZONEID));
                     }
 
                     return reportPersistencePort.save(report);

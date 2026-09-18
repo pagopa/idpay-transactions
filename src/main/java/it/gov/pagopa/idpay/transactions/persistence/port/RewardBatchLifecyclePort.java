@@ -9,6 +9,10 @@ import reactor.core.publisher.Mono;
 
 public interface RewardBatchLifecyclePort {
 
+    /** Returns batches ordered by ID, strictly after the cursor; approved batches require a positive amount. */
+    Flux<RewardBatch> findBatchesToProcessAfter(
+            RewardBatchStatus status, String initiativeId, String afterId, int limit);
+
     Mono<RewardBatch> findBatch(String rewardBatchId);
 
     Mono<RewardBatch> findBatch(String rewardBatchId, String initiativeId);
@@ -40,9 +44,14 @@ public interface RewardBatchLifecyclePort {
 
     Mono<RewardBatch> saveBatch(RewardBatch rewardBatch);
 
-    Mono<RewardBatch> updateEvaluationStatus(
+    Mono<RewardBatch> sendBatch(
             String rewardBatchId,
             String initiativeId,
-            long approvedAmountCents
+            String merchantId
+    );
+
+    Mono<RewardBatch> enterApproval(
+            String rewardBatchId,
+            String initiativeId
     );
 }

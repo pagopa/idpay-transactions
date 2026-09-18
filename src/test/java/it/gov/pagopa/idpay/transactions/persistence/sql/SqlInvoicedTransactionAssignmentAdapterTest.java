@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
@@ -46,6 +47,8 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
     private static final String MERCHANT_ID = "merchant-1";
 
     private static SqlInvoicedTransactionAssignmentAdapter adapter;
+    private static SqlRewardBatchAdapter batchAdapter;
+    private static SqlRewardTransactionAdapter transactionAdapter;
     private static DSLContext dslContext;
 
     @BeforeAll
@@ -57,14 +60,15 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
         );
         RewardBatchSqlMapper batchMapper = new RewardBatchSqlMapper(JsonMapper.builder().build());
         RewardTransactionSqlMapper transactionMapper = new RewardTransactionSqlMapper(JsonMapper.builder().build());
-        SqlRewardBatchAdapter batchAdapter = new SqlRewardBatchAdapter(
+        batchAdapter = new SqlRewardBatchAdapter(
                 transactionalOperator(),
                 dslContext,
+                connectionFactory(),
                 new R2dbcRepositoryFactory(r2dbcEntityTemplate())
                         .getRepository(RewardBatchSqlRepository.class),
                 batchMapper
         );
-        SqlRewardTransactionAdapter transactionAdapter = new SqlRewardTransactionAdapter(
+        transactionAdapter = new SqlRewardTransactionAdapter(
                 transactionalOperator(),
                 dslContext,
                 transactionMapper
@@ -150,6 +154,51 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
 
         StepVerifier.create(Mono.from(dslContext.selectCount().from(REWARD_BATCHES)))
                 .expectNextMatches(result -> result.value1() == 0)
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldNotClaimATransactionWhenANewerSnapshotIsNoLongerInvoiced() {
+        RewardTransaction existing = transaction("transaction-no-claim", 750L);
+        existing.setStatus(SyncTrxStatus.INVOICED.name());
+        existing.setTransactionRevision(1L);
+        RewardTransaction newer = transaction("transaction-no-claim", 750L);
+        newer.setStatus(SyncTrxStatus.AUTHORIZED.name());
+        newer.setTransactionRevision(2L);
+
+        StepVerifier.create(transactionAdapter.upsert(existing)
+                        .then(adapter.assignInvoicedTransaction(newer, batch(), 123)))
+                .assertNext(persisted -> {
+                    assertEquals(SyncTrxStatus.AUTHORIZED.name(), persisted.getStatus());
+                    assertEquals(2L, persisted.getTransactionRevision());
+                    assertNull(persisted.getRewardBatchId());
+                    assertNull(persisted.getRewardBatchTrxStatus());
+                })
+                .verifyComplete();
+
+        StepVerifier.create(Mono.from(dslContext.selectCount()
+                        .from(REWARD_TRANSACTIONS)
+                        .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq("transaction-no-claim")
+                                .and(REWARD_TRANSACTIONS.REWARD_BATCH_ID.isNotNull()))))
+                .expectNextMatches(result -> result.value1() == 0)
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldAssignAnInvoicedSnapshotAfterAnExistingCapturedTransaction() {
+        RewardTransaction captured = transaction("transaction-captured-to-invoiced", 750L);
+        captured.setStatus("CAPTURED");
+        captured.setTransactionRevision(1L);
+        RewardTransaction invoiced = transaction("transaction-captured-to-invoiced", 750L);
+        invoiced.setTransactionRevision(2L);
+
+        StepVerifier.create(transactionAdapter.upsert(captured)
+                        .then(adapter.assignInvoicedTransaction(invoiced, batch(), 123)))
+                .assertNext(assigned -> {
+                    assertNotNull(assigned.getRewardBatchId());
+                    assertEquals(RewardBatchTrxStatus.CONSULTABLE, assigned.getRewardBatchTrxStatus());
+                    assertEquals(2L, assigned.getTransactionRevision());
+                })
                 .verifyComplete();
     }
 
@@ -327,6 +376,145 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
                         .where(REWARD_TRANSACTIONS.REWARD_BATCH_ID.isNotNull())))
                 .expectNextMatches(result -> result.value1().longValue() == 750L)
                 .verifyComplete();
+    }
+
+    @Test
+    void shouldSerializeAssignmentToEarlierBatchAgainstLaterBatchSend() {
+        RewardBatch earlier = batch();
+        earlier.setId("concurrent-earlier");
+        earlier.setMonth("2026-06");
+        RewardBatch current = batch();
+        current.setId("concurrent-current");
+        current.setMonth("2026-07");
+        RewardTransaction transaction = transaction("transaction-concurrent-send", 750L);
+
+        StepVerifier.create(Flux.concat(
+                        batchAdapter.createOrRead(earlier),
+                        batchAdapter.createOrRead(current)
+                )
+                .thenMany(Flux.merge(
+                        adapter.assignInvoicedTransaction(transaction, earlier, 123)
+                                .thenReturn(true)
+                                .onErrorReturn(false),
+                        batchAdapter.sendBatch(
+                                        current.getId(),
+                                        current.getInitiativeId(),
+                                        current.getMerchantId()
+                                )
+                                .thenReturn(true)
+                                .onErrorReturn(false)
+                ))
+                .collectList())
+                .assertNext(results -> assertEquals(1, results.stream()
+                        .filter(Boolean::booleanValue)
+                        .count()))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldRejectAssignmentToEarlierBatchAfterLaterBatchWasSent() {
+        RewardBatch earlier = batch();
+        earlier.setId("sent-first-earlier");
+        earlier.setMonth("2026-06");
+        RewardBatch current = batch();
+        current.setId("sent-first-current");
+        current.setMonth("2026-07");
+
+        StepVerifier.create(Flux.concat(
+                        batchAdapter.createOrRead(earlier),
+                        batchAdapter.createOrRead(current)
+                )
+                .then(batchAdapter.sendBatch(
+                        current.getId(),
+                        current.getInitiativeId(),
+                        current.getMerchantId()
+                ))
+                .then(adapter.assignInvoicedTransaction(
+                        transaction("transaction-after-send", 750L),
+                        earlier,
+                        123
+                )))
+                .expectErrorMatches(error -> error instanceof ClientExceptionNoBody
+                        && ((ClientExceptionNoBody) error).getHttpStatus() == HttpStatus.BAD_REQUEST)
+                .verify();
+
+        StepVerifier.create(Mono.from(dslContext.selectCount()
+                        .from(REWARD_TRANSACTIONS)
+                        .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq("transaction-after-send")
+                                .and(REWARD_TRANSACTIONS.REWARD_BATCH_ID.isNotNull()))))
+                .expectNextMatches(result -> result.value1() == 0)
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldAcquireBatchLockBeforeUpdatingAnUnassignedTransaction() {
+        String batchId = "assignment-lock-batch";
+        String transactionId = "assignment-lock-transaction";
+        RewardBatch targetBatch = batch();
+        targetBatch.setId(batchId);
+        RewardTransaction transaction = transaction(transactionId, 750L);
+        transaction.setStatus(SyncTrxStatus.INVOICED.name());
+
+        StepVerifier.create(batchAdapter.createOrRead(targetBatch)
+                        .then(transactionAdapter.upsert(transaction))
+                        .then(SqlBatchLockTestSupport.holdBatch(
+                                connectionFactory(),
+                                batchId,
+                                INITIATIVE_ID
+                        ).flatMap(batchLock -> {
+                            var pending = adapter.assignInvoicedTransaction(
+                                    transaction,
+                                    targetBatch,
+                                    123
+                            ).toFuture();
+                            return SqlBatchLockTestSupport.blockedByWithin(
+                                            connectionFactory(),
+                                            batchLock.backendPid()
+                                    )
+                                    .flatMap(blocked -> {
+                                        Mono<Void> evidence = blocked
+                                                ? persistedAssignmentState(transactionId)
+                                                        .doOnNext(state -> {
+                                                            assertNull(state.batchId());
+                                                            assertNull(state.batchStatus());
+                                                        })
+                                                        .then()
+                                                : Mono.empty();
+                                        return evidence
+                                                .then(batchLock.release())
+                                                .then(Mono.fromFuture(pending))
+                                                .map(assigned -> {
+                                                    assertTrue(blocked,
+                                                            "assignment must wait for the batch row lock");
+                                                    return assigned;
+                                                });
+                                    })
+                                    .onErrorResume(error -> batchLock.release().then(Mono.error(error)));
+                        })))
+                .assertNext(assigned -> {
+                    assertEquals(batchId, assigned.getRewardBatchId());
+                    assertEquals(RewardBatchTrxStatus.CONSULTABLE, assigned.getRewardBatchTrxStatus());
+                    assertEquals(123, assigned.getSamplingKey());
+                })
+                .verifyComplete();
+    }
+
+    private static Mono<AssignmentState> persistedAssignmentState(String transactionId) {
+        return databaseClient()
+                .sql("""
+                        SELECT reward_batch_id, reward_batch_trx_status
+                        FROM reward_transactions
+                        WHERE transaction_id = :transactionId
+                        """)
+                .bind("transactionId", transactionId)
+                .map((row, metadata) -> new AssignmentState(
+                        row.get("reward_batch_id", String.class),
+                        row.get("reward_batch_trx_status", String.class)
+                ))
+                .one();
+    }
+
+    private record AssignmentState(String batchId, String batchStatus) {
     }
 
     private static RewardBatch batch() {
