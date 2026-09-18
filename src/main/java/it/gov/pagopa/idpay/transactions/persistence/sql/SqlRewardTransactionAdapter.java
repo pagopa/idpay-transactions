@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql;
 
+import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches.REWARD_BATCHES;
 import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions.REWARD_TRANSACTIONS;
 import static org.jooq.impl.DSL.excluded;
 import static org.jooq.impl.DSL.val;

@@ -9,9 +9,10 @@ import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.lang.reflect.Method;
+import java.time.Month;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
@@ -28,11 +29,11 @@ class RewardBatchMapperTest {
 
     @Test
     void toDTO_shouldMapAllFieldsAndDefaultSuspendedAmountToZeroWhenNull() {
-        LocalDateTime startDate = LocalDateTime.of(2025, 11, 1, 0, 0);
-        LocalDateTime endDate = LocalDateTime.of(2025, 11, 30, 23, 59);
-        LocalDateTime refundOutcomeTimestamp = LocalDateTime.of(2025, 12, 10, 9, 30);
-        LocalDate refundValutaDate = LocalDate.of(2025, 12, 15);
-        LocalDateTime merchantSendDate = LocalDateTime.of(2025, 11, 15, 12, 35);
+        LocalDateTime startDate = LocalDateTime.of(2025, Month.NOVEMBER, 1, 0, 0);
+        LocalDateTime endDate = LocalDateTime.of(2025, Month.NOVEMBER, 30, 23, 59);
+        LocalDateTime refundOutcomeTimestamp = LocalDateTime.of(2025, Month.DECEMBER, 10, 9, 30);
+        LocalDate refundValutaDate = LocalDate.of(2025, Month.DECEMBER, 15);
+        LocalDateTime merchantSendDate = LocalDateTime.of(2025, Month.NOVEMBER, 15, 12, 35);
 
         RewardBatch batch = RewardBatch.builder()
                 .id("batch123")

@@ -132,26 +132,32 @@ public class SqlInvoicedTransactionAssignmentAdapter implements InvoicedTransact
                         return Mono.error(new BatchStatusMismatchException());
                     }
                     return hasLaterProcessedBatch(
-                                    transactionDslContext,
-                                    lockedBatch
-                            )
-                            .flatMap(hasLaterBatch -> hasLaterBatch
-                                    ? Mono.error(new BatchStatusMismatchException())
-                                    : transactionAdapter.upsertWithinTransaction(
-                                            transaction,
-                                            transactionDslContext
-                                    )
-                                    .flatMap(persisted -> SyncTrxStatus.INVOICED.name().equals(persisted.getStatus())
-                                            && persisted.getRewardBatchId() == null
-                                            ? claimTransaction(
-                                                    transactionDslContext,
-                                                    persisted.getId(),
-                                                    initiativeId,
-                                                    lockedBatch.getId(),
-                                                    samplingKey
-                                            )
-                                            : Mono.just(persisted)));
-                });
+                        transactionDslContext,
+                        lockedBatch
+                    )
+                        .flatMap(hasLaterBatch -> {
+                          if (Boolean.TRUE.equals(hasLaterBatch)) {
+                            return Mono.error(new BatchStatusMismatchException());
+                          }
+                          return transactionAdapter.upsertWithinTransaction(
+                                  transaction,
+                                  transactionDslContext
+                              )
+                              .flatMap(persisted -> {
+                                if (SyncTrxStatus.INVOICED.name().equals(persisted.getStatus())
+                                    && persisted.getRewardBatchId() == null) {
+                                  return claimTransaction(
+                                      transactionDslContext,
+                                      persisted.getId(),
+                                      initiativeId,
+                                      lockedBatch.getId(),
+                                      samplingKey
+                                  );
+                                }
+                                return Mono.just(persisted);
+                              });
+                        });
+                  });
     }
 
     private Mono<RewardTransaction> findExistingTransaction(
