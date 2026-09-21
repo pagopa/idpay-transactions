@@ -64,7 +64,7 @@ public class ErrorManager {
         }
 
         if(!(error instanceof ClientException clientException) || clientException.isPrintStackTrace() || error.getCause() != null){
-            log.error("Something went wrong handling request {}{}", getRequestDetails(exchange), clientExceptionMessage, error);
+            log.error("Something went wrong handling request {}{}", getRequestDetails(exchange), clientExceptionMessage);
         } else {
             log.info("A {} occurred handling request {}{} at {}",
                     error.getClass().getSimpleName() ,
