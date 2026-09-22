@@ -1,13 +1,5 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql;
 
-import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches.REWARD_BATCHES;
-import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions.REWARD_TRANSACTIONS;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_NOT_FOUND_BATCH;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.REWARD_BATCH_STATUS_MISMATCH;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.TRANSACTION_NOT_FOUND;
-import static org.jooq.impl.DSL.currentLocalDateTime;
-
 import io.r2dbc.spi.ConnectionFactory;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
@@ -17,9 +9,6 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatchFactory;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.MerchantTransactionPostponementPort;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
-import java.time.LocalDate;
-import java.time.YearMonth;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
@@ -29,6 +18,15 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
+
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.util.UUID;
+
+import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches.REWARD_BATCHES;
+import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions.REWARD_TRANSACTIONS;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.*;
+import static org.jooq.impl.DSL.currentLocalDateTime;
 
 /**
  * Atomically moves a merchant-selected transaction to the next monthly batch.
@@ -61,12 +59,14 @@ public class SqlMerchantTransactionPostponementAdapter implements MerchantTransa
                             initiativeFruitionEndDate
                     );
                     validateRequest(request);
-                    return transactionalOperator.transactional(ConnectionFactoryUtils.getConnection(connectionFactory)
-                            .flatMap(connection -> postponeWithinTransaction(
-                                    org.jooq.impl.DSL.using(connection, SQLDialect.POSTGRES),
-                                    request
-                            )));
+                    return ConnectionFactoryUtils.getConnection(connectionFactory)
+                            .flatMap(connection -> {
+                                DSLContext dsl = org.jooq.impl.DSL.using(connection, SQLDialect.POSTGRES);
+                                return postponeWithinTransaction(dsl, request)
+                                        .as(transactionalOperator::transactional);
+                            });
                 })
+                .single()
                 .retryWhen(Retry.max(3).filter(error -> error instanceof MembershipChangedException
                         || SqlTransactionRetrySupport.isRetryableConcurrencyFailure(error)));
     }
