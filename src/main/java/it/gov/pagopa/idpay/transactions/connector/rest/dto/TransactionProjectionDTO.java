@@ -12,7 +12,6 @@ import lombok.NoArgsConstructor;
 @Builder
 public class TransactionProjectionDTO {
     private String transactionId;
-    private String status;
     private InvoiceData invoiceData;
 }
 

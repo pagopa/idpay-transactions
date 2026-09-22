@@ -66,7 +66,14 @@ class MerchantTransactionServiceImplTest {
                         rewardTransactionSearchPortMock,
                         checksErrorMapper
                 );
-        lenient().when(paymentRestClientMock.getTransactionsProjectionByIds(anySet())).thenReturn(Mono.just(List.of()));
+        lenient().when(paymentRestClientMock.getTransactionsProjectionByIds(anySet()))
+                .thenAnswer(invocation -> {
+                    Set<String> ids = invocation.getArgument(0);
+                    List<TransactionProjectionDTO> projections = ids.stream()
+                            .map(id -> new TransactionProjectionDTO(id, null))
+                            .toList();
+                    return Mono.just(projections);
+                });
     }
 
     @Test
@@ -492,7 +499,7 @@ class MerchantTransactionServiceImplTest {
     }
 
     @Test
-    void getMerchantTransactionList_shouldEnrichStatusAndInvoiceDataFromPayment() {
+    void getMerchantTransactionList_shouldEnrichOnlyInvoiceDataFromPayment() {
         LocalDateTime now = LocalDateTime.now();
 
         RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
@@ -521,7 +528,6 @@ class MerchantTransactionServiceImplTest {
         when(paymentRestClientMock.getTransactionsProjectionByIds(Set.of("id1")))
                 .thenReturn(Mono.just(List.of(new TransactionProjectionDTO(
                         "id1",
-                        "REVERSED",
                         new InvoiceData("new.pdf", "NEW")
                 ))));
 
@@ -540,9 +546,55 @@ class MerchantTransactionServiceImplTest {
                 ).block();
 
         MerchantTransactionDTO dto = Objects.requireNonNull(result).getContent().getFirst();
-        assertEquals("REVERSED", dto.getStatus());
+        assertEquals("INVOICED", dto.getStatus());
         assertEquals("new.pdf", dto.getInvoiceData().getFilename());
         assertEquals("NEW", dto.getInvoiceData().getDocNumber());
+    }
+
+    @Test
+    void getMerchantTransactionList_shouldExcludeTransactionsMissingFromPaymentProjection() {
+        LocalDateTime now = LocalDateTime.now();
+
+        RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .userId(USER_ID)
+                .amountCents(5000L)
+                .status("INVOICED")
+                .elaborationDateTime(now)
+                .rewards(getReward())
+                .trxDate(now)
+                .build();
+
+        Pageable paging = PageRequest.of(
+                0,
+                10,
+                Sort.by(RewardTransaction.Fields.elaborationDateTime).descending()
+        );
+
+        when(rewardTransactionSearchPortMock.findMerchantTransactions(any(), isNull(), eq(false), eq(paging)))
+                .thenReturn(Flux.just(rt1));
+        when(rewardTransactionSearchPortMock.countMerchantTransactions(any(), isNull(), eq(false)))
+                .thenReturn(Mono.just(1L));
+        when(paymentRestClientMock.getTransactionsProjectionByIds(Set.of("id1")))
+                .thenReturn(Mono.just(List.of()));
+
+        MerchantTransactionsListDTO result =
+                merchantTransactionService.getMerchantTransactions(
+                        MERCHANT_ID,
+                        "merchant",
+                        INITIATIVE_ID,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        paging
+                ).block();
+
+        assertNotNull(result);
+        assertNotNull(result.getContent());
+        assertTrue(result.getContent().isEmpty());
     }
 
     @Test

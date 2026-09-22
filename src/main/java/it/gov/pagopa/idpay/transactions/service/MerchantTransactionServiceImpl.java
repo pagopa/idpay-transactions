@@ -196,19 +196,15 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                                     (first, second) -> first
                             ));
 
-                    transactions.forEach(transaction -> {
-                        TransactionProjectionDTO projection = projectionsById.get(transaction.getId());
-                        if (projection != null) {
-                            if (projection.getInvoiceData() != null) {
-                                transaction.setInvoiceData(projection.getInvoiceData());
-                            }
-                            if (StringUtils.isNotBlank(projection.getStatus())) {
-                                transaction.setStatus(projection.getStatus());
-                            }
-                        }
-                    });
-
-                    return transactions;
+                    return transactions.stream()
+                            .filter(transaction -> projectionsById.containsKey(transaction.getId()))
+                            .peek(transaction -> {
+                                TransactionProjectionDTO projection = projectionsById.get(transaction.getId());
+                                if (projection.getInvoiceData() != null) {
+                                    transaction.setInvoiceData(projection.getInvoiceData());
+                                }
+                            })
+                            .toList();
                 });
     }
 
