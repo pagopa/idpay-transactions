@@ -1,8 +1,11 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
+import it.gov.pagopa.idpay.transactions.connector.rest.dto.TransactionProjectionDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
+import it.gov.pagopa.idpay.transactions.dto.InvoiceData;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.MerchantTransactionsListDTO;
 import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
@@ -43,6 +46,8 @@ class MerchantTransactionServiceImplTest {
     private RewardTransactionSearchPort rewardTransactionSearchPortMock;
     @Mock
     private UserRestClient userRestClientMock;
+    @Mock
+    private PaymentRestClient paymentRestClientMock;
     private final ChecksErrorMapper checksErrorMapper = new ChecksErrorMapper();
 
     private MerchantTransactionService merchantTransactionService;
@@ -55,7 +60,13 @@ class MerchantTransactionServiceImplTest {
     @BeforeEach
     void setUp() {
         merchantTransactionService =
-                new MerchantTransactionServiceImpl(userRestClientMock, rewardTransactionSearchPortMock, checksErrorMapper);
+                new MerchantTransactionServiceImpl(
+                        userRestClientMock,
+                        paymentRestClientMock,
+                        rewardTransactionSearchPortMock,
+                        checksErrorMapper
+                );
+        lenient().when(paymentRestClientMock.getTransactionsProjectionByIds(anySet())).thenReturn(Mono.just(List.of()));
     }
 
     @Test
@@ -478,6 +489,60 @@ class MerchantTransactionServiceImplTest {
         verify(rewardTransactionSearchPortMock).countMerchantTransactions(any(), isNull(), eq(false));
         verify(userRestClientMock).retrieveUserInfo(USER_ID);
         verify(userRestClientMock, never()).retrieveFiscalCodeInfo(anyString());
+    }
+
+    @Test
+    void getMerchantTransactionList_shouldEnrichStatusAndInvoiceDataFromPayment() {
+        LocalDateTime now = LocalDateTime.now();
+
+        RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .userId(USER_ID)
+                .amountCents(5000L)
+                .status("INVOICED")
+                .elaborationDateTime(now)
+                .rewards(getReward())
+                .trxDate(now)
+                .invoiceData(new InvoiceData("old.pdf", "OLD"))
+                .build();
+
+        Pageable paging = PageRequest.of(
+                0,
+                10,
+                Sort.by(RewardTransaction.Fields.elaborationDateTime).descending()
+        );
+
+        when(rewardTransactionSearchPortMock.findMerchantTransactions(any(), isNull(), eq(false), eq(paging)))
+                .thenReturn(Flux.just(rt1));
+        when(rewardTransactionSearchPortMock.countMerchantTransactions(any(), isNull(), eq(false)))
+                .thenReturn(Mono.just(1L));
+        when(userRestClientMock.retrieveUserInfo(USER_ID))
+                .thenReturn(Mono.just(new UserInfoPDV(FISCAL_CODE)));
+        when(paymentRestClientMock.getTransactionsProjectionByIds(Set.of("id1")))
+                .thenReturn(Mono.just(List.of(new TransactionProjectionDTO(
+                        "id1",
+                        "REVERSED",
+                        new InvoiceData("new.pdf", "NEW")
+                ))));
+
+        MerchantTransactionsListDTO result =
+                merchantTransactionService.getMerchantTransactions(
+                        MERCHANT_ID,
+                        "merchant",
+                        INITIATIVE_ID,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        paging
+                ).block();
+
+        MerchantTransactionDTO dto = Objects.requireNonNull(result).getContent().getFirst();
+        assertEquals("REVERSED", dto.getStatus());
+        assertEquals("new.pdf", dto.getInvoiceData().getFilename());
+        assertEquals("NEW", dto.getInvoiceData().getDocNumber());
     }
 
     @Test

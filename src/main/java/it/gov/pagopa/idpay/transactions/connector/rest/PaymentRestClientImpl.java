@@ -1,8 +1,11 @@
 package it.gov.pagopa.idpay.transactions.connector.rest;
 
+import it.gov.pagopa.idpay.transactions.connector.rest.dto.GetTransactionsProjectionRequestDTO;
+import it.gov.pagopa.idpay.transactions.connector.rest.dto.TransactionProjectionDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UpdateTransactionsStatusRequestDTO;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import java.time.Duration;
+import java.util.List;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,6 +21,7 @@ import reactor.util.retry.Retry;
 public class PaymentRestClientImpl implements PaymentRestClient {
 
     private static final String URI_UPDATE_TRANSACTIONS_STATUS = "/idpay/transactions/status";
+    private static final String URI_GET_TRANSACTIONS_PROJECTION = "/idpay/transactions/projection";
 
     private final WebClient paymentClient;
     private final int retryDelay;
@@ -66,6 +70,32 @@ public class PaymentRestClientImpl implements PaymentRestClient {
                             }
                             return retry;
                         }));
+    }
+
+    @Override
+    public Mono<List<TransactionProjectionDTO>> getTransactionsProjectionByIds(Set<String> transactionIds) {
+        if (transactionIds == null || transactionIds.isEmpty()) {
+            return Mono.just(List.of());
+        }
+
+        GetTransactionsProjectionRequestDTO request = GetTransactionsProjectionRequestDTO.builder()
+                .transactionIds(transactionIds)
+                .build();
+
+        return paymentClient
+                .method(HttpMethod.POST)
+                .uri(URI_GET_TRANSACTIONS_PROJECTION)
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, response ->
+                        response.bodyToMono(String.class)
+                                .defaultIfEmpty("")
+                                .flatMap(body -> Mono.error(new IllegalStateException(
+                                        "Payment projection retrieval failed: httpStatus=%s, body=%s"
+                                                .formatted(response.statusCode().value(), body)
+                                ))))
+                .bodyToFlux(TransactionProjectionDTO.class)
+                .collectList();
     }
 }
 

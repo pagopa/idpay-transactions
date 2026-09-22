@@ -1,6 +1,8 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.UserRestClient;
+import it.gov.pagopa.idpay.transactions.connector.rest.dto.TransactionProjectionDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.FiscalCodeInfoPDV;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.UserInfoPDV;
 import it.gov.pagopa.idpay.transactions.dto.*;
@@ -14,6 +16,7 @@ import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 
@@ -24,15 +27,19 @@ import java.util.*;
 @Slf4j
 public class MerchantTransactionServiceImpl implements MerchantTransactionService {
     private final UserRestClient userRestClient;
+    private final PaymentRestClient paymentRestClient;
     private final RewardTransactionSearchPort rewardTransactionSearchPort;
     private final ChecksErrorMapper checksErrorMapper;
     private static final Set<String> OPERATORS =
             Set.of("operator1", "operator2", "operator3");
 
     protected MerchantTransactionServiceImpl(
-            UserRestClient userRestClient, RewardTransactionSearchPort rewardTransactionSearchPort,
+            UserRestClient userRestClient,
+            PaymentRestClient paymentRestClient,
+            RewardTransactionSearchPort rewardTransactionSearchPort,
             ChecksErrorMapper checksErrorMapper) {
         this.userRestClient = userRestClient;
+        this.paymentRestClient = paymentRestClient;
         this.rewardTransactionSearchPort = rewardTransactionSearchPort;
         this.checksErrorMapper = checksErrorMapper;
     }
@@ -141,8 +148,13 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
             Pageable pageable,
             boolean includeToCheckWithConsultable) {
 
-        return rewardTransactionSearchPort
+        Mono<List<RewardTransaction>> enrichedTransactionsMono = rewardTransactionSearchPort
                 .findMerchantTransactions(filters, userId, includeToCheckWithConsultable, pageable)
+                .collectList()
+                .flatMap(this::enrichTransactionsProjection);
+
+        return enrichedTransactionsMono
+                .flatMapMany(Flux::fromIterable)
                 .concatMap(t -> createMerchantTransactionDTO(
                         filters.getInitiativeId(),
                         t,
@@ -157,6 +169,47 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                                 includeToCheckWithConsultable
                         )
                 );
+    }
+
+    private Mono<List<RewardTransaction>> enrichTransactionsProjection(List<RewardTransaction> transactions) {
+        if (transactions.isEmpty()) {
+            return Mono.just(transactions);
+        }
+
+        Set<String> transactionIds = transactions.stream()
+                .map(RewardTransaction::getId)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+
+        return paymentRestClient.getTransactionsProjectionByIds(transactionIds)
+                .onErrorResume(ex -> {
+                    log.warn("[GET_MERCHANT_TRANSACTIONS] Payment projection enrichment failed, fallback to local projection: {}",
+                            ex.getMessage());
+                    return Mono.just(List.of());
+                })
+                .map(projections -> {
+                    Map<String, TransactionProjectionDTO> projectionsById = projections.stream()
+                            .filter(p -> p.getTransactionId() != null)
+                            .collect(java.util.stream.Collectors.toMap(
+                                    TransactionProjectionDTO::getTransactionId,
+                                    p -> p,
+                                    (first, second) -> first
+                            ));
+
+                    transactions.forEach(transaction -> {
+                        TransactionProjectionDTO projection = projectionsById.get(transaction.getId());
+                        if (projection != null) {
+                            if (projection.getInvoiceData() != null) {
+                                transaction.setInvoiceData(projection.getInvoiceData());
+                            }
+                            if (StringUtils.isNotBlank(projection.getStatus())) {
+                                transaction.setStatus(projection.getStatus());
+                            }
+                        }
+                    });
+
+                    return transactions;
+                });
     }
 
 
