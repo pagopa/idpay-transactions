@@ -18,6 +18,7 @@ import reactor.util.retry.Retry;
 public class PaymentRestClientImpl implements PaymentRestClient {
 
     private static final String URI_UPDATE_TRANSACTIONS_STATUS = "/idpay/transactions/status";
+    private static final String URI_CLEANUP_TRANSACTIONS = "/idpay/transactions/cleanup";
 
     private final WebClient paymentClient;
     private final int retryDelay;
@@ -56,6 +57,36 @@ public class PaymentRestClientImpl implements PaymentRestClient {
                                                 .formatted(response.statusCode().value(), body)
                                 ))))
                 .bodyToMono(Integer.class)
+                .retryWhen(Retry.fixedDelay(maxAttempts, Duration.ofMillis(retryDelay))
+                        .filter(ex -> {
+                            boolean retry = ex instanceof org.springframework.web.reactive.function.client.WebClientRequestException wcre
+                                    && wcre.getCause() instanceof java.net.ConnectException;
+                            if (retry) {
+                                log.info("[PAYMENT_INTEGRATION] Retrying invocation due to exception: {}: {}",
+                                        ex.getClass().getSimpleName(), ex.getMessage());
+                            }
+                            return retry;
+                        }));
+    }
+
+    @Override
+    public Mono<Void> cleanupTransactions(String initiativeId, Set<String> transactionIds) {
+        return paymentClient
+                .method(HttpMethod.DELETE)
+                .uri(uriBuilder -> uriBuilder
+                        .path(URI_CLEANUP_TRANSACTIONS)
+                        .queryParam("initiativeId", initiativeId)
+                        .queryParam("transactionIds", String.join(",", transactionIds))
+                        .build())
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, response ->
+                        response.bodyToMono(String.class)
+                                .defaultIfEmpty("")
+                                .flatMap(body -> Mono.error(new IllegalStateException(
+                                        "Payment cleanup failed: httpStatus=%s, body=%s"
+                                                .formatted(response.statusCode().value(), body)
+                                ))))
+                .bodyToMono(Void.class)
                 .retryWhen(Retry.fixedDelay(maxAttempts, Duration.ofMillis(retryDelay))
                         .filter(ex -> {
                             boolean retry = ex instanceof org.springframework.web.reactive.function.client.WebClientRequestException wcre

@@ -10,4 +10,6 @@ public interface RewardBatchTestSupportPort {
             String rewardBatchId,
             int searchHorizonMonths
     );
+
+    Mono<Void> cleanupRewardBatch(String initiativeId, String merchantId, String rewardBatchId);
 }
