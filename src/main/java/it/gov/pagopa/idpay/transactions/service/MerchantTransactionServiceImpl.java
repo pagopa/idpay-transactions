@@ -175,6 +175,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
 
         MerchantTransactionDTO out = MerchantTransactionDTO.builder()
                 .trxId(transaction.getId())
+                .transactionRevision(transaction.getTransactionRevision())
                 .fiscalCode(transaction.getFiscalCode() != null ? transaction.getFiscalCode() : "-")
                 .effectiveAmountCents(transaction.getAmountCents())
                 .rewardAmountCents(transaction.getRewards().get(initiativeId).getAccruedRewardCents())
