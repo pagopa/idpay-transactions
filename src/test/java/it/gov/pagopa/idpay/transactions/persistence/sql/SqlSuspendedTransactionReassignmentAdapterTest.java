@@ -4,6 +4,7 @@ import static it.gov.pagopa.common.utils.CommonConstants.ZONEID;
 import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches.REWARD_BATCHES;
 import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions.REWARD_TRANSACTIONS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.r2dbc.spi.Connection;
 import it.gov.pagopa.idpay.transactions.enums.PaymentRewardBatchImpactType;
@@ -54,6 +55,7 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
 
     private static SqlSuspendedTransactionReassignmentAdapter adapter;
     private static SqlPaymentRewardBatchImpactAdapter paymentImpactAdapter;
+    private static SqlRewardBatchAdapter batchAdapter;
     private static SqlRewardBatchListAdapter listAdapter;
     private static DSLContext dslContext;
 
@@ -66,7 +68,7 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
         );
         RewardBatchSqlMapper batchMapper = new RewardBatchSqlMapper(JsonMapper.builder().build());
         RewardTransactionSqlMapper transactionMapper = new RewardTransactionSqlMapper(JsonMapper.builder().build());
-        SqlRewardBatchAdapter batchAdapter = new SqlRewardBatchAdapter(
+        batchAdapter = new SqlRewardBatchAdapter(
                 transactionalOperator(),
                 dslContext,
                 connectionFactory(),
@@ -202,6 +204,76 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
     }
 
     @Test
+    void shouldKeepCapturedLifecycleSnapshotsUnchangedWhenReassigningSuspendedMembership() {
+        StepVerifier.create(Flux.concat(
+                        insertBatch(
+                                SOURCE_BATCH_ID,
+                                INITIATIVE_ID,
+                                PAST_MONTH,
+                                RewardBatchStatus.EVALUATING,
+                                500L
+                        ),
+                        insertBatch(
+                                TARGET_BATCH_ID,
+                                INITIATIVE_ID,
+                                CURRENT_MONTH.toString(),
+                                RewardBatchStatus.CREATED
+                        ),
+                        insertTransaction(
+                                "snapshot-protected",
+                                INITIATIVE_ID,
+                                SOURCE_BATCH_ID,
+                                SyncTrxStatus.REWARDED,
+                                RewardBatchTrxStatus.SUSPENDED,
+                                100L,
+                                null
+                        )
+                )
+                        .then(databaseClient()
+                                .sql("""
+                                        UPDATE reward_batches
+                                        SET initial_amount_cents_at_send = 321,
+                                            suspended_amount_cents_at_approving = 654
+                                        WHERE id = :batchId
+                                        """)
+                                .bind("batchId", SOURCE_BATCH_ID)
+                                .fetch()
+                                .rowsUpdated()
+                                .then())
+                        .then(databaseClient()
+                                .sql("""
+                                        UPDATE reward_batches
+                                        SET initial_amount_cents_at_send = 987,
+                                            suspended_amount_cents_at_approving = 123
+                                        WHERE id = :batchId
+                                        """)
+                                .bind("batchId", TARGET_BATCH_ID)
+                                .fetch()
+                                .rowsUpdated()
+                                .then())
+                        .then(adapter.reassignSuspendedTransactions(SOURCE_BATCH_ID, INITIATIVE_ID)))
+                .verifyComplete();
+
+        StepVerifier.create(Mono.zip(
+                        lifecycleSnapshots(SOURCE_BATCH_ID),
+                        lifecycleSnapshots(TARGET_BATCH_ID),
+                        transactionRows()
+                ))
+                .assertNext(result -> {
+                    assertEquals(new LifecycleSnapshots(321L, 654L), result.getT1());
+                    assertEquals(new LifecycleSnapshots(987L, 123L), result.getT2());
+                    assertRow(
+                            result.getT3().get("snapshot-protected"),
+                            TARGET_BATCH_ID,
+                            SyncTrxStatus.INVOICED,
+                            RewardBatchTrxStatus.SUSPENDED,
+                            PAST_MONTH
+                    );
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void shouldReuseExistingTargetAndKeepFutureSourceAsItsOwnSingleTarget() {
         StepVerifier.create(Flux.concat(
                         insertBatch(
@@ -310,6 +382,80 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
     }
 
     @Test
+    void shouldRollbackTargetCreationWhenSuspendedMembershipMutationFails() {
+        String functionName = "fail_suspended_reassignment_membership";
+        String triggerName = "fail_suspended_reassignment_membership_trigger";
+
+        try {
+            StepVerifier.create(Flux.concat(
+                            insertBatch(
+                                    SOURCE_BATCH_ID,
+                                    INITIATIVE_ID,
+                                    PAST_MONTH,
+                                    RewardBatchStatus.EVALUATING,
+                                    100L
+                            ),
+                            insertTransaction(
+                                    "rollback-suspended",
+                                    INITIATIVE_ID,
+                                    SOURCE_BATCH_ID,
+                                    SyncTrxStatus.REWARDED,
+                                    RewardBatchTrxStatus.SUSPENDED,
+                                    100L,
+                                    null
+                            )
+                    )
+                    .then(databaseClient()
+                            .sql("""
+                                    CREATE OR REPLACE FUNCTION fail_suspended_reassignment_membership()
+                                    RETURNS trigger AS $$
+                                    BEGIN
+                                        IF NEW.reward_batch_id IS DISTINCT FROM OLD.reward_batch_id THEN
+                                            RAISE EXCEPTION 'forced suspended reassignment failure';
+                                        END IF;
+                                        RETURN NEW;
+                                    END;
+                                    $$ LANGUAGE plpgsql
+                                    """)
+                            .then())
+                    .then(databaseClient()
+                            .sql("""
+                                    CREATE TRIGGER fail_suspended_reassignment_membership_trigger
+                                    BEFORE UPDATE ON reward_transactions
+                                    FOR EACH ROW
+                                    EXECUTE FUNCTION fail_suspended_reassignment_membership()
+                                    """)
+                            .then())
+                    .then(adapter.reassignSuspendedTransactions(SOURCE_BATCH_ID, INITIATIVE_ID)))
+                    .expectErrorMatches(error -> error.getMessage() != null
+                            && error.getMessage().contains("forced suspended reassignment failure"))
+                    .verify();
+        } finally {
+            databaseClient()
+                    .sql("DROP TRIGGER IF EXISTS " + triggerName + " ON reward_transactions")
+                    .then()
+                    .then(databaseClient().sql("DROP FUNCTION IF EXISTS " + functionName + "()").then())
+                    .block();
+        }
+
+        StepVerifier.create(Mono.zip(
+                        batchesInGrouping(CURRENT_MONTH.toString()),
+                        transactionRows()
+                ))
+                .assertNext(result -> {
+                    assertEquals(0L, result.getT1());
+                    assertRow(
+                            result.getT2().get("rollback-suspended"),
+                            SOURCE_BATCH_ID,
+                            SyncTrxStatus.REWARDED,
+                            RewardBatchTrxStatus.SUSPENDED,
+                            null
+                    );
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void shouldMoveMembershipExactlyOnceWhenCommandsRunConcurrently() {
         StepVerifier.create(Flux.concat(
                         insertBatch(
@@ -369,6 +515,64 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
                             RewardBatchTrxStatus.SUSPENDED,
                             PAST_MONTH
                     ));
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldCompleteConcurrentMovesThatAcquireTheSameBatchesInOppositeOrders() {
+        String sourceBatchId = "z-opposite-order-source";
+        String targetBatchId = "a-opposite-order-target";
+        String reassignmentTransactionId = "opposite-order-reassignment";
+        String impactTransactionId = "opposite-order-impact";
+
+        StepVerifier.create(Flux.concat(
+                        insertBatch(
+                                sourceBatchId,
+                                INITIATIVE_ID,
+                                PAST_MONTH,
+                                RewardBatchStatus.EVALUATING,
+                                225L
+                        ),
+                        insertBatch(
+                                targetBatchId,
+                                INITIATIVE_ID,
+                                CURRENT_MONTH.toString(),
+                                RewardBatchStatus.CREATED
+                        ),
+                        insertTransaction(
+                                reassignmentTransactionId,
+                                INITIATIVE_ID,
+                                sourceBatchId,
+                                SyncTrxStatus.REWARDED,
+                                RewardBatchTrxStatus.SUSPENDED,
+                                100L,
+                                null
+                        ),
+                        insertImpactMembership(impactTransactionId, sourceBatchId)
+                )
+                        .then(Mono.when(
+                                adapter.reassignSuspendedTransactions(sourceBatchId, INITIATIVE_ID),
+                                paymentImpactAdapter.applyImpact(invoiceReplacement(impactTransactionId))
+                        ).timeout(Duration.ofSeconds(15))))
+                .verifyComplete();
+
+        StepVerifier.create(Mono.zip(
+                        transactionRows(),
+                        projectedBatch(sourceBatchId, RewardBatchStatus.EVALUATING),
+                        projectedBatch(targetBatchId, RewardBatchStatus.CREATED)
+                ))
+                .assertNext(result -> {
+                    assertMovedToTarget(
+                            result.getT1().get(reassignmentTransactionId),
+                            targetBatchId
+                    );
+                    assertMovedToTarget(
+                            result.getT1().get(impactTransactionId),
+                            targetBatchId
+                    );
+                    assertAggregate(result.getT2(), 0L, 225L, 0L, 0L, 0L, 0L, 0L);
+                    assertAggregate(result.getT3(), 2L, 225L, 2L, 2L, 0L, 225L, 0L);
                 })
                 .verifyComplete();
     }
@@ -447,9 +651,85 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
     }
 
     @Test
+    void shouldSerializeApprovalSnapshotWithSuspendedReassignment() {
+        StepVerifier.create(Flux.concat(
+                        insertBatch(
+                                SOURCE_BATCH_ID,
+                                INITIATIVE_ID,
+                                PAST_MONTH,
+                                RewardBatchStatus.EVALUATING,
+                                200L
+                        ),
+                        insertBatch(
+                                TARGET_BATCH_ID,
+                                INITIATIVE_ID,
+                                CURRENT_MONTH.toString(),
+                                RewardBatchStatus.CREATED
+                        ),
+                        insertTransaction(
+                                "approval-reassignment-race",
+                                INITIATIVE_ID,
+                                SOURCE_BATCH_ID,
+                                SyncTrxStatus.REWARDED,
+                                RewardBatchTrxStatus.SUSPENDED,
+                                100L,
+                                null
+                        ),
+                        databaseClient()
+                                .sql("""
+                                        UPDATE reward_batches
+                                        SET assignee_level = 'L3'
+                                        WHERE id = :batchId
+                                        """)
+                                .bind("batchId", SOURCE_BATCH_ID)
+                                .fetch()
+                                .rowsUpdated()
+                                .then()
+                )
+                        .thenMany(Flux.merge(
+                                Mono.defer(() -> adapter.reassignSuspendedTransactions(
+                                        SOURCE_BATCH_ID,
+                                        INITIATIVE_ID
+                                )),
+                                Mono.defer(() -> batchAdapter.enterApproval(
+                                        SOURCE_BATCH_ID,
+                                        INITIATIVE_ID
+                                ).then())
+                        ))
+                        .then()
+                        .timeout(Duration.ofSeconds(15)))
+                .verifyComplete();
+
+        StepVerifier.create(Mono.zip(
+                        projectedBatch(SOURCE_BATCH_ID, RewardBatchStatus.APPROVING),
+                        projectedBatch(TARGET_BATCH_ID, RewardBatchStatus.CREATED),
+                        lifecycleSnapshots(SOURCE_BATCH_ID),
+                        transactionRows()
+                ))
+                .assertNext(result -> {
+                    RewardBatch source = result.getT1();
+                    RewardBatch target = result.getT2();
+                    LifecycleSnapshots snapshots = result.getT3();
+                    TransactionRow transaction = result.getT4().get("approval-reassignment-race");
+
+                    assertEquals(0L, source.getNumberOfTransactions());
+                    assertEquals(1L, target.getNumberOfTransactions());
+                    assertEquals(TARGET_BATCH_ID, transaction.batchId());
+                    assertEquals(SyncTrxStatus.INVOICED.name(), transaction.syncStatus());
+                    assertEquals(RewardBatchTrxStatus.SUSPENDED.name(), transaction.batchStatus());
+                    assertEquals(PAST_MONTH, transaction.lastElaboratedMonth());
+                    assertTrue(Long.valueOf(0L).equals(snapshots.suspendedAmountCentsAtApproving())
+                            || Long.valueOf(100L).equals(snapshots.suspendedAmountCentsAtApproving()));
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void shouldFailForUnknownOrOutOfScopeSourceWithoutChangingRows() {
         assertMeaningfulError(adapter.reassignSuspendedTransactions("", INITIATIVE_ID));
+        assertMeaningfulError(adapter.reassignSuspendedTransactions(null, INITIATIVE_ID));
         assertMeaningfulError(adapter.reassignSuspendedTransactions(SOURCE_BATCH_ID, ""));
+        assertMeaningfulError(adapter.reassignSuspendedTransactions(SOURCE_BATCH_ID, null));
         assertMeaningfulError(adapter.reassignSuspendedTransactions("missing-source", INITIATIVE_ID));
 
         StepVerifier.create(Flux.concat(
@@ -688,6 +968,21 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
                 );
     }
 
+    private static Mono<LifecycleSnapshots> lifecycleSnapshots(String batchId) {
+        return databaseClient()
+                .sql("""
+                        SELECT initial_amount_cents_at_send, suspended_amount_cents_at_approving
+                        FROM reward_batches
+                        WHERE id = :batchId
+                        """)
+                .bind("batchId", batchId)
+                .map((row, metadata) -> new LifecycleSnapshots(
+                        row.get("initial_amount_cents_at_send", Long.class),
+                        row.get("suspended_amount_cents_at_approving", Long.class)
+                ))
+                .one();
+    }
+
     private static Mono<ReassignmentSnapshot> reassignmentSnapshot() {
         return Mono.zip(
                         projectedBatch(SOURCE_BATCH_ID, RewardBatchStatus.EVALUATING),
@@ -780,6 +1075,12 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
             Long numberOfTransactionsRejected,
             Long suspendedAmountCents,
             Long approvedAmountCents
+    ) {
+    }
+
+    private record LifecycleSnapshots(
+            Long initialAmountCentsAtSend,
+            Long suspendedAmountCentsAtApproving
     ) {
     }
 

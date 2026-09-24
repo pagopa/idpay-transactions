@@ -188,10 +188,11 @@ public class SqlInvoicedTransactionAssignmentAdapter implements InvoicedTransact
         }
 
         return batchAdapter.createOrReadWithinTransaction(batch, transactionDslContext)
-                .flatMap(created -> Mono.from(transactionDslContext.selectFrom(REWARD_BATCHES)
-                                .where(REWARD_BATCHES.ID.eq(created.getId())
-                                        .and(REWARD_BATCHES.INITIATIVE_ID.eq(created.getInitiativeId())))
-                                .forUpdate())
+                .flatMap(created -> SqlRewardBatchRowLock.acquireSingle(
+                                transactionDslContext,
+                                created.getInitiativeId(),
+                                created.getId()
+                        )
                         .map(batchMapper::fromRecord));
     }
 

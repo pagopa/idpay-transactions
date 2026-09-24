@@ -2,7 +2,7 @@
 
 ## Status
 
-Agreed design for implementation.
+Agreed design for implementation, revised after implementation challenge.
 
 ## Context
 
@@ -21,6 +21,11 @@ The design does not restore mutable application-maintained counters. Live
 projections remain database-side aggregates; only the two explicitly required
 snapshots are persisted.
 
+The historical requirement is intentionally narrow: the service must preserve
+the two headline amounts shown at the lifecycle transitions. It does not need
+to reconstruct the transaction-level composition of a batch at send or
+approval time.
+
 For `initialAmountCents` and `suspendedAmountCents`, this document supersedes
 the earlier live-only definitions in `docs/DR-rework-reward-batches-in-sql.md`.
 All other aggregate and lifecycle rules from that document remain unchanged.
@@ -35,12 +40,20 @@ All other aggregate and lifecycle rules from that document remain unchanged.
 - Persist two immutable batch snapshots:
   - the initial amount captured on `CREATED -> SENT`;
   - the suspended amount captured on `EVALUATING -> APPROVING`.
+- Treat those snapshots as historical headline values only; do not introduce
+  transaction-level history or an audit ledger as part of this change.
 - Keep all other counters and amounts live.
 - Add additive `currentAmountCents` and `excludedAmountCents` fields to the
   existing `RewardBatchDTO`.
 - Preserve the existing approved-amount formula and state vocabulary.
 - Capture each snapshot with a batch-row lock and one transaction-bound SQL
   operation. Lifecycle retries are idempotent and never overwrite a snapshot.
+- Use the batch row as the coordination point for aggregate-affecting writes.
+  Snapshot reads must not lock every assigned transaction row solely to
+  calculate a consistent aggregate.
+- Keep two-batch moves atomic and deterministically locked, but implement their
+  common membership mutation and retry behavior once rather than duplicating it
+  in each adapter.
 - Use the existing routine that finds or creates a batch in the current month
   for post-approval invoice replacement. This design does not introduce a new
   definition of "next batch".
@@ -67,6 +80,8 @@ All other aggregate and lifecycle rules from that document remain unchanged.
 - New batch-routing or month-selection rules.
 - Changes to payment ownership or external invoice lifecycle contracts.
 - Changes to the existing reward-batch or in-batch status vocabulary.
+- Historical transaction-level batch composition, membership history, or an
+  audit ledger for explaining the captured headline amounts.
 - Historical production backfill. The system is not in production, so existing
   non-production data does not require reconstruction of historical snapshots.
 - Replacement of the existing Erogazioni delivery snapshot.
@@ -218,10 +233,30 @@ row lock before changing the relevant transaction rows. This includes:
 - reward synchronization that changes `accrued_reward_cents`, membership, or
   in-batch status.
 
+The batch row lock is the serialization mechanism for compliant aggregate
+writers. Snapshot capture must not additionally issue `SELECT FOR UPDATE` over
+all assigned transaction rows merely to calculate its sum. A transaction-row
+lock is justified only when it is required by a specific membership or
+canonical-projection mutation, and that mutation must use the narrowest
+conditional update that preserves its error semantics.
+
 The send path must serialize against assignment and reward updates. The
 approval path must serialize against transaction decisions and membership
 moves. For a move affecting two batches, lock both batch rows in deterministic
-ID order.
+ID order before changing membership.
+
+Two-batch operations must use one shared membership-mutation protocol:
+
+1. create or find the target under the same SQL transaction and the existing
+   grouping uniqueness constraint;
+2. lock the distinct source and target batch rows in deterministic order;
+3. validate the expected current membership and initiative;
+4. update the single membership column exactly once; and
+5. translate a concurrent membership change into one shared retryable error.
+
+If a grouping-level advisory lock is retained for lifecycle ordering, its
+acquisition order relative to batch-row locks must be documented and uniform.
+No operation may introduce an inverse lock order.
 
 Lifecycle mutations must be guarded by the expected old status and a null
 snapshot. A retry after a committed transition returns the existing target
@@ -258,6 +293,26 @@ current rows. In both cases, captured snapshots never change and no payment
 cancellation or deletion call is introduced.
 
 No generic move endpoint or new month-selection algorithm is introduced.
+
+## Complexity boundary
+
+This decision accepts concurrency and transaction-boundary complexity only to
+protect the two historical headline amounts and the single current batch
+membership. It deliberately does not provide historical reconstruction of
+which transaction rows or reward values produced a captured amount.
+
+The implementation should therefore:
+
+- keep the two snapshot columns and atomic lifecycle transitions;
+- keep live aggregate projections for all other values;
+- keep deterministic pair locking for moves that can race with lifecycle
+  transitions;
+- centralize membership mutation and retry handling;
+- avoid redundant all-row locks and per-adapter concurrency protocols.
+
+If future requirements need transaction-level auditability or historical batch
+composition, that must be a separate design decision rather than an implicit
+extension of this counter lifecycle.
 
 ## API and DTO changes
 
@@ -312,7 +367,8 @@ Add focused reactive unit and PostgreSQL integration coverage for:
 2. Both lifecycle transitions, including atomicity, empty batches, exact-once
    capture, retry-after-commit, and missing-snapshot failures.
 3. Concurrent assignment, decisions, reward updates, and two-batch moves,
-   proving that snapshots cannot capture inconsistent rows.
+   proving that batch-row serialization captures a committed aggregate and
+   cannot leave a transaction with two current memberships.
 4. Reversal detachment and invoice replacement, proving that live aggregates
    change while captured snapshots remain unchanged.
 5. List/detail mapping and amount sorting, proving the same effective values
@@ -334,6 +390,10 @@ Add focused reactive unit and PostgreSQL integration coverage for:
   `TO_APPROVE` and `TO_WORK` remain query-only translations.
 - Every aggregate-affecting writer uses the shared batch-locking strategy, and
   lifecycle retries are idempotent.
+- Snapshot capture uses the batch-row lock as its coordination point and does
+  not lock every assigned transaction row solely for aggregate calculation.
+- Two-batch operations share one deterministic membership-mutation and retry
+  protocol rather than maintaining adapter-specific concurrency behavior.
 - Empty batches remain sendable and approvable under the ordinary lifecycle
   rules; post-approval impacts preserve payment ownership and do not change
   captured snapshots.

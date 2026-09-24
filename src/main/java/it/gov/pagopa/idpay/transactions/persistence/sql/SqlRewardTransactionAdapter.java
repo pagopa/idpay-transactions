@@ -1,6 +1,5 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql;
 
-import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches.REWARD_BATCHES;
 import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions.REWARD_TRANSACTIONS;
 import static org.jooq.impl.DSL.excluded;
 import static org.jooq.impl.DSL.val;
@@ -53,16 +52,12 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
             DSLContext transactionDslContext
     ) {
         RewardTransactionEntity entity = mapper.toEntity(transaction);
-        return lockCurrentBatch(transactionDslContext, transaction.getId())
-                .then(completeUpsert(
-                        insertOrUpdateProjection(
-                                transactionDslContext,
-                                mapper.toRecord(entity),
-                                false
-                        ),
-                        entity,
-                        transactionDslContext
-                ));
+        return guardedUpsert(
+                transactionDslContext,
+                entity,
+                mapper.toRecord(entity),
+                false
+        );
     }
 
     Mono<RewardTransaction> upsertRefundedAndDetachWithinTransaction(
@@ -70,15 +65,12 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
             DSLContext transactionDslContext
     ) {
         RewardTransactionEntity entity = mapper.toEntity(transaction);
-        return lockCurrentBatch(transactionDslContext, transaction.getId())
-                .then(completeUpsert(
-                        insertOrUpdateRefunded(
-                                transactionDslContext,
-                                mapper.toRecord(entity)
-                        ),
-                        entity,
-                        transactionDslContext
-                ));
+        return guardedUpsert(
+                transactionDslContext,
+                entity,
+                mapper.toRecord(entity),
+                true
+        );
     }
 
     Mono<RewardTransaction> upsertImpactWithinTransaction(
@@ -99,7 +91,77 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
             DSLContext transactionDslContext
     ) {
         return Mono.from(write)
-                .then(findById(transactionDslContext, entity.id()))
+                .then(findPersistedAndValidate(entity, transactionDslContext));
+    }
+
+    private Mono<RewardTransaction> guardedUpsert(
+            DSLContext transactionDslContext,
+            RewardTransactionEntity entity,
+            RewardTransactionsRecord transactionRecord,
+            boolean refunded
+    ) {
+        if (refunded) {
+            clearRefundedMembership(transactionRecord);
+        }
+
+        return lockCurrentBatch(transactionDslContext, entity.id())
+                .flatMap(rowExists -> rowExists
+                        ? updateExisting(
+                                transactionDslContext,
+                                entity,
+                                transactionRecord,
+                                refunded
+                        )
+                        : Mono.from(insertIfAbsent(transactionDslContext, transactionRecord))
+                                .flatMap(ignored -> findPersistedAndValidate(
+                                        entity,
+                                        transactionDslContext
+                                ))
+                                .switchIfEmpty(Mono.defer(() -> lockCurrentBatch(
+                                                transactionDslContext,
+                                                entity.id()
+                                        )
+                                        .flatMap(relocked -> relocked
+                                                ? updateExisting(
+                                                        transactionDslContext,
+                                                        entity,
+                                                        transactionRecord,
+                                                        refunded
+                                                )
+                                                : Mono.error(new IllegalStateException(
+                                                        "Transaction %s was not persisted"
+                                                                .formatted(entity.id())
+                                                ))))));
+    }
+
+    private Mono<RewardTransaction> updateExisting(
+            DSLContext transactionDslContext,
+            RewardTransactionEntity entity,
+            RewardTransactionsRecord transactionRecord,
+            boolean refunded
+    ) {
+        InsertResultStep<?> update = refunded
+                ? insertOrUpdateRefunded(transactionDslContext, transactionRecord)
+                : insertOrUpdateProjection(transactionDslContext, transactionRecord, false);
+        return completeUpsert(update, entity, transactionDslContext);
+    }
+
+    private InsertResultStep<?> insertIfAbsent(
+            DSLContext transactionDslContext,
+            RewardTransactionsRecord transactionRecord
+    ) {
+        return transactionDslContext.insertInto(REWARD_TRANSACTIONS)
+                .set(transactionRecord)
+                .onConflict(REWARD_TRANSACTIONS.TRANSACTION_ID)
+                .doNothing()
+                .returning(REWARD_TRANSACTIONS.TRANSACTION_ID);
+    }
+
+    private Mono<RewardTransaction> findPersistedAndValidate(
+            RewardTransactionEntity entity,
+            DSLContext transactionDslContext
+    ) {
+        return findById(transactionDslContext, entity.id())
                 .switchIfEmpty(Mono.error(new IllegalStateException(
                         "Transaction %s was not persisted".formatted(entity.id())
                 )))
@@ -114,13 +176,23 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
                 });
     }
 
+    private static void clearRefundedMembership(RewardTransactionsRecord transactionRecord) {
+        transactionRecord.setRewardBatchId(null);
+        transactionRecord.setRewardBatchTrxStatus(null);
+        transactionRecord.setRewardBatchInclusionDate(null);
+        transactionRecord.setSamplingKey(0);
+        transactionRecord.setRewardBatchRejectionReasons(null);
+        transactionRecord.setRewardBatchLastMonthElaborated(null);
+        transactionRecord.setChecksError(null);
+    }
+
     private Mono<RewardTransaction> findById(DSLContext transactionDslContext, String transactionId) {
         return Mono.from(transactionDslContext.selectFrom(REWARD_TRANSACTIONS)
                         .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId)))
                 .map(mapper::fromRecord);
     }
 
-    private Mono<Void> lockCurrentBatch(
+    private Mono<Boolean> lockCurrentBatch(
             DSLContext transactionDslContext,
             String transactionId
     ) {
@@ -133,57 +205,31 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
                 .flatMap(transactionRecord -> {
                     String rewardBatchId = transactionRecord.get(REWARD_TRANSACTIONS.REWARD_BATCH_ID);
                     if (rewardBatchId == null) {
-                        return Mono.empty();
+                        String initiativeId = transactionRecord.get(REWARD_TRANSACTIONS.INITIATIVE_ID);
+                        return SqlRewardBatchRowLock.acquireTransaction(
+                                        transactionDslContext,
+                                        transactionId,
+                                        initiativeId,
+                                        null
+                                )
+                                .thenReturn(true);
                     }
 
-                    return Mono.from(transactionDslContext.select(REWARD_BATCHES.ID)
-                                    .from(REWARD_BATCHES)
-                                    .where(REWARD_BATCHES.ID.eq(rewardBatchId)
-                                            .and(REWARD_BATCHES.INITIATIVE_ID.eq(
-                                                    transactionRecord.get(REWARD_TRANSACTIONS.INITIATIVE_ID)
-                                            )))
-                                    .forUpdate())
-                            .switchIfEmpty(Mono.error(new IllegalStateException(
-                                    "Reward batch %s for transaction %s was not found"
-                                            .formatted(rewardBatchId, transactionId)
-                            )))
-                            .then(lockCurrentTransaction(
+                    String initiativeId = transactionRecord.get(REWARD_TRANSACTIONS.INITIATIVE_ID);
+                    return SqlRewardBatchRowLock.acquireSingle(
+                                    transactionDslContext,
+                                    initiativeId,
+                                    rewardBatchId
+                            )
+                            .then(SqlRewardBatchRowLock.acquireTransaction(
                                     transactionDslContext,
                                     transactionId,
-                                    rewardBatchId,
-                                    transactionRecord.get(REWARD_TRANSACTIONS.INITIATIVE_ID)
-                            ));
+                                    initiativeId,
+                                    rewardBatchId
+                            ))
+                            .thenReturn(true);
                 })
-                .then();
-    }
-
-    private Mono<Void> lockCurrentTransaction(
-            DSLContext transactionDslContext,
-            String transactionId,
-            String expectedBatchId,
-            String expectedInitiativeId
-    ) {
-        return Mono.from(transactionDslContext.select(
-                                REWARD_TRANSACTIONS.REWARD_BATCH_ID,
-                                REWARD_TRANSACTIONS.INITIATIVE_ID
-                        )
-                        .from(REWARD_TRANSACTIONS)
-                        .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(transactionId))
-                        .forUpdate())
-                .switchIfEmpty(Mono.error(new SqlMembershipChangedException(
-                        "Transaction %s disappeared while acquiring its batch lock".formatted(transactionId)
-                )))
-                .flatMap(current -> expectedBatchId.equals(
-                                current.get(REWARD_TRANSACTIONS.REWARD_BATCH_ID)
-                        )
-                        && expectedInitiativeId.equals(
-                                current.get(REWARD_TRANSACTIONS.INITIATIVE_ID)
-                        )
-                        ? Mono.empty()
-                        : Mono.error(new SqlMembershipChangedException(
-                                "Transaction %s changed membership while acquiring its batch lock"
-                                        .formatted(transactionId)
-                        )));
+                .switchIfEmpty(Mono.just(false));
     }
 
     private InsertResultStep<?> insertOrUpdateProjection(
@@ -200,13 +246,7 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
             DSLContext transactionDslContext,
             RewardTransactionsRecord transactionRecord
     ) {
-        transactionRecord.setRewardBatchId(null);
-        transactionRecord.setRewardBatchTrxStatus(null);
-        transactionRecord.setRewardBatchInclusionDate(null);
-        transactionRecord.setSamplingKey(0);
-        transactionRecord.setRewardBatchRejectionReasons(null);
-        transactionRecord.setRewardBatchLastMonthElaborated(null);
-        transactionRecord.setChecksError(null);
+        clearRefundedMembership(transactionRecord);
         return projectionOnConflictUpdate(transactionDslContext, transactionRecord)
                 .set(REWARD_TRANSACTIONS.REWARD_BATCH_ID, val((String) null))
                 .set(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS, val((String) null))
