@@ -56,4 +56,21 @@ class TestRewardBatchControllerTest {
 
         verify(service).prepareForSend("initiative-1", "batch-1");
     }
+
+    @Test
+    void cleanupPassesInitiativeMerchantAndBatchIdsInOrderToService() {
+        String cleanupPath =
+                "/idpay/internal/test-support/initiatives/initiative-1/reward-batches/batch-1/cleanup";
+        when(service.cleanupOldRewardBatchAndRelatedTransactions("initiative-1", "merchant-1", "batch-1"))
+                .thenReturn(Mono.empty());
+
+        webTestClient.mutateWith(mockUser()).mutateWith(csrf())
+                .delete()
+                .uri(cleanupPath)
+                .header("x-merchant-id", "merchant-1")
+                .exchange()
+                .expectStatus().isNoContent();
+
+        verify(service).cleanupOldRewardBatchAndRelatedTransactions("initiative-1", "merchant-1", "batch-1");
+    }
 }
