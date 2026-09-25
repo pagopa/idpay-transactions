@@ -59,8 +59,12 @@ class SqlRewardTransactionTestSupportAdapterTest extends PostgresqlMigrationTest
                                 .fetch().rowsUpdated()
                                 .then(databaseClient().sql("""
                                         INSERT INTO reward_transactions (
-                                            transaction_id, reward_batch_id, initiative_id
-                                        ) VALUES (:transactionId, :rewardBatchId, :initiativeId)
+                                            transaction_id, reward_batch_id, initiative_id,
+                                            accrued_reward_cents
+                                        ) VALUES (
+                                            :transactionId, :rewardBatchId, :initiativeId,
+                                            0
+                                        )
                                         """)
                                         .bind("transactionId", "trx1")
                                         .bind("rewardBatchId", rewardBatchId)
