@@ -56,12 +56,41 @@ class PaymentRestClientImplTest extends BaseWireMockTest {
         assertThrowsOnBlock(TRX_INTERNAL_SERVER_ERROR, SyncTrxStatus.REWARDED, IllegalStateException.class);
     }
 
+    @Test
+    void cleanupTransactions_Ok() {
+        StepVerifier.create(paymentRestClient.cleanupTransactions("INITIATIVE_ID", TRX_OK))
+                .verifyComplete();
+    }
+
+    @Test
+    void cleanupTransactions_BadRequest() {
+        assertCleanupThrowsOnBlock(Set.of("TRX_CLEANUP_BADREQUEST_1"), IllegalStateException.class);
+    }
+
+    @Test
+    void cleanupTransactions_InternalServerError() {
+        assertCleanupThrowsOnBlock(Set.of("TRX_CLEANUP_INTERNALSERVERERROR_1"), IllegalStateException.class);
+    }
+
     private void assertThrowsOnBlock(Set<String> transactionIds, SyncTrxStatus status, Class<? extends Throwable> expected) {
         try {
             Integer result = paymentRestClient
                     .updateTransactionsStatus(transactionIds, status)
                     .block();
             Assertions.fail("Expected " + expected.getSimpleName() + " but got result=" + result);
+        } catch (Throwable e) {
+            boolean isExpectedOrCausedByExpected = isThrowableOfTypeOrCausedBy(e, expected);
+            Assertions.assertTrue(isExpectedOrCausedByExpected,
+                    "Unexpected exception type: " + e + ". Expected: " + expected.getSimpleName());
+        }
+    }
+
+    private void assertCleanupThrowsOnBlock(Set<String> transactionIds, Class<? extends Throwable> expected) {
+        try {
+            paymentRestClient
+                    .cleanupTransactions("INITIATIVE_ID", transactionIds)
+                    .block();
+            Assertions.fail("Expected " + expected.getSimpleName() + " but cleanup completed successfully");
         } catch (Throwable e) {
             boolean isExpectedOrCausedByExpected = isThrowableOfTypeOrCausedBy(e, expected);
             Assertions.assertTrue(isExpectedOrCausedByExpected,

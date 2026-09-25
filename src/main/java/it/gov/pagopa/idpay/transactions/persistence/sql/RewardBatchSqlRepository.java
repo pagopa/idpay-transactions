@@ -19,4 +19,6 @@ public interface RewardBatchSqlRepository extends ReactiveCrudRepository<RewardB
             String posType,
             String month
     );
+
+    Mono<Void> deleteByIdAndInitiativeIdAndMerchantId(String id, String initiativeId, String merchantId);
 }
