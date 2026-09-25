@@ -39,6 +39,7 @@ public class SqlRewardBatchTestSupportAdapter implements RewardBatchTestSupportP
     private final TransactionalOperator transactionalOperator;
     private final ConnectionFactory connectionFactory;
     private final RewardBatchSqlMapper batchMapper;
+    private final RewardBatchSqlRepository repository;
 
     @Override
     public Mono<PreparedRewardBatch> prepareForSend(
@@ -61,6 +62,13 @@ public class SqlRewardBatchTestSupportAdapter implements RewardBatchTestSupportP
                                         searchHorizonMonths
                                 ))
                 );
+    }
+
+    @Override
+    public Mono<Void> cleanupRewardBatch(String initiativeId, String merchantId, String rewardBatchId) {
+        return transactionalOperator.transactional(
+                repository.deleteByIdAndInitiativeIdAndMerchantId(rewardBatchId, initiativeId, merchantId)
+        ).then();
     }
 
     private Mono<PreparedRewardBatch> prepareWithinTransaction(
