@@ -398,9 +398,37 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     @Override
     public Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId) {
-        return rewardBatchLifecyclePort.enterApproval(rewardBatchId, initiativeId);
+        return rewardBatchLifecyclePort.findBatch(rewardBatchId, initiativeId)
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        NOT_FOUND,
+                        REWARD_BATCH_NOT_FOUND,
+                        ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId)
+                )))
+                .flatMap(batch -> {
+                    long totalTrx = batch.getNumberOfTransactions() != null ? batch.getNumberOfTransactions() : 0L;
+                    long elaboratedTrx = batch.getNumberOfTransactionsElaborated() != null ? batch.getNumberOfTransactionsElaborated() : 0L;
+
+                    if (!isElaboratedTransactionsRatioValid(elaboratedTrx, totalTrx)) {
+                        log.warn("[CONFIRMATION_FAILED] Batch {} has only {}/{} transactions elaborated (below 15% threshold)",
+                                Utilities.sanitizeString(rewardBatchId), elaboratedTrx, totalTrx);
+
+                        return Mono.error(new ClientExceptionWithBody(
+                                BAD_REQUEST,
+                                REWARD_BATCH_INVALID_REQUEST,
+                                "Cannot confirm batch: elaborated transactions ratio is below 15%% (%d/%d)".formatted(elaboratedTrx, totalTrx)
+                        ));
+                    }
+
+                    return rewardBatchLifecyclePort.enterApproval(rewardBatchId, initiativeId);
+                });
     }
 
+    private boolean isElaboratedTransactionsRatioValid(long elaboratedTrx, long totalTrx) {
+        if (totalTrx <= 0) {
+            return false;
+        }
+        return ((double) elaboratedTrx / totalTrx) >= 0.15;
+    }
 
     @Override
     public Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds) {
