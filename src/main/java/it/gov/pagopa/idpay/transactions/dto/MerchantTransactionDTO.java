@@ -18,6 +18,7 @@ import java.util.Map;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class MerchantTransactionDTO {
     String trxId;
+    Long transactionRevision;
     String fiscalCode;
     Long effectiveAmountCents;
     Long rewardAmountCents;

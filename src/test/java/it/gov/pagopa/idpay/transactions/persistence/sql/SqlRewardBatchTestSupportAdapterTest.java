@@ -18,6 +18,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.r2dbc.repository.support.R2dbcRepositoryFactory;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -38,7 +39,9 @@ class SqlRewardBatchTestSupportAdapterTest extends PostgresqlMigrationTestSuppor
         adapter = new SqlRewardBatchTestSupportAdapter(
                 transactionalOperator(),
                 connectionFactory(),
-                new RewardBatchSqlMapper(JsonMapper.builder().build())
+                new RewardBatchSqlMapper(JsonMapper.builder().build()),
+                new R2dbcRepositoryFactory(r2dbcEntityTemplate())
+                        .getRepository(RewardBatchSqlRepository.class)
         );
     }
 
@@ -289,6 +292,37 @@ class SqlRewardBatchTestSupportAdapterTest extends PostgresqlMigrationTestSuppor
                 .expectErrorMatches(error -> error instanceof IllegalArgumentException
                         && "Reward batch search horizon must be positive".equals(error.getMessage()))
                 .verify();
+    }
+
+    @Test
+    void cleanupRewardBatchDeletesTheMatchingEmptyBatch() {
+        YearMonth current = YearMonth.now(ZONEID);
+
+        StepVerifier.create(insertBatch(SOURCE, INITIATIVE, MERCHANT, current, RewardBatchStatus.CREATED)
+                .then(adapter.cleanupRewardBatch(INITIATIVE, MERCHANT, SOURCE)))
+                .verifyComplete();
+
+        StepVerifier.create(batchSnapshot(SOURCE)).verifyComplete();
+    }
+
+    @Test
+    void cleanupRewardBatchIsANoOpWhenInitiativeOrMerchantDoNotMatch() {
+        YearMonth current = YearMonth.now(ZONEID);
+
+        StepVerifier.create(insertBatch(SOURCE, INITIATIVE, MERCHANT, current, RewardBatchStatus.CREATED)
+                .then(adapter.cleanupRewardBatch("other-initiative", MERCHANT, SOURCE))
+                .then(adapter.cleanupRewardBatch(INITIATIVE, "other-merchant", SOURCE)))
+                .verifyComplete();
+
+        StepVerifier.create(batchSnapshot(SOURCE))
+                .assertNext(batch -> assertEquals(SOURCE, batch.id()))
+                .verifyComplete();
+    }
+
+    @Test
+    void cleanupRewardBatchIsIdempotentForAMissingBatch() {
+        StepVerifier.create(adapter.cleanupRewardBatch(INITIATIVE, MERCHANT, "missing"))
+                .verifyComplete();
     }
 
     private static Mono<Void> insertBatch(

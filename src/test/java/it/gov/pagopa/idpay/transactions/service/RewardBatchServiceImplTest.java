@@ -280,16 +280,121 @@ class RewardBatchServiceImplTest {
 
     @Test
     void confirmationDelegatesAtomicApprovalEntryToTheLifecyclePort() {
+        RewardBatch existingBatch = batch("batch", RewardBatchStatus.EVALUATING);
+        existingBatch.setNumberOfTransactions(10L);
+        existingBatch.setNumberOfTransactionsElaborated(2L);
+
         RewardBatch approving = batch("batch", RewardBatchStatus.APPROVING);
+
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(existingBatch));
         when(lifecyclePort.enterApproval("batch", "initiative")).thenReturn(Mono.just(approving));
 
         StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
                 .assertNext(result -> assertEquals(RewardBatchStatus.APPROVING, result.getStatus()))
                 .verifyComplete();
 
+        verify(lifecyclePort).findBatch("batch", "initiative");
         verify(lifecyclePort).enterApproval("batch", "initiative");
         verify(lifecyclePort, never()).saveBatch(any());
         verifyNoInteractions(listPort);
+    }
+
+    @Test
+    void confirmationPropagatesAtomicApprovalEntryFailure() {
+        RewardBatch existingBatch = batch("batch", RewardBatchStatus.EVALUATING);
+        existingBatch.setNumberOfTransactions(10L);
+        existingBatch.setNumberOfTransactionsElaborated(2L);
+
+        IllegalStateException failure = new IllegalStateException("approval entry failed");
+
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(existingBatch));
+        when(lifecyclePort.enterApproval("batch", "initiative")).thenReturn(Mono.error(failure));
+
+        StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
+                .expectErrorMatches(error -> error == failure)
+                .verify();
+
+        verify(lifecyclePort).findBatch("batch", "initiative");
+        verify(lifecyclePort).enterApproval("batch", "initiative");
+        verifyNoInteractions(listPort);
+    }
+
+    @Test
+    void confirmationFailsWhenElaboratedTransactionsBelowThreshold() {
+        RewardBatch existingBatch = batch("batch", RewardBatchStatus.EVALUATING);
+        existingBatch.setNumberOfTransactions(10L);
+        existingBatch.setNumberOfTransactionsElaborated(1L);
+
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(existingBatch));
+
+        StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
+                .expectError()
+                .verify();
+
+        verify(lifecyclePort).findBatch("batch", "initiative");
+        verify(lifecyclePort, never()).enterApproval(anyString(), anyString());
+        verifyNoInteractions(listPort);
+    }
+
+    @Test
+    void confirmationFailsWhenBatchNotFound() {
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.empty());
+
+        StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
+                .expectError()
+                .verify();
+
+        verify(lifecyclePort).findBatch("batch", "initiative");
+        verify(lifecyclePort, never()).enterApproval(anyString(), anyString());
+        verifyNoInteractions(listPort);
+    }
+
+    @Test
+    void confirmationFailsWhenNumberOfTransactionsIsNull() {
+        RewardBatch existingBatch = batch("batch", RewardBatchStatus.EVALUATING);
+        existingBatch.setNumberOfTransactions(null);
+        existingBatch.setNumberOfTransactionsElaborated(5L);
+
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(existingBatch));
+
+        StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
+                .expectError()
+                .verify();
+
+        verify(lifecyclePort).findBatch("batch", "initiative");
+        verify(lifecyclePort, never()).enterApproval(anyString(), anyString());
+    }
+
+    @Test
+    void confirmationFailsWhenNumberOfTransactionsElaboratedIsNull() {
+        RewardBatch existingBatch = batch("batch", RewardBatchStatus.EVALUATING);
+        existingBatch.setNumberOfTransactions(10L);
+        existingBatch.setNumberOfTransactionsElaborated(null);
+
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(existingBatch));
+
+        StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
+                .expectError()
+                .verify();
+
+        verify(lifecyclePort).findBatch("batch", "initiative");
+        verify(lifecyclePort, never()).enterApproval(anyString(), anyString());
+    }
+
+    @Test
+    void confirmationFailsWhenTotalTransactionsIsZero() {
+        RewardBatch existingBatch = batch("batch", RewardBatchStatus.EVALUATING);
+        existingBatch.setNumberOfTransactions(0L);
+        existingBatch.setNumberOfTransactionsElaborated(0L);
+
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(existingBatch));
+
+        StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
+                .expectError()
+                .verify();
+
+        verify(lifecyclePort).findBatch("batch", "initiative");
+        verify(lifecyclePort, never()).enterApproval(anyString(), anyString());
     }
 
     @Test
@@ -662,19 +767,6 @@ class RewardBatchServiceImplTest {
         approved.setFilename("file.csv");
         StepVerifier.create(service.downloadApprovedRewardBatchFile(null, "admin", "initiative", "batch"))
                 .expectError().verify();
-    }
-
-    @Test
-    void confirmationPropagatesAtomicApprovalEntryFailure() {
-        IllegalStateException failure = new IllegalStateException("approval entry failed");
-        when(lifecyclePort.enterApproval("batch", "initiative")).thenReturn(Mono.error(failure));
-
-        StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
-                .expectErrorMatches(error -> error == failure)
-                .verify();
-
-        verify(lifecyclePort).enterApproval("batch", "initiative");
-        verifyNoInteractions(listPort);
     }
 
     @Test

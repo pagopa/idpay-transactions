@@ -7,5 +7,6 @@ import reactor.core.publisher.Mono;
 public interface PaymentRestClient {
 
     Mono<Integer> updateTransactionsStatus(Set<String> transactionIds, SyncTrxStatus status);
+    Mono<Void> cleanupTransactions(String initiativeId, Set<String> transactionIds);
 }
 
