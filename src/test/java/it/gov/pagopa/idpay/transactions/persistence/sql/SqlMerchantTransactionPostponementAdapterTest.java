@@ -5,6 +5,7 @@ import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import it.gov.pagopa.common.web.exception.ClientException;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
@@ -18,6 +19,7 @@ import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.jooq.DSLContext;
 import org.jooq.Record;
@@ -149,6 +151,166 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
     }
 
     @Test
+    void shouldKeepCapturedLifecycleSnapshotsUnchangedWhenPostponingMembership() {
+        StepVerifier.create(Flux.concat(
+                        insertBatch(
+                                SOURCE_BATCH_ID,
+                                INITIATIVE_ID,
+                                MERCHANT_ID,
+                                SOURCE_MONTH,
+                                RewardBatchStatus.CREATED
+                        ),
+                        insertBatch(
+                                TARGET_BATCH_ID,
+                                INITIATIVE_ID,
+                                MERCHANT_ID,
+                                TARGET_MONTH,
+                                RewardBatchStatus.CREATED
+                        ),
+                        insertTransaction(
+                                "snapshot-protected",
+                                INITIATIVE_ID,
+                                MERCHANT_ID,
+                                SOURCE_BATCH_ID,
+                                SyncTrxStatus.REWARDED,
+                                RewardBatchTrxStatus.CONSULTABLE,
+                                100L
+                        )
+                )
+                        .then(databaseClient()
+                                .sql("""
+                                        UPDATE reward_batches
+                                        SET initial_amount_cents_at_send = 321,
+                                            suspended_amount_cents_at_approving = 654
+                                        WHERE id = :batchId
+                                        """)
+                                .bind("batchId", SOURCE_BATCH_ID)
+                                .fetch()
+                                .rowsUpdated()
+                                .then())
+                        .then(databaseClient()
+                                .sql("""
+                                        UPDATE reward_batches
+                                        SET initial_amount_cents_at_send = 987,
+                                            suspended_amount_cents_at_approving = 123
+                                        WHERE id = :batchId
+                                        """)
+                                .bind("batchId", TARGET_BATCH_ID)
+                                .fetch()
+                                .rowsUpdated()
+                                .then())
+                        .then(databaseClient()
+                                .sql("""
+                                        UPDATE reward_transactions
+                                        SET reward_batch_last_month_elaborated = '2025-01'
+                                        WHERE transaction_id = 'snapshot-protected'
+                                        """)
+                                .fetch()
+                                .rowsUpdated()
+                                .then())
+                        .then(adapter.postponeTransaction(
+                                MERCHANT_ID,
+                                INITIATIVE_ID,
+                                SOURCE_BATCH_ID,
+                                "snapshot-protected",
+                                LocalDate.of(2026, Month.DECEMBER, 31)
+                        )))
+                .assertNext(transaction -> {
+                    assertEquals(TARGET_BATCH_ID, transaction.getRewardBatchId());
+                    assertEquals(RewardBatchTrxStatus.CONSULTABLE, transaction.getRewardBatchTrxStatus());
+                    assertEquals("2025-01", transaction.getRewardBatchLastMonthElaborated());
+                })
+                .verifyComplete();
+
+        StepVerifier.create(Mono.zip(
+                        lifecycleSnapshots(SOURCE_BATCH_ID),
+                        lifecycleSnapshots(TARGET_BATCH_ID),
+                        transactionSnapshot("snapshot-protected")
+                ))
+                .assertNext(result -> {
+                    assertEquals(new LifecycleSnapshots(321L, 654L), result.getT1());
+                    assertEquals(new LifecycleSnapshots(987L, 123L), result.getT2());
+                    assertEquals(TARGET_BATCH_ID, result.getT3().batchId());
+                    assertEquals(RewardBatchTrxStatus.CONSULTABLE.name(), result.getT3().batchStatus());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldRollbackCreatedTargetWhenPostponementMembershipMutationFails() {
+        String functionName = "fail_postponement_membership";
+        String triggerName = "fail_postponement_membership_trigger";
+
+        try {
+            StepVerifier.create(Flux.concat(
+                            insertBatch(
+                                    SOURCE_BATCH_ID,
+                                    INITIATIVE_ID,
+                                    MERCHANT_ID,
+                                    SOURCE_MONTH,
+                                    RewardBatchStatus.CREATED
+                            ),
+                            insertTransaction(
+                                    "rollback-postponement",
+                                    INITIATIVE_ID,
+                                    MERCHANT_ID,
+                                    SOURCE_BATCH_ID,
+                                    SyncTrxStatus.REWARDED,
+                                    RewardBatchTrxStatus.CONSULTABLE,
+                                    100L
+                            )
+                    )
+                    .then(databaseClient()
+                            .sql("""
+                                    CREATE OR REPLACE FUNCTION fail_postponement_membership()
+                                    RETURNS trigger AS $$
+                                    BEGIN
+                                        IF NEW.reward_batch_id IS DISTINCT FROM OLD.reward_batch_id THEN
+                                            RAISE EXCEPTION 'forced postponement failure';
+                                        END IF;
+                                        RETURN NEW;
+                                    END;
+                                    $$ LANGUAGE plpgsql
+                                    """)
+                            .then())
+                    .then(databaseClient()
+                            .sql("""
+                                    CREATE TRIGGER fail_postponement_membership_trigger
+                                    BEFORE UPDATE ON reward_transactions
+                                    FOR EACH ROW
+                                    EXECUTE FUNCTION fail_postponement_membership()
+                                    """)
+                            .then())
+                    .then(adapter.postponeTransaction(
+                            MERCHANT_ID,
+                            INITIATIVE_ID,
+                            SOURCE_BATCH_ID,
+                            "rollback-postponement",
+                            LocalDate.of(2026, Month.DECEMBER, 31)
+                    )))
+                    .expectErrorMatches(error -> error.getMessage() != null
+                            && error.getMessage().contains("forced postponement failure"))
+                    .verify();
+        } finally {
+            databaseClient()
+                    .sql("DROP TRIGGER IF EXISTS " + triggerName + " ON reward_transactions")
+                    .then()
+                    .then(databaseClient().sql("DROP FUNCTION IF EXISTS " + functionName + "()").then())
+                    .block();
+        }
+
+        StepVerifier.create(Mono.zip(
+                        groupingCount(TARGET_MONTH),
+                        transactionSnapshot("rollback-postponement")
+                ))
+                .assertNext(result -> {
+                    assertEquals(0L, result.getT1());
+                    assertEquals(SOURCE_BATCH_ID, result.getT2().batchId());
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void shouldCreateExactlyOneCreatedNextMonthTargetWithSourceGrouping() {
         StepVerifier.create(Flux.concat(
                         insertBatch(SOURCE_BATCH_ID, INITIATIVE_ID, MERCHANT_ID, SOURCE_MONTH,
@@ -181,6 +343,52 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
                     assertEquals("Business", target.getBusinessName());
                     assertAggregate(result.getT3(), 0L, 0L, 0L, 0L, 0L, 0L, 0L);
                     assertEquals(target.getId(), result.getT4().batchId());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldAllowPostponementExactlyThroughTheInitiativeFruitionBoundary() {
+        String sourceBatchId = "boundary-source";
+        String transactionId = "boundary-transaction";
+
+        StepVerifier.create(Flux.concat(
+                        insertBatch(
+                                sourceBatchId,
+                                INITIATIVE_ID,
+                                MERCHANT_ID,
+                                "2026-06",
+                                RewardBatchStatus.CREATED
+                        ),
+                        insertTransaction(
+                                transactionId,
+                                INITIATIVE_ID,
+                                MERCHANT_ID,
+                                sourceBatchId,
+                                SyncTrxStatus.REWARDED,
+                                RewardBatchTrxStatus.CONSULTABLE,
+                                100L
+                        )
+                ).then(adapter.postponeTransaction(
+                        MERCHANT_ID,
+                        INITIATIVE_ID,
+                        sourceBatchId,
+                        transactionId,
+                        LocalDate.of(2026, Month.JUNE, 30)
+                )))
+                .assertNext(moved -> {
+                    assertEquals(transactionId, moved.getId());
+                    assertNotNull(moved.getRewardBatchId());
+                })
+                .verifyComplete();
+
+        StepVerifier.create(Mono.zip(
+                        batchMonthForTransaction(transactionId),
+                        groupingCount("2026-07")
+                ))
+                .assertNext(result -> {
+                    assertEquals("2026-07", result.getT1());
+                    assertEquals(1L, result.getT2());
                 })
                 .verifyComplete();
     }
@@ -409,6 +617,83 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
                 .verifyComplete();
     }
 
+    @Test
+    void shouldRollbackTargetWhenMerchantOwnershipChangesBeforeMembershipMutation() {
+        String transactionId = "merchant-change-race";
+
+        StepVerifier.create(Flux.concat(
+                        insertBatch(
+                                SOURCE_BATCH_ID,
+                                INITIATIVE_ID,
+                                MERCHANT_ID,
+                                SOURCE_MONTH,
+                                RewardBatchStatus.CREATED
+                        ),
+                        insertTransaction(
+                                transactionId,
+                                INITIATIVE_ID,
+                                MERCHANT_ID,
+                                SOURCE_BATCH_ID,
+                                SyncTrxStatus.REWARDED,
+                                RewardBatchTrxStatus.CONSULTABLE,
+                                100L
+                        )
+                ).then())
+                .verifyComplete();
+
+        SqlBatchLockTestSupport.HeldRowLock batchLock = SqlBatchLockTestSupport
+                .holdBatch(connectionFactory(), SOURCE_BATCH_ID, INITIATIVE_ID)
+                .block();
+        try {
+            CompletableFuture<RewardTransaction> pending = adapter.postponeTransaction(
+                    MERCHANT_ID,
+                    INITIATIVE_ID,
+                    SOURCE_BATCH_ID,
+                    transactionId,
+                    LocalDate.of(2026, Month.DECEMBER, 31)
+            ).toFuture();
+
+            boolean blocked = SqlBatchLockTestSupport.blockedByWithin(
+                    connectionFactory(),
+                    batchLock.backendPid()
+            ).block();
+
+            databaseClient()
+                    .sql("""
+                            UPDATE reward_transactions
+                            SET merchant_id = :merchantId
+                            WHERE transaction_id = :transactionId
+                            """)
+                    .bind("merchantId", OTHER_MERCHANT_ID)
+                    .bind("transactionId", transactionId)
+                    .fetch()
+                    .rowsUpdated()
+                    .block();
+
+            batchLock.release().block();
+
+            StepVerifier.create(Mono.fromFuture(pending))
+                    .expectErrorMatches(SqlMerchantTransactionPostponementAdapterTest::isTransactionNotFound)
+                    .verify();
+
+            assertTrue(blocked);
+        } finally {
+            batchLock.release().block();
+        }
+
+        StepVerifier.create(Mono.zip(
+                        targetGroupingCount(),
+                        transactionSnapshot(transactionId),
+                        transactionMerchant(transactionId)
+                ))
+                .assertNext(result -> {
+                    assertEquals(0L, result.getT1());
+                    assertEquals(SOURCE_BATCH_ID, result.getT2().batchId());
+                    assertEquals(OTHER_MERCHANT_ID, result.getT3());
+                })
+                .verifyComplete();
+    }
+
     private static Stream<Arguments> nonCreatedBatches() {
         return Stream.of(
                 Arguments.of("source is SENT", RewardBatchStatus.SENT, RewardBatchStatus.CREATED),
@@ -612,6 +897,33 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
                 .map(SqlMerchantTransactionPostponementAdapterTest::toTransactionSnapshot);
     }
 
+    private static Mono<String> transactionMerchant(String transactionId) {
+        return databaseClient()
+                .sql("""
+                        SELECT merchant_id
+                        FROM reward_transactions
+                        WHERE transaction_id = :transactionId
+                        """)
+                .bind("transactionId", transactionId)
+                .map((row, metadata) -> row.get("merchant_id", String.class))
+                .one();
+    }
+
+    private static Mono<LifecycleSnapshots> lifecycleSnapshots(String batchId) {
+        return databaseClient()
+                .sql("""
+                        SELECT initial_amount_cents_at_send, suspended_amount_cents_at_approving
+                        FROM reward_batches
+                        WHERE id = :batchId
+                        """)
+                .bind("batchId", batchId)
+                .map((row, metadata) -> new LifecycleSnapshots(
+                        row.get("initial_amount_cents_at_send", Long.class),
+                        row.get("suspended_amount_cents_at_approving", Long.class)
+                ))
+                .one();
+    }
+
     private static Mono<String> batchMonthForTransaction(String transactionId) {
         return Mono.from(dslContext.select(REWARD_BATCHES.MONTH)
                         .from(REWARD_TRANSACTIONS)
@@ -674,6 +986,12 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
             String batchStatus,
             LocalDateTime inclusionDate,
             LocalDateTime updateDate
+    ) {
+    }
+
+    private record LifecycleSnapshots(
+            Long initialAmountCentsAtSend,
+            Long suspendedAmountCentsAtApproving
     ) {
     }
 

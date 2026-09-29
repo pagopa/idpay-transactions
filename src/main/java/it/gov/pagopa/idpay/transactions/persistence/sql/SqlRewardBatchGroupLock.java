@@ -7,6 +7,10 @@ import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
 import reactor.core.publisher.Mono;
 
+/**
+ * Acquires the grouping advisory lock that precedes all reward-batch row
+ * locks. Callers must not acquire a batch row before this lock.
+ */
 final class SqlRewardBatchGroupLock {
 
     private SqlRewardBatchGroupLock() {
