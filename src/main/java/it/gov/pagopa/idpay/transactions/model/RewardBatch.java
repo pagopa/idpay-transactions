@@ -38,6 +38,8 @@ public class RewardBatch {
     private Long approvedAmountCents;
     private Long suspendedAmountCents;
     private Long initialAmountCents;
+    private Long currentAmountCents;
+    private Long excludedAmountCents;
     private Long numberOfTransactions;
     private Long numberOfTransactionsElaborated;
     private String reportPath;

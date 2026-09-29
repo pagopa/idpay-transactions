@@ -1,0 +1,63 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "DELETE",
+        "urlPath": "/idpay/transactions/cleanup",
+        "queryParameters": {
+          "initiativeId": {
+            "equalTo": "INITIATIVE_ID"
+          },
+          "transactionIds": {
+            "matches": "^(TRX_OK_1,TRX_OK_2|TRX_OK_2,TRX_OK_1)$"
+          }
+        }
+      },
+      "response": {
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "urlPath": "/idpay/transactions/cleanup",
+        "queryParameters": {
+          "initiativeId": {
+            "equalTo": "INITIATIVE_ID"
+          },
+          "transactionIds": {
+            "equalTo": "TRX_CLEANUP_BADREQUEST_1"
+          }
+        }
+      },
+      "response": {
+        "status": 400,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": "{\"code\":\"BAD_REQUEST\",\"message\":\"Invalid request\"}"
+      }
+    },
+    {
+      "request": {
+        "method": "DELETE",
+        "urlPath": "/idpay/transactions/cleanup",
+        "queryParameters": {
+          "initiativeId": {
+            "equalTo": "INITIATIVE_ID"
+          },
+          "transactionIds": {
+            "equalTo": "TRX_CLEANUP_INTERNALSERVERERROR_1"
+          }
+        }
+      },
+      "response": {
+        "status": 500,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": "{\"code\":\"GENERIC_ERROR\",\"message\":\"Server Error\"}"
+      }
+    }
+  ]
+}

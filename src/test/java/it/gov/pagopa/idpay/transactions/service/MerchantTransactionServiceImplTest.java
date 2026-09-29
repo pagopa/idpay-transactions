@@ -65,6 +65,7 @@ class MerchantTransactionServiceImplTest {
         RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
                 .id("id1")
                 .userId(USER_ID)
+                .transactionRevision(7L)
                 .amountCents(5000L)
                 .status("REWARDED")
                 .elaborationDateTime(now)
@@ -111,6 +112,7 @@ class MerchantTransactionServiceImplTest {
 
         MerchantTransactionDTO dto = content.getFirst();
         assertMerchantTransactionMatches(rt1, dto, FISCAL_CODE);
+        assertEquals(7L, dto.getTransactionRevision());
 
         verify(userRestClientMock).retrieveFiscalCodeInfo(FISCAL_CODE);
         verify(userRestClientMock, never()).retrieveUserInfo(anyString());

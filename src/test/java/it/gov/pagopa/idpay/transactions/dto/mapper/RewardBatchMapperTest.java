@@ -9,8 +9,10 @@ import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import java.lang.reflect.Method;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Month;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
@@ -27,11 +29,11 @@ class RewardBatchMapperTest {
 
     @Test
     void toDTO_shouldMapAllFieldsAndDefaultSuspendedAmountToZeroWhenNull() {
-        LocalDateTime startDate = LocalDateTime.of(2025, 11, 1, 0, 0);
-        LocalDateTime endDate = LocalDateTime.of(2025, 11, 30, 23, 59);
-        LocalDateTime refundOutcomeTimestamp = LocalDateTime.of(2025, 12, 10, 9, 30);
-        LocalDate refundValutaDate = LocalDate.of(2025, 12, 15);
-        LocalDateTime merchantSendDate = LocalDateTime.of(2025, 11, 15, 12, 35);
+        LocalDateTime startDate = LocalDateTime.of(2025, Month.NOVEMBER, 1, 0, 0);
+        LocalDateTime endDate = LocalDateTime.of(2025, Month.NOVEMBER, 30, 23, 59);
+        LocalDateTime refundOutcomeTimestamp = LocalDateTime.of(2025, Month.DECEMBER, 10, 9, 30);
+        LocalDate refundValutaDate = LocalDate.of(2025, Month.DECEMBER, 15);
+        LocalDateTime merchantSendDate = LocalDateTime.of(2025, Month.NOVEMBER, 15, 12, 35);
 
         RewardBatch batch = RewardBatch.builder()
                 .id("batch123")
@@ -151,5 +153,86 @@ class RewardBatchMapperTest {
                     assertNull(dto.getMerchantSendDate());
                 })
                 .verifyComplete();
+    }
+
+    @Test
+    void toDTO_shouldExposeCurrentAndExcludedAmountsAsAdditiveLongFieldsAndDefaultEmptyValuesToZero() {
+        RewardBatch batch = RewardBatch.builder()
+                .id("batch789")
+                .merchantId("merchantGHI")
+                .initiativeId("initiativeDEF")
+                .status(RewardBatchStatus.EVALUATING)
+                .approvedAmountCents(0L)
+                .suspendedAmountCents(0L)
+                .initialAmountCents(0L)
+                .build();
+
+        assertLongBeanProperty(RewardBatch.class, "currentAmountCents");
+        assertLongBeanProperty(RewardBatch.class, "excludedAmountCents");
+        assertLongBeanProperty(RewardBatchDTO.class, "currentAmountCents");
+        assertLongBeanProperty(RewardBatchDTO.class, "excludedAmountCents");
+
+        setLongProperty(batch, "currentAmountCents", null);
+        setLongProperty(batch, "excludedAmountCents", null);
+
+        StepVerifier.create(mapper.toDTO(batch))
+                .assertNext(dto -> {
+                    assertEquals(0L, readLongProperty(dto, "currentAmountCents"));
+                    assertEquals(0L, readLongProperty(dto, "excludedAmountCents"));
+                })
+                .verifyComplete();
+
+        setLongProperty(batch, "currentAmountCents", 120L);
+        setLongProperty(batch, "excludedAmountCents", -30L);
+
+        StepVerifier.create(mapper.toDTO(batch))
+                .assertNext(dto -> {
+                    assertEquals(120L, readLongProperty(dto, "currentAmountCents"));
+                    assertEquals(-30L, readLongProperty(dto, "excludedAmountCents"));
+                })
+                .verifyComplete();
+    }
+
+    private static void assertLongBeanProperty(Class<?> type, String property) {
+        String getterName = "get" + Character.toUpperCase(property.charAt(0)) + property.substring(1);
+        String setterName = "set" + Character.toUpperCase(property.charAt(0)) + property.substring(1);
+        try {
+            Method getter = type.getMethod(getterName);
+            Method setter = type.getMethod(setterName, Long.class);
+            assertEquals(Long.class, getter.getReturnType());
+            assertEquals(void.class, setter.getReturnType());
+        } catch (ReflectiveOperationException exception) {
+            org.junit.jupiter.api.Assertions.fail(
+                    type.getSimpleName() + " should expose Long bean property " + property,
+                    exception
+            );
+        }
+    }
+
+    private static void setLongProperty(Object target, String property, Long value) {
+        String setterName = "set" + Character.toUpperCase(property.charAt(0)) + property.substring(1);
+        try {
+            target.getClass().getMethod(setterName, Long.class).invoke(target, value);
+        } catch (ReflectiveOperationException exception) {
+            org.junit.jupiter.api.Assertions.fail(
+                    target.getClass().getSimpleName() + " should expose Long bean property " + property,
+                    exception
+            );
+        }
+    }
+
+    private static Long readLongProperty(Object target, String property) {
+        String getterName = "get" + Character.toUpperCase(property.charAt(0)) + property.substring(1);
+        try {
+            Method getter = target.getClass().getMethod(getterName);
+            assertEquals(Long.class, getter.getReturnType());
+            return (Long) getter.invoke(target);
+        } catch (ReflectiveOperationException exception) {
+            org.junit.jupiter.api.Assertions.fail(
+                    target.getClass().getSimpleName() + " should expose Long bean property " + property,
+                    exception
+            );
+            return null;
+        }
     }
 }

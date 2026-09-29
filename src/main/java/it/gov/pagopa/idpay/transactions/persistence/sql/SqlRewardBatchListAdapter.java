@@ -28,6 +28,7 @@ import java.util.Set;
 import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches.REWARD_BATCHES;
 import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions.REWARD_TRANSACTIONS;
 import static org.jooq.impl.DSL.coalesce;
+import static org.jooq.impl.DSL.case_;
 import static org.jooq.impl.DSL.count;
 import static org.jooq.impl.DSL.falseCondition;
 import static org.jooq.impl.DSL.sum;
@@ -45,10 +46,14 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
     private static final Field<Long> NUMBER_OF_TRANSACTIONS = count(REWARD_TRANSACTIONS.TRANSACTION_ID)
             .cast(Long.class)
             .as("number_of_transactions");
-    private static final Field<Long> INITIAL_AMOUNT_CENTS = coalesce(
+    private static final Field<Long> LIVE_AMOUNT_CENTS = coalesce(
             sum(REWARD_TRANSACTIONS.ACCRUED_REWARD_CENTS), val(0L)
-    )
-            .cast(Long.class)
+    ).cast(Long.class);
+    private static final Field<Long> EFFECTIVE_INITIAL_AMOUNT_CENTS = case_(REWARD_BATCHES.STATUS)
+            .when(RewardBatchStatus.CREATED.name(), LIVE_AMOUNT_CENTS)
+            .otherwise(REWARD_BATCHES.INITIAL_AMOUNT_CENTS_AT_SEND)
+            .cast(Long.class);
+    private static final Field<Long> INITIAL_AMOUNT_CENTS = EFFECTIVE_INITIAL_AMOUNT_CENTS
             .as("initial_amount_cents");
     private static final Field<Long> NUMBER_OF_TRANSACTIONS_ELABORATED = count()
             .filterWhere(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS.in(
@@ -66,14 +71,20 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
             .filterWhere(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS.eq(RewardBatchTrxStatus.REJECTED.name()))
             .cast(Long.class)
             .as("number_of_transactions_rejected");
-    private static final Field<Long> SUSPENDED_AMOUNT_CENTS = coalesce(
+    private static final Field<Long> LIVE_SUSPENDED_AMOUNT_CENTS = coalesce(
             sum(REWARD_TRANSACTIONS.ACCRUED_REWARD_CENTS)
                     .filterWhere(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS.eq(RewardBatchTrxStatus.SUSPENDED.name())),
             val(0L)
-    )
-            .cast(Long.class)
+    ).cast(Long.class);
+    private static final Field<Long> EFFECTIVE_SUSPENDED_AMOUNT_CENTS = case_(REWARD_BATCHES.STATUS)
+            .when(RewardBatchStatus.CREATED.name(), LIVE_SUSPENDED_AMOUNT_CENTS)
+            .when(RewardBatchStatus.SENT.name(), LIVE_SUSPENDED_AMOUNT_CENTS)
+            .when(RewardBatchStatus.EVALUATING.name(), LIVE_SUSPENDED_AMOUNT_CENTS)
+            .otherwise(REWARD_BATCHES.SUSPENDED_AMOUNT_CENTS_AT_APPROVING)
+            .cast(Long.class);
+    private static final Field<Long> SUSPENDED_AMOUNT_CENTS = EFFECTIVE_SUSPENDED_AMOUNT_CENTS
             .as("suspended_amount_cents");
-    private static final Field<Long> APPROVED_AMOUNT_CENTS_VALUE = coalesce(
+    private static final Field<Long> LIVE_APPROVED_AMOUNT_CENTS = coalesce(
             sum(REWARD_TRANSACTIONS.ACCRUED_REWARD_CENTS)
                     .filterWhere(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS.in(
                             RewardBatchTrxStatus.TO_CHECK.name(),
@@ -81,10 +92,23 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
                             RewardBatchTrxStatus.APPROVED.name()
                     )),
             val(0L)
-    )
-                    .cast(Long.class);
-    private static final Field<Long> APPROVED_AMOUNT_CENTS = APPROVED_AMOUNT_CENTS_VALUE
-                    .as("approved_amount_cents");
+    ).cast(Long.class);
+    private static final Field<Long> EFFECTIVE_APPROVED_AMOUNT_CENTS = case_(REWARD_BATCHES.STATUS)
+            .when(RewardBatchStatus.CREATED.name(), val(0L))
+            .when(RewardBatchStatus.SENT.name(), val(0L))
+            .otherwise(LIVE_APPROVED_AMOUNT_CENTS)
+            .cast(Long.class);
+    private static final Field<Long> APPROVED_AMOUNT_CENTS = EFFECTIVE_APPROVED_AMOUNT_CENTS
+            .as("approved_amount_cents");
+    private static final Field<Long> CURRENT_AMOUNT_CENTS = LIVE_AMOUNT_CENTS
+            .as("current_amount_cents");
+    private static final Field<Long> LIVE_EXCLUDED_AMOUNT_CENTS = coalesce(
+            sum(REWARD_TRANSACTIONS.ACCRUED_REWARD_CENTS)
+                    .filterWhere(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS.eq(RewardBatchTrxStatus.REJECTED.name())),
+            val(0L)
+    ).cast(Long.class);
+    private static final Field<Long> EXCLUDED_AMOUNT_CENTS = LIVE_EXCLUDED_AMOUNT_CENTS
+            .as("excluded_amount_cents");
     private static final RewardBatchSqlMapper.BatchAggregateProjection BATCH_AGGREGATE_PROJECTION =
                     new RewardBatchSqlMapper.BatchAggregateProjection(
                             NUMBER_OF_TRANSACTIONS,
@@ -93,7 +117,9 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
                             NUMBER_OF_TRANSACTIONS_SUSPENDED,
                             NUMBER_OF_TRANSACTIONS_REJECTED,
                             SUSPENDED_AMOUNT_CENTS,
-                            APPROVED_AMOUNT_CENTS
+                            APPROVED_AMOUNT_CENTS,
+                            CURRENT_AMOUNT_CENTS,
+                            EXCLUDED_AMOUNT_CENTS
                     );
     private static final Map<String, Field<?>> SORTABLE_FIELDS = Map.ofEntries(
                     Map.entry("id", REWARD_BATCHES.ID),
@@ -119,12 +145,14 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
                     Map.entry("refundValutaDate", REWARD_BATCHES.REFUND_VALUTA_DATE),
                     Map.entry("refundErrorMessage", REWARD_BATCHES.REFUND_ERROR_MESSAGE),
                     Map.entry("numberOfTransactions", NUMBER_OF_TRANSACTIONS),
-                    Map.entry("initialAmountCents", INITIAL_AMOUNT_CENTS),
                     Map.entry("numberOfTransactionsElaborated", NUMBER_OF_TRANSACTIONS_ELABORATED),
                     Map.entry("numberOfTransactionsSuspended", NUMBER_OF_TRANSACTIONS_SUSPENDED),
                     Map.entry("numberOfTransactionsRejected", NUMBER_OF_TRANSACTIONS_REJECTED),
-                    Map.entry("suspendedAmountCents", SUSPENDED_AMOUNT_CENTS),
-                    Map.entry("approvedAmountCents", APPROVED_AMOUNT_CENTS_VALUE)
+                    Map.entry("initialAmountCents", EFFECTIVE_INITIAL_AMOUNT_CENTS),
+                    Map.entry("suspendedAmountCents", EFFECTIVE_SUSPENDED_AMOUNT_CENTS),
+                    Map.entry("approvedAmountCents", EFFECTIVE_APPROVED_AMOUNT_CENTS),
+                    Map.entry("currentAmountCents", LIVE_AMOUNT_CENTS),
+                    Map.entry("excludedAmountCents", LIVE_EXCLUDED_AMOUNT_CENTS)
     );
 
     private final DSLContext dslContext;
@@ -234,7 +262,7 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
         }
         return Flux.from(projectedBatches(condition)
                         .having(status == RewardBatchStatus.APPROVED
-                                ? APPROVED_AMOUNT_CENTS_VALUE.gt(0L)
+                                        ? EFFECTIVE_APPROVED_AMOUNT_CENTS.gt(0L)
                                 : org.jooq.impl.DSL.noCondition())
                         .orderBy(REWARD_BATCHES.ID.asc())
                         .limit(limit))
@@ -245,7 +273,7 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
         Pageable effectivePageable = effectivePageable(pageable);
         return Flux.from(projectedBatches(REWARD_BATCHES.STATUS.eq(RewardBatchStatus.APPROVED.name())
                         .and(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId)))
-                .having(APPROVED_AMOUNT_CENTS_VALUE.gt(0L))
+                .having(EFFECTIVE_APPROVED_AMOUNT_CENTS.gt(0L))
                 .orderBy(sortFields(effectivePageable.getSort()))
                 .limit(effectivePageable.getPageSize())
                 .offset(effectivePageable.getOffset()))
@@ -288,7 +316,9 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
                         NUMBER_OF_TRANSACTIONS_SUSPENDED,
                         NUMBER_OF_TRANSACTIONS_REJECTED,
                         SUSPENDED_AMOUNT_CENTS,
-                        APPROVED_AMOUNT_CENTS
+                        APPROVED_AMOUNT_CENTS,
+                        CURRENT_AMOUNT_CENTS,
+                        EXCLUDED_AMOUNT_CENTS
                 )
                 .from(REWARD_BATCHES)
                 .leftJoin(REWARD_TRANSACTIONS)

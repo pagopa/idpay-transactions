@@ -44,9 +44,14 @@ public interface RewardBatchLifecyclePort {
 
     Mono<RewardBatch> saveBatch(RewardBatch rewardBatch);
 
-    Mono<RewardBatch> updateEvaluationStatus(
+    Mono<RewardBatch> sendBatch(
             String rewardBatchId,
             String initiativeId,
-            long approvedAmountCents
+            String merchantId
+    );
+
+    Mono<RewardBatch> enterApproval(
+            String rewardBatchId,
+            String initiativeId
     );
 }

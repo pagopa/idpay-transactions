@@ -74,22 +74,42 @@ class SqlRewardBatchLifecycleAdapterTest {
     }
 
     @Test
-    void evaluationUpdateReturnsFreshAggregateOrUpdatedObjectWhenAggregateIsAbsent() {
-        RewardBatch updated = batch("batch", "initiative");
-        updated.setStatus(RewardBatchStatus.EVALUATING);
+    void sendReturnsFreshAggregateOrAtomicSendResultWhenAggregateIsAbsent() {
+        RewardBatch sent = batch("batch", "initiative");
+        sent.setStatus(RewardBatchStatus.SENT);
         RewardBatch refreshed = batch("batch", "initiative");
-        refreshed.setNumberOfTransactionsElaborated(4L);
-        when(batchAdapter.updateStatus("batch", "initiative", RewardBatchStatus.EVALUATING))
-                .thenReturn(Mono.just(updated));
+        refreshed.setStatus(RewardBatchStatus.SENT);
+        refreshed.setInitialAmountCents(700L);
+        when(batchAdapter.sendBatch("batch", "initiative", "merchant")).thenReturn(Mono.just(sent));
         when(batchListAdapter.findBatch("batch", "initiative")).thenReturn(Mono.just(refreshed));
 
-        StepVerifier.create(adapter.updateEvaluationStatus("batch", "initiative", 999L))
-                .expectNext(refreshed).verifyComplete();
-        verify(batchAdapter).updateStatus("batch", "initiative", RewardBatchStatus.EVALUATING);
+        StepVerifier.create(adapter.sendBatch("batch", "initiative", "merchant"))
+                .expectNext(refreshed)
+                .verifyComplete();
+        verify(batchAdapter).sendBatch("batch", "initiative", "merchant");
 
         when(batchListAdapter.findBatch("batch", "initiative")).thenReturn(Mono.empty());
-        StepVerifier.create(adapter.updateEvaluationStatus("batch", "initiative", 999L))
-                .expectNext(updated).verifyComplete();
+        StepVerifier.create(adapter.sendBatch("batch", "initiative", "merchant"))
+                .expectNext(sent)
+                .verifyComplete();
+    }
+
+    @Test
+    void approvalEntryReturnsFreshAggregateOrEnteredObjectWhenAggregateIsAbsent() {
+        RewardBatch entered = batch("batch", "initiative");
+        entered.setStatus(RewardBatchStatus.APPROVING);
+        RewardBatch refreshed = batch("batch", "initiative");
+        refreshed.setNumberOfTransactionsElaborated(4L);
+        when(batchAdapter.enterApproval("batch", "initiative")).thenReturn(Mono.just(entered));
+        when(batchListAdapter.findBatch("batch", "initiative")).thenReturn(Mono.just(refreshed));
+
+        StepVerifier.create(adapter.enterApproval("batch", "initiative"))
+                .expectNext(refreshed).verifyComplete();
+        verify(batchAdapter).enterApproval("batch", "initiative");
+
+        when(batchListAdapter.findBatch("batch", "initiative")).thenReturn(Mono.empty());
+        StepVerifier.create(adapter.enterApproval("batch", "initiative"))
+                .expectNext(entered).verifyComplete();
     }
 
     private static RewardBatch batch(String id, String initiativeId) {

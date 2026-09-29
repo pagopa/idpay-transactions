@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import com.azure.storage.blob.models.BlobStorageException;
 import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
@@ -20,7 +21,6 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.*;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
-import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,7 +39,6 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -214,157 +213,29 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void sendBatchRejectsMissingWrongMerchantAndInvalidLifecycleStates() {
-        when(lifecyclePort.findBatch("missing", "initiative")).thenReturn(Mono.empty());
-        StepVerifier.create(service.sendRewardBatch("initiative", "merchant", "missing"))
-                .expectError().verify();
-
-        RewardBatch wrongMerchant = batch("wrong", RewardBatchStatus.CREATED);
-        wrongMerchant.setMerchantId("other");
-        when(lifecyclePort.findBatch("wrong", "initiative")).thenReturn(Mono.just(wrongMerchant));
-        StepVerifier.create(service.sendRewardBatch("initiative", "merchant", "wrong"))
-                .expectError().verify();
-
-        RewardBatch sent = batch("sent", RewardBatchStatus.SENT);
-        when(lifecyclePort.findBatch("sent", "initiative")).thenReturn(Mono.just(sent));
-        StepVerifier.create(service.sendRewardBatch("initiative", "merchant", "sent"))
-                .expectError().verify();
-    }
-
-    @Test
-    void sendHistoricalEmptyBatchPersistsSentAfterPreviousBatchesAreClear() {
-        RewardBatch batch = batch("batch", RewardBatchStatus.CREATED);
-        batch.setMonth(YearMonth.now().minusMonths(1).toString());
-        batch.setNumberOfTransactions(0L);
-        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(batch));
-        when(lifecyclePort.findMerchantBatches("merchant", "initiative", PosType.PHYSICAL))
-                .thenReturn(Flux.empty());
-        when(lifecyclePort.saveBatch(batch)).thenReturn(Mono.just(batch));
+    void sendBatchDelegatesTheWholeTransitionToTheLifecyclePort() {
+        RewardBatch sent = batch("batch", RewardBatchStatus.SENT);
+        when(lifecyclePort.sendBatch("batch", "initiative", "merchant"))
+                .thenReturn(Mono.just(sent));
 
         StepVerifier.create(service.sendRewardBatch("initiative", "merchant", "batch"))
                 .verifyComplete();
 
-        assertEquals(RewardBatchStatus.SENT, batch.getStatus());
-        assertNotNull(batch.getMerchantSendDate());
-        assertNotNull(batch.getUpdateDate());
-        assertEquals(batch.getMerchantSendDate(), batch.getUpdateDate());
-        verify(lifecyclePort).findMerchantBatches("merchant", "initiative", PosType.PHYSICAL);
-        verify(lifecyclePort).saveBatch(batch);
+        verify(lifecyclePort).sendBatch("batch", "initiative", "merchant");
+        verifyNoMoreInteractions(lifecyclePort);
     }
 
     @Test
-    void sendHistoricalBatchWithNullTransactionCountPersistsSentAfterPreviousBatchesAreClear() {
-        RewardBatch batch = batch("batch", RewardBatchStatus.CREATED);
-        batch.setMonth(YearMonth.now().minusMonths(1).toString());
-        batch.setNumberOfTransactions(null);
-        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(batch));
-        when(lifecyclePort.findMerchantBatches("merchant", "initiative", PosType.PHYSICAL))
-                .thenReturn(Flux.empty());
-        when(lifecyclePort.saveBatch(batch)).thenReturn(Mono.just(batch));
+    void sendBatchPropagatesLifecyclePortFailure() {
+        IllegalStateException failure = new IllegalStateException("atomic send failed");
+        when(lifecyclePort.sendBatch("batch", "initiative", "merchant"))
+                .thenReturn(Mono.error(failure));
 
         StepVerifier.create(service.sendRewardBatch("initiative", "merchant", "batch"))
-                .verifyComplete();
-
-        assertEquals(RewardBatchStatus.SENT, batch.getStatus());
-        assertNotNull(batch.getMerchantSendDate());
-        assertNotNull(batch.getUpdateDate());
-        assertEquals(batch.getMerchantSendDate(), batch.getUpdateDate());
-        verify(lifecyclePort).findMerchantBatches("merchant", "initiative", PosType.PHYSICAL);
-        verify(lifecyclePort).saveBatch(batch);
-    }
-
-    @Test
-    void sendHistoricalBatchIsBlockedByAnEarlierCreatedBatchWithTransactions() {
-        YearMonth currentMonth = YearMonth.now().minusMonths(1);
-        RewardBatch currentBatch = batch("current", RewardBatchStatus.CREATED);
-        currentBatch.setMonth(currentMonth.toString());
-        currentBatch.setNumberOfTransactions(0L);
-        RewardBatch previousBatch = batch("previous", RewardBatchStatus.CREATED);
-        previousBatch.setMonth(currentMonth.minusMonths(1).toString());
-        previousBatch.setNumberOfTransactions(1L);
-        when(lifecyclePort.findBatch("current", "initiative")).thenReturn(Mono.just(currentBatch));
-        when(lifecyclePort.findMerchantBatches("merchant", "initiative", PosType.PHYSICAL))
-                .thenReturn(Flux.just(previousBatch));
-
-        StepVerifier.create(service.sendRewardBatch("initiative", "merchant", "current"))
-                .expectErrorSatisfies(error -> {
-                    RewardBatchException exception = (RewardBatchException) error;
-                    assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, exception.getHttpStatus());
-                    assertEquals(ExceptionConstants.ExceptionCode.REWARD_BATCH_PREVIOUS_NOT_SENT,
-                            exception.getMessage());
-                })
+                .expectErrorMatches(error -> error == failure)
                 .verify();
 
-        verify(lifecyclePort, never()).saveBatch(any());
-        assertEquals(RewardBatchStatus.CREATED, currentBatch.getStatus());
-    }
-
-    @Test
-    void sendHistoricalBatchIsNotBlockedByAnEarlierCreatedEmptyBatch() {
-        assertHistoricalBatchCanBeSentWhenPreviousTransactionCountIs(0L);
-    }
-
-    @Test
-    void sendHistoricalBatchIsNotBlockedByAnEarlierCreatedBatchWithNullTransactionCount() {
-        assertHistoricalBatchCanBeSentWhenPreviousTransactionCountIs(null);
-    }
-
-    @Test
-    void sendBatchRejectsBatchFromCurrentMonth() {
-        RewardBatch batch = batch("current", RewardBatchStatus.CREATED);
-        batch.setMonth(YearMonth.now().toString());
-        when(lifecyclePort.findBatch("current", "initiative")).thenReturn(Mono.just(batch));
-
-        StepVerifier.create(service.sendRewardBatch("initiative", "merchant", "current"))
-                .expectErrorSatisfies(error -> {
-                    RewardBatchException exception = (RewardBatchException) error;
-                    assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, exception.getHttpStatus());
-                    assertEquals(ExceptionConstants.ExceptionCode.REWARD_BATCH_MONTH_TOO_EARLY,
-                            exception.getMessage());
-                })
-                .verify();
-
-        verify(lifecyclePort, never()).findMerchantBatches(anyString(), anyString(), any());
-        verify(lifecyclePort, never()).saveBatch(any());
-    }
-
-    @Test
-    void sendBatchRejectsBatchFromAnotherInitiative() {
-        when(lifecyclePort.findBatch("batch", "requested-initiative")).thenReturn(Mono.empty());
-
-        StepVerifier.create(service.sendRewardBatch("requested-initiative", "merchant", "batch"))
-                .expectErrorSatisfies(error -> {
-                    RewardBatchException exception = (RewardBatchException) error;
-                    assertEquals(org.springframework.http.HttpStatus.NOT_FOUND, exception.getHttpStatus());
-                    assertEquals(ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND, exception.getMessage());
-                })
-                .verify();
-
-        verify(lifecyclePort, never()).saveBatch(any());
-    }
-
-    private void assertHistoricalBatchCanBeSentWhenPreviousTransactionCountIs(Long previousTransactionCount) {
-        YearMonth currentMonth = YearMonth.now().minusMonths(1);
-        RewardBatch currentBatch = batch("current", RewardBatchStatus.CREATED);
-        currentBatch.setMonth(currentMonth.toString());
-        currentBatch.setNumberOfTransactions(0L);
-        RewardBatch previousBatch = batch("previous", RewardBatchStatus.CREATED);
-        previousBatch.setMonth(currentMonth.minusMonths(1).toString());
-        previousBatch.setNumberOfTransactions(previousTransactionCount);
-        when(lifecyclePort.findBatch("current", "initiative")).thenReturn(Mono.just(currentBatch));
-        when(lifecyclePort.findMerchantBatches("merchant", "initiative", PosType.PHYSICAL))
-                .thenReturn(Flux.just(previousBatch));
-        when(lifecyclePort.saveBatch(currentBatch)).thenReturn(Mono.just(currentBatch));
-
-        StepVerifier.create(service.sendRewardBatch("initiative", "merchant", "current"))
-                .verifyComplete();
-
-        assertEquals(RewardBatchStatus.SENT, currentBatch.getStatus());
-        assertNotNull(currentBatch.getMerchantSendDate());
-        assertNotNull(currentBatch.getUpdateDate());
-        assertEquals(currentBatch.getMerchantSendDate(), currentBatch.getUpdateDate());
-        verify(lifecyclePort).findMerchantBatches("merchant", "initiative", PosType.PHYSICAL);
-        verify(lifecyclePort).saveBatch(currentBatch);
+        verify(lifecyclePort).sendBatch("batch", "initiative", "merchant");
     }
 
     @Test
@@ -408,20 +279,122 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void confirmationChecksStateAndPersistsApprovingBatchWhenPreviousBatchesAreClear() {
-        when(lifecyclePort.findBatch("missing", "initiative")).thenReturn(Mono.empty());
-        StepVerifier.create(service.rewardBatchConfirmation("initiative", "missing"))
-                .expectError().verify();
+    void confirmationDelegatesAtomicApprovalEntryToTheLifecyclePort() {
+        RewardBatch existingBatch = batch("batch", RewardBatchStatus.EVALUATING);
+        existingBatch.setNumberOfTransactions(10L);
+        existingBatch.setNumberOfTransactionsElaborated(2L);
 
-        RewardBatch evaluating = batch("batch", RewardBatchStatus.EVALUATING);
-        evaluating.setAssigneeLevel(RewardBatchAssignee.L3);
-        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(evaluating));
-        when(listPort.findBatchesBeforeMonth("merchant", "initiative", PosType.PHYSICAL, evaluating.getMonth()))
-                .thenReturn(Flux.empty());
-        when(lifecyclePort.saveBatch(evaluating)).thenReturn(Mono.just(evaluating));
+        RewardBatch approving = batch("batch", RewardBatchStatus.APPROVING);
+
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(existingBatch));
+        when(lifecyclePort.enterApproval("batch", "initiative")).thenReturn(Mono.just(approving));
+
         StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
                 .assertNext(result -> assertEquals(RewardBatchStatus.APPROVING, result.getStatus()))
                 .verifyComplete();
+
+        verify(lifecyclePort).findBatch("batch", "initiative");
+        verify(lifecyclePort).enterApproval("batch", "initiative");
+        verify(lifecyclePort, never()).saveBatch(any());
+        verifyNoInteractions(listPort);
+    }
+
+    @Test
+    void confirmationPropagatesAtomicApprovalEntryFailure() {
+        RewardBatch existingBatch = batch("batch", RewardBatchStatus.EVALUATING);
+        existingBatch.setNumberOfTransactions(10L);
+        existingBatch.setNumberOfTransactionsElaborated(2L);
+
+        IllegalStateException failure = new IllegalStateException("approval entry failed");
+
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(existingBatch));
+        when(lifecyclePort.enterApproval("batch", "initiative")).thenReturn(Mono.error(failure));
+
+        StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
+                .expectErrorMatches(error -> error == failure)
+                .verify();
+
+        verify(lifecyclePort).findBatch("batch", "initiative");
+        verify(lifecyclePort).enterApproval("batch", "initiative");
+        verifyNoInteractions(listPort);
+    }
+
+    @Test
+    void confirmationFailsWhenElaboratedTransactionsBelowThreshold() {
+        RewardBatch existingBatch = batch("batch", RewardBatchStatus.EVALUATING);
+        existingBatch.setNumberOfTransactions(10L);
+        existingBatch.setNumberOfTransactionsElaborated(1L);
+
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(existingBatch));
+
+        StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
+                .expectError()
+                .verify();
+
+        verify(lifecyclePort).findBatch("batch", "initiative");
+        verify(lifecyclePort, never()).enterApproval(anyString(), anyString());
+        verifyNoInteractions(listPort);
+    }
+
+    @Test
+    void confirmationFailsWhenBatchNotFound() {
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.empty());
+
+        StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
+                .expectError()
+                .verify();
+
+        verify(lifecyclePort).findBatch("batch", "initiative");
+        verify(lifecyclePort, never()).enterApproval(anyString(), anyString());
+        verifyNoInteractions(listPort);
+    }
+
+    @Test
+    void confirmationFailsWhenNumberOfTransactionsIsNull() {
+        RewardBatch existingBatch = batch("batch", RewardBatchStatus.EVALUATING);
+        existingBatch.setNumberOfTransactions(null);
+        existingBatch.setNumberOfTransactionsElaborated(5L);
+
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(existingBatch));
+
+        StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
+                .expectError()
+                .verify();
+
+        verify(lifecyclePort).findBatch("batch", "initiative");
+        verify(lifecyclePort, never()).enterApproval(anyString(), anyString());
+    }
+
+    @Test
+    void confirmationFailsWhenNumberOfTransactionsElaboratedIsNull() {
+        RewardBatch existingBatch = batch("batch", RewardBatchStatus.EVALUATING);
+        existingBatch.setNumberOfTransactions(10L);
+        existingBatch.setNumberOfTransactionsElaborated(null);
+
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(existingBatch));
+
+        StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
+                .expectError()
+                .verify();
+
+        verify(lifecyclePort).findBatch("batch", "initiative");
+        verify(lifecyclePort, never()).enterApproval(anyString(), anyString());
+    }
+
+    @Test
+    void confirmationFailsWhenTotalTransactionsIsZero() {
+        RewardBatch existingBatch = batch("batch", RewardBatchStatus.EVALUATING);
+        existingBatch.setNumberOfTransactions(0L);
+        existingBatch.setNumberOfTransactionsElaborated(0L);
+
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(existingBatch));
+
+        StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
+                .expectError()
+                .verify();
+
+        verify(lifecyclePort).findBatch("batch", "initiative");
+        verify(lifecyclePort, never()).enterApproval(anyString(), anyString());
     }
 
     @Test
@@ -677,9 +650,6 @@ class RewardBatchServiceImplTest {
         RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
         when(lifecyclePort.findBatch("batch")).thenReturn(Mono.just(approved));
         when(lifecyclePort.saveBatch(approved)).thenReturn(Mono.just(approved));
-        when(dataFactoryService.triggerRewardBatchCsvPipeline(
-                "initiative", "merchant", "batch", "business_name_FISICO.csv"
-        )).thenReturn(Mono.just("run-123"));
 
         StepVerifier.create(service.generateAndSaveCsv("batch", "initiative", "merchant"))
                 .expectNext("business_name_FISICO.csv").verifyComplete();
@@ -744,20 +714,6 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void sendRejectsWhenAnEarlierCreatedBatchStillHasTransactions() {
-        RewardBatch current = batch("current", RewardBatchStatus.CREATED);
-        current.setMonth(YearMonth.now().minusMonths(1).toString());
-        RewardBatch earlier = batch("earlier", RewardBatchStatus.CREATED);
-        earlier.setMonth(YearMonth.now().minusMonths(2).toString());
-        when(lifecyclePort.findBatch("current", "initiative")).thenReturn(Mono.just(current));
-        when(lifecyclePort.findMerchantBatches("merchant", "initiative", PosType.PHYSICAL))
-                .thenReturn(Flux.just(earlier));
-
-        StepVerifier.create(service.sendRewardBatch("initiative", "merchant", "current"))
-                .expectError().verify();
-    }
-
-    @Test
     void approvedFileOperatorScopeChecksRoleAndFilename() {
         RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
         approved.setFilename(null);
@@ -767,19 +723,6 @@ class RewardBatchServiceImplTest {
 
         approved.setFilename("file.csv");
         StepVerifier.create(service.downloadApprovedRewardBatchFile(null, "admin", "initiative", "batch"))
-                .expectError().verify();
-    }
-
-    @Test
-    void confirmationRejectsPreviousNonRefundedBatch() {
-        RewardBatch evaluating = batch("batch", RewardBatchStatus.EVALUATING);
-        evaluating.setAssigneeLevel(RewardBatchAssignee.L3);
-        RewardBatch previous = batch("previous", RewardBatchStatus.CREATED);
-        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(evaluating));
-        when(listPort.findBatchesBeforeMonth("merchant", "initiative", PosType.PHYSICAL, evaluating.getMonth()))
-                .thenReturn(Flux.just(previous));
-
-        StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
                 .expectError().verify();
     }
 

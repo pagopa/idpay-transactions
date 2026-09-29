@@ -149,55 +149,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     @Override
     public Mono<Void> sendRewardBatch(String initiativeId, String merchantId, String batchId) {
-        return rewardBatchLifecyclePort.findBatch(batchId, initiativeId)
-                .switchIfEmpty(Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
-                        ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND)))
-                .flatMap(batch -> {
-                    if (!merchantId.equals(batch.getMerchantId())) {
-                        log.warn("[SEND_REWARD_BATCHES] Merchant id mismatch !");
-                        return Mono.error(new RewardBatchException(HttpStatus.NOT_FOUND,
-                                ExceptionConstants.ExceptionCode.REWARD_BATCH_NOT_FOUND));
-                    }
-                    if (batch.getStatus() != RewardBatchStatus.CREATED) {
-                        return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
-                                ExceptionConstants.ExceptionCode.REWARD_BATCH_INVALID_REQUEST));
-                    }
-                    YearMonth batchMonth = YearMonth.parse(batch.getMonth());
-                    if (!YearMonth.now(ZONEID).isAfter(batchMonth)) {
-                        log.warn("[SEND_REWARD_BATCHES] Batch month too early to be sent !");
-                        return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
-                                ExceptionConstants.ExceptionCode.REWARD_BATCH_MONTH_TOO_EARLY));
-                    }
-
-                    return anyPreviousBatchesInCreatedStatusNotEmpty(initiativeId, merchantId, batchMonth, batch.getPosType())
-                            .flatMap(allPreviousSent -> {
-                                if (Boolean.TRUE.equals(allPreviousSent)) {
-                                    log.warn("[SEND_REWARD_BATCHES] Previous batches of type {} not sent yet for merchant {}!",
-                                            batch.getPosType(), Utilities.sanitizeString(merchantId));
-                                    return Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
-                                            ExceptionConstants.ExceptionCode.REWARD_BATCH_PREVIOUS_NOT_SENT));
-                                }
-
-                                LocalDateTime dateTimeNow = LocalDateTime.now(ZONEID);
-                                batch.setStatus(RewardBatchStatus.SENT);
-                                batch.setMerchantSendDate(dateTimeNow);
-                                batch.setUpdateDate(dateTimeNow);
-                                return rewardBatchLifecyclePort.saveBatch(batch);
-                            })
-                            .then();
-                });
-    }
-
-    private Mono<Boolean> anyPreviousBatchesInCreatedStatusNotEmpty(String initiativeId, String merchantId, YearMonth currentMonth, PosType posType) {
-        return rewardBatchLifecyclePort.findMerchantBatches(merchantId, initiativeId, posType)
-                .filter(batch -> {
-                    YearMonth batchMonth = YearMonth.parse(batch.getMonth());
-                    return batchMonth.isBefore(currentMonth);
-                })
-                .filter(batch -> batch.getStatus() == RewardBatchStatus.CREATED)
-                .filter(batch -> batch.getNumberOfTransactions() != null
-                        && batch.getNumberOfTransactions() > 0)
-                .hasElements();
+        return rewardBatchLifecyclePort.sendBatch(batchId, initiativeId, merchantId).then();
     }
 
     @Override
@@ -431,44 +383,33 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
                         NOT_FOUND,
                         REWARD_BATCH_NOT_FOUND,
-                        ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId))))
-                .filter(rewardBatch -> rewardBatch.getStatus().equals(RewardBatchStatus.EVALUATING)
-                        && rewardBatch.getAssigneeLevel().equals(RewardBatchAssignee.L3))
-                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
-                        BAD_REQUEST,
-                        REWARD_BATCH_INVALID_REQUEST,
-                        ERROR_MESSAGE_INVALID_STATE_BATCH.formatted(rewardBatchId)
+                        ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId)
                 )))
-                .flatMap(rewardBatch -> {
-                    Flux<RewardBatch> previousBatchesFlux = rewardBatchListPort.findBatchesBeforeMonth(
-                            rewardBatch.getMerchantId(),
-                            rewardBatch.getInitiativeId(),
-                            rewardBatch.getPosType(),
-                            rewardBatch.getMonth());
-                    Mono<Boolean> hasUnapprovedBatch = previousBatchesFlux
-                            .filter(batch -> !batch.getStatus().equals(RewardBatchStatus.APPROVED) && !isRefundState(batch.getStatus()))
-                            .hasElements();
-                    return hasUnapprovedBatch
-                            .flatMap(isUnapprovedPresent ->
-                                    Boolean.TRUE.equals(isUnapprovedPresent)
-                                            ? Mono.error(new ClientExceptionWithBody(
-                                            BAD_REQUEST,
-                                            REWARD_BATCH_INVALID_REQUEST,
-                                            ERROR_MESSAGE_PREVIOUS_BATCH_TO_APPROVE.formatted(rewardBatchId)
-                                    ))
-                                            : Mono.just(rewardBatch)
-                            );
-                })
-                .map(rewardBatch -> {
-                    LocalDateTime nowDateTime = LocalDateTime.now(ZONEID);
-                    rewardBatch.setStatus(RewardBatchStatus.APPROVING);
-                    rewardBatch.setApprovalDate(nowDateTime);
-                    rewardBatch.setUpdateDate(nowDateTime);
-                    return rewardBatch;
-                })
-                .flatMap(rewardBatchLifecyclePort::saveBatch);
+                .flatMap(batch -> {
+                    long totalTrx = batch.getNumberOfTransactions() != null ? batch.getNumberOfTransactions() : 0L;
+                    long elaboratedTrx = batch.getNumberOfTransactionsElaborated() != null ? batch.getNumberOfTransactionsElaborated() : 0L;
+
+                    if (!isElaboratedTransactionsRatioValid(elaboratedTrx, totalTrx)) {
+                        log.warn("[CONFIRMATION_FAILED] Batch {} has only {}/{} transactions elaborated (below 15% threshold)",
+                                Utilities.sanitizeString(rewardBatchId), elaboratedTrx, totalTrx);
+
+                        return Mono.error(new ClientExceptionWithBody(
+                                BAD_REQUEST,
+                                REWARD_BATCH_INVALID_REQUEST,
+                                "Cannot confirm batch: elaborated transactions ratio is below 15%% (%d/%d)".formatted(elaboratedTrx, totalTrx)
+                        ));
+                    }
+
+                    return rewardBatchLifecyclePort.enterApproval(rewardBatchId, initiativeId);
+                });
     }
 
+    private boolean isElaboratedTransactionsRatioValid(long elaboratedTrx, long totalTrx) {
+        if (totalTrx <= 0) {
+            return false;
+        }
+        return ((double) elaboratedTrx / totalTrx) >= 0.15;
+    }
 
     @Override
     public Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds) {

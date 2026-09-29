@@ -1,32 +1,45 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
+import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
 import it.gov.pagopa.idpay.transactions.model.PreparedRewardBatch;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTestSupportPort;
-import java.time.LocalDateTime;
-import java.time.Month;
+import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionTestSupportPort;
+import it.gov.pagopa.common.utils.MemoryAppender;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+
+import java.time.LocalDateTime;
+import java.time.Month;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class TestRewardBatchServiceTest {
 
     @Mock
     private RewardBatchTestSupportPort port;
+    @Mock
+    private RewardTransactionTestSupportPort transactionPort;
+    @Mock
+    private PaymentRestClient paymentRestClient;
 
     private TestRewardBatchService service;
 
     @BeforeEach
     void setUp() {
-        service = new TestRewardBatchService(port, 18);
+        service = new TestRewardBatchService(port, 18, paymentRestClient, transactionPort);
     }
 
     @Test
@@ -58,4 +71,73 @@ class TestRewardBatchServiceTest {
                 .expectErrorSatisfies(error -> assertSame(failure, error))
                 .verify();
     }
+
+    @Test
+    void cleanupDeletesTransactionsAndBatchWhenTransactionsExist() {
+        when(transactionPort.deleteByRewardBatchIdAndInitiativeIdReturningIds("batch", "initiative"))
+                .thenReturn(Flux.just("trx-1", "trx-2"));
+        when(paymentRestClient.cleanupTransactions("initiative", Set.of("trx-1", "trx-2")))
+                .thenReturn(Mono.empty());
+        when(port.cleanupRewardBatch("initiative", "merchant", "batch"))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(service.cleanupOldRewardBatchAndRelatedTransactions(
+                        "initiative", "merchant", "batch"
+                ))
+                .verifyComplete();
+
+        verify(transactionPort).deleteByRewardBatchIdAndInitiativeIdReturningIds("batch", "initiative");
+        verify(paymentRestClient).cleanupTransactions("initiative", Set.of("trx-1", "trx-2"));
+        verify(port).cleanupRewardBatch("initiative", "merchant", "batch");
+    }
+
+    @Test
+    void cleanupSkipsPaymentCallWhenNoTransactionsAreAssigned() {
+        when(transactionPort.deleteByRewardBatchIdAndInitiativeIdReturningIds("batch", "initiative"))
+                .thenReturn(Flux.empty());
+        when(port.cleanupRewardBatch("initiative", "merchant", "batch"))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(service.cleanupOldRewardBatchAndRelatedTransactions(
+                        "initiative", "merchant", "batch"
+                ))
+                .verifyComplete();
+
+        verify(paymentRestClient, never()).cleanupTransactions(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anySet());
+        verify(port).cleanupRewardBatch("initiative", "merchant", "batch");
+    }
+
+    @Test
+    void cleanupRewardBatchFailsReturnLog() {
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        when(transactionPort.deleteByRewardBatchIdAndInitiativeIdReturningIds("batch", "initiative"))
+                .thenReturn(Flux.empty());
+        when(port.cleanupRewardBatch("initiative", "merchant", "batch"))
+                .thenReturn(Mono.error(failure));
+
+        Logger logger = (Logger) LoggerFactory.getLogger(TestRewardBatchService.class);
+        MemoryAppender appender = new MemoryAppender();
+        logger.addAppender(appender);
+        appender.start();
+        try {
+            StepVerifier.create(service.cleanupOldRewardBatchAndRelatedTransactions(
+                            "initiative", "merchant", "batch"
+                    ))
+                    .expectErrorSatisfies(error -> assertSame(failure, error))
+                    .verify();
+
+            verify(paymentRestClient, never()).cleanupTransactions(org.mockito.ArgumentMatchers.anyString(),
+                    org.mockito.ArgumentMatchers.anySet());
+            verify(port).cleanupRewardBatch("initiative", "merchant", "batch");
+            assertTrue(appender.contains(
+                    Level.ERROR,
+                    "[TEST_SUPPORT_CLEANUP_REWARD_BATCH] Error cleaning up rewardBatchId=batch, initiativeId=initiative, merchantId=merchant"
+            ));
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+    }
+
 }

@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.persistence.sql;
 
 import io.r2dbc.postgresql.codec.Json;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.ReadOnlyProperty;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
@@ -27,6 +28,10 @@ public record RewardBatchEntity(
         @Column("approval_date") LocalDateTime approvalDate,
         @Column("delivery_date_request") LocalDateTime deliveryDateRequest,
         @Column("delivery_amount_cents") Long deliveryAmountCents,
+        @ReadOnlyProperty
+        @Column("initial_amount_cents_at_send") Long initialAmountCentsAtSend,
+        @ReadOnlyProperty
+        @Column("suspended_amount_cents_at_approving") Long suspendedAmountCentsAtApproving,
         @Column("refund_outcome_timestamp") LocalDateTime refundOutcomeTimestamp,
         @Column("report_path") String reportPath,
         String filename,
