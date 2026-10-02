@@ -1,7 +1,5 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import com.azure.storage.blob.models.BlobStorageException;
-import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
 import it.gov.pagopa.idpay.transactions.data.factory.DataFactoryService;
@@ -650,6 +648,9 @@ class RewardBatchServiceImplTest {
         RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
         when(lifecyclePort.findBatch("batch")).thenReturn(Mono.just(approved));
         when(lifecyclePort.saveBatch(approved)).thenReturn(Mono.just(approved));
+        when(dataFactoryService.triggerRewardBatchCsvPipeline(
+                "initiative", "merchant", "batch", "business_name_FISICO.csv"
+        )).thenReturn(Mono.just("run-123"));
 
         StepVerifier.create(service.generateAndSaveCsv("batch", "initiative", "merchant"))
                 .expectNext("business_name_FISICO.csv").verifyComplete();
