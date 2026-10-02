@@ -76,9 +76,17 @@ public class DataFactoryServiceImpl implements DataFactoryService{
         return parameters;
     }
 
+    private String sanitizeForLog(String value) {
+        if (value == null) {
+            return null;
+        }
+        return value.replace('\n', '_').replace('\r', '_');
+    }
+
     private Mono<String> triggerPipeline(String pipelineName, Map<String, Object> parameters, String contextId) {
         Mono<String> callMono = Mono.fromCallable(() -> {
-                    log.info("[CALLING_DATA_FACTORY] Starting pipeline {} execution for {}", pipelineName, contextId);
+                    String sanitizedContextId = sanitizeForLog(contextId);
+                    log.info("[CALLING_DATA_FACTORY] Starting pipeline {} execution for {}", pipelineName, sanitizedContextId);
                     Response<CreateRunResponse> resp = dataFactoryManager.pipelines().createRunWithResponse(
                             resourceGroup,
                             factoryName,
@@ -99,7 +107,7 @@ public class DataFactoryServiceImpl implements DataFactoryService{
                     if (body == null) {
                         throw new IllegalStateException("ADF createRun returned empty body");
                     }
-                    log.info("[CALLING_DATA_FACTORY] Pipeline {} triggered for {}. Run ID: {}", pipelineName, contextId, body.runId());
+                    log.info("[CALLING_DATA_FACTORY] Pipeline {} triggered for {}. Run ID: {}", pipelineName, sanitizedContextId, body.runId());
                     return body.runId();
                 })
                 .subscribeOn(Schedulers.boundedElastic());
