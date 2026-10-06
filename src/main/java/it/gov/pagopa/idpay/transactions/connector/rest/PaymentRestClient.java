@@ -1,10 +1,12 @@
 package it.gov.pagopa.idpay.transactions.connector.rest;
 
+import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
+import java.util.Set;
 import reactor.core.publisher.Mono;
 
 public interface PaymentRestClient {
 
-    Mono<Void> cancelTransaction(String transactionId, String merchantId, String acquirerId, String pointOfSaleId);
-
+    Mono<Integer> updateTransactionsStatus(Set<String> transactionIds, SyncTrxStatus status);
+    Mono<Void> cleanupTransactions(String initiativeId, Set<String> transactionIds);
 }
 

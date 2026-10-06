@@ -6,7 +6,7 @@ FROM maven:3.9.12-amazoncorretto-25-alpine@sha256:0437187207c8466d4efb733230acc6
 WORKDIR /build
 COPY . .
 
-RUN mvn clean package -DskipTests
+RUN mvn clean package -DskipTests -Dexec.skip=true
 
 #
 # Docker RUNTIME

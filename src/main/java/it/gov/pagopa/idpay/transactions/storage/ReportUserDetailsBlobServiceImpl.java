@@ -1,20 +1,20 @@
 package it.gov.pagopa.idpay.transactions.storage;
 
-import com.azure.storage.blob.BlobContainerClient;
-import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.BlobContainerAsyncClient;
+import com.azure.storage.blob.BlobServiceAsyncClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
-@Component
+@Service
 @Slf4j
 public class ReportUserDetailsBlobServiceImpl extends AbstractBlobStorageClient implements ReportBlobService {
 
     public ReportUserDetailsBlobServiceImpl(
-            BlobServiceClient blobServiceClient,
-            @Qualifier("reportsUserDetailsContainerClient") BlobContainerClient reportsContainerClient,
+            BlobServiceAsyncClient blobServiceAsyncClient,
+            @Qualifier("reportsUserDetailsContainerClient") BlobContainerAsyncClient reportsContainerClient,
             BlobStorageProperties properties) {
 
-        super(blobServiceClient, reportsContainerClient, properties.getInvoiceTokenDurationSeconds());
+        super(blobServiceAsyncClient, reportsContainerClient, properties.getInvoiceTokenDurationSeconds());
     }
 }

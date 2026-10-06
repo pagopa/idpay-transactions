@@ -14,7 +14,7 @@ import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException;
 import it.gov.pagopa.idpay.transactions.model.Report;
-import it.gov.pagopa.idpay.transactions.repository.ReportRepository;
+import it.gov.pagopa.idpay.transactions.persistence.port.ReportPersistencePort;
 import it.gov.pagopa.idpay.transactions.storage.ReportBlobService;
 import it.gov.pagopa.idpay.transactions.storage.ReportTransactionsBlobServiceImpl;
 import it.gov.pagopa.idpay.transactions.storage.ReportUserDetailsBlobServiceImpl;
@@ -35,13 +35,14 @@ import java.util.List;
 
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.*;
+import static it.gov.pagopa.common.utils.CommonConstants.ZONEID;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @Slf4j
 @Service
 public class ReportServiceImpl implements ReportService {
 
-    private final ReportRepository reportRepository;
+    private final ReportPersistencePort reportPersistencePort;
 
     private final MerchantRestClient merchantRestClient;
 
@@ -56,14 +57,14 @@ public class ReportServiceImpl implements ReportService {
 
     public ReportServiceImpl(
             @Value("${app.period-length-transactions-report}") long periodLengthTransactionsReport,
-            ReportRepository reportRepository,
+            ReportPersistencePort reportPersistencePort,
             MerchantRestClient merchantRestClient,
             ReportMapper reportMapper,
             ReportTransactionsBlobServiceImpl reportTransactionsBlobService,
             ReportUserDetailsBlobServiceImpl reportUserDetailsBlobService,
             DataFactoryService dataFactoryService) {
         this.periodLengthTransactionsReport = periodLengthTransactionsReport;
-        this.reportRepository = reportRepository;
+        this.reportPersistencePort = reportPersistencePort;
         this.merchantRestClient = merchantRestClient;
         this.reportMapper = reportMapper;
         this.reportTransactionsBlobService = reportTransactionsBlobService;
@@ -168,7 +169,7 @@ public class ReportServiceImpl implements ReportService {
         Pageable sortedPageable = PageRequest.of( pageable.getPageNumber(),
                 pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "requestDate"));
 
-        return reportRepository.findReportsCombined(
+        return reportPersistencePort.findReports(
                         merchantId,
                         organizationRole,
                         initiativeId,
@@ -177,7 +178,7 @@ public class ReportServiceImpl implements ReportService {
 
                 )
                 .collectList()
-                .zipWith(reportRepository.countReportsCombined(
+                .zipWith(reportPersistencePort.countReports(
                         merchantId,
                         organizationRole,
                         initiativeId,
@@ -216,7 +217,7 @@ public class ReportServiceImpl implements ReportService {
         log.info("[GET_USER_DETAILS_REPORTS] Fetching USER_DETAILS reports for initiative: {}, role: {}", Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(organizationRole));
         Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "requestDate"));
 
-        return reportRepository.findReportsCombined(
+        return reportPersistencePort.findReports(
                         null,
                         organizationRole,
                         initiativeId,
@@ -224,7 +225,7 @@ public class ReportServiceImpl implements ReportService {
                         sortedPageable
                 )
                 .collectList()
-                .zipWith(reportRepository.countReportsCombined(
+                .zipWith(reportPersistencePort.countReports(
                         null,
                         organizationRole,
                         initiativeId,
@@ -271,7 +272,7 @@ public class ReportServiceImpl implements ReportService {
                                                               String initiativeId,
                                                               ReportRequest request) {
 
-        if(!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay())
+        if(!(request.getEndPeriod().isBefore(LocalDate.now(ZONEID).atStartOfDay())
             && request.getStartPeriod().isBefore(request.getEndPeriod()))){
             return Mono.error(new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
@@ -279,7 +280,9 @@ public class ReportServiceImpl implements ReportService {
                     ERROR_MESSAGE_INVALID_PERIOD));
         }
 
-        if(ChronoUnit.DAYS.between(request.getStartPeriod(), request.getEndPeriod()) > periodLengthTransactionsReport){
+        if (ChronoUnit.DAYS.between(
+                request.getStartPeriod().atZone(ZONEID),
+                request.getEndPeriod().atZone(ZONEID)) > periodLengthTransactionsReport) {
             return Mono.error(new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
                     INVALID_LENGTH_PERIOD,
@@ -294,7 +297,7 @@ public class ReportServiceImpl implements ReportService {
                         ERROR_MESSAGE_MERCHANT_NOT_FOUND.formatted(merchantId, initiativeId) )))
                 .flatMap(merchant -> {
 
-                    String formattedDate = LocalDateTime.now().format(FILE_NAME_FORMAT);
+                    String formattedDate = LocalDateTime.now(ZONEID).format(FILE_NAME_FORMAT);
                     String fileName = String.format("Report_%s.csv", formattedDate);
 
                     Report reportEntity = Report.builder()
@@ -304,20 +307,20 @@ public class ReportServiceImpl implements ReportService {
                             .endPeriod(request.getEndPeriod())
                             .merchantId(merchantId)
                             .businessName(merchant.getBusinessName())
-                            .requestDate(LocalDateTime.now())
+                            .requestDate(LocalDateTime.now(ZONEID))
                             .operatorLevel(operatorLevel)
                             .fileName(fileName)
                             .reportType(request.getReportType())
                             .build();
 
-                    return reportRepository.save(reportEntity);
+                    return reportPersistencePort.save(reportEntity);
                 })
                 .flatMap(report ->
                         triggerTransactionReportPipeline(report)
                                 .thenReturn(report)
                                 .onErrorResume(AzureConnectingErrorException.class, ex -> {
                                     report.setReportStatus(ReportStatus.FAILED);
-                                    return reportRepository.save(report);
+                                    return reportPersistencePort.save(report);
                                 })
                 )
                 .map(reportMapper::toDTO)
@@ -330,7 +333,7 @@ public class ReportServiceImpl implements ReportService {
                                                      String initiativeId,
                                                      ReportRequest request) {
 
-        if (!(request.getEndPeriod().isBefore(LocalDate.now().atStartOfDay())
+        if (!(request.getEndPeriod().isBefore(LocalDate.now(ZONEID).atStartOfDay())
                 && request.getStartPeriod().isBefore(request.getEndPeriod()))) {
             return Mono.error(new ClientExceptionWithBody(
                     HttpStatus.BAD_REQUEST,
@@ -339,7 +342,7 @@ public class ReportServiceImpl implements ReportService {
         }
 
         RewardBatchAssignee operatorLevel = resolveOperatorLevel(organizationRole);
-        String formattedDate = LocalDateTime.now().format(FILE_NAME_FORMAT);
+        String formattedDate = LocalDateTime.now(ZONEID).format(FILE_NAME_FORMAT);
         String fileName = String.format("Report_%s.csv", formattedDate);
 
         Report reportEntity = Report.builder()
@@ -347,20 +350,20 @@ public class ReportServiceImpl implements ReportService {
                 .reportStatus(ReportStatus.INSERTED)
                 .startPeriod(request.getStartPeriod())
                 .endPeriod(request.getEndPeriod())
-                .requestDate(LocalDateTime.now())
+                .requestDate(LocalDateTime.now(ZONEID))
                 .operatorLevel(operatorLevel)
                 .fileName(fileName)
                 .reportType(request.getReportType())
                 .build();
 
-        return reportRepository.save(reportEntity)
+        return reportPersistencePort.save(reportEntity)
                 .flatMap(report ->
                         triggerUserDetailsReportPipeline(report)
                                 .thenReturn(report)
                                 .onErrorResume(AzureConnectingErrorException.class, ex -> {
                                     log.error("[GENERATE_USER_DETAILS_REPORT] Error triggering pipeline", ex);
                                     report.setReportStatus(ReportStatus.FAILED);
-                                    return reportRepository.save(report);
+                                    return reportPersistencePort.save(report);
                                 })
                 )
                 .map(reportMapper::toDTO)
@@ -382,7 +385,7 @@ public class ReportServiceImpl implements ReportService {
                                        String reportId,
                                        PatchReportRequest request) {
 
-        return reportRepository.findByIdAndInitiativeId(reportId, initiativeId)
+        return reportPersistencePort.findByIdAndInitiativeId(reportId, initiativeId)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
                         NOT_FOUND,
                         REPORT_NOT_FOUND,
@@ -393,10 +396,10 @@ public class ReportServiceImpl implements ReportService {
                         report.setReportStatus(request.getReportStatus());
                     }
                     if(ReportStatus.GENERATED.equals(request.getReportStatus())){
-                        report.setElaborationDate(LocalDateTime.now());
+                        report.setElaborationDate(LocalDateTime.now(ZONEID));
                     }
 
-                    return reportRepository.save(report);
+                    return reportPersistencePort.save(report);
                 })
                 .map(reportMapper::toDTO);
     }
@@ -405,7 +408,7 @@ public class ReportServiceImpl implements ReportService {
     @Override
     public Mono<List<Report2RunDto>> forceGenerateReports(ReportGenerateForce reportGenerateForce) {
         log.info("[RUN_GENERATE_REPORT] Request generate report {}",  Utilities.sanitizeString(String.valueOf(reportGenerateForce.getReportsId())));
-        return reportRepository.findAllById(reportGenerateForce.getReportsId())
+        return reportPersistencePort.findAllById(reportGenerateForce.getReportsId())
                 .flatMap(this::triggerTransactionReportPipeline)
                 .collectList();
     }
@@ -434,7 +437,7 @@ public class ReportServiceImpl implements ReportService {
             String reportId
     ) {
 
-        return reportRepository.findByIdAndInitiativeId(reportId, initiativeId)
+        return reportPersistencePort.findByIdAndInitiativeId(reportId, initiativeId)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
                         HttpStatus.NOT_FOUND,
                         REPORT_NOT_FOUND,
@@ -504,8 +507,8 @@ public class ReportServiceImpl implements ReportService {
         }
 
         Mono<Report> query = merchantId == null
-                ? reportRepository.findByIdAndInitiativeId(reportId, initiativeId)
-                : reportRepository.findByIdAndInitiativeIdAndMerchantId(reportId, initiativeId, merchantId);
+                ? reportPersistencePort.findByIdAndInitiativeId(reportId, initiativeId)
+                : reportPersistencePort.findByIdAndInitiativeIdAndMerchantId(reportId, initiativeId, merchantId);
 
         return query
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
@@ -550,7 +553,7 @@ public class ReportServiceImpl implements ReportService {
             ));
         }
 
-        return reportRepository.findByIdAndInitiativeId(reportId, initiativeId)
+        return reportPersistencePort.findByIdAndInitiativeId(reportId, initiativeId)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
                         HttpStatus.NOT_FOUND,
                         REPORT_NOT_FOUND,
@@ -594,13 +597,10 @@ public class ReportServiceImpl implements ReportService {
         ReportBlobService reportBlobService = ReportType.MERCHANT_TRANSACTIONS.equals(report.getReportType())
                                                 ? reportTransactionsBlobService
                                                 : reportUserDetailsBlobService;
-            return Mono.just(
-                    DownloadReportResponseDTO.builder()
-                            .reportUrl(
-                                    reportBlobService.getFileSignedUrl(blobPath)
-                            )
-                            .build()
-            );
+            return reportBlobService.getFileSignedUrl(blobPath)
+                    .map(reportUrl -> DownloadReportResponseDTO.builder()
+                            .reportUrl(reportUrl)
+                            .build());
 
     }
 

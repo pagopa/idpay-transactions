@@ -1,25 +1,26 @@
 package it.gov.pagopa.idpay.transactions.connector.rest;
 
-import it.gov.pagopa.common.reactive.utils.PerformanceLogger;
+import it.gov.pagopa.idpay.transactions.connector.rest.dto.UpdateTransactionsStatusRequestDTO;
+import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
+import java.time.Duration;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
-
-import java.time.Duration;
-import java.util.Map;
 
 @Service
 @Slf4j
 public class PaymentRestClientImpl implements PaymentRestClient {
 
-    private static final String URI_CANCEL_TRANSACTION = "/idpay/payment/transactions/{transactionId}";
+    private static final String URI_UPDATE_TRANSACTIONS_STATUS = "/idpay/transactions/status";
+    private static final String URI_CLEANUP_TRANSACTIONS = "/idpay/transactions/cleanup";
 
-    private final WebClient webClient;
+    private final WebClient paymentClient;
     private final int retryDelay;
     private final long maxAttempts;
 
@@ -31,50 +32,71 @@ public class PaymentRestClientImpl implements PaymentRestClient {
     ) {
         this.retryDelay = retryDelay;
         this.maxAttempts = maxAttempts;
-        this.webClient = webClientBuilder.clone()
+        this.paymentClient = webClientBuilder.clone()
                 .baseUrl(baseUrl)
                 .build();
     }
 
     @Override
-    public Mono<Void> cancelTransaction(String transactionId, String merchantId, String acquirerId, String pointOfSaleId) {
-        log.info("Sending cancel transaction request for transactionId {}", transactionId);
+    public Mono<Integer> updateTransactionsStatus(Set<String> transactionIds, SyncTrxStatus status) {
+        UpdateTransactionsStatusRequestDTO request = UpdateTransactionsStatusRequestDTO.builder()
+                .transactionIds(transactionIds)
+                .status(status)
+                .build();
 
-        return PerformanceLogger.logTimingOnNext(
-                        "PAYMENT_INTEGRATION",
-                        webClient
-                                .method(HttpMethod.DELETE)
-                                .uri(URI_CANCEL_TRANSACTION, Map.of("transactionId", transactionId))
-                                .header("x-merchant-id", merchantId)
-                                .header("x-acquirer-id", acquirerId)
-                                .header("x-point-of-sale-id", pointOfSaleId)
-                                .retrieve()
-                                .toBodilessEntity(),
-                        x -> "httpStatus %s".formatted(x.getStatusCode().value())
-                )
-                .then()
+        return paymentClient
+                .method(HttpMethod.PUT)
+                .uri(URI_UPDATE_TRANSACTIONS_STATUS)
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, response ->
+                        response.bodyToMono(String.class)
+                                .defaultIfEmpty("")
+                                .flatMap(body -> Mono.error(new IllegalStateException(
+                                        "Payment status update failed: httpStatus=%s, body=%s"
+                                                .formatted(response.statusCode().value(), body)
+                                ))))
+                .bodyToMono(Integer.class)
                 .retryWhen(Retry.fixedDelay(maxAttempts, Duration.ofMillis(retryDelay))
                         .filter(ex -> {
-                            boolean retry =
-                                    (ex instanceof WebClientResponseException.TooManyRequests) ||
-                                            ex.getMessage().startsWith("Connection refused");
-
+                            boolean retry = ex instanceof org.springframework.web.reactive.function.client.WebClientRequestException wcre
+                                    && wcre.getCause() instanceof java.net.ConnectException;
                             if (retry) {
                                 log.info("[PAYMENT_INTEGRATION] Retrying invocation due to exception: {}: {}",
                                         ex.getClass().getSimpleName(), ex.getMessage());
                             }
-
                             return retry;
-                        })
-                )
-                .onErrorResume(WebClientResponseException.NotFound.class, ex -> {
-                    log.warn("[PAYMENT_INTEGRATION] Transaction {} not found on payment service", transactionId);
-                    return Mono.empty();
-                })
-                .onErrorResume(WebClientResponseException.BadRequest.class, ex -> {
-                    log.warn("[PAYMENT_INTEGRATION] Invalid cancel transaction request for transactionId {}", transactionId);
-                    return Mono.empty();
-                });
+                        }));
+    }
+
+    @Override
+    public Mono<Void> cleanupTransactions(String initiativeId, Set<String> transactionIds) {
+        return paymentClient
+                .method(HttpMethod.DELETE)
+                .uri(uriBuilder -> uriBuilder
+                        .path(URI_CLEANUP_TRANSACTIONS)
+                        .queryParam("initiativeId", initiativeId)
+                        .queryParam("transactionIds", String.join(",", transactionIds))
+                        .build())
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, response ->
+                        response.bodyToMono(String.class)
+                                .defaultIfEmpty("")
+                                .flatMap(body -> Mono.error(new IllegalStateException(
+                                        "Payment cleanup failed: httpStatus=%s, body=%s"
+                                                .formatted(response.statusCode().value(), body)
+                                ))))
+                .bodyToMono(Void.class)
+                .retryWhen(Retry.fixedDelay(maxAttempts, Duration.ofMillis(retryDelay))
+                        .filter(ex -> {
+                            boolean retry = ex instanceof org.springframework.web.reactive.function.client.WebClientRequestException wcre
+                                    && wcre.getCause() instanceof java.net.ConnectException;
+                            if (retry) {
+                                log.info("[PAYMENT_INTEGRATION] Retrying invocation due to exception: {}: {}",
+                                        ex.getClass().getSimpleName(), ex.getMessage());
+                            }
+                            return retry;
+                        }));
     }
 }
 

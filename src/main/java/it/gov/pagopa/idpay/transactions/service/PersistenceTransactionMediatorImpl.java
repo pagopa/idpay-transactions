@@ -1,11 +1,10 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.common.reactive.kafka.consumer.BaseKafkaConsumer;
-import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
-import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.model.RewardTransactionEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.Message;
@@ -27,12 +26,8 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
     private final RewardTransactionService rewardTransactionService;
     private final TransactionErrorNotifierService transactionErrorNotifierService;
     private final RewardTransactionMapper rewardTransactionMapper;
-    private final PaymentRestClient paymentRestClient;
-    private static final String OPERATION_TYPE_HEADER = "operationType";
-    private static final String OPERATION_TYPE_REFUNDED = "REFUNDED";
 
-
-  private final Duration commitDelay;
+    private final Duration commitDelay;
 
     private final ObjectReader objectReader;
 
@@ -41,14 +36,12 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
             RewardTransactionService rewardTransactionService,
             TransactionErrorNotifierService transactionErrorNotifierService,
             RewardTransactionMapper rewardTransactionMapper,
-            PaymentRestClient paymentRestClient,
             @Value("${spring.cloud.stream.kafka.bindings.rewardTrxConsumer-in-0.consumer.ackTime}") long commitMillis,
             ObjectMapper objectMapper) {
         super(applicationName);
         this.rewardTransactionService = rewardTransactionService;
         this.transactionErrorNotifierService = transactionErrorNotifierService;
         this.rewardTransactionMapper = rewardTransactionMapper;
-        this.paymentRestClient = paymentRestClient;
         this.commitDelay = Duration.ofMillis(commitMillis);
         this.objectReader = objectMapper.readerFor(RewardTransactionDTO.class);
     }
@@ -83,26 +76,14 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
       Message<String> message,
       Map<String, Object> ctx) {
 
-    Object opTypeHeader = message.getHeaders().get(OPERATION_TYPE_HEADER);
-
-    if (OPERATION_TYPE_REFUNDED.equals(opTypeHeader)) {
-      log.info("[REWARD-TRANSACTION-CONSUMER] Skipping REFUNDED transaction with id {}", payload.getId());
-      return Mono.empty();
-
-    }
-
-    return Mono.just(payload)
-        .map(this.rewardTransactionMapper::mapFromDTO)
-        .flatMap(this.rewardTransactionService::save)
-        .flatMap(rt -> {
-          if (SyncTrxStatus.INVOICED.name().equals(rt.getStatus())) {
-            log.info("[REWARD-TRANSACTION-CONSUMER] Transaction {} is INVOICED, cancelling from transaction_in_progress", rt.getId());
-            return this.paymentRestClient
-                .cancelTransaction(rt.getId(), rt.getMerchantId(), rt.getAcquirerId(), rt.getPointOfSaleId())
-                .thenReturn(rt);
-          }
-          return Mono.just(rt);
-        });
+    return rewardTransactionService.save(new RewardTransactionEvent(
+                payload.getEventId(),
+                payload.getSchemaVersion() == null ? 0 : payload.getSchemaVersion(),
+                payload.getEventType(),
+                payload.getOccurredAt(),
+                payload.getTransactionRevision() == null ? 0L : payload.getTransactionRevision(),
+                rewardTransactionMapper.mapFromDTO(payload)
+        ));
   }
 
   @Override

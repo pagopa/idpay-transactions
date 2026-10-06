@@ -14,9 +14,6 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldNameConstants;
-import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.mapping.FieldType;
-import org.springframework.data.mongodb.core.mapping.MongoId;
 import org.springframework.format.annotation.DateTimeFormat;
 
 @Data
@@ -25,10 +22,8 @@ import org.springframework.format.annotation.DateTimeFormat;
 @Builder
 @FieldNameConstants
 @EqualsAndHashCode(of = {"id"}, callSuper = false)
-@Document(collection = "rewards_batch")
 public class RewardBatch {
 
-    @MongoId(FieldType.STRING)
     private String id;
     private String merchantId;
     private String initiativeId;
@@ -43,6 +38,8 @@ public class RewardBatch {
     private Long approvedAmountCents;
     private Long suspendedAmountCents;
     private Long initialAmountCents;
+    private Long currentAmountCents;
+    private Long excludedAmountCents;
     private Long numberOfTransactions;
     private Long numberOfTransactionsElaborated;
     private String reportPath;
@@ -69,6 +66,7 @@ public class RewardBatch {
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
     private LocalDateTime deliveryDateRequest;
+    private Long deliveryAmountCents;
     private DeliveryOutcomeDTO deliveryOutcome;
 
 

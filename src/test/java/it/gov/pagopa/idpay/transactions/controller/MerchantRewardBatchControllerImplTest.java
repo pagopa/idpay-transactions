@@ -354,6 +354,24 @@ class MerchantRewardBatchControllerImplTest {
     }
 
     @Test
+    void sendRewardBatchesAcceptsEmptyBatch() {
+        String batchId = "EMPTY_BATCH";
+        when(rewardBatchService.sendRewardBatch(INITIATIVE_ID, MERCHANT_ID, batchId))
+                .thenReturn(Mono.empty());
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{batchId}/send")
+                        .build(INITIATIVE_ID, batchId))
+                .header("x-merchant-id", MERCHANT_ID)
+                .exchange()
+                .expectStatus().isNoContent()
+                .expectBody().isEmpty();
+
+        verify(rewardBatchService).sendRewardBatch(INITIATIVE_ID, MERCHANT_ID, batchId);
+    }
+
+    @Test
     void getRewardBatches_shouldThrowBadRequest_whenNoMerchantAndNoRole() {
         webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder
@@ -612,17 +630,110 @@ class MerchantRewardBatchControllerImplTest {
     }
 
     @Test
-    void evaluatingRewardBatches() {
-        RewardBatchesRequest batchRequest = RewardBatchesRequest.builder().rewardBatchIds(List.of("BATCH_ID")).build();
+    void evaluatingRewardBatches_returnsEmptyBodyAndDelegatesExactIds() {
+        List<String> requestedBatchIds = List.of("BATCH_ID", "ANOTHER_BATCH_ID");
+        RewardBatchesRequest batchRequest = RewardBatchesRequest.builder()
+                .rewardBatchIds(requestedBatchIds)
+                .build();
 
-        when(rewardBatchService.evaluatingRewardBatches(List.of("BATCH_ID"),"INIT1")).thenReturn(Mono.just(1L));
+        when(rewardBatchService.evaluatingRewardBatches(requestedBatchIds, INITIATIVE_ID))
+                .thenReturn(Mono.just(2L));
 
         webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/evaluate",
                         INITIATIVE_ID)
                 .bodyValue(batchRequest)
                 .exchange()
-                .expectStatus().isOk();
+                .expectStatus().isOk()
+                .expectBody().isEmpty();
+
+        verify(rewardBatchService).evaluatingRewardBatches(requestedBatchIds, INITIATIVE_ID);
+    }
+
+    @Test
+    void evaluatingRewardBatches_emptyObjectDelegatesNullForAllBatches() {
+        when(rewardBatchService.evaluatingRewardBatches(null, INITIATIVE_ID))
+                .thenReturn(Mono.just(1L));
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/evaluate",
+                        INITIATIVE_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{}")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().isEmpty();
+
+        verify(rewardBatchService).evaluatingRewardBatches(null, INITIATIVE_ID);
+    }
+
+    @Test
+    void evaluatingRewardBatches_explicitNullDelegatesNullForAllBatches() {
+        when(rewardBatchService.evaluatingRewardBatches(null, INITIATIVE_ID))
+                .thenReturn(Mono.just(1L));
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/evaluate",
+                        INITIATIVE_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"rewardBatchIds\":null}")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().isEmpty();
+
+        verify(rewardBatchService).evaluatingRewardBatches(null, INITIATIVE_ID);
+    }
+
+    @Test
+    void evaluatingRewardBatches_emptyListDelegatesTargetedNoOp() {
+        when(rewardBatchService.evaluatingRewardBatches(List.of(), INITIATIVE_ID))
+                .thenReturn(Mono.just(0L));
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/evaluate",
+                        INITIATIVE_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"rewardBatchIds\":[]}")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().isEmpty();
+
+        verify(rewardBatchService).evaluatingRewardBatches(List.of(), INITIATIVE_ID);
+    }
+
+    @Test
+    void evaluatingRewardBatches_absentBodyDelegatesNullForAllBatches() {
+        when(rewardBatchService.evaluatingRewardBatches(null, INITIATIVE_ID))
+                .thenReturn(Mono.just(1L));
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/evaluate",
+                        INITIATIVE_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody().isEmpty();
+
+        verify(rewardBatchService).evaluatingRewardBatches(null, INITIATIVE_ID);
+    }
+
+    @Test
+    void evaluatingRewardBatches_malformedJsonReturnsCurrentInternalServerError() {
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
+                .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/evaluate",
+                        INITIATIVE_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{")
+                .exchange()
+                .expectStatus().isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
+                .expectHeader().contentType(MediaType.APPLICATION_JSON)
+                .expectBody(ErrorDTO.class)
+                .value(error -> {
+                    assertEquals("Error", error.getCode());
+                    assertEquals("Something gone wrong", error.getMessage());
+                });
+
+        verifyNoInteractions(rewardBatchService);
     }
 
     @Test

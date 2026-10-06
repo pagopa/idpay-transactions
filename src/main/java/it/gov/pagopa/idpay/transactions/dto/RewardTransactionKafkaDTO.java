@@ -21,6 +21,7 @@ public class RewardTransactionKafkaDTO {
 
     @JsonAlias("_id")
     private String id;
+    private Long transactionRevision;
     private String idTrxAcquirer;
     private String acquirerCode;
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)

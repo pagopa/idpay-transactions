@@ -22,6 +22,7 @@ public class RewardTransactionKafkaMapper {
 
         return RewardTransactionKafkaDTO.builder()
                 .id(model.getId())
+                .transactionRevision(model.getTransactionRevision())
                 .idTrxAcquirer(model.getIdTrxAcquirer())
                 .acquirerCode(model.getAcquirerCode())
                 .trxDate(toOffset(model.getTrxDate()))

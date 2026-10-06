@@ -1,9 +1,10 @@
 package it.gov.pagopa.idpay.transactions.storage;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.azure.storage.blob.BlobContainerClient;
-import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.BlobContainerAsyncClient;
+import com.azure.storage.blob.BlobServiceAsyncClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -22,44 +23,44 @@ class BlobStorageClientConfigTest {
   }
 
   @Test
-  void testBlobServiceClient() {
-    BlobServiceClient serviceClient = blobStorageClientConfig.blobServiceClient();
+  void testBlobServiceAsyncClient() {
+    BlobServiceAsyncClient serviceClient = blobStorageClientConfig.blobServiceAsyncClient();
     assertNotNull(serviceClient);
-    assert(serviceClient.getAccountUrl().contains("storageaccount"));
+    assertTrue(serviceClient.getAccountUrl().contains("storageaccount"));
   }
 
   @Test
-  void testBlobContainerClient() {
-    BlobServiceClient serviceClient = blobStorageClientConfig.blobServiceClient();
-    BlobContainerClient containerClient = blobStorageClientConfig.blobContainerClient(serviceClient);
+  void testBlobContainerAsyncClient() {
+    BlobServiceAsyncClient serviceClient = blobStorageClientConfig.blobServiceAsyncClient();
+    BlobContainerAsyncClient containerClient = blobStorageClientConfig.blobContainerClient(serviceClient);
     assertNotNull(containerClient);
     assert(containerClient.getBlobContainerName().equals("containerreference"));
   }
 
   @Test
   void testReportsTransactionsContainerClient() {
-    BlobServiceClient serviceClient = blobStorageClientConfig.blobServiceClient();
+    BlobServiceAsyncClient serviceClient = blobStorageClientConfig.blobServiceAsyncClient();
 
     BlobStorageProperties properties = new BlobStorageProperties();
     properties.setReportsTransactionsContainerReference("reportsTransactionsContainer");
 
     BlobStorageClientConfig config = new BlobStorageClientConfig(properties);
 
-    BlobContainerClient reportsClient = config.reportsTransactionsContainerClient(serviceClient);
+    BlobContainerAsyncClient reportsClient = config.reportsTransactionsContainerClient(serviceClient);
     assertNotNull(reportsClient);
     assert(reportsClient.getBlobContainerName().equals("reportsTransactionsContainer"));
   }
 
   @Test
   void testReportsUserDetailsContainerClient() {
-    BlobServiceClient serviceClient = blobStorageClientConfig.blobServiceClient();
+    BlobServiceAsyncClient serviceClient = blobStorageClientConfig.blobServiceAsyncClient();
 
     BlobStorageProperties properties = new BlobStorageProperties();
     properties.setReportsUserDetailsContainerReference("reportsUserDetailsContainer");
 
     BlobStorageClientConfig config = new BlobStorageClientConfig(properties);
 
-    BlobContainerClient reportsClient = config.reportsUserDetailsContainerClient(serviceClient);
+    BlobContainerAsyncClient reportsClient = config.reportsUserDetailsContainerClient(serviceClient);
     assertNotNull(reportsClient);
     assert(reportsClient.getBlobContainerName().equals("reportsUserDetailsContainer"));
   }

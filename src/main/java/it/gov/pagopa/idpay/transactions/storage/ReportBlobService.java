@@ -1,5 +1,7 @@
 package it.gov.pagopa.idpay.transactions.storage;
 
+import reactor.core.publisher.Mono;
+
 public interface ReportBlobService {
-    String getFileSignedUrl(String blobPath);
+    Mono<String> getFileSignedUrl(String blobPath);
 }

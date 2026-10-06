@@ -19,8 +19,7 @@ import reactor.test.StepVerifier;
 /**
  * WireMock-based integration tests for {@link InitiativeRestClientImpl}.
  *
- * <p>This test suite mirrors the structure of {@code PaymentRestClientImplTest} to keep the
- * test suite homogeneous across REST clients. Every relevant HTTP outcome (2xx, 4xx, 5xx) is
+ * <p>This test suite mirrors the other REST-client integration tests. Every relevant HTTP outcome (2xx, 4xx, 5xx) is
  * covered so that each branch of the client is exercised and meets the project's coverage
  * thresholds (line coverage ≥ 90%, branch coverage ≥ 80%).
  *
@@ -111,4 +110,3 @@ class InitiativeRestClientImplTest extends BaseWireMockTest {
         return false;
     }
 }
-

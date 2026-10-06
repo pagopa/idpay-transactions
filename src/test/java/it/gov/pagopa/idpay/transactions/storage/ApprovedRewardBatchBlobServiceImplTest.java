@@ -1,11 +1,12 @@
 package it.gov.pagopa.idpay.transactions.storage;
 
 import com.azure.core.http.rest.Response;
-import com.azure.storage.blob.BlobClient;
-import com.azure.storage.blob.BlobContainerClient;
-import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.BlobAsyncClient;
+import com.azure.storage.blob.BlobContainerAsyncClient;
+import com.azure.storage.blob.BlobServiceAsyncClient;
 import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.models.BlockBlobItem;
+import com.azure.storage.blob.models.UserDelegationKey;
 import com.azure.storage.blob.options.BlobParallelUploadOptions;
 import it.gov.pagopa.common.web.exception.ClientException;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,30 +17,32 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.time.OffsetDateTime;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ApprovedRewardBatchBlobServiceImplTest {
 
     @Mock
-    private BlobClient blobClientMock;
+    private BlobAsyncClient blobClientMock;
     @Mock
-    private BlobServiceClient blobServiceClient;
+    private BlobServiceAsyncClient blobServiceClient;
     @Mock
-    private BlobContainerClient csvContainerClient;
+    private BlobContainerAsyncClient csvContainerClient;
     @Mock
     private BlobStorageProperties propertiesMock;
-
     private ApprovedRewardBatchBlobServiceImpl approvedService;
 
     @BeforeEach
     void init() {
         when(propertiesMock.getInvoiceTokenDurationSeconds()).thenReturn(60);
-        lenient().doReturn(blobClientMock).when(csvContainerClient).getBlobClient(anyString());
+        lenient().doReturn(blobClientMock).when(csvContainerClient).getBlobAsyncClient(anyString());
 
         approvedService = new ApprovedRewardBatchBlobServiceImpl(
                 blobServiceClient,
@@ -52,20 +55,43 @@ class ApprovedRewardBatchBlobServiceImplTest {
     void getFileSignedUrlShouldReturnOK() {
         when(blobClientMock.getBlobUrl()).thenReturn("http://localhost:8080");
         when(blobClientMock.generateUserDelegationSas(any(), any())).thenReturn("token");
+        when(blobServiceClient.getUserDelegationKey(isNull(), any(OffsetDateTime.class)))
+                .thenReturn(Mono.just(userDelegationKey()));
 
-        String url = approvedService.getFileSignedUrl("fileA.csv");
+        StepVerifier.create(approvedService.getFileSignedUrl("fileA.csv"))
+                .expectNext("http://localhost:8080?token")
+                .verifyComplete();
 
-        assertNotNull(url);
-        assertEquals("http://localhost:8080?token", url);
+        verify(blobServiceClient).getUserDelegationKey(isNull(), any(OffsetDateTime.class));
+        verify(csvContainerClient).getBlobAsyncClient("fileA.csv");
+        verify(blobClientMock).getBlobUrl();
+        verify(blobClientMock).generateUserDelegationSas(any(), any());
     }
 
     @Test
-    void getFileSignedUrlShouldThrowException() {
+    void getFileSignedUrlShouldPropagateAsyncDelegationKeyError() {
+        BlobStorageException delegationKeyError =
+                new BlobStorageException("delegation key error", null, null);
+        when(blobServiceClient.getUserDelegationKey(isNull(), any(OffsetDateTime.class)))
+                .thenReturn(Mono.error(delegationKeyError));
+
+        StepVerifier.create(approvedService.getFileSignedUrl("fileA.csv"))
+                .expectErrorMatches(error -> error == delegationKeyError)
+                .verify();
+
+        verify(blobClientMock, never()).generateUserDelegationSas(any(), any());
+    }
+
+    @Test
+    void getFileSignedUrlShouldMapSasGenerationError() {
+        when(blobServiceClient.getUserDelegationKey(isNull(), any(OffsetDateTime.class)))
+                .thenReturn(Mono.just(userDelegationKey()));
         when(blobClientMock.generateUserDelegationSas(any(), any()))
                 .thenThrow(new BlobStorageException("sas error", null, null));
 
-        assertThrows(ClientException.class,
-                () -> approvedService.getFileSignedUrl("fileA.csv"));
+        StepVerifier.create(approvedService.getFileSignedUrl("fileA.csv"))
+                .expectError(ClientException.class)
+                .verify();
     }
 
     @Test
@@ -75,26 +101,40 @@ class ApprovedRewardBatchBlobServiceImplTest {
 
         Response<BlockBlobItem> mockResponse = mock(Response.class);
 
-        when(blobClientMock.uploadWithResponse(any(BlobParallelUploadOptions.class), any(), any()))
-                .thenReturn(mockResponse);
+        when(blobClientMock.uploadWithResponse(any(BlobParallelUploadOptions.class)))
+                .thenReturn(Mono.just(mockResponse));
 
-        Response<BlockBlobItem> result =
-                approvedService.upload(input, destination, "text/csv");
+        StepVerifier.create(approvedService.upload(input, destination, "text/csv"))
+                .expectNext(mockResponse)
+                .verifyComplete();
 
-        assertNotNull(result);
-        verify(csvContainerClient).getBlobClient(destination);
-        verify(blobClientMock).uploadWithResponse(any(BlobParallelUploadOptions.class), any(), any());
+        verify(csvContainerClient).getBlobAsyncClient(destination);
+        verify(blobClientMock).uploadWithResponse(any(BlobParallelUploadOptions.class));
     }
 
     @Test
-    void uploadShouldThrowException() {
+    void uploadShouldPropagateAsyncError() {
         InputStream input = new ByteArrayInputStream("csv content".getBytes());
         String destination = "path/fileA.csv";
 
-        when(blobClientMock.uploadWithResponse(any(BlobParallelUploadOptions.class), any(), any()))
-                .thenThrow(new RuntimeException("upload error"));
+        RuntimeException uploadError = new RuntimeException("upload error");
+        when(blobClientMock.uploadWithResponse(any(BlobParallelUploadOptions.class)))
+                .thenReturn(Mono.error(uploadError));
 
-        assertThrows(RuntimeException.class,
-                () -> approvedService.upload(input, destination, "text/csv"));
+        StepVerifier.create(approvedService.upload(input, destination, "text/csv"))
+                .expectErrorMatches(error -> error == uploadError)
+                .verify();
+    }
+
+    private UserDelegationKey userDelegationKey() {
+        OffsetDateTime now = OffsetDateTime.now();
+        return new UserDelegationKey()
+                .setSignedObjectId("object-id")
+                .setSignedTenantId("tenant-id")
+                .setSignedStart(now.minusMinutes(1))
+                .setSignedExpiry(now.plusDays(1))
+                .setSignedService("b")
+                .setSignedVersion("2023-11-03")
+                .setValue("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
     }
 }
