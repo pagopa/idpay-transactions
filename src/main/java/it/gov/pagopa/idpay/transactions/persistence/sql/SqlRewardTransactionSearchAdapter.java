@@ -347,7 +347,7 @@ public class SqlRewardTransactionSearchAdapter implements
         }
         if (filters.getRewardBatchTrxStatus() != null) {
             if (includeToCheckWithConsultable
-                    && filters.getRewardBatchTrxStatus() == RewardBatchTrxStatus.CONSULTABLE) {
+                    && RewardBatchTrxStatus.CONSULTABLE.equals(filters.getRewardBatchTrxStatus())) {
                 condition = condition.and(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS.cast(String.class).in(
                         RewardBatchTrxStatus.CONSULTABLE.name(),
                         RewardBatchTrxStatus.TO_CHECK.name(),

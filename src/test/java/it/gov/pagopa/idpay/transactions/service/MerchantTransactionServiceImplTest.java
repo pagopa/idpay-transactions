@@ -569,7 +569,7 @@ class MerchantTransactionServiceImplTest {
     }
 
     @Test
-    void getMerchantTransactions_operatorConsultableFilterDoesNotIncludeToCheck() {
+    void getMerchantTransactions_operatorConsultableFilterIncludesToCheck() {
         LocalDateTime now = LocalDateTime.now();
 
         RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
@@ -611,8 +611,8 @@ class MerchantTransactionServiceImplTest {
                 any(), isNull(), includeCaptor.capture(), any()
         );
 
-        assertFalse(includeCaptor.getValue(),
-                "Per un operatore con filtro CONSULTABLE il flag includeToCheckWithConsultable deve essere false");
+        assertTrue(includeCaptor.getValue(),
+                "Per il filtro CONSULTABLE il flag includeToCheckWithConsultable deve essere true anche per l'operatore");
     }
 
     @Test
