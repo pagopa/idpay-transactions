@@ -354,7 +354,7 @@ public class SqlRewardTransactionSearchAdapter implements
                         RewardBatchTrxStatus.SUSPENDED.name()
                 ));
             } else {
-                condition = condition.and(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS.cast(String.class).eq(
+                condition = condition.and(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS.eq(
                         filters.getRewardBatchTrxStatus().name()
                 ));
             }

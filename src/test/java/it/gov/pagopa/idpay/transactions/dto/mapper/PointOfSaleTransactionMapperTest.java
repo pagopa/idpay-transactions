@@ -38,7 +38,7 @@ class PointOfSaleTransactionMapperTest {
     private static final String USER_ID = "USERID1";
     private static final String FISCAL_CODE = "FISCALCODE1";
 
-    private static final RewardBatchTrxStatus REWARD_BATCH_TRX_STATUS = RewardBatchTrxStatus.values()[0];
+    private static final RewardBatchTrxStatus REWARD_BATCH_TRX_STATUS = RewardBatchTrxStatus.CONSULTABLE;
 
     @BeforeEach
     void setUp() {
@@ -231,5 +231,41 @@ class PointOfSaleTransactionMapperTest {
         assertEquals("CN456", result.getInvoiceFile().getDocNumber());
 
         verifyNoInteractions(userRestClient);
+    }
+
+    @Test
+    void toDTO_shouldMapToCheckToConsultable() {
+        RewardTransaction trx = RewardTransaction.builder()
+                .id("trx7")
+                .userId(USER_ID)
+                .amountCents(5000L)
+                .status("REWARDED")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.TO_CHECK)
+                .elaborationDateTime(LocalDateTime.now())
+                .rewards(getReward())
+                .build();
+
+        PointOfSaleTransactionDTO result = mapper.toDTO(trx, INITIATIVE_ID, FISCAL_CODE).block();
+
+        assertNotNull(result);
+        assertEquals(RewardBatchTrxStatus.CONSULTABLE.name(), result.getRewardBatchTrxStatus());
+    }
+
+    @Test
+    void toDTO_shouldMapSuspendedToConsultable() {
+        RewardTransaction trx = RewardTransaction.builder()
+                .id("trx8")
+                .userId(USER_ID)
+                .amountCents(5000L)
+                .status("REWARDED")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
+                .elaborationDateTime(LocalDateTime.now())
+                .rewards(getReward())
+                .build();
+
+        PointOfSaleTransactionDTO result = mapper.toDTO(trx, INITIATIVE_ID, FISCAL_CODE).block();
+
+        assertNotNull(result);
+        assertEquals(RewardBatchTrxStatus.CONSULTABLE.name(), result.getRewardBatchTrxStatus());
     }
 }
