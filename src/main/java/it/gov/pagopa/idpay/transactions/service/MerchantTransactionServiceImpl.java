@@ -107,7 +107,7 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
 
         boolean includeToCheckWithConsultable =
                 !isOperator(organizationRole)
-                        && filters.getRewardBatchTrxStatus() == RewardBatchTrxStatus.CONSULTABLE;
+                        && RewardBatchTrxStatus.CONSULTABLE.equals(filters.getRewardBatchTrxStatus());
 
         if (StringUtils.isNotBlank(filters.getFiscalCode())) {
             return userRestClient.retrieveFiscalCodeInfo(filters.getFiscalCode())
@@ -169,9 +169,10 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
         RewardBatchTrxStatus original = transaction.getRewardBatchTrxStatus();
         RewardBatchTrxStatus exposed = original;
 
-        if (!isOperator(organizationRole) && original == RewardBatchTrxStatus.TO_CHECK) {
-            exposed = RewardBatchTrxStatus.CONSULTABLE;
-        }
+        if (!isOperator(organizationRole) && (original == RewardBatchTrxStatus.TO_CHECK || original == RewardBatchTrxStatus.SUSPENDED)) {
+                exposed = RewardBatchTrxStatus.CONSULTABLE;
+            }
+
 
         MerchantTransactionDTO out = MerchantTransactionDTO.builder()
                 .trxId(transaction.getId())

@@ -348,12 +348,13 @@ public class SqlRewardTransactionSearchAdapter implements
         if (filters.getRewardBatchTrxStatus() != null) {
             if (includeToCheckWithConsultable
                     && filters.getRewardBatchTrxStatus() == RewardBatchTrxStatus.CONSULTABLE) {
-                condition = condition.and(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS.in(
+                condition = condition.and(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS.cast(String.class).in(
                         RewardBatchTrxStatus.CONSULTABLE.name(),
-                        RewardBatchTrxStatus.TO_CHECK.name()
+                        RewardBatchTrxStatus.TO_CHECK.name(),
+                        RewardBatchTrxStatus.SUSPENDED.name()
                 ));
             } else {
-                condition = condition.and(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS.eq(
+                condition = condition.and(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS.cast(String.class).eq(
                         filters.getRewardBatchTrxStatus().name()
                 ));
             }

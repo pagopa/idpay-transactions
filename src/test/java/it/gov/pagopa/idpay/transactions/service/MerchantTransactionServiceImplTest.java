@@ -482,15 +482,193 @@ class MerchantTransactionServiceImplTest {
         verify(userRestClientMock, never()).retrieveFiscalCodeInfo(anyString());
     }
 
+    private void assertFirstPage(MerchantTransactionsListDTO result) {
+        assertNotNull(result);
+        assertEquals(0, result.getPageNo());
+        assertEquals(10, result.getPageSize());
+        assertEquals(1, result.getTotalElements());
+        assertEquals(1, result.getTotalPages());
+
+        List<MerchantTransactionDTO> content = result.getContent();
+        assertNotNull(content);
+        assertEquals(1, content.size());
+    }
+
+    @Test
+    void getMerchantTransactionList_nonOperatorSuspendedExposedAsConsultable() {
+        LocalDateTime now = LocalDateTime.now();
+
+        RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id_suspended")
+                .userId(USER_ID)
+                .amountCents(5000L)
+                .status("REWARDED")
+                .elaborationDateTime(now)
+                .rewards(getReward())
+                .trxDate(now)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
+                .build();
+
+        Pageable paging = PageRequest.of(0, 10);
+        UserInfoPDV userInfoPDV = new UserInfoPDV(FISCAL_CODE);
+
+        when(rewardTransactionSearchPortMock.findMerchantTransactions(any(), any(), anyBoolean(), any()))
+                .thenReturn(Flux.just(rt1));
+        when(rewardTransactionSearchPortMock.countMerchantTransactions(any(), any(), anyBoolean()))
+                .thenReturn(Mono.just(1L));
+        when(userRestClientMock.retrieveUserInfo(USER_ID))
+                .thenReturn(Mono.just(userInfoPDV));
+
+        MerchantTransactionsListDTO result = merchantTransactionService.getMerchantTransactions(
+                MERCHANT_ID, "merchant", INITIATIVE_ID, null, null, null, null, null, null, paging
+        ).block();
+
+        assertNotNull(result);
+        List<MerchantTransactionDTO> content = result.getContent();
+        assertNotNull(content);
+        assertFalse(content.isEmpty());
+
+        MerchantTransactionDTO dto = content.getFirst();
+        assertEquals(RewardBatchTrxStatus.CONSULTABLE, dto.getRewardBatchTrxStatus(),
+                "Per un non-operatore lo stato SUSPENDED deve essere esposto come CONSULTABLE");
+    }
+
+    @Test
+    void getMerchantTransactionList_operatorKeepsOriginalStatus() {
+        LocalDateTime now = LocalDateTime.now();
+
+        RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id_suspended_operator")
+                .userId(USER_ID)
+                .amountCents(5000L)
+                .status("REWARDED")
+                .elaborationDateTime(now)
+                .rewards(getReward())
+                .trxDate(now)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
+                .build();
+
+        Pageable paging = PageRequest.of(0, 10);
+        UserInfoPDV userInfoPDV = new UserInfoPDV(FISCAL_CODE);
+
+        when(rewardTransactionSearchPortMock.findMerchantTransactions(any(), any(), anyBoolean(), any()))
+                .thenReturn(Flux.just(rt1));
+        when(rewardTransactionSearchPortMock.countMerchantTransactions(any(), any(), anyBoolean()))
+                .thenReturn(Mono.just(1L));
+        when(userRestClientMock.retrieveUserInfo(USER_ID))
+                .thenReturn(Mono.just(userInfoPDV));
+
+        MerchantTransactionsListDTO result = merchantTransactionService.getMerchantTransactions(
+                MERCHANT_ID, "operator1", INITIATIVE_ID, null, null, null, null, null, null, paging
+        ).block();
+
+        assertNotNull(result);
+        MerchantTransactionDTO dto = result.getContent().getFirst();
+        assertEquals(RewardBatchTrxStatus.SUSPENDED, dto.getRewardBatchTrxStatus(),
+                "Per un operatore lo stato SUSPENDED non deve essere alterato");
+    }
+
+    @Test
+    void getMerchantTransactions_operatorConsultableFilterDoesNotIncludeToCheck() {
+        LocalDateTime now = LocalDateTime.now();
+
+        RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .userId(USER_ID)
+                .amountCents(5000L)
+                .status("REWARDED")
+                .elaborationDateTime(now)
+                .rewards(getReward())
+                .trxDate(now)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.CONSULTABLE)
+                .build();
+
+        Pageable paging = PageRequest.of(0, 10);
+        UserInfoPDV userInfoPDV = new UserInfoPDV(FISCAL_CODE);
+
+        when(rewardTransactionSearchPortMock.findMerchantTransactions(any(), any(), anyBoolean(), any()))
+                .thenReturn(Flux.just(rt1));
+        when(rewardTransactionSearchPortMock.countMerchantTransactions(any(), any(), anyBoolean()))
+                .thenReturn(Mono.just(1L));
+        when(userRestClientMock.retrieveUserInfo(USER_ID))
+                .thenReturn(Mono.just(userInfoPDV));
+
+        merchantTransactionService.getMerchantTransactions(
+                MERCHANT_ID,
+                "operator1",
+                INITIATIVE_ID,
+                null,
+                null,
+                null,
+                RewardBatchTrxStatus.CONSULTABLE.name(),
+                null,
+                null,
+                paging
+        ).block();
+
+        ArgumentCaptor<Boolean> includeCaptor = ArgumentCaptor.forClass(Boolean.class);
+        verify(rewardTransactionSearchPortMock).findMerchantTransactions(
+                any(), isNull(), includeCaptor.capture(), any()
+        );
+
+        assertFalse(includeCaptor.getValue(),
+                "Per un operatore con filtro CONSULTABLE il flag includeToCheckWithConsultable deve essere false");
+    }
+
+    @Test
+    void getMerchantTransactions_nonOperatorOtherFilterDoesNotIncludeToCheck() {
+        LocalDateTime now = LocalDateTime.now();
+
+        RewardTransaction rt1 = RewardTransactionFaker.mockInstanceBuilder(1)
+                .id("id1")
+                .userId(USER_ID)
+                .amountCents(5000L)
+                .status("REWARDED")
+                .elaborationDateTime(now)
+                .rewards(getReward())
+                .trxDate(now)
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.REJECTED)
+                .build();
+
+        Pageable paging = PageRequest.of(0, 10);
+        UserInfoPDV userInfoPDV = new UserInfoPDV(FISCAL_CODE);
+
+        when(rewardTransactionSearchPortMock.findMerchantTransactions(any(), any(), anyBoolean(), any()))
+                .thenReturn(Flux.just(rt1));
+        when(rewardTransactionSearchPortMock.countMerchantTransactions(any(), any(), anyBoolean()))
+                .thenReturn(Mono.just(1L));
+        when(userRestClientMock.retrieveUserInfo(USER_ID))
+                .thenReturn(Mono.just(userInfoPDV));
+
+        merchantTransactionService.getMerchantTransactions(
+                MERCHANT_ID,
+                "merchant",
+                INITIATIVE_ID,
+                null,
+                null,
+                null,
+                RewardBatchTrxStatus.REJECTED.name(),
+                null,
+                null,
+                paging
+        ).block();
+
+        ArgumentCaptor<Boolean> includeCaptor = ArgumentCaptor.forClass(Boolean.class);
+        verify(rewardTransactionSearchPortMock).findMerchantTransactions(
+                any(), isNull(), includeCaptor.capture(), any()
+        );
+
+        assertFalse(includeCaptor.getValue(),
+                "Per un filtro diverso da CONSULTABLE il flag includeToCheckWithConsultable deve essere false");
+    }
+
     @Test
     void getProcessedTransactionStatuses_operatorVsNonOperator() {
         List<String> operatorStatuses = merchantTransactionService
-                .getProcessedTransactionStatuses(
-                        "operator1").block();
+                .getProcessedTransactionStatuses("operator1").block();
 
         List<String> merchantStatuses = merchantTransactionService
-                .getProcessedTransactionStatuses(
-                        "merchant").block();
+                .getProcessedTransactionStatuses("merchant").block();
 
         assertNotNull(operatorStatuses);
         assertNotNull(merchantStatuses);
@@ -504,18 +682,6 @@ class MerchantTransactionServiceImplTest {
 
         assertFalse(merchantStatuses.contains(RewardBatchTrxStatus.TO_CHECK.name()));
         assertEquals(allEnumStatuses.size() - 1, merchantStatuses.size());
-    }
-
-    private void assertFirstPage(MerchantTransactionsListDTO result) {
-        assertNotNull(result);
-        assertEquals(0, result.getPageNo());
-        assertEquals(10, result.getPageSize());
-        assertEquals(1, result.getTotalElements());
-        assertEquals(1, result.getTotalPages());
-
-        List<MerchantTransactionDTO> content = result.getContent();
-        assertNotNull(content);
-        assertEquals(1, content.size());
     }
 
     private void assertMerchantTransactionMatches(RewardTransaction expected,
