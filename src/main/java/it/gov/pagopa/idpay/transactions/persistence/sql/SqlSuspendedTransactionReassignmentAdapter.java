@@ -13,7 +13,6 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardBatchFactory;
 import it.gov.pagopa.idpay.transactions.persistence.port.SuspendedTransactionReassignmentPort;
 import java.time.YearMonth;
-import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
@@ -21,9 +20,7 @@ import org.jooq.SQLDialect;
 import org.springframework.r2dbc.connection.ConnectionFactoryUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.util.retry.Retry;
 
 /**
  * Moves final-approval suspended rows while batch aggregates remain derived
@@ -40,7 +37,7 @@ public class SqlSuspendedTransactionReassignmentAdapter implements SuspendedTran
 
     @Override
     public Mono<Void> reassignSuspendedTransactions(String sourceBatchId, String initiativeId) {
-        return Mono.defer(() -> {
+        return SqlTransactionRetrySupport.retryOnConcurrencyFailure(Mono.defer(() -> {
             validateInput(sourceBatchId, initiativeId);
             return transactionalOperator.transactional(ConnectionFactoryUtils.getConnection(connectionFactory)
                     .flatMap(connection -> reassignWithinTransaction(
@@ -48,7 +45,7 @@ public class SqlSuspendedTransactionReassignmentAdapter implements SuspendedTran
                             sourceBatchId,
                             initiativeId
                     )));
-        }).retryWhen(Retry.max(3).filter(SqlTransactionRetrySupport::isRetryableConcurrencyFailure));
+        }));
     }
 
     private Mono<Void> reassignWithinTransaction(
@@ -58,15 +55,16 @@ public class SqlSuspendedTransactionReassignmentAdapter implements SuspendedTran
     ) {
         return findBatch(transactionDslContext, sourceBatchId, initiativeId)
                 .flatMap(source -> createOrReadTargetBatch(transactionDslContext, source)
-                        .flatMap(target -> lockSourceAndTarget(
+                        .flatMap(target -> SqlRewardBatchRowLock.acquirePair(
                                         transactionDslContext,
+                                        initiativeId,
                                         source.getId(),
-                                        target.getId(),
-                                        initiativeId
+                                        target.getId()
                                 )
                                 .flatMap(locked -> moveSuspendedTransactions(
                                         transactionDslContext,
-                                        locked
+                                        batchMapper.fromRecord(locked.source()),
+                                        batchMapper.fromRecord(locked.target())
                                 ))));
     }
 
@@ -99,55 +97,27 @@ public class SqlSuspendedTransactionReassignmentAdapter implements SuspendedTran
         return batchAdapter.createOrReadWithinTransaction(target, transactionDslContext);
     }
 
-    private Mono<LockedBatches> lockSourceAndTarget(
-            DSLContext transactionDslContext,
-            String sourceBatchId,
-            String targetBatchId,
-            String initiativeId
-    ) {
-        List<String> batchIds = List.of(sourceBatchId, targetBatchId).stream()
-                .distinct()
-                .sorted()
-                .toList();
-
-        return Flux.from(transactionDslContext.selectFrom(REWARD_BATCHES)
-                        .where(REWARD_BATCHES.ID.in(batchIds)
-                                .and(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId)))
-                        .orderBy(REWARD_BATCHES.ID.asc())
-                        .forUpdate())
-                .map(batchMapper::fromRecord)
-                .collectMap(RewardBatch::getId)
-                .flatMap(lockedBatches -> lockedBatches.containsKey(sourceBatchId)
-                                && lockedBatches.containsKey(targetBatchId)
-                        ? Mono.just(new LockedBatches(
-                                lockedBatches.get(sourceBatchId),
-                                lockedBatches.get(targetBatchId)
-                        ))
-                        : Mono.error(new IllegalStateException(
-                                "Source or target reward batch changed during suspended reassignment"
-                        )));
-    }
-
     private Mono<Void> moveSuspendedTransactions(
             DSLContext transactionDslContext,
-            LockedBatches lockedBatches
+            RewardBatch source,
+            RewardBatch target
     ) {
-        RewardBatch source = lockedBatches.source();
-        RewardBatch target = lockedBatches.target();
-
-        return Mono.from(transactionDslContext.update(REWARD_TRANSACTIONS)
-                        .set(REWARD_TRANSACTIONS.REWARD_BATCH_ID, target.getId())
-                        .set(REWARD_TRANSACTIONS.STATUS, SyncTrxStatus.INVOICED.name())
-                        .set(REWARD_TRANSACTIONS.REWARD_BATCH_LAST_MONTH_ELABORATED,
-                                coalesce(
-                                        REWARD_TRANSACTIONS.REWARD_BATCH_LAST_MONTH_ELABORATED,
-                                        val(source.getMonth())
-                                ))
-                        .where(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(source.getId())
-                                .and(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(source.getInitiativeId()))
-                                .and(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS.eq(
-                                        RewardBatchTrxStatus.SUSPENDED.name()
-                                ))))
+        return SqlRewardBatchMembership.moveTransactions(
+                        transactionDslContext,
+                        source.getInitiativeId(),
+                        source.getId(),
+                        target.getId(),
+                        REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS.eq(
+                                RewardBatchTrxStatus.SUSPENDED.name()
+                        ),
+                        update -> update
+                                .set(REWARD_TRANSACTIONS.STATUS, SyncTrxStatus.INVOICED.name())
+                                .set(REWARD_TRANSACTIONS.REWARD_BATCH_LAST_MONTH_ELABORATED,
+                                        coalesce(
+                                                REWARD_TRANSACTIONS.REWARD_BATCH_LAST_MONTH_ELABORATED,
+                                                val(source.getMonth())
+                                        ))
+                )
                 .then();
     }
 
@@ -162,8 +132,5 @@ public class SqlSuspendedTransactionReassignmentAdapter implements SuspendedTran
                 || initiativeId == null || initiativeId.isBlank()) {
             throw new IllegalArgumentException("Source batch ID and initiative ID are required");
         }
-    }
-
-    private record LockedBatches(RewardBatch source, RewardBatch target) {
     }
 }

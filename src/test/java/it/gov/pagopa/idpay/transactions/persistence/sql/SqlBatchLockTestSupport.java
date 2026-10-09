@@ -13,7 +13,7 @@ import reactor.core.publisher.Mono;
  *
  * <p>The lock holder deliberately uses a connection that is independent from
  * the connection pool used by the adapter under test, so the tests can hold
- * the batch row lock while observing the adapter's pending operation.
+ * a database row lock while observing the adapter's pending operation.
  */
 final class SqlBatchLockTestSupport {
 
@@ -22,6 +22,7 @@ final class SqlBatchLockTestSupport {
 
     private SqlBatchLockTestSupport() {
     }
+
     static Mono<HeldRowLock> holdBatch(
             ConnectionFactory connectionFactory,
             String batchId,
@@ -32,6 +33,20 @@ final class SqlBatchLockTestSupport {
                 "SELECT id FROM reward_batches "
                         + "WHERE id = $1 AND initiative_id = $2 FOR UPDATE",
                 batchId,
+                initiativeId
+        );
+    }
+
+    static Mono<HeldRowLock> holdTransaction(
+            ConnectionFactory connectionFactory,
+            String transactionId,
+            String initiativeId
+    ) {
+        return hold(
+                connectionFactory,
+                "SELECT transaction_id FROM reward_transactions "
+                        + "WHERE transaction_id = $1 AND initiative_id = $2 FOR UPDATE",
+                transactionId,
                 initiativeId
         );
     }
