@@ -436,6 +436,10 @@ class RewardBatchServiceImplTest {
         RewardBatchServiceImpl worker = spy(service);
         when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(approving));
         when(finalApprovalPort.prepareFinalApproval("batch", "initiative")).thenReturn(Mono.just(prepared));
+        when(transactionReadPort.findBatchTransactions("batch", "initiative", List.of(RewardBatchTrxStatus.SUSPENDED)))
+                .thenReturn(Flux.just(trx("trx-1", SyncTrxStatus.INVOICED)));
+        when(paymentRestClient.updateTransactionsStatus(Set.of("trx-1"), SyncTrxStatus.INVOICED))
+                .thenReturn(Mono.just(1));
         when(reassignmentPort.reassignSuspendedTransactions("batch", "initiative")).thenReturn(Mono.empty());
         when(finalApprovalPort.completeFinalApproval("batch", "initiative")).thenReturn(Mono.just(approved));
         doReturn(Mono.just("approved.csv")).when(worker)
@@ -444,8 +448,221 @@ class RewardBatchServiceImplTest {
         StepVerifier.create(worker.processSingleBatchConfirmation(approving, "initiative"))
                 .expectNext(approved).verifyComplete();
 
+        InOrder inOrder = inOrder(paymentRestClient, reassignmentPort, finalApprovalPort);
+        inOrder.verify(paymentRestClient).updateTransactionsStatus(Set.of("trx-1"), SyncTrxStatus.INVOICED);
+        inOrder.verify(reassignmentPort).reassignSuspendedTransactions("batch", "initiative");
+        inOrder.verify(finalApprovalPort).completeFinalApproval("batch", "initiative");
+        verify(paymentRestClient, never()).updateTransactionsStatus(any(), eq(SyncTrxStatus.REWARDED));
+    }
+
+    @Test
+    void confirmationWorkerSkipsLocallyRefundedSuspendedRowsWhenSyncingPayment() {
+        RewardBatch approving = approvingL3("batch");
+        RewardBatch prepared = batch("batch", RewardBatchStatus.APPROVING);
+        prepared.setNumberOfTransactionsSuspended(3L);
+        RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
+        RewardBatchServiceImpl worker = spy(service);
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(approving));
+        when(finalApprovalPort.prepareFinalApproval("batch", "initiative")).thenReturn(Mono.just(prepared));
+        when(transactionReadPort.findBatchTransactions("batch", "initiative", List.of(RewardBatchTrxStatus.SUSPENDED)))
+                .thenReturn(Flux.just(
+                        trx("trx-1", SyncTrxStatus.INVOICED),
+                        trx("trx-refunded", SyncTrxStatus.REFUNDED),
+                        trx(null, SyncTrxStatus.INVOICED)));
+        when(paymentRestClient.updateTransactionsStatus(Set.of("trx-1"), SyncTrxStatus.INVOICED))
+                .thenReturn(Mono.just(1));
+        when(reassignmentPort.reassignSuspendedTransactions("batch", "initiative")).thenReturn(Mono.empty());
+        when(finalApprovalPort.completeFinalApproval("batch", "initiative")).thenReturn(Mono.just(approved));
+        doReturn(Mono.just("approved.csv")).when(worker)
+                .generateAndSaveCsv("batch", "initiative", "merchant");
+
+        StepVerifier.create(worker.processSingleBatchConfirmation(approving, "initiative"))
+                .expectNext(approved).verifyComplete();
+
+        verify(paymentRestClient).updateTransactionsStatus(Set.of("trx-1"), SyncTrxStatus.INVOICED);
+        verifyNoMoreInteractions(paymentRestClient);
+    }
+
+    @Test
+    void confirmationWorkerStopsBeforeReassignmentWhenPaymentSyncFails() {
+        RewardBatch approving = approvingL3("batch");
+        RewardBatch prepared = batch("batch", RewardBatchStatus.APPROVING);
+        prepared.setNumberOfTransactionsSuspended(1L);
+        RuntimeException failure = new IllegalStateException("payment status update failed");
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(approving));
+        when(finalApprovalPort.prepareFinalApproval("batch", "initiative")).thenReturn(Mono.just(prepared));
+        when(transactionReadPort.findBatchTransactions("batch", "initiative", List.of(RewardBatchTrxStatus.SUSPENDED)))
+                .thenReturn(Flux.just(trx("trx-1", SyncTrxStatus.REWARDED)));
+        when(paymentRestClient.updateTransactionsStatus(Set.of("trx-1"), SyncTrxStatus.INVOICED))
+                .thenReturn(Mono.error(failure));
+
+        StepVerifier.create(service.processSingleBatchConfirmation(approving, "initiative"))
+                .expectErrorMatches(error -> error == failure)
+                .verify();
+
+        verify(reassignmentPort, never()).reassignSuspendedTransactions(anyString(), anyString());
+        verify(finalApprovalPort, never()).completeFinalApproval(anyString(), anyString());
+    }
+
+    @Test
+    void confirmationWorkerSplitsSuspendedPaymentSyncIntoBatchesOfAtMost100Ids() {
+        RewardBatch approving = approvingL3("batch");
+        RewardBatch prepared = batch("batch", RewardBatchStatus.APPROVING);
+        prepared.setNumberOfTransactionsSuspended(205L);
+        RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
+        RewardBatchServiceImpl worker = spy(service);
+        List<RewardTransaction> suspended = IntStream.rangeClosed(1, 205)
+                .mapToObj(i -> trx("trx-" + i, SyncTrxStatus.INVOICED))
+                .toList();
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(approving));
+        when(finalApprovalPort.prepareFinalApproval("batch", "initiative")).thenReturn(Mono.just(prepared));
+        when(transactionReadPort.findBatchTransactions("batch", "initiative", List.of(RewardBatchTrxStatus.SUSPENDED)))
+                .thenReturn(Flux.fromIterable(suspended));
+        when(paymentRestClient.updateTransactionsStatus(any(), eq(SyncTrxStatus.INVOICED)))
+                .thenAnswer(invocation -> {
+                    Set<String> chunk = invocation.getArgument(0);
+                    if (chunk.size() > 100) {
+                        return Mono.error(new IllegalArgumentException("Chunk size exceeds 100"));
+                    }
+                    return Mono.just(chunk.size());
+                });
+        when(reassignmentPort.reassignSuspendedTransactions("batch", "initiative")).thenReturn(Mono.empty());
+        when(finalApprovalPort.completeFinalApproval("batch", "initiative")).thenReturn(Mono.just(approved));
+        doReturn(Mono.just("approved.csv")).when(worker)
+                .generateAndSaveCsv("batch", "initiative", "merchant");
+
+        StepVerifier.create(worker.processSingleBatchConfirmation(approving, "initiative"))
+                .expectNext(approved).verifyComplete();
+
+        verify(paymentRestClient, times(3)).updateTransactionsStatus(any(), eq(SyncTrxStatus.INVOICED));
         verify(reassignmentPort).reassignSuspendedTransactions("batch", "initiative");
-        verify(finalApprovalPort).completeFinalApproval("batch", "initiative");
+    }
+
+    @Test
+    void confirmationWorkerWithoutSuspendedRowsDoesNotTouchPaymentStatus() {
+        RewardBatch approving = approvingL3("batch");
+        RewardBatch prepared = batch("batch", RewardBatchStatus.APPROVING);
+        prepared.setNumberOfTransactionsSuspended(0L);
+        RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
+        RewardBatchServiceImpl worker = spy(service);
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(approving));
+        when(finalApprovalPort.prepareFinalApproval("batch", "initiative")).thenReturn(Mono.just(prepared));
+        when(finalApprovalPort.completeFinalApproval("batch", "initiative")).thenReturn(Mono.just(approved));
+        doReturn(Mono.just("approved.csv")).when(worker)
+                .generateAndSaveCsv("batch", "initiative", "merchant");
+
+        StepVerifier.create(worker.processSingleBatchConfirmation(approving, "initiative"))
+                .expectNext(approved).verifyComplete();
+
+        verifyNoInteractions(paymentRestClient, reassignmentPort);
+        verify(transactionReadPort, never()).findBatchTransactions(anyString(), anyString(), any());
+    }
+
+    @Test
+    void confirmationWorkerRetryAfterReassignmentDoesNotResyncPayment() {
+        RewardBatch approving = approvingL3("batch");
+        RewardBatch prepared = batch("batch", RewardBatchStatus.APPROVING);
+        prepared.setNumberOfTransactionsSuspended(1L);
+        RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
+        RewardBatchServiceImpl worker = spy(service);
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(approving));
+        when(finalApprovalPort.prepareFinalApproval("batch", "initiative")).thenReturn(Mono.just(prepared));
+        when(transactionReadPort.findBatchTransactions("batch", "initiative", List.of(RewardBatchTrxStatus.SUSPENDED)))
+                .thenReturn(Flux.empty());
+        when(reassignmentPort.reassignSuspendedTransactions("batch", "initiative")).thenReturn(Mono.empty());
+        when(finalApprovalPort.completeFinalApproval("batch", "initiative")).thenReturn(Mono.just(approved));
+        doReturn(Mono.just("approved.csv")).when(worker)
+                .generateAndSaveCsv("batch", "initiative", "merchant");
+
+        StepVerifier.create(worker.processSingleBatchConfirmation(approving, "initiative"))
+                .expectNext(approved).verifyComplete();
+
+        verifyNoInteractions(paymentRestClient);
+        verify(reassignmentPort).reassignSuspendedTransactions("batch", "initiative");
+    }
+
+    @Test
+    void confirmationWorkerWithNullSuspendedCountDoesNotTouchPaymentStatus() {
+        RewardBatch approving = approvingL3("batch");
+        RewardBatch prepared = batch("batch", RewardBatchStatus.APPROVING);
+        prepared.setNumberOfTransactionsSuspended(null);
+        RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
+        RewardBatchServiceImpl worker = spy(service);
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(approving));
+        when(finalApprovalPort.prepareFinalApproval("batch", "initiative")).thenReturn(Mono.just(prepared));
+        when(finalApprovalPort.completeFinalApproval("batch", "initiative")).thenReturn(Mono.just(approved));
+        doReturn(Mono.just("approved.csv")).when(worker)
+                .generateAndSaveCsv("batch", "initiative", "merchant");
+
+        StepVerifier.create(worker.processSingleBatchConfirmation(approving, "initiative"))
+                .expectNext(approved).verifyComplete();
+
+        verifyNoInteractions(paymentRestClient, reassignmentPort);
+        verify(transactionReadPort, never()).findBatchTransactions(anyString(), anyString(), any());
+    }
+
+    @Test
+    void confirmationWorkerWithOnlyRefundedSuspendedRowsReassignsWithoutPaymentCall() {
+        RewardBatch approving = approvingL3("batch");
+        RewardBatch prepared = batch("batch", RewardBatchStatus.APPROVING);
+        prepared.setNumberOfTransactionsSuspended(1L);
+        RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
+        RewardBatchServiceImpl worker = spy(service);
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(approving));
+        when(finalApprovalPort.prepareFinalApproval("batch", "initiative")).thenReturn(Mono.just(prepared));
+        when(transactionReadPort.findBatchTransactions("batch", "initiative", List.of(RewardBatchTrxStatus.SUSPENDED)))
+                .thenReturn(Flux.just(trx("trx-refunded", SyncTrxStatus.REFUNDED)));
+        when(reassignmentPort.reassignSuspendedTransactions("batch", "initiative")).thenReturn(Mono.empty());
+        when(finalApprovalPort.completeFinalApproval("batch", "initiative")).thenReturn(Mono.just(approved));
+        doReturn(Mono.just("approved.csv")).when(worker)
+                .generateAndSaveCsv("batch", "initiative", "merchant");
+
+        StepVerifier.create(worker.processSingleBatchConfirmation(approving, "initiative"))
+                .expectNext(approved).verifyComplete();
+
+        verifyNoInteractions(paymentRestClient);
+        verify(reassignmentPort).reassignSuspendedTransactions("batch", "initiative");
+    }
+
+    @Test
+    void confirmationWorkerDoesNotCompleteApprovalWhenReassignmentFailsAfterPaymentSync() {
+        RewardBatch approving = approvingL3("batch");
+        RewardBatch prepared = batch("batch", RewardBatchStatus.APPROVING);
+        prepared.setNumberOfTransactionsSuspended(1L);
+        RuntimeException failure = new IllegalStateException("reassignment failed");
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(approving));
+        when(finalApprovalPort.prepareFinalApproval("batch", "initiative")).thenReturn(Mono.just(prepared));
+        when(transactionReadPort.findBatchTransactions("batch", "initiative", List.of(RewardBatchTrxStatus.SUSPENDED)))
+                .thenReturn(Flux.just(trx("trx-1", SyncTrxStatus.REWARDED)));
+        when(paymentRestClient.updateTransactionsStatus(Set.of("trx-1"), SyncTrxStatus.INVOICED))
+                .thenReturn(Mono.just(1));
+        when(reassignmentPort.reassignSuspendedTransactions("batch", "initiative")).thenReturn(Mono.error(failure));
+
+        StepVerifier.create(service.processSingleBatchConfirmation(approving, "initiative"))
+                .expectErrorMatches(error -> error == failure)
+                .verify();
+
+        verify(paymentRestClient).updateTransactionsStatus(Set.of("trx-1"), SyncTrxStatus.INVOICED);
+        verify(finalApprovalPort, never()).completeFinalApproval(anyString(), anyString());
+    }
+
+    @Test
+    void confirmationWorkerStopsWhenSuspendedRowsCannotBeRead() {
+        RewardBatch approving = approvingL3("batch");
+        RewardBatch prepared = batch("batch", RewardBatchStatus.APPROVING);
+        prepared.setNumberOfTransactionsSuspended(1L);
+        RuntimeException failure = new IllegalStateException("read failed");
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(approving));
+        when(finalApprovalPort.prepareFinalApproval("batch", "initiative")).thenReturn(Mono.just(prepared));
+        when(transactionReadPort.findBatchTransactions("batch", "initiative", List.of(RewardBatchTrxStatus.SUSPENDED)))
+                .thenReturn(Flux.error(failure));
+
+        StepVerifier.create(service.processSingleBatchConfirmation(approving, "initiative"))
+                .expectErrorMatches(error -> error == failure)
+                .verify();
+
+        verifyNoInteractions(paymentRestClient, reassignmentPort);
+        verify(finalApprovalPort, never()).completeFinalApproval(anyString(), anyString());
     }
 
     @Test
@@ -819,6 +1036,21 @@ class RewardBatchServiceImplTest {
 
         StepVerifier.create(worker.processSingleBatchConfirmation(approving, "initiative"))
                 .expectNext(approved).verifyComplete();
+    }
+
+    private static RewardBatch approvingL3(String id) {
+        RewardBatch approving = batch(id, RewardBatchStatus.APPROVING);
+        approving.setAssigneeLevel(RewardBatchAssignee.L3);
+        return approving;
+    }
+
+    private static RewardTransaction trx(String id, SyncTrxStatus status) {
+        return RewardTransaction.builder()
+                .id(id)
+                .status(status.name())
+                .rewardBatchId("batch")
+                .rewardBatchTrxStatus(RewardBatchTrxStatus.SUSPENDED)
+                .build();
     }
 
     private static RewardBatch batch(String id, RewardBatchStatus status) {

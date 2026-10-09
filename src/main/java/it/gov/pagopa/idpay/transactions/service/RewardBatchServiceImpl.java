@@ -15,6 +15,7 @@ import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.*;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.*;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
@@ -717,11 +718,28 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             return Mono.just(originalBatch);
         }
 
-        return suspendedTransactionReassignmentPort.reassignSuspendedTransactions(
+        // [DECISION][BND-2132] Sync payment first: suspended rows stay findable, so a failed sync is retried next run.
+        return syncSuspendedPaymentTransactionsToInvoiced(originalBatch.getId(), initiativeId)
+                .then(Mono.defer(() -> suspendedTransactionReassignmentPort.reassignSuspendedTransactions(
                         originalBatch.getId(),
                         initiativeId
-                )
+                )))
                 .thenReturn(originalBatch);
+    }
+
+    private Mono<Void> syncSuspendedPaymentTransactionsToInvoiced(String rewardBatchId, String initiativeId) {
+        return rewardBatchTransactionReadPort
+                .findBatchTransactions(rewardBatchId, initiativeId, List.of(RewardBatchTrxStatus.SUSPENDED))
+                .filter(trx -> !SyncTrxStatus.REFUNDED.name().equalsIgnoreCase(trx.getStatus()))
+                .mapNotNull(RewardTransaction::getId)
+                .buffer(PAYMENT_STATUS_UPDATE_BATCH_SIZE)
+                .concatMap(chunk -> paymentRestClient
+                        .updateTransactionsStatus(Set.copyOf(chunk), SyncTrxStatus.INVOICED)
+                        .doOnNext(updated -> log.info(
+                                "[PROCESS_BATCH] Batch {}: {} suspended payment transactions moved to INVOICED",
+                                Utilities.sanitizeString(rewardBatchId),
+                                updated)))
+                .then();
     }
 
     public String addOneMonth(String yearMonthString) {
