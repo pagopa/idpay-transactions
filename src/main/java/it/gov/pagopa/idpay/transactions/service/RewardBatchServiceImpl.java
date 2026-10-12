@@ -40,8 +40,6 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.function.LongFunction;
 
 import static it.gov.pagopa.common.utils.CommonConstants.ZONEID;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
@@ -389,7 +387,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                     long totalTrx = batch.getNumberOfTransactions() != null ? batch.getNumberOfTransactions() : 0L;
                     long elaboratedTrx = batch.getNumberOfTransactionsElaborated() != null ? batch.getNumberOfTransactionsElaborated() : 0L;
 
-                    if (!isElaboratedTransactionsRatioValid(elaboratedTrx, totalTrx)) {
+                    if (totalTrx != 0 && !isElaboratedTransactionsRatioValid(elaboratedTrx, totalTrx)) {
                         log.warn("[CONFIRMATION_FAILED] Batch {} has only {}/{} transactions elaborated (below 15% threshold)",
                                 Utilities.sanitizeString(rewardBatchId), elaboratedTrx, totalTrx);
 
@@ -405,7 +403,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     }
 
     private boolean isElaboratedTransactionsRatioValid(long elaboratedTrx, long totalTrx) {
-        if (totalTrx <= 0) {
+        if (totalTrx < 0) {
             return false;
         }
         return ((double) elaboratedTrx / totalTrx) >= 0.15;
