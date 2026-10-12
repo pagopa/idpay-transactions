@@ -387,7 +387,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                     long totalTrx = batch.getNumberOfTransactions() != null ? batch.getNumberOfTransactions() : 0L;
                     long elaboratedTrx = batch.getNumberOfTransactionsElaborated() != null ? batch.getNumberOfTransactionsElaborated() : 0L;
 
-                    if (totalTrx != 0 && !isElaboratedTransactionsRatioValid(elaboratedTrx, totalTrx)) {
+                    if (!isElaborationThresholdSatisfied(elaboratedTrx, totalTrx)) {
                         log.warn("[CONFIRMATION_FAILED] Batch {} has only {}/{} transactions elaborated (below 15% threshold)",
                                 Utilities.sanitizeString(rewardBatchId), elaboratedTrx, totalTrx);
 
@@ -402,11 +402,11 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 });
     }
 
-    private boolean isElaboratedTransactionsRatioValid(long elaboratedTrx, long totalTrx) {
+    private boolean isElaborationThresholdSatisfied(long elaboratedTrx, long totalTrx) {
         if (totalTrx < 0) {
             return false;
         }
-        return ((double) elaboratedTrx / totalTrx) >= 0.15;
+        return totalTrx == 0 || ((double) elaboratedTrx / totalTrx) >= 0.15;
     }
 
     @Override
