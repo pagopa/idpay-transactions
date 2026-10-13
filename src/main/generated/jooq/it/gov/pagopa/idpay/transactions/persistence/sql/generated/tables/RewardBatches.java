@@ -94,6 +94,11 @@ public class RewardBatches extends TableImpl<RewardBatchesRecord> {
     public final TableField<RewardBatchesRecord, String> POS_TYPE = createField(DSL.name("pos_type"), SQLDataType.CLOB.nullable(false), this, "");
 
     /**
+     * The column <code>idpay-rimborsi.reward_batches.report_id</code>.
+     */
+    public final TableField<RewardBatchesRecord, String> REPORT_ID = createField(DSL.name("report_id"), SQLDataType.CLOB, this, "");
+
+    /**
      * The column <code>idpay-rimborsi.reward_batches.status</code>.
      */
     public final TableField<RewardBatchesRecord, String> STATUS = createField(DSL.name("status"), SQLDataType.VARCHAR(32).nullable(false), this, "");
@@ -149,18 +154,7 @@ public class RewardBatches extends TableImpl<RewardBatchesRecord> {
      * <code>idpay-rimborsi.reward_batches.refund_outcome_timestamp</code>.
      */
     public final TableField<RewardBatchesRecord, LocalDateTime> REFUND_OUTCOME_TIMESTAMP = createField(DSL.name("refund_outcome_timestamp"), SQLDataType.LOCALDATETIME(6), this, "");
-
-    /**
-     * The column <code>idpay-rimborsi.reward_batches.report_path</code>.
-     */
-    public final TableField<RewardBatchesRecord, String> REPORT_PATH = createField(DSL.name("report_path"), SQLDataType.CLOB, this, "");
-
-    /**
-     * The column <code>idpay-rimborsi.reward_batches.filename</code>.
-     */
-    public final TableField<RewardBatchesRecord, String> FILENAME = createField(DSL.name("filename"), SQLDataType.CLOB, this, "");
-
-    /**
+   /**
      * The column <code>idpay-rimborsi.reward_batches.assignee_level</code>.
      */
     public final TableField<RewardBatchesRecord, String> ASSIGNEE_LEVEL = createField(DSL.name("assignee_level"), SQLDataType.CLOB.nullable(false), this, "");

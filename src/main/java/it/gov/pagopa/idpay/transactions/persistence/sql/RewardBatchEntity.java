@@ -17,6 +17,7 @@ public record RewardBatchEntity(
         @Column("business_name") String businessName,
         String month,
         @Column("pos_type") String posType,
+        @Column("report_id") String reportId,
         String status,
         boolean partial,
         String name,
@@ -33,8 +34,6 @@ public record RewardBatchEntity(
         @ReadOnlyProperty
         @Column("suspended_amount_cents_at_approving") Long suspendedAmountCentsAtApproving,
         @Column("refund_outcome_timestamp") LocalDateTime refundOutcomeTimestamp,
-        @Column("report_path") String reportPath,
-        String filename,
         @Column("assignee_level") String assigneeLevel,
         @Column("refund_valuta_date") LocalDate refundValutaDate,
         @Column("refund_error_message") String refundErrorMessage,
