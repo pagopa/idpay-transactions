@@ -95,6 +95,10 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                         .sql("DELETE FROM reward_batches")
                         .fetch()
                         .rowsUpdated())
+                .then(databaseClient()
+                        .sql("DELETE FROM reports")
+                        .fetch()
+                        .rowsUpdated())
                 .block();
     }
 
@@ -171,7 +175,8 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
     void shouldPreserveRawLifecycleSnapshotsWhenGenericBatchSaveUpdatesMetadata() {
         RewardBatch batch = batch("batch-snapshot-protection");
 
-        StepVerifier.create(adapter.createOrRead(batch)
+        StepVerifier.create(insertReport("report-123", batch)
+                        .then(adapter.createOrRead(batch))
                         .flatMap(created -> databaseClient()
                                 .sql("""
                                         UPDATE reward_batches
@@ -961,7 +966,8 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                 .code(200)
                 .build();
 
-        StepVerifier.create(adapter.createOrRead(batch)
+        StepVerifier.create(insertReport("report-approved", batch)
+                        .then(adapter.createOrRead(batch))
                         .flatMap(created -> {
                             created.setStatus(RewardBatchStatus.SENT);
                             return adapter.save(created);
@@ -1519,6 +1525,33 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                 .bind("id", id)
                 .bind("initialAmountCentsAtSend", initialAmountCentsAtSend)
                 .bind("suspendedAmountCentsAtApproving", suspendedAmountCentsAtApproving)
+                .fetch()
+                .rowsUpdated()
+                .then();
+    }
+
+    private static Mono<Void> insertReport(String reportId, RewardBatch batch) {
+        return databaseClient()
+                .sql("""
+                        INSERT INTO reports (
+                            id, initiative_id, report_status, start_period, end_period,
+                            merchant_id, business_name, request_date, elaboration_date,
+                            operator_level, file_name, report_type
+                        )
+                        VALUES (
+                            :id, :initiativeId, 'INSERTED', :startPeriod, :endPeriod,
+                            :merchantId, :businessName, :requestDate, NULL,
+                            'L3', :fileName, 'REWARD_BATCH_CSV'
+                        )
+                        """)
+                .bind("id", reportId)
+                .bind("initiativeId", batch.getInitiativeId())
+                .bind("startPeriod", batch.getStartDate())
+                .bind("endPeriod", batch.getEndDate())
+                .bind("merchantId", batch.getMerchantId())
+                .bind("businessName", batch.getBusinessName())
+                .bind("requestDate", batch.getCreationDate())
+                .bind("fileName", reportId + ".csv")
                 .fetch()
                 .rowsUpdated()
                 .then();
