@@ -17,6 +17,7 @@ public class RewardBatchMapper {
         .businessName(rewardBatch.getBusinessName())
         .month(rewardBatch.getMonth())
         .posType(rewardBatch.getPosType())
+        .reportId(rewardBatch.getReportId())
         .name(rewardBatch.getName())
         .status(rewardBatch.getStatus().toString())
         .partial(rewardBatch.getPartial())
@@ -31,7 +32,7 @@ public class RewardBatchMapper {
         .numberOfTransactionsElaborated(rewardBatch.getNumberOfTransactionsElaborated())
         .numberOfTransactionsSuspended(rewardBatch.getNumberOfTransactionsSuspended())
         .numberOfTransactionsRejected(rewardBatch.getNumberOfTransactionsRejected())
-        .reportPath(rewardBatch.getReportPath())
+
         .assigneeLevel(String.valueOf(rewardBatch.getAssigneeLevel()))
         .refundErrorMessage(rewardBatch.getRefundErrorMessage())
         .refundOutcomeTimestamp(rewardBatch.getRefundOutcomeTimestamp())

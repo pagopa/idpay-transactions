@@ -2,5 +2,6 @@ package it.gov.pagopa.idpay.transactions.enums;
 
 public enum ReportType {
     MERCHANT_TRANSACTIONS,
-    USER_DETAILS
+    USER_DETAILS,
+    REWARD_BATCH_CSV
 }

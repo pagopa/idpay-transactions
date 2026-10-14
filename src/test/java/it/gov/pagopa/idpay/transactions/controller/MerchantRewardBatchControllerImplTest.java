@@ -163,6 +163,7 @@ class MerchantRewardBatchControllerImplTest {
         verify(rewardBatchService).generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID);
     }
 
+
     @Test
     void rewardBatchConfirmationBatch_WithValidList() {
         RewardBatchesRequest request = new RewardBatchesRequest(BATCH_IDS);
