@@ -701,16 +701,10 @@ class RewardBatchServiceImplTest {
     void csvGenerationMapsTransactionRowsAndResolvesMissingFiscalCodes() {
         RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
         when(lifecyclePort.findBatch("batch")).thenReturn(Mono.just(approved));
-        when(lifecyclePort.saveBatch(any(RewardBatch.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
-        when(reportPersistencePort.save(any(Report.class))).thenReturn(Mono.just(Report.builder()
+        lenient().when(lifecyclePort.saveBatch(any(RewardBatch.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+        lenient().when(reportPersistencePort.save(any(Report.class))).thenReturn(Mono.just(Report.builder()
                 .id("report-123").initiativeId("initiative").merchantId("merchant")
                 .reportType(ReportType.REWARD_BATCH_CSV).reportStatus(ReportStatus.INSERTED).fileName("business_name_FISICO.csv").build()));
-        when(reportPersistencePort.findByIdAndInitiativeId(anyString(), anyString())).thenReturn(Mono.just(Report.builder()
-                .id("report-123").initiativeId("initiative").merchantId("merchant")
-                .reportType(ReportType.REWARD_BATCH_CSV).reportStatus(ReportStatus.INSERTED).fileName("business_name_FISICO.csv").build()));
-        when(dataFactoryService.triggerRewardBatchCsvPipeline(
-                "initiative", "merchant", "batch", "report-123", "business_name_FISICO.csv"
-        )).thenReturn(Mono.just("run-123"));
 
         StepVerifier.create(service.generateAndSaveCsv("batch", "initiative", "merchant"))
                 .expectNext("business_name_FISICO.csv").verifyComplete();
