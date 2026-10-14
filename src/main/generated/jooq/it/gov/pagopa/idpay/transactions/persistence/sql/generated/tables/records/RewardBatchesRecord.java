@@ -107,143 +107,129 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
     }
 
     /**
-     * Setter for <code>idpay-rimborsi.reward_batches.report_id</code>.
-     */
-    public void setReportId(String value) {
-        set(6, value);
-    }
-
-    /**
-     * Getter for <code>idpay-rimborsi.reward_batches.report_id</code>.
-     */
-    public String getReportId() {
-        return (String) get(6);
-    }
-
-    /**
      * Setter for <code>idpay-rimborsi.reward_batches.status</code>.
      */
     public void setStatus(String value) {
-        set(7, value);
+        set(6, value);
     }
 
     /**
      * Getter for <code>idpay-rimborsi.reward_batches.status</code>.
      */
     public String getStatus() {
-        return (String) get(7);
+        return (String) get(6);
     }
 
     /**
      * Setter for <code>idpay-rimborsi.reward_batches.partial</code>.
      */
     public void setPartial(Boolean value) {
-        set(8, value);
+        set(7, value);
     }
 
     /**
      * Getter for <code>idpay-rimborsi.reward_batches.partial</code>.
      */
     public Boolean getPartial() {
-        return (Boolean) get(8);
+        return (Boolean) get(7);
     }
 
     /**
      * Setter for <code>idpay-rimborsi.reward_batches.name</code>.
      */
     public void setName(String value) {
-        set(9, value);
+        set(8, value);
     }
 
     /**
      * Getter for <code>idpay-rimborsi.reward_batches.name</code>.
      */
     public String getName() {
-        return (String) get(9);
+        return (String) get(8);
     }
 
     /**
      * Setter for <code>idpay-rimborsi.reward_batches.start_date</code>.
      */
     public void setStartDate(LocalDateTime value) {
-        set(10, value);
+        set(9, value);
     }
 
     /**
      * Getter for <code>idpay-rimborsi.reward_batches.start_date</code>.
      */
     public LocalDateTime getStartDate() {
-        return (LocalDateTime) get(10);
+        return (LocalDateTime) get(9);
     }
 
     /**
      * Setter for <code>idpay-rimborsi.reward_batches.end_date</code>.
      */
     public void setEndDate(LocalDateTime value) {
-        set(11, value);
+        set(10, value);
     }
 
     /**
      * Getter for <code>idpay-rimborsi.reward_batches.end_date</code>.
      */
     public LocalDateTime getEndDate() {
-        return (LocalDateTime) get(11);
+        return (LocalDateTime) get(10);
     }
 
     /**
      * Setter for <code>idpay-rimborsi.reward_batches.creation_date</code>.
      */
     public void setCreationDate(LocalDateTime value) {
-        set(12, value);
+        set(11, value);
     }
 
     /**
      * Getter for <code>idpay-rimborsi.reward_batches.creation_date</code>.
      */
     public LocalDateTime getCreationDate() {
-        return (LocalDateTime) get(12);
+        return (LocalDateTime) get(11);
     }
 
     /**
      * Setter for <code>idpay-rimborsi.reward_batches.update_date</code>.
      */
     public void setUpdateDate(LocalDateTime value) {
-        set(13, value);
+        set(12, value);
     }
 
     /**
      * Getter for <code>idpay-rimborsi.reward_batches.update_date</code>.
      */
     public LocalDateTime getUpdateDate() {
-        return (LocalDateTime) get(13);
+        return (LocalDateTime) get(12);
     }
 
     /**
      * Setter for <code>idpay-rimborsi.reward_batches.merchant_send_date</code>.
      */
     public void setMerchantSendDate(LocalDateTime value) {
-        set(14, value);
+        set(13, value);
     }
 
     /**
      * Getter for <code>idpay-rimborsi.reward_batches.merchant_send_date</code>.
      */
     public LocalDateTime getMerchantSendDate() {
-        return (LocalDateTime) get(14);
+        return (LocalDateTime) get(13);
     }
 
     /**
      * Setter for <code>idpay-rimborsi.reward_batches.approval_date</code>.
      */
     public void setApprovalDate(LocalDateTime value) {
-        set(15, value);
+        set(14, value);
     }
 
     /**
      * Getter for <code>idpay-rimborsi.reward_batches.approval_date</code>.
      */
     public LocalDateTime getApprovalDate() {
-        return (LocalDateTime) get(15);
+        return (LocalDateTime) get(14);
     }
 
     /**
@@ -251,7 +237,7 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
      * <code>idpay-rimborsi.reward_batches.delivery_date_request</code>.
      */
     public void setDeliveryDateRequest(LocalDateTime value) {
-        set(16, value);
+        set(15, value);
     }
 
     /**
@@ -259,7 +245,7 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
      * <code>idpay-rimborsi.reward_batches.delivery_date_request</code>.
      */
     public LocalDateTime getDeliveryDateRequest() {
-        return (LocalDateTime) get(16);
+        return (LocalDateTime) get(15);
     }
 
     /**
@@ -267,7 +253,7 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
      * <code>idpay-rimborsi.reward_batches.refund_outcome_timestamp</code>.
      */
     public void setRefundOutcomeTimestamp(LocalDateTime value) {
-        set(17, value);
+        set(16, value);
     }
 
     /**
@@ -275,37 +261,63 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
      * <code>idpay-rimborsi.reward_batches.refund_outcome_timestamp</code>.
      */
     public LocalDateTime getRefundOutcomeTimestamp() {
-        return (LocalDateTime) get(17);
+        return (LocalDateTime) get(16);
     }
 
+    /**
+     * Setter for <code>idpay-rimborsi.reward_batches.report_path</code>.
+     */
+    public void setReportPath(String value) {
+        set(17, value);
+    }
 
+    /**
+     * Getter for <code>idpay-rimborsi.reward_batches.report_path</code>.
+     */
+    public String getReportPath() {
+        return (String) get(17);
+    }
+
+    /**
+     * Setter for <code>idpay-rimborsi.reward_batches.filename</code>.
+     */
+    public void setFilename(String value) {
+        set(18, value);
+    }
+
+    /**
+     * Getter for <code>idpay-rimborsi.reward_batches.filename</code>.
+     */
+    public String getFilename() {
+        return (String) get(18);
+    }
 
     /**
      * Setter for <code>idpay-rimborsi.reward_batches.assignee_level</code>.
      */
     public void setAssigneeLevel(String value) {
-        set(18, value);
+        set(19, value);
     }
 
     /**
      * Getter for <code>idpay-rimborsi.reward_batches.assignee_level</code>.
      */
     public String getAssigneeLevel() {
-        return (String) get(18);
+        return (String) get(19);
     }
 
     /**
      * Setter for <code>idpay-rimborsi.reward_batches.refund_valuta_date</code>.
      */
     public void setRefundValutaDate(LocalDate value) {
-        set(19, value);
+        set(20, value);
     }
 
     /**
      * Getter for <code>idpay-rimborsi.reward_batches.refund_valuta_date</code>.
      */
     public LocalDate getRefundValutaDate() {
-        return (LocalDate) get(19);
+        return (LocalDate) get(20);
     }
 
     /**
@@ -313,7 +325,7 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
      * <code>idpay-rimborsi.reward_batches.refund_error_message</code>.
      */
     public void setRefundErrorMessage(String value) {
-        set(20, value);
+        set(21, value);
     }
 
     /**
@@ -321,21 +333,21 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
      * <code>idpay-rimborsi.reward_batches.refund_error_message</code>.
      */
     public String getRefundErrorMessage() {
-        return (String) get(20);
+        return (String) get(21);
     }
 
     /**
      * Setter for <code>idpay-rimborsi.reward_batches.delivery_outcome</code>.
      */
     public void setDeliveryOutcome(JSONB value) {
-        set(21, value);
+        set(22, value);
     }
 
     /**
      * Getter for <code>idpay-rimborsi.reward_batches.delivery_outcome</code>.
      */
     public JSONB getDeliveryOutcome() {
-        return (JSONB) get(21);
+        return (JSONB) get(22);
     }
 
     /**
@@ -343,7 +355,7 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
      * <code>idpay-rimborsi.reward_batches.delivery_amount_cents</code>.
      */
     public void setDeliveryAmountCents(Long value) {
-        set(22, value);
+        set(23, value);
     }
 
     /**
@@ -351,7 +363,7 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
      * <code>idpay-rimborsi.reward_batches.delivery_amount_cents</code>.
      */
     public Long getDeliveryAmountCents() {
-        return (Long) get(22);
+        return (Long) get(23);
     }
 
     /**
@@ -359,7 +371,7 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
      * <code>idpay-rimborsi.reward_batches.initial_amount_cents_at_send</code>.
      */
     public void setInitialAmountCentsAtSend(Long value) {
-        set(23, value);
+        set(24, value);
     }
 
     /**
@@ -367,7 +379,7 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
      * <code>idpay-rimborsi.reward_batches.initial_amount_cents_at_send</code>.
      */
     public Long getInitialAmountCentsAtSend() {
-        return (Long) get(23);
+        return (Long) get(24);
     }
 
     /**
@@ -375,7 +387,7 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
      * <code>idpay-rimborsi.reward_batches.suspended_amount_cents_at_approving</code>.
      */
     public void setSuspendedAmountCentsAtApproving(Long value) {
-        set(24, value);
+        set(25, value);
     }
 
     /**
@@ -383,7 +395,21 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
      * <code>idpay-rimborsi.reward_batches.suspended_amount_cents_at_approving</code>.
      */
     public Long getSuspendedAmountCentsAtApproving() {
-        return (Long) get(24);
+        return (Long) get(25);
+    }
+
+    /**
+     * Setter for <code>idpay-rimborsi.reward_batches.report_id</code>.
+     */
+    public void setReportId(String value) {
+        set(26, value);
+    }
+
+    /**
+     * Getter for <code>idpay-rimborsi.reward_batches.report_id</code>.
+     */
+    public String getReportId() {
+        return (String) get(26);
     }
 
     // -------------------------------------------------------------------------
@@ -409,7 +435,7 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
     /**
      * Create a detached, initialised RewardBatchesRecord
      */
-    public RewardBatchesRecord(String id, String initiativeId, String merchantId, String businessName, String month, String posType, String reportId, String status, Boolean partial, String name, LocalDateTime startDate, LocalDateTime endDate, LocalDateTime creationDate, LocalDateTime updateDate, LocalDateTime merchantSendDate, LocalDateTime approvalDate, LocalDateTime deliveryDateRequest, LocalDateTime refundOutcomeTimestamp, String assigneeLevel, LocalDate refundValutaDate, String refundErrorMessage, JSONB deliveryOutcome, Long deliveryAmountCents, Long initialAmountCentsAtSend, Long suspendedAmountCentsAtApproving) {
+    public RewardBatchesRecord(String id, String initiativeId, String merchantId, String businessName, String month, String posType, String status, Boolean partial, String name, LocalDateTime startDate, LocalDateTime endDate, LocalDateTime creationDate, LocalDateTime updateDate, LocalDateTime merchantSendDate, LocalDateTime approvalDate, LocalDateTime deliveryDateRequest, LocalDateTime refundOutcomeTimestamp, String reportPath, String filename, String assigneeLevel, LocalDate refundValutaDate, String refundErrorMessage, JSONB deliveryOutcome, Long deliveryAmountCents, Long initialAmountCentsAtSend, Long suspendedAmountCentsAtApproving, String reportId) {
         super(RewardBatches.REWARD_BATCHES);
 
         setId(id);
@@ -418,7 +444,6 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
         setBusinessName(businessName);
         setMonth(month);
         setPosType(posType);
-        setReportId(reportId);
         setStatus(status);
         setPartial(partial);
         setName(name);
@@ -430,7 +455,8 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
         setApprovalDate(approvalDate);
         setDeliveryDateRequest(deliveryDateRequest);
         setRefundOutcomeTimestamp(refundOutcomeTimestamp);
-
+        setReportPath(reportPath);
+        setFilename(filename);
         setAssigneeLevel(assigneeLevel);
         setRefundValutaDate(refundValutaDate);
         setRefundErrorMessage(refundErrorMessage);
@@ -438,6 +464,7 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
         setDeliveryAmountCents(deliveryAmountCents);
         setInitialAmountCentsAtSend(initialAmountCentsAtSend);
         setSuspendedAmountCentsAtApproving(suspendedAmountCentsAtApproving);
+        setReportId(reportId);
         resetChangedOnNotNull();
     }
 }
