@@ -475,6 +475,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             report.getId() == null ? null : Utilities.sanitizeString(report.getId()));
                     report.setInitiativeId(batch.getInitiativeId());
                     report.setMerchantId(batch.getMerchantId());
+                    report.setBusinessName(batch.getBusinessName());
+                    report.setStartPeriod(batch.getStartDate());
+                    report.setEndPeriod(batch.getEndDate());
+                    report.setOperatorLevel(RewardBatchAssignee.L3);
                     report.setReportType(ReportType.REWARD_BATCH_CSV);
                     report.setFileName(fileName);
                     report.setReportStatus(status);

@@ -578,7 +578,12 @@ class RewardBatchServiceImplTest {
         verify(reportPersistencePort).save(argThat(report ->
                 ReportType.REWARD_BATCH_CSV.equals(report.getReportType())
                         && "business_name_FISICO.csv".equals(report.getFileName())
-                        && ReportStatus.INSERTED.equals(report.getReportStatus())));
+                        && ReportStatus.INSERTED.equals(report.getReportStatus())
+                        && "business".equals(report.getBusinessName())
+                        && RewardBatchAssignee.L3.equals(report.getOperatorLevel())
+                        && approved.getStartDate().equals(report.getStartPeriod())
+                        && approved.getEndDate().equals(report.getEndPeriod())
+                        && report.getRequestDate() != null));
         verify(lifecyclePort).saveBatch(argThat(batch -> "report-123".equals(batch.getReportId())));
     }
 
@@ -877,6 +882,9 @@ class RewardBatchServiceImplTest {
                 .id(id).initiativeId("initiative").merchantId("merchant")
                 .month(YearMonth.now().minusMonths(1).toString()).posType(PosType.PHYSICAL)
                 .status(status).name("name").businessName("business")
+                .startDate(java.time.LocalDateTime.parse("2026-01-01T00:00:00"))
+                .endDate(java.time.LocalDateTime.parse("2026-01-31T23:59:59"))
+                .approvalDate(java.time.LocalDateTime.parse("2026-02-01T10:00:00"))
                 .numberOfTransactions(1L).build();
     }
 }
