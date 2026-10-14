@@ -360,19 +360,20 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void confirmationFailsWhenNumberOfTransactionsIsNull() {
+    void confirmationSucceedsWhenNumberOfTransactionsIsNull() {
         RewardBatch existingBatch = batch("batch", RewardBatchStatus.EVALUATING);
         existingBatch.setNumberOfTransactions(null);
         existingBatch.setNumberOfTransactionsElaborated(5L);
 
         when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(existingBatch));
+        when(lifecyclePort.enterApproval("batch", "initiative")).thenReturn(Mono.just(existingBatch));
 
         StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
-                .expectError()
-                .verify();
+                .expectNext(existingBatch)
+                .verifyComplete();
 
         verify(lifecyclePort).findBatch("batch", "initiative");
-        verify(lifecyclePort, never()).enterApproval(anyString(), anyString());
+        verify(lifecyclePort).enterApproval("batch", "initiative");
     }
 
     @Test
@@ -392,9 +393,26 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void confirmationFailsWhenTotalTransactionsIsZero() {
+    void confirmationSucceedsWhenTotalTransactionsIsZero() {
         RewardBatch existingBatch = batch("batch", RewardBatchStatus.EVALUATING);
         existingBatch.setNumberOfTransactions(0L);
+        existingBatch.setNumberOfTransactionsElaborated(0L);
+
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(existingBatch));
+        when(lifecyclePort.enterApproval("batch", "initiative")).thenReturn(Mono.just(existingBatch));
+
+        StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
+                .expectNext(existingBatch)
+                .verifyComplete();
+
+        verify(lifecyclePort).findBatch("batch", "initiative");
+        verify(lifecyclePort).enterApproval("batch", "initiative");
+    }
+
+    @Test
+    void confirmationFailsWhenTotalTransactionsIsNegative() {
+        RewardBatch existingBatch = batch("batch", RewardBatchStatus.EVALUATING);
+        existingBatch.setNumberOfTransactions(-1L);
         existingBatch.setNumberOfTransactionsElaborated(0L);
 
         when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(existingBatch));
