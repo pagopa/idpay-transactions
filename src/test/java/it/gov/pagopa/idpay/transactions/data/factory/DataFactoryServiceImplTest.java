@@ -47,6 +47,7 @@ class DataFactoryServiceImplTest {
                 "factoryName",
                 "pipelineTransactionReportname",
                 "pipelineUserDetailsReportname",
+                "pipelineRewardBatchCsvName",
                 0
         );
     }
@@ -176,6 +177,7 @@ class DataFactoryServiceImplTest {
                 "factoryName",
                 "pipelineTransactionReportname",
                 "pipelineUserDetailsReportname",
+                "pipelineRewardBatchCsvName",
                 1
         );
         when(dataFactoryManager.pipelines()).thenReturn(pipelines);
@@ -321,6 +323,7 @@ class DataFactoryServiceImplTest {
                 "factoryName",
                 "pipelineTransactionReportname",
                 "pipelineUserDetailsReportname",
+                "pipelineRewardBatchCsvName",
                 1
         );
         when(dataFactoryManager.pipelines()).thenReturn(pipelines);
@@ -352,6 +355,7 @@ class DataFactoryServiceImplTest {
                 "factoryName",
                 "pipelineTransactionReportname",
                 "pipelineUserDetailsReportname",
+                "pipelineRewardBatchCsvName",
                 1
         );
         when(dataFactoryManager.pipelines()).thenReturn(pipelines);
@@ -394,6 +398,40 @@ class DataFactoryServiceImplTest {
         verify(pipelines, times(1)).createRunWithResponse(
                 anyString(), anyString(), anyString(), any(), anyBoolean(),
                 any(), anyBoolean(), anyMap(), any()
+        );
+    }
+
+    @Test
+    void triggerRewardBatchCsvPipelineShouldUseDedicatedPipelineAndParameters() {
+        when(dataFactoryManager.pipelines()).thenReturn(pipelines);
+        when(pipelines.createRunWithResponse(
+                anyString(), anyString(), anyString(), isNull(), eq(false),
+                isNull(), eq(false), anyMap(), eq(Context.NONE)
+        )).thenReturn(response);
+        when(response.getStatusCode()).thenReturn(200);
+        when(response.getValue()).thenReturn(createRunResponse);
+        when(createRunResponse.runId()).thenReturn("BATCH_CSV_RUN_ID");
+
+        StepVerifier.create(service.triggerRewardBatchCsvPipeline(
+                        "initiative", "merchant", "batch", "merchant_batch.csv"))
+                .expectNext("BATCH_CSV_RUN_ID")
+                .verifyComplete();
+
+        verify(pipelines).createRunWithResponse(
+                eq("resourceGroup"),
+                eq("factoryName"),
+                eq("pipelineRewardBatchCsvName"),
+                isNull(),
+                eq(false),
+                isNull(),
+                eq(false),
+                argThat(parameters -> parameters.equals(Map.of(
+                        "initiativeId", "initiative",
+                        "merchantId", "merchant",
+                        "rewardBatchId", "batch",
+                        "reportName", "merchant_batch.csv"
+                ))),
+                eq(Context.NONE)
         );
     }
 }
