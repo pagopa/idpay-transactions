@@ -111,7 +111,7 @@ public class ErogazioniRestClientImpl implements ErogazioniRestClient {
                     }
 
                     log.error("[POST_EROGAZIONE] Permanent failure for batch {}: {}",
-                            sanitizeString(deliveryRequest.getId()), detailedMessage);
+                            sanitizeString(deliveryRequest.getId()), detailedMessage, e);
 
                     return Mono.just(DeliveryOutcomeDTO.builder()
                             .succeded(false)

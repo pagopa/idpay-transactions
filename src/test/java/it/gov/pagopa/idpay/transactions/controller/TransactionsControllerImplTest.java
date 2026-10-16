@@ -481,4 +481,20 @@ class TransactionsControllerImplTest {
                         isNull()
                 );
     }
+
+    @Test
+    void cleanupInvoicedTransactions_error() {
+        when(rewardTransactionService.assignInvoicedTransactionsToBatches(anyInt(),
+                anyInt(), anyBoolean(), isNull()))
+                .thenReturn(Mono.error(new RuntimeException("Batch assignment failed")));
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
+                .uri("/idpay/transactions/cleanup")
+                .exchange()
+                .expectStatus().isAccepted()
+                .expectBody(String.class);
+
+        verify(rewardTransactionService, times(1))
+                .assignInvoicedTransactionsToBatches(anyInt(), anyInt(), anyBoolean(), isNull());
+    }
 }

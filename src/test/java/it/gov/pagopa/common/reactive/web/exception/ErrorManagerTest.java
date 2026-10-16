@@ -152,21 +152,29 @@ public class ErrorManagerTest {
                 .expectStatus().isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorClientException);
 
-        checkStackTraceSuppressedLog(memoryAppender,
-                "Something went wrong handling request GET /test \\([^)]+\\): HttpStatus 400 BAD_REQUEST - ClientException with httpStatus, message and throwable");
+        checkLog(memoryAppender,
+                "Something went wrong handling request GET /test \\([^)]+\\): HttpStatus 400 BAD_REQUEST - ClientException with httpStatus, message and throwable",
+                "it.gov.pagopa.common.web.exception.ClientException: ClientException with httpStatus, message and throwable",
+                "it.gov.pagopa.common.reactive.web.exception.ErrorManagerTest$TestController.testEndpoint");
     }
 
     @Test
     void handleExceptionRuntimeException(){
         ErrorDTO expectedErrorDefault = new ErrorDTO("Error","Something gone wrong");
 
-        Mockito.doThrow(RuntimeException.class)
+        Mockito.doThrow(new RuntimeException())
                 .when(testController).testEndpoint();
+
         webTestClient.mutateWith(mockUser()).mutateWith(csrf()).get()
                 .uri(uriBuilder -> uriBuilder.path("/test").build())
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDefault);
+
+        checkLog(memoryAppender,
+                "Something went wrong handling request GET /test \\([^)]+\\)",
+                "java.lang.RuntimeException: null",
+                "it.gov.pagopa.common.reactive.web.exception.ErrorManagerTest$TestController.testEndpoint");
     }
 
     @Test
