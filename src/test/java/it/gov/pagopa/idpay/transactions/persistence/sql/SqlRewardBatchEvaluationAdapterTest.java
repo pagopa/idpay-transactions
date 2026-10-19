@@ -197,6 +197,19 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
             RewardBatchTrxStatus oldStatus,
             RewardBatchTrxStatus newStatus
     ) {
+        boolean exclusionOrReport = newStatus == RewardBatchTrxStatus.REJECTED
+                || newStatus == RewardBatchTrxStatus.SUSPENDED;
+        boolean statusChanged = oldStatus != newStatus;
+        ReasonDTO internalNote = exclusionOrReport
+                ? new ReasonDTO(LocalDateTime.now(), "internal note")
+                : null;
+        ReasonDTO officialNote = exclusionOrReport && statusChanged
+                ? new ReasonDTO(LocalDateTime.now(), "official note")
+                : null;
+        ChecksError checksError = exclusionOrReport && !statusChanged
+                ? new ChecksError(true, false, false, false, false, false, false, false)
+                : null;
+
         StepVerifier.create(Flux.concat(
                         insertBatch(BATCH_ID, RewardBatchStatus.EVALUATING),
                         insertTransaction("decision-transaction", oldStatus, 1)
@@ -205,9 +218,10 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                         BATCH_ID,
                         "decision-transaction",
                         newStatus,
-                        null,
+                        internalNote,
+                        officialNote,
                         BATCH_MONTH,
-                        null
+                        checksError
                 )))
                 .assertNext(previous -> {
                     assertEquals("decision-transaction", previous.getId());
