@@ -7,4 +7,6 @@ public interface DataFactoryService {
     Mono<String> triggerTransactionReportPipeline(Report report);
 
     Mono<String> triggerUserDetailsReportPipeline(Report report);
+
+    Mono<String> triggerRewardBatchCsvPipeline(String initiativeId, String merchantId, String rewardBatchId, String reportName);
 }
