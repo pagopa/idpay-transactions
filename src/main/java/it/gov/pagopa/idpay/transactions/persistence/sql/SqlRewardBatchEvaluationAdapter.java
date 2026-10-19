@@ -5,6 +5,7 @@ import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.
 import static org.jooq.impl.DSL.currentLocalDateTime;
 
 import io.r2dbc.spi.ConnectionFactory;
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
@@ -15,6 +16,7 @@ import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionD
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardBatchesRecord;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardTransactionsRecord;
+import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ import org.jooq.JSONB;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 import org.springframework.r2dbc.connection.ConnectionFactoryUtils;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Mono;
@@ -60,7 +63,8 @@ public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDe
             String rewardBatchId,
             String transactionId,
             RewardBatchTrxStatus newStatus,
-            ReasonDTO reason,
+            ReasonDTO internalNote,
+            ReasonDTO officialNote,
             String batchMonth,
             ChecksError checksError
     ) {
@@ -69,7 +73,8 @@ public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDe
                 rewardBatchId,
                 transactionId,
                 newStatus,
-                reason,
+                internalNote,
+                officialNote,
                 batchMonth,
                 checksError
         );
@@ -225,19 +230,42 @@ public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDe
             RewardTransactionsRecord current
     ) {
         RewardTransaction oldTransaction = transactionMapper.fromRecord(current);
-        JSONB rejectionReasons = mutation.reason() == null
-                ? null
-                : transactionMapper.toJsonb(updatedRejectionReasons(
-                        oldTransaction,
-                        mutation.newStatus(),
-                        mutation.reason()
-                ));
+        boolean statusChanged = oldTransaction.getRewardBatchTrxStatus() != mutation.newStatus();
+        boolean exclusionOrReport = mutation.newStatus() == RewardBatchTrxStatus.REJECTED
+                || mutation.newStatus() == RewardBatchTrxStatus.SUSPENDED;
+        if (exclusionOrReport && mutation.internalNote() == null) {
+            return Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    ExceptionConstants.ExceptionCode.REASON_FIELD_IS_MANDATORY,
+                    ExceptionConstants.ExceptionMessage.REASON_FIELD_IS_MANDATORY
+            ));
+        }
+        if (exclusionOrReport && statusChanged && mutation.officialNote() == null) {
+            return Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    ExceptionConstants.ExceptionCode.OFFICIAL_NOTE_FIELD_IS_MANDATORY,
+                    ExceptionConstants.ExceptionMessage.OFFICIAL_NOTE_FIELD_IS_MANDATORY
+            ));
+        }
+        if (exclusionOrReport && !statusChanged && mutation.checksError() == null) {
+            return Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    ExceptionConstants.ExceptionCode.INVALID_CHECKS_ERROR,
+                    "Checks error is mandatory when updating transaction controls"
+            ));
+        }
+
+        JSONB internalNotes = transactionMapper.toJsonb(appendedNotes(
+                oldTransaction.getRewardBatchRejectionReason(), mutation.internalNote()));
+        JSONB officialNotes = transactionMapper.toJsonb(appendedNotes(
+                oldTransaction.getRewardBatchOfficialNotes(), mutation.officialNote()));
         JSONB checksErrorJson = transactionMapper.toJsonb(mutation.checksError());
 
         return Mono.from(transactionDslContext.update(REWARD_TRANSACTIONS)
                         .set(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS, mutation.newStatus().name())
                         .set(REWARD_TRANSACTIONS.REWARD_BATCH_LAST_MONTH_ELABORATED, mutation.batchMonth())
-                        .set(REWARD_TRANSACTIONS.REWARD_BATCH_REJECTION_REASONS, rejectionReasons)
+                        .set(REWARD_TRANSACTIONS.REWARD_BATCH_REJECTION_REASONS, internalNotes)
+                        .set(REWARD_TRANSACTIONS.REWARD_BATCH_OFFICIAL_NOTES, officialNotes)
                         .set(REWARD_TRANSACTIONS.CHECKS_ERROR, checksErrorJson)
                         .where(REWARD_TRANSACTIONS.TRANSACTION_ID.eq(current.getTransactionId())
                                 .and(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(mutation.rewardBatchId()))
@@ -258,21 +286,15 @@ public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDe
                 : REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS.eq(currentStatus);
     }
 
-    private static List<ReasonDTO> updatedRejectionReasons(
-            RewardTransaction oldTransaction,
-            RewardBatchTrxStatus newStatus,
-            ReasonDTO reason
-    ) {
-        if (oldTransaction.getRewardBatchTrxStatus() != newStatus) {
-            return List.of(reason);
-        }
-
+    private static List<ReasonDTO> appendedNotes(List<ReasonDTO> currentNotes, ReasonDTO note) {
         List<ReasonDTO> history = new ArrayList<>();
-        if (oldTransaction.getRewardBatchRejectionReason() != null) {
-            history.addAll(oldTransaction.getRewardBatchRejectionReason());
+        if (currentNotes != null) {
+            history.addAll(currentNotes);
         }
-        history.add(reason);
-        return history;
+        if (note != null) {
+            history.add(note);
+        }
+        return history.isEmpty() ? null : history;
     }
 
     private static int numberOfTransactionsToCheck(long total) {
@@ -289,7 +311,8 @@ public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDe
             String rewardBatchId,
             String transactionId,
             RewardBatchTrxStatus newStatus,
-            ReasonDTO reason,
+            ReasonDTO internalNote,
+            ReasonDTO officialNote,
             String batchMonth,
             ChecksError checksError
     ) {

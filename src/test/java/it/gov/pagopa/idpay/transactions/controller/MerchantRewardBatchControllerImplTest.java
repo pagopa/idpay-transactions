@@ -394,6 +394,8 @@ class MerchantRewardBatchControllerImplTest {
         String rewardBatchId = "BATCH1";
         TransactionsRequest request = new TransactionsRequest();
         request.setTransactionIds(List.of("trx1", "trx2"));
+        request.setInternalNote("Internal note");
+        request.setOfficialNote("Official note");
         request.setReason("Test reason");
 
         RewardBatch batch = RewardBatch.builder()
@@ -537,6 +539,8 @@ class MerchantRewardBatchControllerImplTest {
         String rewardBatchId = "BATCH";
         TransactionsRequest request = new TransactionsRequest();
         request.setTransactionIds(List.of("trx1", "trx2"));
+        request.setInternalNote("Internal note");
+        request.setOfficialNote("Official note");
 
         RewardBatch batch = RewardBatch.builder()
                 .id(rewardBatchId)
@@ -575,6 +579,7 @@ class MerchantRewardBatchControllerImplTest {
         TransactionsRequest request = new TransactionsRequest();
         request.setTransactionIds(List.of("trx1", "trx2"));
         request.setReason("Test reason");
+        request.setOfficialNote("Official note");
 
         RewardBatch batch = RewardBatch.builder()
                 .id(rewardBatchId)

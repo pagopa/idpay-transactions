@@ -69,6 +69,7 @@ public class RewardTransaction {
     private String rewardBatchId;
     private RewardBatchTrxStatus rewardBatchTrxStatus;
     private List<ReasonDTO> rewardBatchRejectionReason;
+    private List<ReasonDTO> rewardBatchOfficialNotes;
     private LocalDateTime rewardBatchInclusionDate;
     private String franchiseName;
     private PosType pointOfSaleType;

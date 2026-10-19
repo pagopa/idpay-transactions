@@ -296,11 +296,11 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                         RewardBatchTrxStatus.REJECTED,
                         secondReason,
                         BATCH_MONTH,
-                        null
+                        checksError
                 ).then(readTransaction("reason-transaction")))
                 .assertNext(transaction -> {
                     assertEquals(List.of(firstReason, secondReason), transaction.getRewardBatchRejectionReason());
-                    assertNull(transaction.getChecksError());
+                    assertEquals(checksError, transaction.getChecksError());
                 })
                 .verifyComplete();
 
@@ -315,7 +315,8 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                 ).then(readTransaction("reason-transaction")))
                 .assertNext(transaction -> {
                     assertEquals(RewardBatchTrxStatus.APPROVED, transaction.getRewardBatchTrxStatus());
-                    assertEquals(List.of(replacementReason), transaction.getRewardBatchRejectionReason());
+                    assertEquals(List.of(firstReason, secondReason, replacementReason),
+                            transaction.getRewardBatchRejectionReason());
                 })
                 .verifyComplete();
     }

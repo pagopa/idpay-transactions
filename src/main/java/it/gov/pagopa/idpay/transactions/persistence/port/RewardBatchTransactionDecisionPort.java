@@ -16,8 +16,28 @@ public interface RewardBatchTransactionDecisionPort {
             String rewardBatchId,
             String transactionId,
             RewardBatchTrxStatus newStatus,
-            ReasonDTO reason,
+            ReasonDTO internalNote,
+            ReasonDTO officialNote,
             String batchMonth,
             ChecksError checksError
     );
+
+    /**
+     * Compatibility overload for internal callers compiled against the previous
+     * single-note contract.
+     */
+    @Deprecated
+    default Mono<RewardTransaction> updateStatusAndReturnOld(
+            String initiativeId,
+            String rewardBatchId,
+            String transactionId,
+            RewardBatchTrxStatus newStatus,
+            ReasonDTO reason,
+            String batchMonth,
+            ChecksError checksError
+    ) {
+        return updateStatusAndReturnOld(
+                initiativeId, rewardBatchId, transactionId, newStatus,
+                reason, reason, batchMonth, checksError);
+    }
 }

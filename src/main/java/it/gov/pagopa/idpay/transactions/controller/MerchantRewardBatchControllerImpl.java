@@ -164,12 +164,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
     String sanitizeRewardBatchId = rewardBatchId == null ? null : Utilities.sanitizeString(rewardBatchId);
     List<String> transactionIds = request.getTransactionIds() != null ? request.getTransactionIds() : List.of();
-    String reason = request.getReason();
-    if(request.getReason() == null || request.getReason().isEmpty()){
-      throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
-              ExceptionCode.REASON_FIELD_IS_MANDATORY,
-              ExceptionConstants.ExceptionMessage.REASON_FIELD_IS_MANDATORY);
-    }
+    String reason = requireInternalNote(request);
 
     log.info(
             "[SUSPEND_TRANSACTIONS] Requested to suspend {} transactions for rewardBatch {}  with reason '{}' and initiative: {}",
@@ -189,13 +184,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
     String sanitizeRewardBatchId = rewardBatchId == null ? null : Utilities.sanitizeString(rewardBatchId);
     List<String> transactionIds = request.getTransactionIds() != null ? request.getTransactionIds() : List.of();
-    String reason = request.getReason();
-
-    if(request.getReason() == null || request.getReason().isEmpty()){
-      throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
-              ExceptionCode.REASON_FIELD_IS_MANDATORY,
-              ExceptionConstants.ExceptionMessage.REASON_FIELD_IS_MANDATORY);
-    }
+    String reason = requireInternalNote(request);
 
     log.info(
             "[REJECT_TRANSACTIONS] Requested to rejected {} transactions for rewardBatch {} of initiative {} with reason '{}'",
@@ -224,6 +213,16 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
 
     return rewardBatchService.approvedTransactions(sanitizeRewardBatchId, request, sanitizeInitiativeId)
             .flatMap(rewardBatchMapper::toDTO);
+  }
+
+  private static String requireInternalNote(TransactionsRequest request) {
+    String internalNote = request.getResolvedInternalNote();
+    if (internalNote == null || internalNote.isBlank()) {
+      throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
+              ExceptionCode.REASON_FIELD_IS_MANDATORY,
+              ExceptionConstants.ExceptionMessage.REASON_FIELD_IS_MANDATORY);
+    }
+    return internalNote;
   }
 
   @Override
