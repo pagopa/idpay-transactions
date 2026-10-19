@@ -12,6 +12,7 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.model.TransactionNotes;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardBatchTransactionDecisionPort;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardBatchesRecord;
@@ -63,8 +64,7 @@ public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDe
             String rewardBatchId,
             String transactionId,
             RewardBatchTrxStatus newStatus,
-            ReasonDTO internalNote,
-            ReasonDTO officialNote,
+            TransactionNotes notes,
             String batchMonth,
             ChecksError checksError
     ) {
@@ -73,8 +73,8 @@ public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDe
                 rewardBatchId,
                 transactionId,
                 newStatus,
-                internalNote,
-                officialNote,
+                notes.internal(),
+                notes.official(),
                 batchMonth,
                 checksError
         );

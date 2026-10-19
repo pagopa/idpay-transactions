@@ -15,6 +15,7 @@ import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.*;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import it.gov.pagopa.idpay.transactions.model.TransactionNotes;
 import it.gov.pagopa.idpay.transactions.persistence.port.*;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
@@ -302,8 +303,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                         rewardBatchId,
                                         transactionId,
                                         newStatus,
-                                        internalNote,
-                                        officialNote,
+                                        new TransactionNotes(internalNote, officialNote),
                                         batch.getMonth(),
                                         checksError
                                 ))

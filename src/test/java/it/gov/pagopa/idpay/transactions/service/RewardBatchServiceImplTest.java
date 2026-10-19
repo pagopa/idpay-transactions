@@ -16,6 +16,7 @@ import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.*;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.model.TransactionNotes;
 import it.gov.pagopa.idpay.transactions.persistence.port.*;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
@@ -90,7 +91,8 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Mono.just(evaluating));
         when(decisionPort.updateStatusAndReturnOld(
                 eq("initiative"), eq("batch"), eq("transaction"), eq(RewardBatchTrxStatus.APPROVED),
-                isNull(), isNull(), eq("2026-01"), isNull())).thenReturn(Mono.just(new RewardTransaction()));
+                eq(new TransactionNotes(null, null)), eq("2026-01"), isNull()))
+                .thenReturn(Mono.just(new RewardTransaction()));
         when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(refreshed));
 
         StepVerifier.create(service.approvedTransactions("batch", request, "initiative"))
@@ -99,7 +101,7 @@ class RewardBatchServiceImplTest {
 
         verify(decisionPort).updateStatusAndReturnOld(
                 eq("initiative"), eq("batch"), eq("transaction"), eq(RewardBatchTrxStatus.APPROVED),
-                isNull(), isNull(), eq("2026-01"), isNull());
+                eq(new TransactionNotes(null, null)), eq("2026-01"), isNull());
         verify(lifecyclePort).findBatch("batch", "initiative");
     }
 
@@ -619,7 +621,7 @@ class RewardBatchServiceImplTest {
         when(decisionPort.updateStatusAndReturnOld(
                 eq("initiative"), eq("batch"),
                 anyString(), any(),
-                any(), any(), eq(evaluating.getMonth()),
+                any(TransactionNotes.class), eq(evaluating.getMonth()),
                 isNull())).thenReturn(Mono.just(new RewardTransaction()));
         when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(refreshed));
 

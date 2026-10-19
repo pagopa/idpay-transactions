@@ -8,6 +8,7 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import it.gov.pagopa.idpay.transactions.model.TransactionNotes;
 import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
@@ -896,7 +897,7 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                                                 batch.getId(),
                                                 "approval-decision-race-transaction",
                                                 RewardBatchTrxStatus.APPROVED,
-                                                null,
+                                                new TransactionNotes(null, null),
                                                 batch.getMonth(),
                                                 null
                                         ))
