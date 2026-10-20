@@ -248,8 +248,7 @@ public class SqlRewardBatchAdapter {
             String rewardBatchId,
             String initiativeId
     ) {
-        return lockAssignedTransactions(transactionDslContext, rewardBatchId, initiativeId)
-                .then(sumSuspendedRewards(transactionDslContext, rewardBatchId, initiativeId))
+        return sumSuspendedRewards(transactionDslContext, rewardBatchId, initiativeId)
                 .flatMap(amount -> captureApprovalSnapshotAndStatus(
                         transactionDslContext,
                         rewardBatchId,
@@ -496,14 +495,14 @@ public class SqlRewardBatchAdapter {
                 .flatMap(hasPreviousBatch -> {
                     if (Boolean.TRUE.equals(hasPreviousBatch)) {
                         return Mono.error(new RewardBatchException(
-                                HttpStatus.BAD_REQUEST,
-                                REWARD_BATCH_PREVIOUS_NOT_SENT
+                              HttpStatus.BAD_REQUEST,
+                              REWARD_BATCH_PREVIOUS_NOT_SENT
                         ));
                     }
                     return captureBatchRewardSnapshot(
-                            transactionDslContext,
-                            rewardBatchId,
-                            initiativeId
+                          transactionDslContext,
+                          rewardBatchId,
+                          initiativeId
                     );
                 });
     }
@@ -513,8 +512,7 @@ public class SqlRewardBatchAdapter {
             String rewardBatchId,
             String initiativeId
     ) {
-        return lockAssignedTransactions(transactionDslContext, rewardBatchId, initiativeId)
-                .then(sumAssignedRewards(transactionDslContext, rewardBatchId, initiativeId))
+        return sumAssignedRewards(transactionDslContext, rewardBatchId, initiativeId)
                 .flatMap(amount -> captureSendSnapshotAndStatus(
                         transactionDslContext,
                         rewardBatchId,
@@ -573,19 +571,6 @@ public class SqlRewardBatchAdapter {
                                 .and(REWARD_BATCHES.ID.ne(rewardBatchId)))
                         .limit(1))
                 .hasElement();
-    }
-
-    private Mono<Void> lockAssignedTransactions(
-            DSLContext transactionDslContext,
-            String rewardBatchId,
-            String initiativeId
-    ) {
-        return Flux.from(transactionDslContext.select(REWARD_TRANSACTIONS.TRANSACTION_ID)
-                        .from(REWARD_TRANSACTIONS)
-                        .where(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(rewardBatchId)
-                                .and(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(initiativeId)))
-                        .forUpdate())
-                .then();
     }
 
     private Mono<Long> sumAssignedRewards(
