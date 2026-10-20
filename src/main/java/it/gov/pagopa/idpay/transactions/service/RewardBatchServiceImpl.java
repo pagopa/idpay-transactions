@@ -17,6 +17,7 @@ import it.gov.pagopa.idpay.transactions.enums.*;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import it.gov.pagopa.idpay.transactions.model.TransactionNotes;
 import it.gov.pagopa.idpay.transactions.persistence.port.*;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
@@ -163,14 +164,22 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 initiativeId,
                 request,
                 RewardBatchTrxStatus.SUSPENDED,
-                generateReasonDto(request),
+                generateInternalNote(request),
+                generateNoteDto(request.getOfficialNote()),
                 checksErrorMapper.toModel(request.getChecksError())
         );
     }
 
-    private static ReasonDTO generateReasonDto(TransactionsRequest request) {
+    private static ReasonDTO generateInternalNote(TransactionsRequest request) {
+        return generateNoteDto(request.getResolvedInternalNote());
+    }
+
+    private static ReasonDTO generateNoteDto(String note) {
+        if (note == null || note.isBlank()) {
+            return null;
+        }
         LocalDateTime now = LocalDateTime.now(ZONEID);
-        return new ReasonDTO(now, request.getReason());
+        return new ReasonDTO(now, note);
     }
 
     void validChecksError(ChecksErrorDTO dto) {
@@ -243,7 +252,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 initiativeId,
                 request,
                 RewardBatchTrxStatus.REJECTED,
-                generateReasonDto(request),
+                generateInternalNote(request),
+                generateNoteDto(request.getOfficialNote()),
                 checksErrorMapper.toModel(request.getChecksError())
         );
     }
@@ -255,6 +265,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 initiativeId,
                 request,
                 RewardBatchTrxStatus.APPROVED,
+                null,
                 null,
                 null
         );
@@ -320,7 +331,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             String initiativeId,
             TransactionsRequest request,
             RewardBatchTrxStatus newStatus,
-            ReasonDTO reason,
+            ReasonDTO internalNote,
+            ReasonDTO officialNote,
             ChecksError checksError
     ) {
         return rewardBatchLifecyclePort
@@ -339,7 +351,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                         rewardBatchId,
                                         transactionId,
                                         newStatus,
-                                        reason,
+                                        new TransactionNotes(internalNote, officialNote),
                                         batch.getMonth(),
                                         checksError
                                 ))

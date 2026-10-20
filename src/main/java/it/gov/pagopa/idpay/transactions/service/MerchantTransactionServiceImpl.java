@@ -191,7 +191,10 @@ public class MerchantTransactionServiceImpl implements MerchantTransactionServic
                 .invoiceData(transaction.getInvoiceData() != null ? transaction.getInvoiceData() : new InvoiceData())
                 .rewardBatchTrxStatus(exposed)
                 .pointOfSaleId(transaction.getPointOfSaleId() == null ? "-" : transaction.getPointOfSaleId())
-                .rewardBatchRejectionReason(sortedReasons(transaction.getRewardBatchRejectionReason()))
+                .rewardBatchRejectionReason(isOperator(organizationRole)
+                        ? sortedReasons(transaction.getRewardBatchRejectionReason())
+                        : null)
+                .rewardBatchOfficialNotes(sortedReasons(transaction.getRewardBatchOfficialNotes()))
                 .checksError(checksErrorMapper.toDto(transaction.getChecksError()))
                 .franchiseName(transaction.getFranchiseName() == null ? "-" : transaction.getFranchiseName())
                 .build();

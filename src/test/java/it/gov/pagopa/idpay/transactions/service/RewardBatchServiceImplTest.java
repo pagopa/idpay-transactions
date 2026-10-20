@@ -20,6 +20,7 @@ import it.gov.pagopa.idpay.transactions.enums.*;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.model.TransactionNotes;
 import it.gov.pagopa.idpay.transactions.persistence.port.*;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
@@ -88,12 +89,17 @@ class RewardBatchServiceImplTest {
                 .status(RewardBatchStatus.EVALUATING).build();
         RewardBatch refreshed = RewardBatch.builder()
                 .id("batch").initiativeId("initiative").numberOfTransactionsElaborated(1L).build();
-        TransactionsRequest request = TransactionsRequest.builder().transactionIds(List.of("transaction")).build();
+        TransactionsRequest request = TransactionsRequest.builder()
+                .transactionIds(List.of("transaction"))
+                .internalNote("internal")
+                .officialNote("official")
+                .build();
         when(lifecyclePort.findBatchWithStatus("batch", "initiative", RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.just(evaluating));
         when(decisionPort.updateStatusAndReturnOld(
-                "initiative", "batch", "transaction", RewardBatchTrxStatus.APPROVED,
-                null, "2026-01", null)).thenReturn(Mono.just(new RewardTransaction()));
+                eq("initiative"), eq("batch"), eq("transaction"), eq(RewardBatchTrxStatus.APPROVED),
+                eq(new TransactionNotes(null, null)), eq("2026-01"), isNull()))
+                .thenReturn(Mono.just(new RewardTransaction()));
         when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(refreshed));
 
         StepVerifier.create(service.approvedTransactions("batch", request, "initiative"))
@@ -101,8 +107,8 @@ class RewardBatchServiceImplTest {
                 .verifyComplete();
 
         verify(decisionPort).updateStatusAndReturnOld(
-                "initiative", "batch", "transaction", RewardBatchTrxStatus.APPROVED,
-                null, "2026-01", null);
+                eq("initiative"), eq("batch"), eq("transaction"), eq(RewardBatchTrxStatus.APPROVED),
+                eq(new TransactionNotes(null, null)), eq("2026-01"), isNull());
         verify(lifecyclePort).findBatch("batch", "initiative");
     }
 
@@ -645,13 +651,16 @@ class RewardBatchServiceImplTest {
         RewardBatch evaluating = batch("batch", RewardBatchStatus.EVALUATING);
         RewardBatch refreshed = batch("batch", RewardBatchStatus.EVALUATING);
         TransactionsRequest request = TransactionsRequest.builder()
-                .transactionIds(List.of("one", "two")).reason("reason").build();
+                .transactionIds(List.of("one", "two"))
+                .internalNote("internal")
+                .officialNote("official")
+                .build();
         when(lifecyclePort.findBatchWithStatus("batch", "initiative", RewardBatchStatus.EVALUATING))
                 .thenReturn(Mono.just(evaluating), Mono.just(evaluating));
         when(decisionPort.updateStatusAndReturnOld(
                 eq("initiative"), eq("batch"),
                 anyString(), any(),
-                any(), eq(evaluating.getMonth()),
+                any(TransactionNotes.class), eq(evaluating.getMonth()),
                 isNull())).thenReturn(Mono.just(new RewardTransaction()));
         when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(refreshed));
 
