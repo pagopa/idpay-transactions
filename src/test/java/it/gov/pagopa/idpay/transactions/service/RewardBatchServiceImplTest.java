@@ -1,11 +1,14 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
+import it.gov.pagopa.common.web.exception.RewardBatchMissingFilenameException;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
 import it.gov.pagopa.idpay.transactions.data.factory.DataFactoryService;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.InitiativeDetailDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.MerchantDetailDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRestClient;
+import it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.SelfcareInstitutionsRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionList;
@@ -14,6 +17,7 @@ import it.gov.pagopa.idpay.transactions.dto.DeliveryOutcomeDTO;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.*;
+import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.*;
@@ -31,6 +35,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Set;
@@ -63,6 +68,7 @@ class RewardBatchServiceImplTest {
     @Mock private ErogazioniRestClient erogazioniClient;
     @Mock private InitiativeDataService initiativeDataService;
     @Mock private DataFactoryService dataFactoryService;
+    @Mock private ReportPersistencePort reportPersistencePort;
     private RewardBatchServiceImpl service;
 
     @BeforeEach
@@ -71,7 +77,8 @@ class RewardBatchServiceImplTest {
                 lifecyclePort, listPort, merchantLookupPort, transactionReadPort, decisionPort,
                 postponementPort, finalApprovalPort, promotionPort, deliveryPort, reassignmentPort,
                 batchBlobService, checksErrorMapper, auditUtilities, merchantRestClient,
-                paymentRestClient, selfcareClient, erogazioniClient, initiativeDataService, dataFactoryService, 10);
+                paymentRestClient, selfcareClient, erogazioniClient, initiativeDataService,
+                dataFactoryService, reportPersistencePort, 10);
     }
 
     @Test
@@ -264,9 +271,17 @@ class RewardBatchServiceImplTest {
         verifyNoInteractions(batchBlobService);
 
         RewardBatch approved = batch("approved", RewardBatchStatus.APPROVED);
-        approved.setFilename("approved.csv");
+        approved.setReportId("report-approved");
         when(merchantLookupPort.findMerchantBatch("merchant", "initiative", "approved"))
                 .thenReturn(Mono.just(approved));
+        when(reportPersistencePort.findByIdAndInitiativeId("report-approved", "initiative"))
+                .thenReturn(Mono.just(Report.builder()
+                        .id("report-approved")
+                        .initiativeId("initiative")
+                        .fileName("approved.csv")
+                        .reportStatus(ReportStatus.GENERATED)
+                        .reportType(ReportType.REWARD_BATCH_CSV)
+                        .build()));
         when(batchBlobService.getFileSignedUrl(
                 "initiative/initiative/merchant/merchant/batch/approved/approved.csv"))
                 .thenReturn(Mono.just("signed-url"));
@@ -569,18 +584,28 @@ class RewardBatchServiceImplTest {
     void csvGenerationReadsApprovedTransactionsUploadsAndPersistsFilename() {
         RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
         when(lifecyclePort.findBatch("batch")).thenReturn(Mono.just(approved));
-        when(lifecyclePort.saveBatch(approved)).thenReturn(Mono.just(approved));
+        when(lifecyclePort.saveBatch(any(RewardBatch.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+        when(reportPersistencePort.save(any(Report.class))).thenReturn(Mono.just(Report.builder()
+                .id("report-123").initiativeId("initiative").merchantId("merchant")
+                .reportType(ReportType.REWARD_BATCH_CSV).reportStatus(ReportStatus.INSERTED).fileName("business_name_FISICO.csv").build()));
         when(dataFactoryService.triggerRewardBatchCsvPipeline(
-                "initiative", "merchant", "batch", "business_name_FISICO.csv"
+                "initiative", "merchant", "batch", "report-123", "business_name_FISICO.csv"
         )).thenReturn(Mono.just("run-123"));
+
 
         StepVerifier.create(service.generateAndSaveCsv("batch", "initiative", "merchant"))
                 .expectNext("business_name_FISICO.csv").verifyComplete();
 
-        assertEquals("business_name_FISICO.csv", approved.getFilename());
-        verify(dataFactoryService).triggerRewardBatchCsvPipeline(
-                "initiative", "merchant", "batch", "business_name_FISICO.csv"
-        );
+        verify(reportPersistencePort).save(argThat(report ->
+                ReportType.REWARD_BATCH_CSV.equals(report.getReportType())
+                        && "business_name_FISICO.csv".equals(report.getFileName())
+                        && ReportStatus.INSERTED.equals(report.getReportStatus())
+                        && "business".equals(report.getBusinessName())
+                        && RewardBatchAssignee.L3.equals(report.getOperatorLevel())
+                        && approved.getStartDate().equals(report.getStartPeriod())
+                        && approved.getEndDate().equals(report.getEndPeriod())
+                        && report.getRequestDate() != null));
+        verify(lifecyclePort).saveBatch(argThat(batch -> "report-123".equals(batch.getReportId())));
     }
 
     @Test
@@ -591,15 +616,29 @@ class RewardBatchServiceImplTest {
 
         RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
         when(lifecyclePort.findBatch("batch")).thenReturn(Mono.just(approved));
-        when(lifecyclePort.saveBatch(approved)).thenReturn(Mono.just(approved));
+        when(lifecyclePort.saveBatch(any(RewardBatch.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+        when(reportPersistencePort.save(any(Report.class))).thenAnswer(invocation -> {
+            Report report = invocation.getArgument(0);
+            if (report.getId() == null) {
+                report.setId("report-123");
+            }
+            return Mono.just(report);
+        });
+        when(reportPersistencePort.findByIdAndInitiativeId(anyString(), anyString())).thenReturn(Mono.just(Report.builder()
+                .id("report-123").initiativeId("initiative").merchantId("merchant")
+                .reportType(ReportType.REWARD_BATCH_CSV).reportStatus(ReportStatus.INSERTED).fileName("business_name_FISICO.csv").build()));
         when(dataFactoryService.triggerRewardBatchCsvPipeline(
-                "initiative", "merchant", "batch", "business_name_FISICO.csv"
-        )).thenReturn(Mono.error(new IllegalStateException("adf failed")));
+                "initiative", "merchant", "batch", "report-123", "business_name_FISICO.csv"
+        )).thenReturn(Mono.error(new AzureConnectingErrorException("adf", new RuntimeException("down"))));
+
         StepVerifier.create(service.generateAndSaveCsv("batch", "initiative", "merchant"))
                 .expectError().verify();
 
-        verify(lifecyclePort, times(1)).saveBatch(approved);
+        verify(reportPersistencePort, atLeastOnce()).save(argThat(report ->
+                ReportStatus.FAILED.equals(report.getReportStatus())
+                        && ReportType.REWARD_BATCH_CSV.equals(report.getReportType())));
     }
+
 
     @Test
     void suspendAndRejectDelegateEachDecisionThenReturnTheFreshAggregate() {
@@ -665,17 +704,13 @@ class RewardBatchServiceImplTest {
     void csvGenerationMapsTransactionRowsAndResolvesMissingFiscalCodes() {
         RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
         when(lifecyclePort.findBatch("batch")).thenReturn(Mono.just(approved));
-        when(lifecyclePort.saveBatch(approved)).thenReturn(Mono.just(approved));
-        when(dataFactoryService.triggerRewardBatchCsvPipeline(
-                "initiative", "merchant", "batch", "business_name_FISICO.csv"
-        )).thenReturn(Mono.just("run-123"));
+        lenient().when(lifecyclePort.saveBatch(any(RewardBatch.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+        lenient().when(reportPersistencePort.save(any(Report.class))).thenReturn(Mono.just(Report.builder()
+                .id("report-123").initiativeId("initiative").merchantId("merchant")
+                .reportType(ReportType.REWARD_BATCH_CSV).reportStatus(ReportStatus.INSERTED).fileName("business_name_FISICO.csv").build()));
 
         StepVerifier.create(service.generateAndSaveCsv("batch", "initiative", "merchant"))
                 .expectNext("business_name_FISICO.csv").verifyComplete();
-
-        verify(dataFactoryService).triggerRewardBatchCsvPipeline(
-                "initiative", "merchant", "batch", "business_name_FISICO.csv"
-        );
     }
 
     @Test
@@ -735,13 +770,31 @@ class RewardBatchServiceImplTest {
     @Test
     void approvedFileOperatorScopeChecksRoleAndFilename() {
         RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
-        approved.setFilename(null);
         when(lifecyclePort.findBatch("batch")).thenReturn(Mono.just(approved));
         StepVerifier.create(service.downloadApprovedRewardBatchFile(null, "operator1", "initiative", "batch"))
                 .expectError().verify();
 
-        approved.setFilename("file.csv");
+        approved.setReportId("report-1");
         StepVerifier.create(service.downloadApprovedRewardBatchFile(null, "admin", "initiative", "batch"))
+                .expectError().verify();
+    }
+
+    @Test
+    void approvedFileRequiresGeneratedCsvStatusWhenPresent() {
+        RewardBatch approved = batch("batch", RewardBatchStatus.APPROVED);
+        approved.setReportId("report-1");
+        when(merchantLookupPort.findMerchantBatch("merchant", "initiative", "batch"))
+                .thenReturn(Mono.just(approved));
+        when(reportPersistencePort.findByIdAndInitiativeId("report-1", "initiative"))
+                .thenReturn(Mono.just(Report.builder()
+                        .id("report-1")
+                        .initiativeId("initiative")
+                        .fileName("file.csv")
+                        .reportStatus(ReportStatus.IN_PROGRESS)
+                        .reportType(ReportType.REWARD_BATCH_CSV)
+                        .build()));
+
+        StepVerifier.create(service.downloadApprovedRewardBatchFile("merchant", null, "initiative", "batch"))
                 .expectError().verify();
     }
 
@@ -844,6 +897,146 @@ class RewardBatchServiceImplTest {
                 .id(id).initiativeId("initiative").merchantId("merchant")
                 .month(YearMonth.now().minusMonths(1).toString()).posType(PosType.PHYSICAL)
                 .status(status).name("name").businessName("business")
+                .startDate(java.time.LocalDateTime.parse("2026-01-01T00:00:00"))
+                .endDate(java.time.LocalDateTime.parse("2026-01-31T23:59:59"))
+                .approvalDate(java.time.LocalDateTime.parse("2026-02-01T10:00:00"))
                 .numberOfTransactions(1L).build();
+    }
+
+    @Test
+    void generateAndSaveCsvPersistsReportAndLinksBatchToReportId() {
+        RewardBatch batch = batch("batch-1", RewardBatchStatus.APPROVED);
+        batch.setBusinessName("Merchant");
+        batch.setName("reward-batch");
+        batch.setPosType(PosType.PHYSICAL);
+        batch.setStartDate(LocalDateTime.of(2026, java.time.Month.JULY, 1, 0, 0));
+        batch.setEndDate(LocalDateTime.of(2026, java.time.Month.JULY, 31, 23, 59, 59));
+
+        Report report = Report.builder()
+                .id("report-123")
+                .initiativeId("initiative")
+                .merchantId("merchant")
+                .reportType(ReportType.REWARD_BATCH_CSV)
+                .reportStatus(ReportStatus.INSERTED)
+                .build();
+
+        when(lifecyclePort.findBatch("batch-1")).thenReturn(Mono.just(batch));
+        when(reportPersistencePort.save(any(Report.class))).thenReturn(Mono.just(report));
+        when(lifecyclePort.saveBatch(any(RewardBatch.class))).thenAnswer(invocation -> {
+            RewardBatch saved = invocation.getArgument(0);
+            saved.setReportId("report-123");
+            return Mono.just(saved);
+        });
+        when(dataFactoryService.triggerRewardBatchCsvPipeline(
+                "initiative", "merchant", "batch-1", "report-123", "Merchant_reward-batch_FISICO.csv"
+        )).thenReturn(Mono.just("run-123"));
+
+        StepVerifier.create(service.generateAndSaveCsv("batch-1", "initiative", "merchant"))
+                .expectNext("Merchant_reward-batch_FISICO.csv")
+                .verifyComplete();
+
+        verify(reportPersistencePort).save(argThat(saved ->
+                ReportType.REWARD_BATCH_CSV.equals(saved.getReportType())
+                        && "Merchant_reward-batch_FISICO.csv".equals(saved.getFileName())
+                        && "Merchant".equals(saved.getBusinessName())
+                        && batch.getStartDate().equals(saved.getStartPeriod())
+                        && batch.getEndDate().equals(saved.getEndPeriod())
+                        && RewardBatchAssignee.L3.equals(saved.getOperatorLevel())
+                        && saved.getRequestDate() != null));
+        verify(lifecyclePort).saveBatch(argThat(updated -> "report-123".equals(updated.getReportId())));
+    }
+
+    @Test
+    void generateAndSaveCsvReusesExistingReportForSameBatch() {
+        RewardBatch batch = batch("batch-2", RewardBatchStatus.APPROVED);
+        batch.setBusinessName("Merchant");
+        batch.setName("reward-batch");
+        batch.setPosType(PosType.PHYSICAL);
+        batch.setReportId("report-existing");
+        Report existing = Report.builder()
+                .id("report-existing")
+                .initiativeId("initiative")
+                .merchantId("merchant")
+                .reportType(ReportType.REWARD_BATCH_CSV)
+                .reportStatus(ReportStatus.INSERTED)
+                .fileName("Merchant_reward-batch_FISICO.csv")
+                .build();
+
+        when(lifecyclePort.findBatch("batch-2")).thenReturn(Mono.just(batch));
+        when(reportPersistencePort.findByIdAndInitiativeId("report-existing", "initiative"))
+                .thenReturn(Mono.just(existing));
+        when(reportPersistencePort.save(any(Report.class))).thenReturn(Mono.just(existing));
+        when(dataFactoryService.triggerRewardBatchCsvPipeline(
+                "initiative", "merchant", "batch-2", "report-existing", "Merchant_reward-batch_FISICO.csv"
+        )).thenReturn(Mono.just("run-456"));
+
+        StepVerifier.create(service.generateAndSaveCsv("batch-2", "initiative", "merchant"))
+                .expectNext("Merchant_reward-batch_FISICO.csv")
+                .verifyComplete();
+
+        verify(reportPersistencePort, atLeastOnce()).save(argThat(saved ->
+                "report-existing".equals(saved.getId())
+                        && ReportType.REWARD_BATCH_CSV.equals(saved.getReportType())));
+        verify(lifecyclePort, never()).saveBatch(any(RewardBatch.class));
+    }
+
+    @Test
+    void generateAndSaveCsvWhenDataFactoryFailsMarksReportAsFailed() {
+        RewardBatch batch = batch("batch-3", RewardBatchStatus.APPROVED);
+        batch.setBusinessName("Merchant");
+        batch.setName("reward-batch");
+        batch.setPosType(PosType.PHYSICAL);
+        Report persisted = Report.builder()
+                .id("report-999")
+                .initiativeId("initiative")
+                .merchantId("merchant")
+                .reportType(ReportType.REWARD_BATCH_CSV)
+                .reportStatus(ReportStatus.INSERTED)
+                .fileName("Merchant_reward-batch_FISICO.csv")
+                .build();
+
+        when(lifecyclePort.findBatch("batch-3")).thenReturn(Mono.just(batch));
+        when(reportPersistencePort.save(any(Report.class))).thenReturn(Mono.just(persisted));
+        when(reportPersistencePort.findByIdAndInitiativeId("report-999", "initiative"))
+                .thenReturn(Mono.just(persisted));
+        when(lifecyclePort.saveBatch(any(RewardBatch.class))).thenAnswer(invocation -> {
+            RewardBatch saved = invocation.getArgument(0);
+            saved.setReportId("report-999");
+            return Mono.just(saved);
+        });
+        when(dataFactoryService.triggerRewardBatchCsvPipeline(
+                "initiative", "merchant", "batch-3", "report-999", "Merchant_reward-batch_FISICO.csv"
+        )).thenReturn(Mono.error(new AzureConnectingErrorException("adf", new RuntimeException("down"))));
+
+        StepVerifier.create(service.generateAndSaveCsv("batch-3", "initiative", "merchant"))
+                .expectError(AzureConnectingErrorException.class)
+                .verify();
+
+        verify(reportPersistencePort, atLeastOnce()).save(argThat(saved ->
+                ReportStatus.FAILED.equals(saved.getReportStatus())
+                        && ReportType.REWARD_BATCH_CSV.equals(saved.getReportType())
+                        && "report-999".equals(saved.getId())));
+        verify(lifecyclePort, atLeastOnce()).saveBatch(argThat(updated -> "report-999".equals(updated.getReportId())));
+    }
+
+    @Test
+    void approvedFileRejectsMissingFilenameBeforeBlobLookup() {
+        RewardBatch approved = batch("batch-missing-name", RewardBatchStatus.APPROVED);
+        approved.setReportId("report-missing-name");
+        when(merchantLookupPort.findMerchantBatch("merchant", "initiative", "batch-missing-name"))
+                .thenReturn(Mono.just(approved));
+        when(reportPersistencePort.findByIdAndInitiativeId("report-missing-name", "initiative"))
+                .thenReturn(Mono.just(Report.builder()
+                        .id("report-missing-name")
+                        .initiativeId("initiative")
+                        .reportStatus(ReportStatus.GENERATED)
+                        .reportType(ReportType.REWARD_BATCH_CSV)
+                        .build()));
+
+        StepVerifier.create(service.downloadApprovedRewardBatchFile("merchant", null, "initiative", "batch-missing-name"))
+                .expectError(RewardBatchMissingFilenameException.class)
+                .verify();
+
+        verifyNoInteractions(batchBlobService);
     }
 }
