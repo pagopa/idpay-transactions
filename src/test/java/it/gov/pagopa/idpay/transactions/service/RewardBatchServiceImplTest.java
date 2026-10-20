@@ -33,6 +33,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Set;
@@ -898,5 +899,119 @@ class RewardBatchServiceImplTest {
                 .endDate(java.time.LocalDateTime.parse("2026-01-31T23:59:59"))
                 .approvalDate(java.time.LocalDateTime.parse("2026-02-01T10:00:00"))
                 .numberOfTransactions(1L).build();
+    }
+
+    @Test
+    void generateAndSaveCsvPersistsReportAndLinksBatchToReportId() {
+        RewardBatch batch = batch("batch-1", RewardBatchStatus.APPROVED);
+        batch.setBusinessName("Merchant");
+        batch.setName("reward-batch");
+        batch.setPosType(PosType.PHYSICAL);
+        batch.setStartDate(LocalDateTime.of(2026, 7, 1, 0, 0));
+        batch.setEndDate(LocalDateTime.of(2026, 7, 31, 23, 59, 59));
+        Report report = Report.builder()
+                .id("report-123")
+                .initiativeId("initiative")
+                .merchantId("merchant")
+                .reportType(ReportType.REWARD_BATCH_CSV)
+                .reportStatus(ReportStatus.INSERTED)
+                .build();
+
+        when(lifecyclePort.findBatch("batch-1")).thenReturn(Mono.just(batch));
+        when(reportPersistencePort.save(any(Report.class))).thenReturn(Mono.just(report));
+        when(lifecyclePort.saveBatch(any(RewardBatch.class))).thenAnswer(invocation -> {
+            RewardBatch saved = invocation.getArgument(0);
+            saved.setReportId("report-123");
+            return Mono.just(saved);
+        });
+        when(dataFactoryService.triggerRewardBatchCsvPipeline(
+                "initiative", "merchant", "batch-1", "report-123", "Merchant_reward-batch_FISICO.csv"
+        )).thenReturn(Mono.just("run-123"));
+
+        StepVerifier.create(service.generateAndSaveCsv("batch-1", "initiative", "merchant"))
+                .expectNext("Merchant_reward-batch_FISICO.csv")
+                .verifyComplete();
+
+        verify(reportPersistencePort).save(argThat(saved ->
+                ReportType.REWARD_BATCH_CSV.equals(saved.getReportType())
+                        && "Merchant_reward-batch_FISICO.csv".equals(saved.getFileName())
+                        && "Merchant".equals(saved.getBusinessName())
+                        && batch.getStartDate().equals(saved.getStartPeriod())
+                        && batch.getEndDate().equals(saved.getEndPeriod())
+                        && RewardBatchAssignee.L3.equals(saved.getOperatorLevel())
+                        && saved.getRequestDate() != null));
+        verify(lifecyclePort).saveBatch(argThat(updated -> "report-123".equals(updated.getReportId())));
+    }
+
+    @Test
+    void generateAndSaveCsvReusesExistingReportForSameBatch() {
+        RewardBatch batch = batch("batch-2", RewardBatchStatus.APPROVED);
+        batch.setBusinessName("Merchant");
+        batch.setName("reward-batch");
+        batch.setPosType(PosType.PHYSICAL);
+        batch.setReportId("report-existing");
+        Report existing = Report.builder()
+                .id("report-existing")
+                .initiativeId("initiative")
+                .merchantId("merchant")
+                .reportType(ReportType.REWARD_BATCH_CSV)
+                .reportStatus(ReportStatus.INSERTED)
+                .fileName("Merchant_reward-batch_FISICO.csv")
+                .build();
+
+        when(lifecyclePort.findBatch("batch-2")).thenReturn(Mono.just(batch));
+        when(reportPersistencePort.findByIdAndInitiativeId("report-existing", "initiative"))
+                .thenReturn(Mono.just(existing));
+        when(reportPersistencePort.save(any(Report.class))).thenReturn(Mono.just(existing));
+        when(lifecyclePort.saveBatch(any(RewardBatch.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+        when(dataFactoryService.triggerRewardBatchCsvPipeline(
+                "initiative", "merchant", "batch-2", "report-existing", "Merchant_reward-batch_FISICO.csv"
+        )).thenReturn(Mono.just("run-456"));
+
+        StepVerifier.create(service.generateAndSaveCsv("batch-2", "initiative", "merchant"))
+                .expectNext("Merchant_reward-batch_FISICO.csv")
+                .verifyComplete();
+
+        verify(reportPersistencePort, atLeastOnce()).save(argThat(saved -> "report-existing".equals(saved.getId())));
+        verify(lifecyclePort).saveBatch(argThat(updated -> "report-existing".equals(updated.getReportId())));
+    }
+
+    @Test
+    void generateAndSaveCsvWhenDataFactoryFailsMarksReportAsFailed() {
+        RewardBatch batch = batch("batch-3", RewardBatchStatus.APPROVED);
+        batch.setBusinessName("Merchant");
+        batch.setName("reward-batch");
+        batch.setPosType(PosType.PHYSICAL);
+        Report persisted = Report.builder()
+                .id("report-999")
+                .initiativeId("initiative")
+                .merchantId("merchant")
+                .reportType(ReportType.REWARD_BATCH_CSV)
+                .reportStatus(ReportStatus.INSERTED)
+                .fileName("Merchant_reward-batch_FISICO.csv")
+                .build();
+
+        when(lifecyclePort.findBatch("batch-3")).thenReturn(Mono.just(batch));
+        when(reportPersistencePort.save(any(Report.class))).thenReturn(Mono.just(persisted));
+        when(reportPersistencePort.findByIdAndInitiativeId("report-999", "initiative"))
+                .thenReturn(Mono.just(persisted));
+        when(lifecyclePort.saveBatch(any(RewardBatch.class))).thenAnswer(invocation -> {
+            RewardBatch saved = invocation.getArgument(0);
+            saved.setReportId("report-999");
+            return Mono.just(saved);
+        });
+        when(dataFactoryService.triggerRewardBatchCsvPipeline(
+                "initiative", "merchant", "batch-3", "report-999", "Merchant_reward-batch_FISICO.csv"
+        )).thenReturn(Mono.error(new AzureConnectingErrorException("adf", new RuntimeException("down"))));
+
+        StepVerifier.create(service.generateAndSaveCsv("batch-3", "initiative", "merchant"))
+                .expectError(AzureConnectingErrorException.class)
+                .verify();
+
+        verify(reportPersistencePort, atLeastOnce()).save(argThat(saved ->
+                ReportStatus.FAILED.equals(saved.getReportStatus())
+                        && ReportType.REWARD_BATCH_CSV.equals(saved.getReportType())
+                        && "report-999".equals(saved.getId())));
+        verify(lifecyclePort, atLeastOnce()).saveBatch(argThat(updated -> "report-999".equals(updated.getReportId())));
     }
 }
