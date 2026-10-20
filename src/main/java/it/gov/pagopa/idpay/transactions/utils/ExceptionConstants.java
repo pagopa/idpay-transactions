@@ -16,6 +16,7 @@ public final class ExceptionConstants {
         public static final String REWARD_BATCH_NOT_FOUND = "REWARD_BATCH_NOT_FOUND";
         public static final String REWARD_BATCH_NOT_APPROVED = "REWARD_BATCH_NOT_APPROVED";
         public static final String REWARD_BATCH_MISSING_FILENAME = "REWARD_BATCH_MISSING_FILENAME";
+        public static final String REWARD_BATCH_CSV_NOT_GENERATED = "REWARD_BATCH_CSV_NOT_GENERATED";
         public static final String REWARD_BATCH_INVALID_MERCHANT = "REWARD_BATCH_INVALID_MERCHANT";
         public static final String ROLE_NOT_ALLOWED = "ROLE_NOT_ALLOWED";
         public static final String REWARD_BATCH_NOT_APPROVED_OR_REFUNDABLE = "REWARD_BATCH_NOT_APPROVED_OR_REFUNDABLE";
@@ -29,6 +30,7 @@ public final class ExceptionConstants {
         public static final String REWARD_BATCH_GENERIC_ERROR = "REWARD_BATCH_GENERIC_ERROR";
         public static final String POINT_OF_SALE_NOT_ALLOWED = "POINT_OF_SALE_NOT_ALLOWED";
         public static final String REASON_FIELD_IS_MANDATORY = "REASON_FIELD_IS_MANDATORY";
+        public static final String OFFICIAL_NOTE_FIELD_IS_MANDATORY = "OFFICIAL_NOTE_FIELD_IS_MANDATORY";
         public static final String MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY = "MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY";
         public static final String MERCHANT_ID_AND_ORGANIZATION_ROLE_CANNOT_COEXIST = "MERCHANT_ID_AND_ORGANIZATION_ROLE_CANNOT_COEXIST";
         public static final String INVALID_ORGANIZATION_ROLE = "INVALID_ORGANIZATION_ROLE";
@@ -80,6 +82,7 @@ public final class ExceptionConstants {
         public static final String ERROR_MESSAGE_INVALID_LENGTH_PERIOD = "The provided period length is greater than %s";
 
         public static final String REASON_FIELD_IS_MANDATORY = "Reason field is mandatory";
+        public static final String OFFICIAL_NOTE_FIELD_IS_MANDATORY = "Official note field is mandatory when changing transaction status";
         public static final String ERROR_MESSAGE_NOT_FOUND_OR_INVALID_STATE_BATCH = "Reward batch  %s not  found  or  not in  a  valid  state";
         public static final String ERROR_MESSAGE_NOT_FOUND_BATCH = "Reward batch  %s not  found";
         public static final String ERROR_MESSAGE_INVALID_STATE_BATCH = "Reward batch  %s  not in  a  valid  state";
@@ -87,6 +90,7 @@ public final class ExceptionConstants {
         public static final String ERROR_MESSAGE_ROLE_NOT_ALLOWED = "Role not allowed";
         public static final String ERROR_MESSAGE_REWARD_BATCH_NOT_APPROVED = "Reward batch  %s not APPROVED";
         public static final String ERROR_MESSAGE_REWARD_BATCH_MISSING_FILENAME = "Reward batch  %s missing file name";
+        public static final String ERROR_MESSAGE_REWARD_BATCH_CSV_NOT_GENERATED = "The reward batch %s CSV is not generated yet and cannot be downloaded";
         public static final String MERCHANT_OR_OPERATOR_HEADER_MANDATORY = "Merchant or operator information is missing";
         public static final String ERROR_MESSAGE_REWARD_BATCH_NOT_APPROVED_OR_REFUNDABLE = "Reward batch  %s not APPROVED or REFUNDABLE";
 
