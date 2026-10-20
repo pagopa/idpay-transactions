@@ -909,8 +909,9 @@ class RewardBatchServiceImplTest {
         batch.setBusinessName("Merchant");
         batch.setName("reward-batch");
         batch.setPosType(PosType.PHYSICAL);
-        batch.setStartDate(LocalDateTime.of(2026, 7, 1, 0, 0));
-        batch.setEndDate(LocalDateTime.of(2026, 7, 31, 23, 59, 59));
+        batch.setStartDate(LocalDateTime.of(2026, java.time.Month.JULY, 1, 0, 0));
+        batch.setEndDate(LocalDateTime.of(2026, java.time.Month.JULY, 31, 23, 59, 59));
+
         Report report = Report.builder()
                 .id("report-123")
                 .initiativeId("initiative")

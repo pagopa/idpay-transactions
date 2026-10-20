@@ -77,6 +77,8 @@ public class ReportServiceImpl implements ReportService {
     );
     private static final DateTimeFormatter FILE_NAME_FORMAT = DateTimeFormatter.ofPattern("ddMMyyyyHHmmss");
 
+    private static final String REQUEST_DATE_SORT_FIELD = "requestDate";
+
     private static final String REPORT_TRANSACTIONS_PATH_STORAGE_FORMAT = "initiative/%s/merchant/%s/report/%s";
 
     private static final String REPORT_USER_DETAILS_PATH_STORAGE_FORMAT = "initiative/%s/report/%s";
@@ -172,7 +174,7 @@ public class ReportServiceImpl implements ReportService {
         }
 
         Pageable sortedPageable = PageRequest.of( pageable.getPageNumber(),
-                pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "requestDate"));
+                pageable.getPageSize(), Sort.by(Sort.Direction.DESC, REQUEST_DATE_SORT_FIELD));
 
         return reportPersistencePort.findReports(
                         merchantId,
@@ -220,7 +222,7 @@ public class ReportServiceImpl implements ReportService {
         }
 
         log.info("[GET_USER_DETAILS_REPORTS] Fetching USER_DETAILS reports for initiative: {}, role: {}", Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(organizationRole));
-        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "requestDate"));
+        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.DESC, REQUEST_DATE_SORT_FIELD));
 
         return reportPersistencePort.findReports(
                         null,
@@ -636,7 +638,7 @@ public class ReportServiceImpl implements ReportService {
 
         log.info("[GET_REWARD_BATCH_CSV_REPORTS] Fetching REWARD_BATCH_CSV reports for initiative: {}, role: {}",
                 Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(organizationRole));
-        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "requestDate"));
+        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.DESC, REQUEST_DATE_SORT_FIELD));
 
         return reportPersistencePort.findReports(
                         null,
