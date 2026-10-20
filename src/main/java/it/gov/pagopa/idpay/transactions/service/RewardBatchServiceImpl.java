@@ -360,68 +360,86 @@ public class RewardBatchServiceImpl implements RewardBatchService {
             return Mono.error(new RewardBatchInvalidRequestException(MERCHANT_OR_OPERATOR_HEADER_MANDATORY));
         }
 
-        Mono<RewardBatch> query =
-                merchantId == null
-                        ? rewardBatchLifecyclePort.findBatch(rewardBatchId)
-                        : merchantRewardBatchLookupPort.findMerchantBatch(merchantId, initiativeId, rewardBatchId);
+        Mono<RewardBatch> query = merchantId == null
+                ? rewardBatchLifecyclePort.findBatch(rewardBatchId)
+                : merchantRewardBatchLookupPort.findMerchantBatch(merchantId, initiativeId, rewardBatchId);
 
         return query
                 .switchIfEmpty(Mono.error(new RewardBatchNotFound(
                         REWARD_BATCH_NOT_FOUND,
                         ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId)
                 )))
-                .flatMap(batch -> {
+                .flatMap(batch -> validateDownloadPermission(batch, merchantId, organizationRole)
+                        .then(validateApprovedBatchStatus(batch, rewardBatchId))
+                        .then(getDownloadableReport(batch, rewardBatchId))
+                        .flatMap(report -> getApprovedBatchSignedUrl(batch, report, initiativeId, rewardBatchId)));
+    }
 
-                    if (merchantId == null && !isValidInvitaliaOperator(organizationRole)) {
-                        throw new RoleNotAllowedException(
-                                ROLE_NOT_ALLOWED,
-                                ERROR_MESSAGE_ROLE_NOT_ALLOWED
-                        );
+    private Mono<RewardBatch> validateDownloadPermission(RewardBatch batch, String merchantId, String organizationRole) {
+        if (merchantId != null) {
+            return Mono.just(batch);
+        }
+        if (!isValidInvitaliaOperator(organizationRole)) {
+            return Mono.error(new RoleNotAllowedException(
+                    ROLE_NOT_ALLOWED,
+                    ERROR_MESSAGE_ROLE_NOT_ALLOWED
+            ));
+        }
+        return Mono.just(batch);
+    }
+
+    private Mono<RewardBatch> validateApprovedBatchStatus(RewardBatch batch, String rewardBatchId) {
+        if (!RewardBatchStatus.APPROVED.equals(batch.getStatus()) && !isRefundState(batch.getStatus())) {
+            return Mono.error(new RewardBatchNotApprovedException(
+                    REWARD_BATCH_NOT_APPROVED_OR_REFUNDABLE,
+                    ERROR_MESSAGE_REWARD_BATCH_NOT_APPROVED_OR_REFUNDABLE.formatted(rewardBatchId)
+            ));
+        }
+        return Mono.just(batch);
+    }
+
+    private Mono<Report> getDownloadableReport(RewardBatch batch, String rewardBatchId) {
+        return findRewardBatchCsvReport(batch)
+                .switchIfEmpty(Mono.error(new RewardBatchMissingFilenameException(
+                        REWARD_BATCH_MISSING_FILENAME,
+                        ERROR_MESSAGE_REWARD_BATCH_MISSING_FILENAME.formatted(rewardBatchId)
+                )))
+                .flatMap(report -> validateGeneratedReportStatus(report, rewardBatchId))
+                .flatMap(report -> {
+                    if (report.getFileName() == null || report.getFileName().isBlank()) {
+                        return Mono.error(new RewardBatchMissingFilenameException(
+                                REWARD_BATCH_MISSING_FILENAME,
+                                ERROR_MESSAGE_REWARD_BATCH_MISSING_FILENAME.formatted(rewardBatchId)
+                        ));
                     }
-
-                    if (!RewardBatchStatus.APPROVED.equals(batch.getStatus()) && !isRefundState(batch.getStatus())) {
-                        throw new RewardBatchNotApprovedException(
-                                REWARD_BATCH_NOT_APPROVED_OR_REFUNDABLE,
-                                ERROR_MESSAGE_REWARD_BATCH_NOT_APPROVED_OR_REFUNDABLE.formatted(rewardBatchId)
-                        );
-                    }
-
-                    return findRewardBatchCsvReport(batch)
-                            .switchIfEmpty(Mono.error(new RewardBatchMissingFilenameException(
-                                    REWARD_BATCH_MISSING_FILENAME,
-                                    ERROR_MESSAGE_REWARD_BATCH_MISSING_FILENAME.formatted(rewardBatchId)
-                            )))
-                            .flatMap(report -> {
-                                String filename = report.getFileName();
-                                if (filename == null || filename.isBlank()) {
-                                    throw new RewardBatchMissingFilenameException(
-                                            REWARD_BATCH_MISSING_FILENAME,
-                                            ERROR_MESSAGE_REWARD_BATCH_MISSING_FILENAME.formatted(rewardBatchId)
-                                    );
-                                }
-
-                                if (report.getReportStatus() != null && !ReportStatus.GENERATED.equals(report.getReportStatus())) {
-                                    throw new ClientExceptionWithBody(
-                                            BAD_REQUEST,
-                                            ExceptionConstants.ExceptionCode.REWARD_BATCH_CSV_NOT_GENERATED,
-                                            ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_REWARD_BATCH_CSV_NOT_GENERATED.formatted(rewardBatchId)
-                                    );
-                                }
-
-                                String blobPath = String.format(
-                                        REWARD_BATCHES_PATH_STORAGE_FORMAT + "%s",
-                                        initiativeId,
-                                        batch.getMerchantId(),
-                                        rewardBatchId,
-                                        filename
-                                );
-
-                                return approvedRewardBatchBlobService.getFileSignedUrl(blobPath)
-                                        .map(approvedBatchUrl -> DownloadRewardBatchResponseDTO.builder()
-                                                .approvedBatchUrl(approvedBatchUrl)
-                                                .build());
-                            });
+                    return Mono.just(report);
                 });
+    }
+
+    private Mono<Report> validateGeneratedReportStatus(Report report, String rewardBatchId) {
+        if (report.getReportStatus() != null && !ReportStatus.GENERATED.equals(report.getReportStatus())) {
+            return Mono.error(new ClientExceptionWithBody(
+                    BAD_REQUEST,
+                    ExceptionConstants.ExceptionCode.REWARD_BATCH_CSV_NOT_GENERATED,
+                    ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_REWARD_BATCH_CSV_NOT_GENERATED.formatted(rewardBatchId)
+            ));
+        }
+        return Mono.just(report);
+    }
+
+    private Mono<DownloadRewardBatchResponseDTO> getApprovedBatchSignedUrl(RewardBatch batch, Report report, String initiativeId, String rewardBatchId) {
+        String blobPath = String.format(
+                REWARD_BATCHES_PATH_STORAGE_FORMAT + "%s",
+                initiativeId,
+                batch.getMerchantId(),
+                rewardBatchId,
+                report.getFileName()
+        );
+
+        return approvedRewardBatchBlobService.getFileSignedUrl(blobPath)
+                .map(approvedBatchUrl -> DownloadRewardBatchResponseDTO.builder()
+                        .approvedBatchUrl(approvedBatchUrl)
+                        .build());
     }
 
     private Mono<Report> findRewardBatchCsvReport(RewardBatch batch) {
