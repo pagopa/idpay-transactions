@@ -1,6 +1,7 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
+import it.gov.pagopa.common.web.exception.RewardBatchMissingFilenameException;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
 import it.gov.pagopa.idpay.transactions.data.factory.DataFactoryService;
@@ -1032,7 +1033,7 @@ class RewardBatchServiceImplTest {
                         .build()));
 
         StepVerifier.create(service.downloadApprovedRewardBatchFile("merchant", null, "initiative", "batch-missing-name"))
-                .expectError(ClientExceptionWithBody.class)
+                .expectError(RewardBatchMissingFilenameException.class)
                 .verify();
 
         verifyNoInteractions(batchBlobService);
