@@ -398,9 +398,8 @@ class MerchantTransactionServiceImplTest {
         MerchantTransactionDTO dto = content.getFirst();
         assertMerchantTransactionMatches(rt1, dto, FISCAL_CODE);
         assertNotNull(dto.getChecksError());
-        assertNull(dto.getRewardBatchRejectionReason());
-        assertNotNull(dto.getRewardBatchOfficialNotes());
-        assertTrue(dto.getRewardBatchOfficialNotes().isEmpty());
+        assertNotNull(dto.getRewardBatchRejectionReason());
+        assertTrue(dto.getRewardBatchRejectionReason().isEmpty());
 
         verify(rewardTransactionSearchPortMock).findMerchantTransactions(any(), isNull(), eq(false), eq(paging));
         verify(rewardTransactionSearchPortMock).countMerchantTransactions(any(), isNull(), eq(false));
@@ -432,7 +431,6 @@ class MerchantTransactionServiceImplTest {
                 .trxDate(now)
                 .checksError(checksError)
                 .rewardBatchRejectionReason(List.of(reason1, reason2))
-                .rewardBatchOfficialNotes(List.of(reason1, reason2))
                 .build();
 
         Pageable paging = PageRequest.of(
@@ -475,8 +473,8 @@ class MerchantTransactionServiceImplTest {
         MerchantTransactionDTO dto = content.getFirst();
         assertMerchantTransactionMatches(rt1, dto, FISCAL_CODE);
         assertNotNull(dto.getChecksError());
-        assertNull(dto.getRewardBatchRejectionReason());
-        assertEquals(List.of(reason2, reason1), dto.getRewardBatchOfficialNotes());
+        assertNotNull(dto.getRewardBatchRejectionReason());
+        assertEquals(List.of(reason2, reason1), dto.getRewardBatchRejectionReason());
 
         verify(rewardTransactionSearchPortMock).findMerchantTransactions(any(), isNull(), eq(false), eq(paging));
         verify(rewardTransactionSearchPortMock).countMerchantTransactions(any(), isNull(), eq(false));

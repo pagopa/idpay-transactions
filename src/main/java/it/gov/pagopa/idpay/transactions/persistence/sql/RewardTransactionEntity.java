@@ -54,7 +54,6 @@ public record RewardTransactionEntity(
         @Column("checks_error") Json checksError,
         @Column("accrued_reward_cents") long accruedRewardCents,
         @Column("transaction_revision") long transactionRevision,
-        @Column("latest_applied_payment_impact_revision") long latestAppliedPaymentImpactRevision,
-        @Column("reward_batch_official_notes") Json rewardBatchOfficialNotes
+        @Column("latest_applied_payment_impact_revision") long latestAppliedPaymentImpactRevision
 ) {
 }
