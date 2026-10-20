@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
 import it.gov.pagopa.idpay.transactions.data.factory.DataFactoryService;
@@ -1014,5 +1015,26 @@ class RewardBatchServiceImplTest {
                         && ReportType.REWARD_BATCH_CSV.equals(saved.getReportType())
                         && "report-999".equals(saved.getId())));
         verify(lifecyclePort, atLeastOnce()).saveBatch(argThat(updated -> "report-999".equals(updated.getReportId())));
+    }
+
+    @Test
+    void approvedFileRejectsMissingFilenameBeforeBlobLookup() {
+        RewardBatch approved = batch("batch-missing-name", RewardBatchStatus.APPROVED);
+        approved.setReportId("report-missing-name");
+        when(merchantLookupPort.findMerchantBatch("merchant", "initiative", "batch-missing-name"))
+                .thenReturn(Mono.just(approved));
+        when(reportPersistencePort.findByIdAndInitiativeId("report-missing-name", "initiative"))
+                .thenReturn(Mono.just(Report.builder()
+                        .id("report-missing-name")
+                        .initiativeId("initiative")
+                        .reportStatus(ReportStatus.GENERATED)
+                        .reportType(ReportType.REWARD_BATCH_CSV)
+                        .build()));
+
+        StepVerifier.create(service.downloadApprovedRewardBatchFile("merchant", null, "initiative", "batch-missing-name"))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+
+        verifyNoInteractions(batchBlobService);
     }
 }
