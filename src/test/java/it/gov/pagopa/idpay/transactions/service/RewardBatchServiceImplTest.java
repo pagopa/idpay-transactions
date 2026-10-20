@@ -963,7 +963,6 @@ class RewardBatchServiceImplTest {
         when(reportPersistencePort.findByIdAndInitiativeId("report-existing", "initiative"))
                 .thenReturn(Mono.just(existing));
         when(reportPersistencePort.save(any(Report.class))).thenReturn(Mono.just(existing));
-        when(lifecyclePort.saveBatch(any(RewardBatch.class))).thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
         when(dataFactoryService.triggerRewardBatchCsvPipeline(
                 "initiative", "merchant", "batch-2", "report-existing", "Merchant_reward-batch_FISICO.csv"
         )).thenReturn(Mono.just("run-456"));
@@ -972,8 +971,10 @@ class RewardBatchServiceImplTest {
                 .expectNext("Merchant_reward-batch_FISICO.csv")
                 .verifyComplete();
 
-        verify(reportPersistencePort, atLeastOnce()).save(argThat(saved -> "report-existing".equals(saved.getId())));
-        verify(lifecyclePort).saveBatch(argThat(updated -> "report-existing".equals(updated.getReportId())));
+        verify(reportPersistencePort, atLeastOnce()).save(argThat(saved ->
+                "report-existing".equals(saved.getId())
+                        && ReportType.REWARD_BATCH_CSV.equals(saved.getReportType())));
+        verify(lifecyclePort, never()).saveBatch(any(RewardBatch.class));
     }
 
     @Test
