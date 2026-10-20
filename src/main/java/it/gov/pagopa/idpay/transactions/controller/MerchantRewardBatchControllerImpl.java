@@ -152,18 +152,24 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
-  public Mono<String> generateAndSaveCsv(String initiativeId, String rewardBatchId, String merchantId) {
+  public  Mono<String> generateAndSaveCsv(String initiativeId, String rewardBatchId, String merchantId) {
     log.info("[GENERATE_AND_SAVE_CSV] Generate CSV for initiative {} and batch {}",
             Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(rewardBatchId) );
     return rewardBatchService.generateAndSaveCsv(rewardBatchId, initiativeId, merchantId);
   }
+
 
   @Override
   public Mono<RewardBatchDTO> suspendTransactions(String initiativeId, String rewardBatchId, TransactionsRequest request) {
     String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
     String sanitizeRewardBatchId = rewardBatchId == null ? null : Utilities.sanitizeString(rewardBatchId);
     List<String> transactionIds = request.getTransactionIds() != null ? request.getTransactionIds() : List.of();
-    String reason = requireInternalNote(request);
+    String reason = request.getReason();
+    if(request.getReason() == null || request.getReason().isEmpty()){
+      throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
+              ExceptionCode.REASON_FIELD_IS_MANDATORY,
+              ExceptionConstants.ExceptionMessage.REASON_FIELD_IS_MANDATORY);
+    }
 
     log.info(
             "[SUSPEND_TRANSACTIONS] Requested to suspend {} transactions for rewardBatch {}  with reason '{}' and initiative: {}",
@@ -183,7 +189,13 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
     String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
     String sanitizeRewardBatchId = rewardBatchId == null ? null : Utilities.sanitizeString(rewardBatchId);
     List<String> transactionIds = request.getTransactionIds() != null ? request.getTransactionIds() : List.of();
-    String reason = requireInternalNote(request);
+    String reason = request.getReason();
+
+    if(request.getReason() == null || request.getReason().isEmpty()){
+      throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
+              ExceptionCode.REASON_FIELD_IS_MANDATORY,
+              ExceptionConstants.ExceptionMessage.REASON_FIELD_IS_MANDATORY);
+    }
 
     log.info(
             "[REJECT_TRANSACTIONS] Requested to rejected {} transactions for rewardBatch {} of initiative {} with reason '{}'",
@@ -212,16 +224,6 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
 
     return rewardBatchService.approvedTransactions(sanitizeRewardBatchId, request, sanitizeInitiativeId)
             .flatMap(rewardBatchMapper::toDTO);
-  }
-
-  private static String requireInternalNote(TransactionsRequest request) {
-    String internalNote = request.getResolvedInternalNote();
-    if (internalNote == null || internalNote.isBlank()) {
-      throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
-              ExceptionCode.REASON_FIELD_IS_MANDATORY,
-              ExceptionConstants.ExceptionMessage.REASON_FIELD_IS_MANDATORY);
-    }
-    return internalNote;
   }
 
   @Override

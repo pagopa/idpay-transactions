@@ -74,8 +74,7 @@ public class RewardTransactionSqlMapper {
                 toJson(transaction.getChecksError()),
                 accruedRewardCents(transaction.getRewards(), initiativeId),
                 transaction.getTransactionRevision(),
-                0L,
-                toJson(transaction.getRewardBatchOfficialNotes())
+                0L
         );
     }
 
@@ -116,8 +115,6 @@ public class RewardTransactionSqlMapper {
                 .rewardBatchId(entity.rewardBatchId())
                 .rewardBatchTrxStatus(enumValue(entity.rewardBatchTrxStatus(), RewardBatchTrxStatus::valueOf))
                 .rewardBatchRejectionReason(fromJson(entity.rewardBatchRejectionReasons(),
-                        new TypeReference<List<ReasonDTO>>() { }))
-                .rewardBatchOfficialNotes(fromJson(entity.rewardBatchOfficialNotes(),
                         new TypeReference<List<ReasonDTO>>() { }))
                 .rewardBatchInclusionDate(entity.rewardBatchInclusionDate())
                 .franchiseName(entity.franchiseName())
@@ -182,8 +179,7 @@ public class RewardTransactionSqlMapper {
                 r2dbcJson(transactionRecord.getChecksError()),
                 transactionRecord.getAccruedRewardCents(),
                 transactionRecord.getTransactionRevision(),
-                transactionRecord.getLatestAppliedPaymentImpactRevision(),
-                r2dbcJson(transactionRecord.getRewardBatchOfficialNotes())
+                transactionRecord.getLatestAppliedPaymentImpactRevision()
         ));
     }
 
@@ -235,8 +231,7 @@ public class RewardTransactionSqlMapper {
                 jsonb(entity.checksError()),
                 entity.accruedRewardCents(),
                 entity.transactionRevision(),
-                entity.latestAppliedPaymentImpactRevision(),
-                jsonb(entity.rewardBatchOfficialNotes())
+                entity.latestAppliedPaymentImpactRevision()
         );
     }
 

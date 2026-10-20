@@ -2,7 +2,6 @@ package it.gov.pagopa.idpay.transactions.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.swagger.v3.oas.annotations.media.Schema;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -38,10 +37,7 @@ public class MerchantTransactionDTO {
     Long authorizedAmountCents;
     InvoiceData invoiceData;
     RewardBatchTrxStatus rewardBatchTrxStatus;
-    @Schema(description = "Internal notes. Returned only to institution operators")
     List<ReasonDTO> rewardBatchRejectionReason;
-    @Schema(description = "Official notes visible to institution operators and merchants")
-    List<ReasonDTO> rewardBatchOfficialNotes;
     ChecksErrorDTO checksError;
     String franchiseName;
 }

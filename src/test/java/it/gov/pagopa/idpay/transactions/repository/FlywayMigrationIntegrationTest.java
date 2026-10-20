@@ -12,17 +12,10 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Comparator;
-import java.util.regex.Pattern;
-
 @Testcontainers(disabledWithoutDocker = true)
 class FlywayMigrationIntegrationTest {
 
     private static final String POSTGRES_SCHEMA = "idpay-rimborsi";
-    private static final Pattern VERSIONED_MIGRATION_PATTERN = Pattern.compile("V(\\d+)__.*\\.sql");
 
     @Container
     private static final PostgreSQLContainer<?> postgresql = new PostgreSQLContainer<>("postgres:17-alpine")
@@ -118,30 +111,6 @@ class FlywayMigrationIntegrationTest {
             return values.toString();
         } catch (Exception exception) {
             throw new IllegalStateException("Unable to query the Flyway test database", exception);
-        }
-    }
-
-    private String expectedMigrationVersions() {
-        try (var migrations = Files.list(Path.of("src", "main", "resources", "db", "migration"))) {
-            return migrations
-                    .map(path -> VERSIONED_MIGRATION_PATTERN.matcher(path.getFileName().toString()))
-                    .filter(java.util.regex.Matcher::matches)
-                    .map(matcher -> matcher.group(1))
-                    .sorted(Comparator.naturalOrder())
-                    .collect(java.util.stream.Collectors.joining(","));
-        } catch (IOException exception) {
-            throw new IllegalStateException("Unable to inspect Flyway migration files", exception);
-        }
-    }
-
-    private long expectedMigrationCount() {
-        try (var migrations = Files.list(Path.of("src", "main", "resources", "db", "migration"))) {
-            return migrations
-                    .map(path -> VERSIONED_MIGRATION_PATTERN.matcher(path.getFileName().toString()))
-                    .filter(java.util.regex.Matcher::matches)
-                    .count();
-        } catch (IOException exception) {
-            throw new IllegalStateException("Unable to inspect Flyway migration files", exception);
         }
     }
 }

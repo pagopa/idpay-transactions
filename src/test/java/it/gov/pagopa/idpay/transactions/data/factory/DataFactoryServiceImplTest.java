@@ -413,7 +413,7 @@ class DataFactoryServiceImplTest {
         when(createRunResponse.runId()).thenReturn("BATCH_CSV_RUN_ID");
 
         StepVerifier.create(service.triggerRewardBatchCsvPipeline(
-                        "initiative", "merchant", "batch", "report-123", "merchant_batch.csv"))
+                        "initiative", "merchant", "batch", "merchant_batch.csv"))
                 .expectNext("BATCH_CSV_RUN_ID")
                 .verifyComplete();
 
@@ -429,7 +429,6 @@ class DataFactoryServiceImplTest {
                         "initiativeId", "initiative",
                         "merchantId", "merchant",
                         "rewardBatchId", "batch",
-                        "reportId", "report-123",
                         "reportName", "merchant_batch.csv"
                 ))),
                 eq(Context.NONE)

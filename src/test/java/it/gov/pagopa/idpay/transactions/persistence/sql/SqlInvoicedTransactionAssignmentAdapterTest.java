@@ -103,12 +103,9 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
     }
 
     @Test
-    void shouldAssignAnEligibleTransactionAndPreserveNoteHistory() {
+    void shouldAssignAnEligibleTransactionAndClearPriorAssignmentMetadata() {
         RewardTransaction transaction = transaction("transaction-assigned", 750L);
-        List<ReasonDTO> internalNotes = List.of(new ReasonDTO(null, "previous internal note"));
-        List<ReasonDTO> officialNotes = List.of(new ReasonDTO(null, "previous official note"));
-        transaction.setRewardBatchRejectionReason(internalNotes);
-        transaction.setRewardBatchOfficialNotes(officialNotes);
+        transaction.setRewardBatchRejectionReason(List.of(new ReasonDTO(null, "obsolete")));
 
         StepVerifier.create(adapter.assignInvoicedTransaction(transaction, batch(), 123))
                 .assertNext(assigned -> {
@@ -116,8 +113,7 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
                     assertEquals(RewardBatchTrxStatus.CONSULTABLE, assigned.getRewardBatchTrxStatus());
                     assertNotNull(assigned.getRewardBatchInclusionDate());
                     assertEquals(123, assigned.getSamplingKey());
-                    assertEquals(internalNotes, assigned.getRewardBatchRejectionReason());
-                    assertEquals(officialNotes, assigned.getRewardBatchOfficialNotes());
+                    assertNull(assigned.getRewardBatchRejectionReason());
                 })
                 .verifyComplete();
 

@@ -23,7 +23,6 @@ public class RewardBatchDTO {
   String businessName;
   String month;
   PosType posType;
-  String reportId;
   String status;
   Boolean partial;
   String name;
@@ -40,6 +39,7 @@ public class RewardBatchDTO {
   Long numberOfTransactionsSuspended;
   Long numberOfTransactionsRejected;
   Long numberOfTransactionsElaborated;
+  String reportPath;
   String assigneeLevel;
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   LocalDateTime merchantSendDate;

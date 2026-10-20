@@ -118,11 +118,6 @@ public class ReportServiceImpl implements ReportService {
                         pageable
                 );
 
-            case REWARD_BATCH_CSV -> getRewardBatchCsvReports(
-                        organizationRole,
-                        initiativeId,
-                        pageable
-                );
         };
     }
 
@@ -608,56 +603,5 @@ public class ReportServiceImpl implements ReportService {
                             .build());
 
     }
-
-    @Override
-    public Mono<Page<Report>> getRewardBatchCsvReports(
-            String organizationRole,
-            String initiativeId,
-            Pageable pageable
-    ) {
-        if (organizationRole == null || organizationRole.isBlank()) {
-            log.warn("[GET_REWARD_BATCH_CSV_REPORTS] Missing mandatory filter: organizationRole is null or blank");
-            throw new ClientExceptionWithBody(
-                    HttpStatus.BAD_REQUEST,
-                    MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY,
-                    ERROR_MESSAGE_MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY
-            );
-        }
-
-        if (ALLOWED_ROLES.stream().noneMatch(role -> role.equalsIgnoreCase(organizationRole))) {
-            log.warn("[GET_REWARD_BATCH_CSV_REPORTS] Invalid organizationRole: {}",
-                    Utilities.sanitizeString(organizationRole));
-            throw new ClientExceptionWithBody(
-                    HttpStatus.BAD_REQUEST,
-                    INVALID_ORGANIZATION_ROLE,
-                    ERROR_MESSAGE_INVALID_ORGANIZATION_ROLE
-            );
-        }
-
-        log.info("[GET_REWARD_BATCH_CSV_REPORTS] Fetching REWARD_BATCH_CSV reports for initiative: {}, role: {}",
-                Utilities.sanitizeString(initiativeId), Utilities.sanitizeString(organizationRole));
-        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "requestDate"));
-
-        return reportPersistencePort.findReports(
-                        null,
-                        organizationRole,
-                        initiativeId,
-                        ReportType.REWARD_BATCH_CSV,
-                        sortedPageable
-                )
-                .collectList()
-                .zipWith(reportPersistencePort.countReports(
-                        null,
-                        organizationRole,
-                        initiativeId,
-                        ReportType.REWARD_BATCH_CSV
-                ))
-                .map(tuple -> new PageImpl<>(
-                        tuple.getT1(),
-                        sortedPageable,
-                        tuple.getT2()
-                ));
-    }
-
 
 }

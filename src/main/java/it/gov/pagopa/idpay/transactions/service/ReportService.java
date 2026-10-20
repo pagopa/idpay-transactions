@@ -35,12 +35,6 @@ public interface ReportService {
             Pageable pageable
     );
 
-    Mono<Page<Report>> getRewardBatchCsvReports(
-            String organizationRole,
-            String initiativeId,
-            Pageable pageable
-    );
-
     Mono<ReportDTO> generateReport(String merchantId,
                                    String organizationRole,
                                    String initiativeId,

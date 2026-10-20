@@ -30,7 +30,6 @@ public class RewardBatch {
     private String businessName;
     private String month;
     private PosType posType;
-    private String reportId;
     private RewardBatchStatus status;
     private Boolean partial;
     private String name;
@@ -43,7 +42,8 @@ public class RewardBatch {
     private Long excludedAmountCents;
     private Long numberOfTransactions;
     private Long numberOfTransactionsElaborated;
-
+    private String reportPath;
+    private String filename;
     private RewardBatchAssignee assigneeLevel;
     private Long numberOfTransactionsSuspended;
     private Long numberOfTransactionsRejected;

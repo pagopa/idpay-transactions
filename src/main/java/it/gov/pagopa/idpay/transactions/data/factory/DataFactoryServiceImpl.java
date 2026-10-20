@@ -55,12 +55,11 @@ public class DataFactoryServiceImpl implements DataFactoryService{
     }
 
     @Override
-    public Mono<String> triggerRewardBatchCsvPipeline(String initiativeId, String merchantId, String rewardBatchId, String reportId, String reportName) {
+    public Mono<String> triggerRewardBatchCsvPipeline(String initiativeId, String merchantId, String rewardBatchId, String reportName) {
         HashMap<String, Object> parameters = new HashMap<>();
         parameters.put("initiativeId", initiativeId);
         parameters.put("merchantId", merchantId);
         parameters.put("rewardBatchId", rewardBatchId);
-        parameters.put("reportId", reportId);
         parameters.put("reportName", reportName);
         return triggerPipeline(pipelineRewardBatchCsvName, parameters, rewardBatchId);
     }

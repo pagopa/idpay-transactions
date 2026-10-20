@@ -163,7 +163,6 @@ class MerchantRewardBatchControllerImplTest {
         verify(rewardBatchService).generateAndSaveCsv(REWARD_BATCH_ID_1, INITIATIVE_ID, MERCHANT_ID);
     }
 
-
     @Test
     void rewardBatchConfirmationBatch_WithValidList() {
         RewardBatchesRequest request = new RewardBatchesRequest(BATCH_IDS);
@@ -395,8 +394,6 @@ class MerchantRewardBatchControllerImplTest {
         String rewardBatchId = "BATCH1";
         TransactionsRequest request = new TransactionsRequest();
         request.setTransactionIds(List.of("trx1", "trx2"));
-        request.setInternalNote("Internal note");
-        request.setOfficialNote("Official note");
         request.setReason("Test reason");
 
         RewardBatch batch = RewardBatch.builder()
@@ -540,8 +537,6 @@ class MerchantRewardBatchControllerImplTest {
         String rewardBatchId = "BATCH";
         TransactionsRequest request = new TransactionsRequest();
         request.setTransactionIds(List.of("trx1", "trx2"));
-        request.setInternalNote("Internal note");
-        request.setOfficialNote("Official note");
 
         RewardBatch batch = RewardBatch.builder()
                 .id(rewardBatchId)
@@ -580,7 +575,6 @@ class MerchantRewardBatchControllerImplTest {
         TransactionsRequest request = new TransactionsRequest();
         request.setTransactionIds(List.of("trx1", "trx2"));
         request.setReason("Test reason");
-        request.setOfficialNote("Official note");
 
         RewardBatch batch = RewardBatch.builder()
                 .id(rewardBatchId)
