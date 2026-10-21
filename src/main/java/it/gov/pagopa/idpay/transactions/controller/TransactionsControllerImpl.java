@@ -104,8 +104,12 @@ public class TransactionsControllerImpl implements TransactionsController{
         String  jobId  = UUID.randomUUID().toString();
         rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize,  repetitionsNumber, processAll,  trxId)
                 .doOnSubscribe(sub  -> log.info("[BATCH_ASSIGNMENT]  Job  {}  started", jobId))
-                .doOnError(err  ->  log.error("[BATCH_ASSIGNMENT] Job  {}  failed:  {}", jobId,  err.getMessage(), err))
+                .doOnError(err -> {
+                    log.error("[BATCH_ASSIGNMENT] Job {} failed: {}", jobId, err.getMessage());
+                    log.debug("[BATCH_ASSIGNMENT] Stack trace for failed job {}", jobId, err);
+                })
                 .doOnSuccess(v  -> log.info("[BATCH_ASSIGNMENT]  Job  {}  completed", jobId))
+                .onErrorComplete()
                 .subscribe();
         return  ResponseEntity.accepted().body(jobId);
     }

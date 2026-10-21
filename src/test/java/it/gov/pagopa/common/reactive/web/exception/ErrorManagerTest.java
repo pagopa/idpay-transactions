@@ -7,6 +7,7 @@ import static org.springframework.security.test.web.reactive.server.SecurityMock
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockUser;
 
 import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.classic.spi.StackTraceElementProxy;
@@ -20,6 +21,7 @@ import it.gov.pagopa.common.web.exception.RewardBatchException;
 import it.gov.pagopa.common.web.exception.ServiceException;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,21 +61,30 @@ public class ErrorManagerTest {
     @Autowired
     private WebTestClient webTestClient;
     private static MemoryAppender memoryAppender;
+    private static ch.qos.logback.classic.Logger errorManagerLogger;
+    private static Level previousLoggerLevel;
 
     @BeforeAll
     static void configureMemoryAppender(){
         memoryAppender = new MemoryAppender();
         memoryAppender.setContext((LoggerContext) LoggerFactory.getILoggerFactory());
         memoryAppender.start();
+        errorManagerLogger = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(ErrorManager.class.getName());
+        previousLoggerLevel = errorManagerLogger.getLevel();
+        errorManagerLogger.setLevel(Level.DEBUG);
+        errorManagerLogger.addAppender(memoryAppender);
+    }
+
+    @AfterAll
+    static void restoreLogger() {
+        errorManagerLogger.detachAppender(memoryAppender);
+        errorManagerLogger.setLevel(previousLoggerLevel);
+        memoryAppender.stop();
     }
 
     @BeforeEach
     void clearAndAppendMemoryAppender(){
         memoryAppender.reset();
-
-        ch.qos.logback.classic.Logger logger = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(ErrorManager.class.getName());
-        logger.setLevel(ch.qos.logback.classic.Level.INFO);
-        logger.addAppender(memoryAppender);
     }
 
     @Test
@@ -152,7 +163,7 @@ public class ErrorManagerTest {
                 .expectStatus().isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorClientException);
 
-        checkLog(memoryAppender,
+        checkTechnicalLogs(memoryAppender,
                 "Something went wrong handling request GET /test \\([^)]+\\): HttpStatus 400 BAD_REQUEST - ClientException with httpStatus, message and throwable",
                 "it.gov.pagopa.common.web.exception.ClientException: ClientException with httpStatus, message and throwable",
                 "it.gov.pagopa.common.reactive.web.exception.ErrorManagerTest$TestController.testEndpoint");
@@ -171,7 +182,7 @@ public class ErrorManagerTest {
                 .expectStatus().isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR)
                 .expectBody(ErrorDTO.class).isEqualTo(expectedErrorDefault);
 
-        checkLog(memoryAppender,
+        checkTechnicalLogs(memoryAppender,
                 "Something went wrong handling request GET /test \\([^)]+\\)",
                 "java.lang.RuntimeException: null",
                 "it.gov.pagopa.common.reactive.web.exception.ErrorManagerTest$TestController.testEndpoint");
@@ -193,11 +204,86 @@ public class ErrorManagerTest {
             .expectHeader().contentType("application/json")
             .expectBody(ErrorDTO.class).isEqualTo(expected);
 
-        String loggedMessage = memoryAppender.getLoggedEvents().get(0).getFormattedMessage();
-        Assertions.assertTrue(
-            loggedMessage.contains("Something went wrong handling request"),
-            "Unexpected log message: " + loggedMessage
-        );
+        ILoggingEvent loggedEvent = memoryAppender.getLoggedEvents().get(0);
+        assertEquals(Level.INFO, loggedEvent.getLevel());
+        assertNull(loggedEvent.getThrowableProxy());
+        Assertions.assertTrue(loggedEvent.getFormattedMessage().contains("A RewardBatchException occurred"));
+    }
+
+    @Test
+    void handleExceptionServiceExceptionWithoutPrintStackTrace() {
+        ServiceException serviceException = new ServiceException("BUSINESS_ERROR", "Expected business error");
+        Mockito.doThrow(new ClientExceptionWithBody(
+                        HttpStatus.BAD_REQUEST,
+                        serviceException.getCode(),
+                        serviceException.getMessage(),
+                        serviceException.isPrintStackTrace(),
+                        serviceException))
+                .when(testController).testEndpoint();
+
+        webTestClient.mutateWith(mockUser()).mutateWith(csrf()).get()
+                .uri("/test")
+                .exchange()
+                .expectStatus().isBadRequest();
+
+        ILoggingEvent loggedEvent = memoryAppender.getLoggedEvents().get(0);
+        assertEquals(Level.INFO, loggedEvent.getLevel());
+        assertNull(loggedEvent.getThrowableProxy());
+        Assertions.assertTrue(loggedEvent.getFormattedMessage().contains("A ClientExceptionWithBody occurred"));
+    }
+
+    @Test
+    void handleExceptionRewardBatchExceptionWithPrintStackTrace() {
+        RewardBatchException exception = new RewardBatchException(
+                HttpStatus.INTERNAL_SERVER_ERROR, "RB_TECHNICAL_ERROR", true, null);
+        Mockito.doThrow(exception).when(testController).testEndpoint();
+
+        webTestClient.mutateWith(mockUser()).mutateWith(csrf()).get()
+                .uri("/test")
+                .exchange()
+                .expectStatus().is5xxServerError();
+
+        checkTechnicalLogs(memoryAppender,
+                "Something went wrong handling request GET /test \\([^)]+\\)",
+                "it.gov.pagopa.common.web.exception.RewardBatchException: RB_TECHNICAL_ERROR",
+                "it.gov.pagopa.common.reactive.web.exception.ErrorManagerTest.handleExceptionRewardBatchExceptionWithPrintStackTrace");
+    }
+
+    @Test
+    void handleExceptionClientExceptionWithPrintStackTraceAndNoCause() {
+        ClientException exception = new ClientException(
+                HttpStatus.INTERNAL_SERVER_ERROR, "CLIENT_TECHNICAL_ERROR", true, null);
+        Mockito.doThrow(exception).when(testController).testEndpoint();
+
+        webTestClient.mutateWith(mockUser()).mutateWith(csrf()).get()
+                .uri("/test")
+                .exchange()
+                .expectStatus().is5xxServerError();
+
+        checkTechnicalLogs(memoryAppender,
+                "Something went wrong handling request GET /test \\([^)]+\\): HttpStatus 500 INTERNAL_SERVER_ERROR - CLIENT_TECHNICAL_ERROR",
+                "it.gov.pagopa.common.web.exception.ClientException: CLIENT_TECHNICAL_ERROR",
+                "it.gov.pagopa.common.reactive.web.exception.ErrorManagerTest.handleExceptionClientExceptionWithPrintStackTraceAndNoCause");
+    }
+
+    @Test
+    void handleExceptionRewardBatchExceptionWithCause() {
+        RewardBatchException exception = new RewardBatchException(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "RB_CAUSED_ERROR",
+                false,
+                new IllegalStateException("Root cause"));
+        Mockito.doThrow(exception).when(testController).testEndpoint();
+
+        webTestClient.mutateWith(mockUser()).mutateWith(csrf()).get()
+                .uri("/test")
+                .exchange()
+                .expectStatus().is5xxServerError();
+
+        checkTechnicalLogs(memoryAppender,
+                "Something went wrong handling request GET /test \\([^)]+\\)",
+                "it.gov.pagopa.common.web.exception.RewardBatchException: RB_CAUSED_ERROR",
+                "it.gov.pagopa.common.reactive.web.exception.ErrorManagerTest.handleExceptionRewardBatchExceptionWithCause");
     }
 
     public static void checkStackTraceSuppressedLog(MemoryAppender memoryAppender, String expectedLoggedMessage) {
@@ -206,15 +292,21 @@ public class ErrorManagerTest {
                 "Unexpected logged message: " + loggedMessage);
     }
 
-    public static void checkLog(MemoryAppender memoryAppender, String expectedLoggedMessageRegexp, String expectedLoggedExceptionMessage, String expectedLoggedExceptionOccurrencePosition) {
-        ILoggingEvent loggedEvent = memoryAppender.getLoggedEvents().get(0);
+    public static void checkTechnicalLogs(MemoryAppender memoryAppender, String expectedLoggedMessageRegexp, String expectedLoggedExceptionMessage, String expectedLoggedExceptionOccurrencePosition) {
+        ILoggingEvent errorEvent = memoryAppender.getLoggedEvents().stream()
+                .filter(event -> event.getLevel() == Level.ERROR)
+                .findFirst()
+                .orElseThrow();
+        assertNull(errorEvent.getThrowableProxy());
+        Assertions.assertTrue(Pattern.matches(expectedLoggedMessageRegexp, errorEvent.getFormattedMessage()),
+                "Unexpected logged message: " + errorEvent.getFormattedMessage());
+
+        ILoggingEvent loggedEvent = memoryAppender.getLoggedEvents().stream()
+                .filter(event -> event.getLevel() == Level.DEBUG)
+                .findFirst()
+                .orElseThrow();
         IThrowableProxy loggedException = loggedEvent.getThrowableProxy();
         StackTraceElementProxy loggedExceptionOccurrenceStackTrace = loggedException.getStackTraceElementProxyArray()[0];
-
-        String loggedMessage = loggedEvent.getFormattedMessage();
-        Assertions.assertTrue(Pattern.matches(expectedLoggedMessageRegexp,
-                        loggedEvent.getFormattedMessage()),
-                "Unexpected logged message: " + loggedMessage);
 
         assertEquals(expectedLoggedExceptionMessage,
                 loggedException.getClassName() + ": " + loggedException.getMessage());
