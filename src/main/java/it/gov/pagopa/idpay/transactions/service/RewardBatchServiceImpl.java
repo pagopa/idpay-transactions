@@ -216,6 +216,13 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId)
                 )))
                 .flatMap(batch -> {
+                    if (shouldSkipCsvGeneration(batch)) {
+                        log.info("[GENERATE_AND_SAVE_CSV] Skipping CSV generation for empty batch {} with {} transactions",
+                                Utilities.sanitizeString(batch.getId()),
+                                batch.getNumberOfTransactions());
+                        return Mono.just("");
+                    }
+
                     String effectiveInitiativeId = sanitizedInitiativeId != null ? sanitizedInitiativeId : batch.getInitiativeId();
                     String effectiveMerchantId = sanitizedMerchantId != null ? sanitizedMerchantId : batch.getMerchantId();
                     String reportFilename = buildRewardBatchCsvFilename(batch);
@@ -241,6 +248,12 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                     )
                                     .thenReturn(reportFilename));
                 });
+    }
+
+    private boolean shouldSkipCsvGeneration(RewardBatch batch) {
+        return batch != null
+                && batch.getNumberOfTransactions() != null
+                && batch.getNumberOfTransactions() <= 0;
     }
 
 
