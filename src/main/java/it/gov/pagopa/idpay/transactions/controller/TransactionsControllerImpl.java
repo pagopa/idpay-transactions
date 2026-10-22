@@ -11,12 +11,10 @@ import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import java.util.UUID;
 
-import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -106,8 +104,12 @@ public class TransactionsControllerImpl implements TransactionsController{
         String  jobId  = UUID.randomUUID().toString();
         rewardTransactionService.assignInvoicedTransactionsToBatches(chunkSize,  repetitionsNumber, processAll,  trxId)
                 .doOnSubscribe(sub  -> log.info("[BATCH_ASSIGNMENT]  Job  {}  started", jobId))
-                .doOnError(err  ->  log.error("[BATCH_ASSIGNMENT] Job  {}  failed:  {}", jobId,  err.getMessage()))
+                .doOnError(err -> {
+                    log.error("[BATCH_ASSIGNMENT] Job {} failed: {}", jobId, err.getMessage());
+                    log.debug("[BATCH_ASSIGNMENT] Stack trace for failed job {}", jobId, err);
+                })
                 .doOnSuccess(v  -> log.info("[BATCH_ASSIGNMENT]  Job  {}  completed", jobId))
+                .onErrorComplete()
                 .subscribe();
         return  ResponseEntity.accepted().body(jobId);
     }

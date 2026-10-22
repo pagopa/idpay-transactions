@@ -63,8 +63,9 @@ public class ErrorManager {
             );
         }
 
-        if(!(error instanceof ClientException clientException) || clientException.isPrintStackTrace() || error.getCause() != null){
+        if (shouldLogAsTechnicalError(error)) {
             log.error("Something went wrong handling request {}{}", getRequestDetails(exchange), clientExceptionMessage);
+            log.debug("Stack trace handling request {}{}", getRequestDetails(exchange), clientExceptionMessage, error);
         } else {
             log.info("A {} occurred handling request {}{} at {}",
                     error.getClass().getSimpleName() ,
@@ -72,6 +73,18 @@ public class ErrorManager {
                     clientExceptionMessage,
                     error.getStackTrace().length > 0 ? error.getStackTrace()[0] : "UNKNOWN");
         }
+    }
+
+    private static boolean shouldLogAsTechnicalError(RuntimeException error) {
+        return switch (error) {
+            case ClientException clientException ->
+                    clientException.isPrintStackTrace()
+                            || (clientException.getCause() != null
+                            && !(clientException.getCause() instanceof ServiceException));
+            case RewardBatchException rewardBatchException ->
+                    rewardBatchException.isPrintStackTrace() || rewardBatchException.getCause() != null;
+            default -> true;
+        };
     }
 
     public static String getRequestDetails(ServerWebExchange exchange) {
