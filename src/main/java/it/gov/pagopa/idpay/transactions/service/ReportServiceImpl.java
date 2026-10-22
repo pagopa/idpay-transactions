@@ -73,7 +73,7 @@ public class ReportServiceImpl implements ReportService {
     }
 
     static final List<String> ALLOWED_ROLES = List.of(
-            "operator1", "operator2", "operator3"
+            "operator1", "operator2", "operator3", "support"
     );
     private static final DateTimeFormatter FILE_NAME_FORMAT = DateTimeFormatter.ofPattern("ddMMyyyyHHmmss");
 
