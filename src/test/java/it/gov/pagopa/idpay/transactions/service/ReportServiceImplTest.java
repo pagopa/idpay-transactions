@@ -94,6 +94,49 @@ class ReportServiceImplTest {
     }
 
     @Test
+    void supportRoleIsAllowedForUserDetailsReportsListAndDownload() {
+        // BND-1914: the "support" (backstage read-only) role must be allowed to consult reports.
+        Report listed = report("support-report", ReportType.USER_DETAILS);
+        Pageable expected = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "requestDate"));
+        when(reportPort.findReports(
+                null, "support", "initiative", ReportType.USER_DETAILS, expected))
+                .thenReturn(Flux.just(listed));
+        when(reportPort.countReports(null, "support", "initiative", ReportType.USER_DETAILS))
+                .thenReturn(Mono.just(1L));
+
+        StepVerifier.create(service.getUserDetailsReports("support", "initiative", PageRequest.of(0, 10)))
+                .assertNext(page -> assertEquals("support-report", page.getContent().getFirst().getId()))
+                .verifyComplete();
+
+        Report user = report("user-report", ReportType.USER_DETAILS);
+        user.setFileName("users.csv");
+        user.setReportStatus(ReportStatus.GENERATED);
+        when(reportPort.findByIdAndInitiativeId("user-report", "initiative")).thenReturn(Mono.just(user));
+        when(userDetailsBlobService.getFileSignedUrl("initiative/initiative/report/users.csv"))
+                .thenReturn(Mono.just("users-url"));
+
+        StepVerifier.create(service.downloadUserDetailsReports("support", "initiative", "user-report"))
+                .assertNext(result -> assertEquals("users-url", result.getReportUrl()))
+                .verifyComplete();
+    }
+
+    @Test
+    void supportRoleIsAllowedForTransactionsReportsList() {
+        // BND-1914: the "support" role must also be allowed on the merchant-transactions report list.
+        Report listed = report("support-trx-report", ReportType.MERCHANT_TRANSACTIONS);
+        Pageable expected = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "requestDate"));
+        when(reportPort.findReports(
+                null, "support", "initiative", ReportType.MERCHANT_TRANSACTIONS, expected))
+                .thenReturn(Flux.just(listed));
+        when(reportPort.countReports(null, "support", "initiative", ReportType.MERCHANT_TRANSACTIONS))
+                .thenReturn(Mono.just(1L));
+
+        StepVerifier.create(service.getTransactionsReports(null, "support", "initiative", PageRequest.of(0, 10)))
+                .assertNext(page -> assertEquals("support-trx-report", page.getContent().getFirst().getId()))
+                .verifyComplete();
+    }
+
+    @Test
     void patchLoadsWithinInitiativeScopeBeforeSaving() {
         Report report = report("report", ReportType.USER_DETAILS);
         PatchReportRequest request = new PatchReportRequest();
