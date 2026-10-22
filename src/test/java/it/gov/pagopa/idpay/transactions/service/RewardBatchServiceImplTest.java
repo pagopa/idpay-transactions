@@ -1048,4 +1048,20 @@ class RewardBatchServiceImplTest {
 
         verifyNoInteractions(batchBlobService);
     }
+
+    @Test
+    void csvGenerationSkipsEmptyBatchesWithoutTriggeringReportCreation() {
+        RewardBatch emptyBatch = batch("batch", RewardBatchStatus.APPROVED);
+        emptyBatch.setNumberOfTransactions(0L);
+
+        when(lifecyclePort.findBatch("batch")).thenReturn(Mono.just(emptyBatch));
+
+        StepVerifier.create(service.generateAndSaveCsv("batch", "initiative", "merchant"))
+                .expectNext("")
+                .verifyComplete();
+
+        verify(reportPersistencePort, never()).save(any());
+        verify(dataFactoryService, never()).triggerRewardBatchCsvPipeline(anyString(), anyString(), anyString(), anyString(), anyString());
+        verify(lifecyclePort, never()).saveBatch(any());
+    }
 }
