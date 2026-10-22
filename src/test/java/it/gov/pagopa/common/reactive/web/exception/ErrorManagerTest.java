@@ -251,7 +251,7 @@ public class ErrorManagerTest {
         checkTechnicalLogs(memoryAppender,
                 "Something went wrong handling request GET /test \\([^)]+\\)",
                 "it.gov.pagopa.common.web.exception.RewardBatchException: RB_TECHNICAL_ERROR",
-                "it.gov.pagopa.common.reactive.web.exception.ErrorManagerTest.handleExceptionRewardBatchExceptionWithPrintStackTrace");
+                "it.gov.pagopa.common.reactive.web.exception.ErrorManagerTest$TestController.testEndpoint");
     }
 
     @Test
@@ -268,7 +268,7 @@ public class ErrorManagerTest {
         checkTechnicalLogs(memoryAppender,
                 "Something went wrong handling request GET /test \\([^)]+\\): HttpStatus 500 INTERNAL_SERVER_ERROR - CLIENT_TECHNICAL_ERROR",
                 "it.gov.pagopa.common.web.exception.ClientException: CLIENT_TECHNICAL_ERROR",
-                "it.gov.pagopa.common.reactive.web.exception.ErrorManagerTest.handleExceptionClientExceptionWithPrintStackTraceAndNoCause");
+                "it.gov.pagopa.common.reactive.web.exception.ErrorManagerTest$TestController.testEndpoint");
     }
 
     @Test
@@ -288,7 +288,7 @@ public class ErrorManagerTest {
         checkTechnicalLogs(memoryAppender,
                 "Something went wrong handling request GET /test \\([^)]+\\)",
                 "it.gov.pagopa.common.web.exception.RewardBatchException: RB_CAUSED_ERROR",
-                "it.gov.pagopa.common.reactive.web.exception.ErrorManagerTest.handleExceptionRewardBatchExceptionWithCause");
+                "it.gov.pagopa.common.reactive.web.exception.ErrorManagerTest$TestController.testEndpoint");
     }
 
     public static void checkStackTraceSuppressedLog(MemoryAppender memoryAppender, String expectedLoggedMessage) {
