@@ -7,6 +7,7 @@ package it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.IdpayRimborsi;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.Indexes;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.Keys;
+import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.Reports.ReportsPath;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions.RewardTransactionsPath;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardBatchesRecord;
 
@@ -199,6 +200,11 @@ public class RewardBatches extends TableImpl<RewardBatchesRecord> {
      */
     public final TableField<RewardBatchesRecord, Long> SUSPENDED_AMOUNT_CENTS_AT_APPROVING = createField(DSL.name("suspended_amount_cents_at_approving"), SQLDataType.BIGINT, this, "");
 
+    /**
+     * The column <code>idpay-rimborsi.reward_batches.report_id</code>.
+     */
+    public final TableField<RewardBatchesRecord, String> REPORT_ID = createField(DSL.name("report_id"), SQLDataType.CLOB, this, "");
+
     private RewardBatches(Name alias, Table<RewardBatchesRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);
     }
@@ -270,7 +276,7 @@ public class RewardBatches extends TableImpl<RewardBatchesRecord> {
 
     @Override
     public List<Index> getIndexes() {
-        return Arrays.asList(Indexes.IDX_REWARD_BATCHES_INITIATIVE_ASSIGNEE_STATUS_MONTH, Indexes.IDX_REWARD_BATCHES_INITIATIVE_STATUS_MONTH, Indexes.IDX_REWARD_BATCHES_MERCHANT_INITIATIVE_MONTH, Indexes.IDX_REWARD_BATCHES_PENDING_REFUND);
+        return Arrays.asList(Indexes.IDX_REWARD_BATCHES_INITIATIVE_ASSIGNEE_STATUS_MONTH, Indexes.IDX_REWARD_BATCHES_INITIATIVE_STATUS_MONTH, Indexes.IDX_REWARD_BATCHES_MERCHANT_INITIATIVE_MONTH, Indexes.IDX_REWARD_BATCHES_PENDING_REFUND, Indexes.IDX_REWARD_BATCHES_REPORT_ID);
     }
 
     @Override
@@ -281,6 +287,24 @@ public class RewardBatches extends TableImpl<RewardBatchesRecord> {
     @Override
     public List<UniqueKey<RewardBatchesRecord>> getUniqueKeys() {
         return Arrays.asList(Keys.UK_REWARD_BATCHES_ID_INITIATIVE, Keys.UK_REWARD_BATCHES_INITIATIVE_MERCHANT_POS_MONTH);
+    }
+
+    @Override
+    public List<ForeignKey<RewardBatchesRecord, ?>> getReferences() {
+        return Arrays.asList(Keys.REWARD_BATCHES__FK_REWARD_BATCHES_REPORT);
+    }
+
+    private transient ReportsPath _reports;
+
+    /**
+     * Get the implicit join path to the <code>idpay-rimborsi.reports</code>
+     * table.
+     */
+    public ReportsPath reports() {
+        if (_reports == null)
+            _reports = new ReportsPath(this, Keys.REWARD_BATCHES__FK_REWARD_BATCHES_REPORT, null);
+
+        return _reports;
     }
 
     private transient RewardTransactionsPath _rewardTransactions;

@@ -445,4 +445,45 @@ class ReportServiceImplTest {
                 .reportType(type)
                 .build();
     }
+
+    @Test
+    void rewardBatchCsvReportsUseOperatorScopeAndMatchingCount() {
+        Report report = report("csv-report", ReportType.REWARD_BATCH_CSV);
+        Pageable expected = PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "requestDate"));
+        when(reportPort.findReports(null, "operator1", "initiative", ReportType.REWARD_BATCH_CSV, expected))
+                .thenReturn(Flux.just(report));
+        when(reportPort.countReports(null, "operator1", "initiative", ReportType.REWARD_BATCH_CSV))
+                .thenReturn(Mono.just(1L));
+
+        StepVerifier.create(service.getRewardBatchCsvReports("operator1", "initiative", PageRequest.of(0, 5)))
+                .assertNext(page -> {
+                    assertEquals(1, page.getTotalElements());
+                    assertEquals("csv-report", page.getContent().getFirst().getId());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void generateReportRoutesMerchantAndUserRequestsAndRejectsMissingMerchantForMerchantReports() {
+        ReportRequest merchantRequest = validRequest(ReportType.MERCHANT_TRANSACTIONS);
+        ReportRequest userRequest = validRequest(ReportType.USER_DETAILS);
+        ReportDTO merchantDto = ReportDTO.builder().id("merchant-report").build();
+        ReportDTO userDto = ReportDTO.builder().id("user-report").build();
+
+        ReportServiceImpl dispatcher = spy(service);
+        doReturn(Mono.just(merchantDto)).when(dispatcher)
+                .generateMerchantTransactionsReport("merchant", "operator1", "initiative", merchantRequest);
+        doReturn(Mono.just(userDto)).when(dispatcher)
+                .generateUserDetailsReport("operator1", "initiative", userRequest);
+
+        StepVerifier.create(dispatcher.generateReport("merchant", "operator1", "initiative", merchantRequest))
+                .expectNext(merchantDto)
+                .verifyComplete();
+        StepVerifier.create(dispatcher.generateReport(null, "operator1", "initiative", userRequest))
+                .expectNext(userDto)
+                .verifyComplete();
+        StepVerifier.create(service.generateReport(null, "operator1", "initiative", merchantRequest))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+    }
 }

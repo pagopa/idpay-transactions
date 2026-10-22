@@ -398,6 +398,20 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
         return (Long) get(25);
     }
 
+    /**
+     * Setter for <code>idpay-rimborsi.reward_batches.report_id</code>.
+     */
+    public void setReportId(String value) {
+        set(26, value);
+    }
+
+    /**
+     * Getter for <code>idpay-rimborsi.reward_batches.report_id</code>.
+     */
+    public String getReportId() {
+        return (String) get(26);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -421,7 +435,7 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
     /**
      * Create a detached, initialised RewardBatchesRecord
      */
-    public RewardBatchesRecord(String id, String initiativeId, String merchantId, String businessName, String month, String posType, String status, Boolean partial, String name, LocalDateTime startDate, LocalDateTime endDate, LocalDateTime creationDate, LocalDateTime updateDate, LocalDateTime merchantSendDate, LocalDateTime approvalDate, LocalDateTime deliveryDateRequest, LocalDateTime refundOutcomeTimestamp, String reportPath, String filename, String assigneeLevel, LocalDate refundValutaDate, String refundErrorMessage, JSONB deliveryOutcome, Long deliveryAmountCents, Long initialAmountCentsAtSend, Long suspendedAmountCentsAtApproving) {
+    public RewardBatchesRecord(String id, String initiativeId, String merchantId, String businessName, String month, String posType, String status, Boolean partial, String name, LocalDateTime startDate, LocalDateTime endDate, LocalDateTime creationDate, LocalDateTime updateDate, LocalDateTime merchantSendDate, LocalDateTime approvalDate, LocalDateTime deliveryDateRequest, LocalDateTime refundOutcomeTimestamp, String reportPath, String filename, String assigneeLevel, LocalDate refundValutaDate, String refundErrorMessage, JSONB deliveryOutcome, Long deliveryAmountCents, Long initialAmountCentsAtSend, Long suspendedAmountCentsAtApproving, String reportId) {
         super(RewardBatches.REWARD_BATCHES);
 
         setId(id);
@@ -450,6 +464,7 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
         setDeliveryAmountCents(deliveryAmountCents);
         setInitialAmountCentsAtSend(initialAmountCentsAtSend);
         setSuspendedAmountCentsAtApproving(suspendedAmountCentsAtApproving);
+        setReportId(reportId);
         resetChangedOnNotNull();
     }
 }
