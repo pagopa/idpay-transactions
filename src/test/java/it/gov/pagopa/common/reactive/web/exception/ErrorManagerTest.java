@@ -22,6 +22,7 @@ import it.gov.pagopa.common.web.exception.ServiceException;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -69,22 +70,26 @@ public class ErrorManagerTest {
         memoryAppender = new MemoryAppender();
         memoryAppender.setContext((LoggerContext) LoggerFactory.getILoggerFactory());
         memoryAppender.start();
-        errorManagerLogger = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(ErrorManager.class.getName());
-        previousLoggerLevel = errorManagerLogger.getLevel();
-        errorManagerLogger.setLevel(Level.DEBUG);
-        errorManagerLogger.addAppender(memoryAppender);
     }
 
     @AfterAll
-    static void restoreLogger() {
-        errorManagerLogger.detachAppender(memoryAppender);
-        errorManagerLogger.setLevel(previousLoggerLevel);
+    static void stopMemoryAppender() {
         memoryAppender.stop();
     }
 
     @BeforeEach
     void clearAndAppendMemoryAppender(){
         memoryAppender.reset();
+        errorManagerLogger = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(ErrorManager.class.getName());
+        previousLoggerLevel = errorManagerLogger.getLevel();
+        errorManagerLogger.setLevel(Level.DEBUG);
+        errorManagerLogger.addAppender(memoryAppender);
+    }
+
+    @AfterEach
+    void restoreLogger() {
+        errorManagerLogger.detachAppender(memoryAppender);
+        errorManagerLogger.setLevel(previousLoggerLevel);
     }
 
     @Test
