@@ -389,6 +389,8 @@ class ReportServiceImplTest {
                 .expectNext(dto).verifyComplete();
         StepVerifier.create(service.generateReport(null, "operator1", "initiative", merchantRequest))
                 .expectError(ClientExceptionWithBody.class).verify();
+        StepVerifier.create(service.generateReport("   ", "operator1", "initiative", merchantRequest))
+                .expectError(ClientExceptionWithBody.class).verify();
     }
 
     @Test
@@ -483,6 +485,9 @@ class ReportServiceImplTest {
                 .expectNext(userDto)
                 .verifyComplete();
         StepVerifier.create(service.generateReport(null, "operator1", "initiative", merchantRequest))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+        StepVerifier.create(service.generateReport("   ", "operator1", "initiative", merchantRequest))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
     }
