@@ -41,10 +41,22 @@ public interface ReportService {
             Pageable pageable
     );
 
+    Mono<Page<Report>> getMerchantBatchCsvReports(
+            String merchantId,
+            String initiativeId,
+            Pageable pageable
+    );
+
     Mono<ReportDTO> generateReport(String merchantId,
-                                   String organizationRole,
-                                   String initiativeId,
-                                   ReportRequest request);
+                                    String organizationRole,
+                                    String initiativeId,
+                                    ReportRequest request);
+
+    Mono<ReportDTO> generateMerchantBatchCsvReport(
+            String merchantId,
+            String initiativeId,
+            ReportRequest request
+    );
 
     Mono<ReportDTO> patchReport(String initiativeId,
                                 String reportId,
