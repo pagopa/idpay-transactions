@@ -23,6 +23,7 @@ import it.gov.pagopa.idpay.transactions.enums.ReportStatus;
 import it.gov.pagopa.idpay.transactions.enums.ReportType;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.persistence.port.ReportPersistencePort;
+import it.gov.pagopa.idpay.transactions.storage.ReportMerchantBatchBlobServiceImpl;
 import it.gov.pagopa.idpay.transactions.storage.ReportTransactionsBlobServiceImpl;
 import it.gov.pagopa.idpay.transactions.storage.ReportUserDetailsBlobServiceImpl;
 import java.time.LocalDateTime;
@@ -47,6 +48,7 @@ class ReportServiceImplTest {
     @Mock private ReportMapper reportMapper;
     @Mock private ReportTransactionsBlobServiceImpl transactionBlobService;
     @Mock private ReportUserDetailsBlobServiceImpl userDetailsBlobService;
+    @Mock private ReportMerchantBatchBlobServiceImpl merchantBatchBlobService;
     @Mock private DataFactoryService dataFactoryService;
     private ReportServiceImpl service;
 
@@ -54,7 +56,7 @@ class ReportServiceImplTest {
     void setUp() {
         service = new ReportServiceImpl(
                 90, reportPort, merchantRestClient, reportMapper, transactionBlobService,
-                userDetailsBlobService, dataFactoryService);
+                userDetailsBlobService, merchantBatchBlobService, dataFactoryService);
     }
 
     @Test
@@ -465,29 +467,125 @@ class ReportServiceImplTest {
     }
 
     @Test
-    void generateReportRoutesMerchantAndUserRequestsAndRejectsMissingMerchantForMerchantReports() {
-        ReportRequest merchantRequest = validRequest(ReportType.MERCHANT_TRANSACTIONS);
-        ReportRequest userRequest = validRequest(ReportType.USER_DETAILS);
-        ReportDTO merchantDto = ReportDTO.builder().id("merchant-report").build();
-        ReportDTO userDto = ReportDTO.builder().id("user-report").build();
+    void generatesMerchantBatchCsvReportWithAndWithoutMerchantScope() {
+        ReportRequest request = validRequest(ReportType.MERCHANT_BATCH_CSV);
+        Report saved = report("report", ReportType.MERCHANT_BATCH_CSV);
+        ReportDTO dto = ReportDTO.builder().id("report").build();
 
+        when(reportPort.save(any())).thenReturn(Mono.just(saved));
+        when(dataFactoryService.triggerMerchantBatchCsvPipeline(
+                "initiative", null, "report", null, request.getStartPeriod(), request.getEndPeriod()))
+                .thenReturn(Mono.just("run"));
+        when(reportMapper.toDTO(saved)).thenReturn(dto);
+
+        StepVerifier.create(service.generateMerchantBatchCsvReport(null, "operator1", "initiative", request))
+                .expectNext(dto)
+                .verifyComplete();
+
+        verify(reportPort).save(argThat(created ->
+                created.getReportType() == ReportType.MERCHANT_BATCH_CSV
+                        && created.getMerchantId() == null
+                        && created.getFileName() == null));
+        verify(dataFactoryService).triggerMerchantBatchCsvPipeline(
+                "initiative", null, "report", null, request.getStartPeriod(), request.getEndPeriod());
+
+        MerchantDetailDTO merchant = new MerchantDetailDTO();
+        merchant.setBusinessName("Business");
+        when(merchantRestClient.getMerchantDetail("merchant", "initiative")).thenReturn(Mono.just(merchant));
+        when(dataFactoryService.triggerMerchantBatchCsvPipeline(
+                "initiative", "merchant", "report", null, request.getStartPeriod(), request.getEndPeriod()))
+                .thenReturn(Mono.just("run-merchant"));
+
+        StepVerifier.create(service.generateMerchantBatchCsvReport("merchant", "operator1", "initiative", request))
+                .expectNext(dto)
+                .verifyComplete();
+    }
+
+    @Test
+    void merchantBatchPipelineFailureMarksPersistedReportFailed() {
+        ReportRequest request = validRequest(ReportType.MERCHANT_BATCH_CSV);
+        Report saved = report("report", ReportType.MERCHANT_BATCH_CSV);
+        ReportDTO dto = ReportDTO.builder().id("report").build();
+        when(reportPort.save(any())).thenReturn(Mono.just(saved));
+        when(dataFactoryService.triggerMerchantBatchCsvPipeline(
+                "initiative", null, "report", null, request.getStartPeriod(), request.getEndPeriod()))
+                .thenReturn(Mono.error(new it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException("storage", new RuntimeException())));
+        when(reportMapper.toDTO(saved)).thenReturn(dto);
+
+        StepVerifier.create(service.generateMerchantBatchCsvReport(null, "operator1", "initiative", request))
+                .expectNext(dto)
+                .verifyComplete();
+
+        assertEquals(ReportStatus.FAILED, saved.getReportStatus());
+        verify(reportPort, times(2)).save(any());
+    }
+
+    @Test
+    void downloadsGeneratedMerchantBatchReportsFromItsDedicatedBlob() {
+        Report batch = report("batch-report", ReportType.MERCHANT_BATCH_CSV);
+        batch.setMerchantId("merchant");
+        batch.setFileName("batch.csv");
+        batch.setReportStatus(ReportStatus.GENERATED);
+        when(reportPort.findByIdAndInitiativeIdAndMerchantId("batch-report", "initiative", "merchant"))
+                .thenReturn(Mono.just(batch));
+        when(merchantBatchBlobService.getFileSignedUrl("initiative/initiative/batch/batch.csv"))
+                .thenReturn(Mono.just("batch-url"));
+
+        StepVerifier.create(service.downloadReports("merchant", null, "initiative", "batch-report"))
+                .assertNext(result -> assertEquals("batch-url", result.getReportUrl()))
+                .verifyComplete();
+
+        StepVerifier.create(service.downloadMerchantBatchCsvReports("merchant", "initiative", "batch-report"))
+                .assertNext(result -> assertEquals("batch-url", result.getReportUrl()))
+                .verifyComplete();
+    }
+
+    @Test
+    void generateReportRoutesMerchantBatchRequests() {
+        ReportRequest request = validRequest(ReportType.MERCHANT_BATCH_CSV);
+        ReportDTO dto = ReportDTO.builder().id("batch-report").build();
         ReportServiceImpl dispatcher = spy(service);
-        doReturn(Mono.just(merchantDto)).when(dispatcher)
-                .generateMerchantTransactionsReport("merchant", "operator1", "initiative", merchantRequest);
-        doReturn(Mono.just(userDto)).when(dispatcher)
-                .generateUserDetailsReport("operator1", "initiative", userRequest);
+        doReturn(Mono.just(dto)).when(dispatcher)
+                .generateMerchantBatchCsvReport(null, "operator1", "initiative", request);
 
-        StepVerifier.create(dispatcher.generateReport("merchant", "operator1", "initiative", merchantRequest))
-                .expectNext(merchantDto)
+        StepVerifier.create(dispatcher.generateReport(null, "operator1", "initiative", request))
+                .expectNext(dto)
                 .verifyComplete();
-        StepVerifier.create(dispatcher.generateReport(null, "operator1", "initiative", userRequest))
-                .expectNext(userDto)
+    }
+
+    @Test
+    void merchantBatchReportsUseOptionalMerchantScopeAndMatchingCount() {
+        Report report = report("merchant-batch-report", ReportType.MERCHANT_BATCH_CSV);
+        Pageable expected = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "requestDate"));
+        when(reportPort.findReports(
+                "merchant", null, "initiative", ReportType.MERCHANT_BATCH_CSV, expected))
+                .thenReturn(Flux.just(report));
+        when(reportPort.countReports("merchant", null, "initiative", ReportType.MERCHANT_BATCH_CSV))
+                .thenReturn(Mono.just(2L));
+
+        StepVerifier.create(service.getReports(
+                        "merchant", null, "initiative", ReportType.MERCHANT_BATCH_CSV, PageRequest.of(0, 10)))
+                .assertNext(page -> {
+                    assertEquals(2, page.getTotalElements());
+                    assertEquals("merchant-batch-report", page.getContent().getFirst().getId());
+                })
                 .verifyComplete();
-        StepVerifier.create(service.generateReport(null, "operator1", "initiative", merchantRequest))
-                .expectError(ClientExceptionWithBody.class)
-                .verify();
-        StepVerifier.create(service.generateReport("   ", "operator1", "initiative", merchantRequest))
-                .expectError(ClientExceptionWithBody.class)
-                .verify();
+    }
+
+
+    @Test
+    void patchReportAppliesRequestedStatusWithoutTransitionCheck() {
+        Report report = report("report", ReportType.USER_DETAILS);
+        report.setReportStatus(ReportStatus.GENERATED);
+        PatchReportRequest request = new PatchReportRequest();
+        request.setReportStatus(ReportStatus.INSERTED);
+        when(reportPort.findByIdAndInitiativeId("report", "initiative")).thenReturn(Mono.just(report));
+        when(reportPort.save(report)).thenReturn(Mono.just(report));
+
+        StepVerifier.create(service.patchReport("initiative", "report", request))
+                .assertNext(dto -> assertEquals(ReportStatus.INSERTED, report.getReportStatus()))
+                .verifyComplete();
+
+        verify(reportPort).save(report);
     }
 }

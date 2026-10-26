@@ -29,7 +29,6 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
@@ -77,7 +76,6 @@ public class ReportServiceImpl implements ReportService {
     static final List<String> ALLOWED_ROLES = List.of(
             "operator1", "operator2", "operator3", "support"
     );
-    private static final DateTimeFormatter FILE_NAME_FORMAT = DateTimeFormatter.ofPattern("ddMMyyyyHHmmss");
 
     private static final String REQUEST_DATE_SORT_FIELD = "requestDate";
 
@@ -95,6 +93,7 @@ public class ReportServiceImpl implements ReportService {
             ReportType reportType,
             Pageable pageable
     ) {
+
         if (reportType == null) {
             log.warn("[GET_REPORTS] Missing mandatory filters: reportType null");
             throw new ClientExceptionWithBody(
@@ -249,41 +248,6 @@ public class ReportServiceImpl implements ReportService {
                 ));
     }
 
-    public Mono<ReportDTO> generateReport(String merchantId,
-                                    String organizationRole,
-                                    String initiativeId,
-                                    ReportRequest request){
-
-        if (ReportType.MERCHANT_TRANSACTIONS.equals(request.getReportType())) {
-            if (merchantId == null || merchantId.isBlank()) {
-                return Mono.error(new ClientExceptionWithBody(
-                        HttpStatus.BAD_REQUEST,
-                        MERCHANT_ID_REQUIRED,
-                        ERROR_MESSAGE_MERCHANT_ID_MANDATORY));
-            }
-            log.info("[GENERATE_MERCHANT_TRANSACTIONS_REPORT] Requested report with MerchantId = {}, startPeriod = {}, endPeriod = {}",
-                    Utilities.sanitizeString(merchantId),
-                    request.getStartPeriod(),
-                    request.getEndPeriod());
-            return generateMerchantTransactionsReport(merchantId, organizationRole, initiativeId, request);
-    }
-        if (ReportType.USER_DETAILS.equals(request.getReportType())) {
-            log.info("[GENERATE_USER_DETAILS_REPORT] Requested report with startPeriod = {}, endPeriod = {}",
-                    request.getStartPeriod(),
-                    request.getEndPeriod());
-            return generateUserDetailsReport(organizationRole, initiativeId, request);
-        }
-        if (ReportType.MERCHANT_BATCH_CSV.equals(request.getReportType())) {
-            log.info("[GENERATE_MERCHANT_BATCH_CSV_REPORT] Requested report for merchantId = {}, initiativeId = {}, startPeriod = {}, endPeriod = {}",
-                    merchantId == null ? null : Utilities.sanitizeString(merchantId),
-                    Utilities.sanitizeString(initiativeId),
-                    request.getStartPeriod(),
-                    request.getEndPeriod());
-            return generateMerchantBatchCsvReport(merchantId, organizationRole, initiativeId, request);
-        }
-        return Mono.empty();
-    }
-
     @Override
     public Mono<Page<Report>> getMerchantBatchCsvReports(
             String merchantId,
@@ -366,6 +330,41 @@ public class ReportServiceImpl implements ReportService {
                 ));
     }
 
+    public Mono<ReportDTO> generateReport(String merchantId,
+                                    String organizationRole,
+                                    String initiativeId,
+                                    ReportRequest request){
+
+        if (ReportType.MERCHANT_TRANSACTIONS.equals(request.getReportType())) {
+            if (merchantId == null || merchantId.isBlank()) {
+                return Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.BAD_REQUEST,
+                        MERCHANT_ID_REQUIRED,
+                        ERROR_MESSAGE_MERCHANT_ID_MANDATORY));
+            }
+            log.info("[GENERATE_MERCHANT_TRANSACTIONS_REPORT] Requested report with MerchantId = {}, startPeriod = {}, endPeriod = {}",
+                    Utilities.sanitizeString(merchantId),
+                    request.getStartPeriod(),
+                    request.getEndPeriod());
+            return generateMerchantTransactionsReport(merchantId, organizationRole, initiativeId, request);
+    }
+        if (ReportType.USER_DETAILS.equals(request.getReportType())) {
+            log.info("[GENERATE_USER_DETAILS_REPORT] Requested report with startPeriod = {}, endPeriod = {}",
+                    request.getStartPeriod(),
+                    request.getEndPeriod());
+            return generateUserDetailsReport(organizationRole, initiativeId, request);
+        }
+        if (ReportType.MERCHANT_BATCH_CSV.equals(request.getReportType())) {
+            log.info("[GENERATE_MERCHANT_BATCH_CSV_REPORT] Requested report for merchantId = {}, initiativeId = {}, startPeriod = {}, endPeriod = {}",
+                    merchantId == null ? null : Utilities.sanitizeString(merchantId),
+                    Utilities.sanitizeString(initiativeId),
+                    request.getStartPeriod(),
+                    request.getEndPeriod());
+            return generateMerchantBatchCsvReport(merchantId, organizationRole, initiativeId, request);
+        }
+        return Mono.empty();
+    }
+
     private RewardBatchAssignee resolveOperatorLevel(String organizationRole) {
         if ("operator1".equals(organizationRole)) return RewardBatchAssignee.L1;
         if ("operator2".equals(organizationRole)) return RewardBatchAssignee.L2;
@@ -412,18 +411,15 @@ public class ReportServiceImpl implements ReportService {
                         MERCHANT_NOT_FOUND,
                         ERROR_MESSAGE_MERCHANT_NOT_FOUND.formatted(merchantId, initiativeId))))
                 .flatMap(merchant -> {
-                    Report reportEntity = Report.builder()
-                            .initiativeId(initiativeId)
-                            .reportStatus(ReportStatus.INSERTED)
-                            .startPeriod(request.getStartPeriod())
-                            .endPeriod(request.getEndPeriod())
-                            .merchantId(merchantId)
-                            .businessName(merchant.getBusinessName())
-                            .requestDate(LocalDateTime.now(ZONEID))
-                            .operatorLevel(resolveOperatorLevel(organizationRole))
-                            .fileName(null)
-                            .reportType(request.getReportType())
-                            .build();
+                    Report reportEntity = buildPersistedReport(
+                            initiativeId,
+                            merchantId,
+                            merchant.getBusinessName(),
+                            organizationRole,
+                            ReportType.MERCHANT_TRANSACTIONS,
+                            request.getStartPeriod(),
+                            request.getEndPeriod()
+                    );
                     return reportPersistencePort.save(reportEntity);
                 })
                 .flatMap(report -> dataFactoryService.triggerTransactionReportPipeline(report)
@@ -546,13 +542,13 @@ public class ReportServiceImpl implements ReportService {
                     .flatMap(merchant -> persistMerchantBatchCsvReport(merchantId, initiativeId, organizationRole, request, merchant.getBusinessName()))
                     .map(reportMapper::toDTO)
                     .doOnSuccess(saved -> log.info("[GENERATE_MERCHANT_BATCH_CSV_REPORT] Saved report {} for merchant {}",
-                            saved.getFileName(), Utilities.sanitizeString(merchantId)));
+                            saved != null ? saved.getFileName() : null, Utilities.sanitizeString(merchantId)));
         }
 
         return persistMerchantBatchCsvReport(merchantId, initiativeId, organizationRole, request, null)
                 .map(reportMapper::toDTO)
                 .doOnSuccess(saved -> log.info("[GENERATE_MERCHANT_BATCH_CSV_REPORT] Saved report {} for initiative {}",
-                        saved.getFileName(), Utilities.sanitizeString(initiativeId)));
+                        saved != null ? saved.getFileName() : null, Utilities.sanitizeString(initiativeId)));
     }
 
     private Mono<Report> persistMerchantBatchCsvReport(String merchantId,
@@ -560,21 +556,15 @@ public class ReportServiceImpl implements ReportService {
                                                        String organizationRole,
                                                        ReportRequest request,
                                                        String businessName) {
-        String formattedDate = LocalDateTime.now(ZONEID).format(FILE_NAME_FORMAT);
-        String fileName = String.format("Report_%s.csv", formattedDate);
-
-        Report reportEntity = Report.builder()
-                .initiativeId(initiativeId)
-                .reportStatus(ReportStatus.INSERTED)
-                .startPeriod(request.getStartPeriod())
-                .endPeriod(request.getEndPeriod())
-                .merchantId(merchantId)
-                .businessName(businessName)
-                .requestDate(LocalDateTime.now(ZONEID))
-                .operatorLevel(resolveOperatorLevel(organizationRole))
-                .fileName(fileName)
-                .reportType(request.getReportType())
-                .build();
+        Report reportEntity = buildPersistedReport(
+                initiativeId,
+                merchantId,
+                businessName,
+                organizationRole,
+                ReportType.MERCHANT_BATCH_CSV,
+                request.getStartPeriod(),
+                request.getEndPeriod()
+        );
 
         return reportPersistencePort.save(reportEntity)
                 .flatMap(report -> triggerMerchantBatchCsvPipeline(report)
@@ -599,6 +589,29 @@ public class ReportServiceImpl implements ReportService {
                         .build());
     }
 
+    private Report buildPersistedReport(
+            String initiativeId,
+            String merchantId,
+            String businessName,
+            String organizationRole,
+            ReportType reportType,
+            LocalDateTime startPeriod,
+            LocalDateTime endPeriod
+            ) {
+        return Report.builder()
+                .initiativeId(initiativeId)
+                .reportStatus(ReportStatus.INSERTED)
+                .startPeriod(startPeriod)
+                .endPeriod(endPeriod)
+                .merchantId(merchantId)
+                .businessName(businessName)
+                .requestDate(LocalDateTime.now(ZONEID))
+                .operatorLevel(resolveOperatorLevel(organizationRole))
+                .fileName(null)
+                .reportType(reportType)
+                .build();
+    }
+
     @Override
     public Mono<ReportDTO> patchReport(String initiativeId,
                                       String reportId,
@@ -617,6 +630,7 @@ public class ReportServiceImpl implements ReportService {
                 .map(reportMapper::toDTO);
     }
 
+
     @Override
     public Mono<DownloadReportResponseDTO> downloadReports(
             String merchantId,
@@ -629,52 +643,81 @@ public class ReportServiceImpl implements ReportService {
                         HttpStatus.NOT_FOUND,
                         REPORT_NOT_FOUND,
                         ERROR_MESSAGE_REPORT_NOT_FOUND.formatted(reportId, initiativeId))))
-                .flatMap(report -> {
-                    if (report.getReportType() == null) {
-                        return Mono.error(new ClientExceptionWithBody(
-                                HttpStatus.BAD_REQUEST,
-                                REPORT_TYPE_REQUIRED,
-                                ERROR_MESSAGE_REPORT_TYPE_REQUIRED));
-                    }
+                .flatMap(report -> dispatchDownloadReport(merchantId, organizationRole, initiativeId, report));
+    }
 
-                    if (report.getReportType() == ReportType.MERCHANT_BATCH_CSV) {
-                        String effectiveMerchantId = (merchantId != null && !merchantId.isBlank())
-                                ? merchantId
-                                : report.getMerchantId();
-                        return downloadMerchantBatchCsvReports(effectiveMerchantId, initiativeId, reportId);
-                    }
+    private Mono<DownloadReportResponseDTO> dispatchDownloadReport(
+            String merchantId,
+            String organizationRole,
+            String initiativeId,
+            Report report
+    ) {
+        if (report == null || report.getReportType() == null) {
+            return Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    REPORT_TYPE_REQUIRED,
+                    ERROR_MESSAGE_REPORT_TYPE_REQUIRED));
+        }
 
-                    if (report.getReportType() == ReportType.MERCHANT_TRANSACTIONS) {
-                        String effectiveMerchantId = (merchantId != null && !merchantId.isBlank())
-                                ? merchantId
-                                : report.getMerchantId();
-                        if (effectiveMerchantId != null && !effectiveMerchantId.isBlank()) {
-                            return downloadTransactionsReport(effectiveMerchantId, null, initiativeId, reportId);
-                        }
-                        if (organizationRole != null && !organizationRole.isBlank()) {
-                            return downloadTransactionsReport(null, organizationRole, initiativeId, reportId);
-                        }
-                        return Mono.error(new ClientExceptionWithBody(
-                                HttpStatus.BAD_REQUEST,
-                                MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY,
-                                ERROR_MESSAGE_MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY));
-                    }
+        return switch (report.getReportType()) {
+            case MERCHANT_BATCH_CSV -> downloadMerchantBatchCsvForReport(merchantId, initiativeId, report);
+            case MERCHANT_TRANSACTIONS -> downloadMerchantTransactionsForReport(
+                    merchantId,
+                    organizationRole,
+                    initiativeId,
+                    report);
+            case USER_DETAILS -> downloadUserDetailsForReport(organizationRole, initiativeId, report);
+            default -> Mono.error(new ClientExceptionWithBody(
+                    HttpStatus.BAD_REQUEST,
+                    REPORT_TYPE_REQUIRED,
+                    ERROR_MESSAGE_REPORT_TYPE_REQUIRED));
+        };
+    }
 
-                    if (report.getReportType() == ReportType.USER_DETAILS) {
-                        if (organizationRole != null && !organizationRole.isBlank()) {
-                            return downloadUserDetailsReports(organizationRole, initiativeId, reportId);
-                        }
-                        return Mono.error(new ClientExceptionWithBody(
-                                HttpStatus.BAD_REQUEST,
-                                MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY,
-                                ERROR_MESSAGE_MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY));
-                    }
+    private Mono<DownloadReportResponseDTO> downloadMerchantBatchCsvForReport(
+            String merchantId,
+            String initiativeId,
+            Report report
+    ) {
+        String effectiveMerchantId = hasText(merchantId) ? merchantId : report.getMerchantId();
+        return downloadMerchantBatchCsvReports(effectiveMerchantId, initiativeId, report.getId());
+    }
 
-                    return Mono.error(new ClientExceptionWithBody(
-                            HttpStatus.BAD_REQUEST,
-                            REPORT_TYPE_REQUIRED,
-                            ERROR_MESSAGE_REPORT_TYPE_REQUIRED));
-                });
+    private Mono<DownloadReportResponseDTO> downloadMerchantTransactionsForReport(
+            String merchantId,
+            String organizationRole,
+            String initiativeId,
+            Report report
+    ) {
+        String effectiveMerchantId = hasText(merchantId) ? merchantId : report.getMerchantId();
+        if (hasText(effectiveMerchantId)) {
+            return downloadTransactionsReport(effectiveMerchantId, null, initiativeId, report.getId());
+        }
+        if (hasText(organizationRole)) {
+            return downloadTransactionsReport(null, organizationRole, initiativeId, report.getId());
+        }
+        return Mono.error(new ClientExceptionWithBody(
+                HttpStatus.BAD_REQUEST,
+                MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY,
+                ERROR_MESSAGE_MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY));
+    }
+
+    private Mono<DownloadReportResponseDTO> downloadUserDetailsForReport(
+            String organizationRole,
+            String initiativeId,
+            Report report
+    ) {
+        if (hasText(organizationRole)) {
+            return downloadUserDetailsReports(organizationRole, initiativeId, report.getId());
+        }
+        return Mono.error(new ClientExceptionWithBody(
+                HttpStatus.BAD_REQUEST,
+                MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY,
+                ERROR_MESSAGE_MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY));
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     @Override
@@ -727,47 +770,6 @@ public class ReportServiceImpl implements ReportService {
     }
 
     @Override
-    public Mono<DownloadReportResponseDTO> downloadMerchantBatchCsvReports(
-            String merchantId,
-            String initiativeId,
-            String reportId
-    ) {
-        Mono<Report> query = merchantId != null && !merchantId.isBlank()
-                ? reportPersistencePort.findByIdAndInitiativeIdAndMerchantId(reportId, initiativeId, merchantId)
-                : reportPersistencePort.findByIdAndInitiativeId(reportId, initiativeId);
-
-        if (query == null) {
-            query = Mono.empty();
-        }
-
-        return query
-                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
-                        HttpStatus.NOT_FOUND,
-                        REPORT_NOT_FOUND,
-                        ERROR_MESSAGE_REPORT_NOT_FOUND.formatted(reportId, initiativeId))))
-                .flatMap(report -> {
-                    if (report.getReportStatus() != ReportStatus.GENERATED) {
-                        return Mono.error(new ClientExceptionWithBody(
-                                HttpStatus.BAD_REQUEST,
-                                REPORT_NOT_GENERATED,
-                                ERROR_MESSAGE_REPORT_NOT_GENERATED.formatted(reportId)));
-                    }
-                    if (report.getFileName() == null || report.getFileName().isBlank()) {
-                        return Mono.error(new ClientExceptionWithBody(
-                                HttpStatus.BAD_REQUEST,
-                                REPORT_MISSING_FILENAME,
-                                ERROR_MESSAGE_REPORT_MISSING_FILENAME.formatted(reportId)));
-                    }
-
-                    String blobPath = String.format(REPORT_MERCHANT_BATCH_CSV_PATH_STORAGE_FORMAT,
-                            initiativeId,
-                            report.getFileName());
-                    return reportMerchantBatchBlobService.getFileSignedUrl(blobPath)
-                            .map(url -> DownloadReportResponseDTO.builder().reportUrl(url).build());
-                });
-    }
-
-    @Override
     public Mono<DownloadReportResponseDTO> downloadUserDetailsReports(
             String organizationRole,
             String initiativeId,
@@ -813,6 +815,48 @@ public class ReportServiceImpl implements ReportService {
                             initiativeId,
                             report.getFileName());
                     return reportUserDetailsBlobService.getFileSignedUrl(blobPath)
+                            .map(url -> DownloadReportResponseDTO.builder().reportUrl(url).build());
+                });
+    }
+
+
+    @Override
+    public Mono<DownloadReportResponseDTO> downloadMerchantBatchCsvReports(
+            String merchantId,
+            String initiativeId,
+            String reportId
+    ) {
+        Mono<Report> query = merchantId != null && !merchantId.isBlank()
+                ? reportPersistencePort.findByIdAndInitiativeIdAndMerchantId(reportId, initiativeId, merchantId)
+                : reportPersistencePort.findByIdAndInitiativeId(reportId, initiativeId);
+
+        if (query == null) {
+            query = Mono.empty();
+        }
+
+        return query
+                .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
+                        HttpStatus.NOT_FOUND,
+                        REPORT_NOT_FOUND,
+                        ERROR_MESSAGE_REPORT_NOT_FOUND.formatted(reportId, initiativeId))))
+                .flatMap(report -> {
+                    if (report.getReportStatus() != ReportStatus.GENERATED) {
+                        return Mono.error(new ClientExceptionWithBody(
+                                HttpStatus.BAD_REQUEST,
+                                REPORT_NOT_GENERATED,
+                                ERROR_MESSAGE_REPORT_NOT_GENERATED.formatted(reportId)));
+                    }
+                    if (report.getFileName() == null || report.getFileName().isBlank()) {
+                        return Mono.error(new ClientExceptionWithBody(
+                                HttpStatus.BAD_REQUEST,
+                                REPORT_MISSING_FILENAME,
+                                ERROR_MESSAGE_REPORT_MISSING_FILENAME.formatted(reportId)));
+                    }
+
+                    String blobPath = String.format(REPORT_MERCHANT_BATCH_CSV_PATH_STORAGE_FORMAT,
+                            initiativeId,
+                            report.getFileName());
+                    return reportMerchantBatchBlobService.getFileSignedUrl(blobPath)
                             .map(url -> DownloadReportResponseDTO.builder().reportUrl(url).build());
                 });
     }
