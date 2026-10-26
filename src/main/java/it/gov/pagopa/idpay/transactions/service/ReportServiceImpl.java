@@ -81,6 +81,8 @@ public class ReportServiceImpl implements ReportService {
 
     private static final String REPORT_USER_DETAILS_PATH_STORAGE_FORMAT = "initiative/%s/report/%s";
 
+    private static final String REPORT_MERCHANT_BATCH_CSV_PATH_STORAGE_FORMAT = "initiative/%s/batch/%s";
+
     @Override
     public Mono<Page<Report>> getReports(
             String merchantId,
@@ -624,13 +626,6 @@ public class ReportServiceImpl implements ReportService {
             String initiativeId,
             String reportId
     ) {
-        if (merchantId != null && !merchantId.isBlank()) {
-            return downloadTransactionsReport(merchantId, null, initiativeId, reportId);
-        }
-        if (organizationRole != null && !organizationRole.isBlank()) {
-            return downloadUserDetailsReports(organizationRole, initiativeId, reportId);
-        }
-
         return reportPersistencePort.findByIdAndInitiativeId(reportId, initiativeId)
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
                         HttpStatus.NOT_FOUND,
@@ -645,21 +640,32 @@ public class ReportServiceImpl implements ReportService {
                     }
 
                     if (report.getReportType() == ReportType.MERCHANT_BATCH_CSV) {
-                        return downloadMerchantBatchCsvReports(report.getMerchantId(), initiativeId, reportId);
+                        String effectiveMerchantId = (merchantId != null && !merchantId.isBlank())
+                                ? merchantId
+                                : report.getMerchantId();
+                        return downloadMerchantBatchCsvReports(effectiveMerchantId, initiativeId, reportId);
                     }
 
                     if (report.getReportType() == ReportType.MERCHANT_TRANSACTIONS) {
-                        String effectiveMerchantId = report.getMerchantId();
-                        if (effectiveMerchantId == null || effectiveMerchantId.isBlank()) {
-                            return Mono.error(new ClientExceptionWithBody(
-                                    HttpStatus.BAD_REQUEST,
-                                    MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY,
-                                    ERROR_MESSAGE_MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY));
+                        String effectiveMerchantId = (merchantId != null && !merchantId.isBlank())
+                                ? merchantId
+                                : report.getMerchantId();
+                        if (effectiveMerchantId != null && !effectiveMerchantId.isBlank()) {
+                            return downloadTransactionsReport(effectiveMerchantId, null, initiativeId, reportId);
                         }
-                        return downloadTransactionsReport(effectiveMerchantId, null, initiativeId, reportId);
+                        if (organizationRole != null && !organizationRole.isBlank()) {
+                            return downloadTransactionsReport(null, organizationRole, initiativeId, reportId);
+                        }
+                        return Mono.error(new ClientExceptionWithBody(
+                                HttpStatus.BAD_REQUEST,
+                                MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY,
+                                ERROR_MESSAGE_MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY));
                     }
 
                     if (report.getReportType() == ReportType.USER_DETAILS) {
+                        if (organizationRole != null && !organizationRole.isBlank()) {
+                            return downloadUserDetailsReports(organizationRole, initiativeId, reportId);
+                        }
                         return Mono.error(new ClientExceptionWithBody(
                                 HttpStatus.BAD_REQUEST,
                                 MERCHANT_ID_OR_ORGANIZATION_ROLE_ARE_MANDATORY,
@@ -755,9 +761,8 @@ public class ReportServiceImpl implements ReportService {
                                 ERROR_MESSAGE_REPORT_MISSING_FILENAME.formatted(reportId)));
                     }
                     String effectiveMerchantId = report.getMerchantId() == null ? merchantId : report.getMerchantId();
-                    String blobPath = String.format(REPORT_TRANSACTIONS_PATH_STORAGE_FORMAT,
+                    String blobPath = String.format(REPORT_MERCHANT_BATCH_CSV_PATH_STORAGE_FORMAT,
                             initiativeId,
-                            effectiveMerchantId,
                             report.getFileName());
                     return reportTransactionsBlobService.getFileSignedUrl(blobPath)
                             .map(url -> DownloadReportResponseDTO.builder().reportUrl(url).build());
