@@ -18,6 +18,7 @@ import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.persistence.port.ReportPersistencePort;
 import it.gov.pagopa.idpay.transactions.storage.ReportTransactionsBlobServiceImpl;
 import it.gov.pagopa.idpay.transactions.storage.ReportUserDetailsBlobServiceImpl;
+import it.gov.pagopa.idpay.transactions.storage.ReportMerchantBatchBlobServiceImpl;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,6 +49,7 @@ public class ReportServiceImpl implements ReportService {
 
     private final ReportTransactionsBlobServiceImpl reportTransactionsBlobService;
     private final ReportUserDetailsBlobServiceImpl reportUserDetailsBlobService;
+    private final ReportMerchantBatchBlobServiceImpl reportMerchantBatchBlobService;
 
     private final DataFactoryService dataFactoryService;
 
@@ -60,6 +62,7 @@ public class ReportServiceImpl implements ReportService {
             ReportMapper reportMapper,
             ReportTransactionsBlobServiceImpl reportTransactionsBlobService,
             ReportUserDetailsBlobServiceImpl reportUserDetailsBlobService,
+            ReportMerchantBatchBlobServiceImpl reportMerchantBatchBlobService,
             DataFactoryService dataFactoryService) {
         this.periodLengthTransactionsReport = periodLengthTransactionsReport;
         this.reportPersistencePort = reportPersistencePort;
@@ -67,6 +70,7 @@ public class ReportServiceImpl implements ReportService {
         this.reportMapper = reportMapper;
         this.reportTransactionsBlobService = reportTransactionsBlobService;
         this.reportUserDetailsBlobService = reportUserDetailsBlobService;
+        this.reportMerchantBatchBlobService = reportMerchantBatchBlobService;
         this.dataFactoryService = dataFactoryService;
     }
 
@@ -91,12 +95,6 @@ public class ReportServiceImpl implements ReportService {
             ReportType reportType,
             Pageable pageable
     ) {
-
-        //For backward compatibility for the merchant portal
-        if (merchantId != null && !merchantId.isBlank()) {
-            reportType = ReportType.MERCHANT_TRANSACTIONS;
-        }
-
         if (reportType == null) {
             log.warn("[GET_REPORTS] Missing mandatory filters: reportType null");
             throw new ClientExceptionWithBody(
@@ -760,11 +758,11 @@ public class ReportServiceImpl implements ReportService {
                                 REPORT_MISSING_FILENAME,
                                 ERROR_MESSAGE_REPORT_MISSING_FILENAME.formatted(reportId)));
                     }
-                    String effectiveMerchantId = report.getMerchantId() == null ? merchantId : report.getMerchantId();
+
                     String blobPath = String.format(REPORT_MERCHANT_BATCH_CSV_PATH_STORAGE_FORMAT,
                             initiativeId,
                             report.getFileName());
-                    return reportTransactionsBlobService.getFileSignedUrl(blobPath)
+                    return reportMerchantBatchBlobService.getFileSignedUrl(blobPath)
                             .map(url -> DownloadReportResponseDTO.builder().reportUrl(url).build());
                 });
     }
