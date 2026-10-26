@@ -345,7 +345,8 @@ class ReportServiceImplTest {
         merchant.setMerchantId("merchant");
         merchant.setFileName("merchant.csv");
         merchant.setReportStatus(ReportStatus.GENERATED);
-        when(reportPort.findByIdAndInitiativeId("merchant-report", "initiative")).thenReturn(Mono.just(merchant));
+        when(reportPort.findByIdAndInitiativeIdAndMerchantId("merchant-report", "initiative", "merchant"))
+                .thenReturn(Mono.just(merchant));
         when(transactionBlobService.getFileSignedUrl(
                 "initiative/initiative/merchant/merchant/report/merchant.csv")).thenReturn(Mono.just("url"));
         StepVerifier.create(service.downloadReports("merchant", null, "initiative", "merchant-report"))

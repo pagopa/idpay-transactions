@@ -629,6 +629,9 @@ public class ReportServiceImpl implements ReportService {
         Mono<Report> query = merchantId != null && !merchantId.isBlank()
                 ? reportPersistencePort.findByIdAndInitiativeIdAndMerchantId(reportId, initiativeId, merchantId)
                 : reportPersistencePort.findByIdAndInitiativeId(reportId, initiativeId);
+        if (query == null) {
+            query = Mono.empty();
+        }
 
         return query
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
@@ -677,7 +680,12 @@ public class ReportServiceImpl implements ReportService {
                     ERROR_MESSAGE_INVALID_ORGANIZATION_ROLE));
         }
 
-        return reportPersistencePort.findByIdAndInitiativeId(reportId, initiativeId)
+        Mono<Report> query = reportPersistencePort.findByIdAndInitiativeId(reportId, initiativeId);
+        if (query == null) {
+            query = Mono.empty();
+        }
+
+        return query
                 .switchIfEmpty(Mono.error(new ClientExceptionWithBody(
                         HttpStatus.NOT_FOUND,
                         REPORT_NOT_FOUND,
