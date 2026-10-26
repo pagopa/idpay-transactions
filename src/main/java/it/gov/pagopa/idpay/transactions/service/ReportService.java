@@ -52,12 +52,6 @@ public interface ReportService {
                                     String initiativeId,
                                     ReportRequest request);
 
-    Mono<ReportDTO> generateMerchantBatchCsvReport(
-            String merchantId,
-            String initiativeId,
-            ReportRequest request
-    );
-
     Mono<ReportDTO> patchReport(String initiativeId,
                                 String reportId,
                                 PatchReportRequest request);
@@ -72,6 +66,12 @@ public interface ReportService {
     Mono<DownloadReportResponseDTO> downloadTransactionsReport(
             String merchantId,
             String organizationRole,
+            String initiativeId,
+            String reportId
+    );
+
+    Mono<DownloadReportResponseDTO> downloadMerchantBatchCsvReports(
+            String merchantId,
             String initiativeId,
             String reportId
     );
