@@ -48,9 +48,9 @@ public interface ReportService {
     );
 
     Mono<ReportDTO> generateReport(String merchantId,
-                                    String organizationRole,
-                                    String initiativeId,
-                                    ReportRequest request);
+                                   String organizationRole,
+                                   String initiativeId,
+                                   ReportRequest request);
 
     Mono<ReportDTO> patchReport(String initiativeId,
                                 String reportId,
