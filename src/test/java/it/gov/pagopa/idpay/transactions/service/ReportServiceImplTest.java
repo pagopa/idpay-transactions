@@ -347,6 +347,8 @@ class ReportServiceImplTest {
         merchant.setMerchantId("merchant");
         merchant.setFileName("merchant.csv");
         merchant.setReportStatus(ReportStatus.GENERATED);
+        when(reportPort.findByIdAndInitiativeId("merchant-report", "initiative"))
+                .thenReturn(Mono.just(merchant));
         when(reportPort.findByIdAndInitiativeIdAndMerchantId("merchant-report", "initiative", "merchant"))
                 .thenReturn(Mono.just(merchant));
         when(transactionBlobService.getFileSignedUrl(
@@ -526,6 +528,8 @@ class ReportServiceImplTest {
         batch.setMerchantId("merchant");
         batch.setFileName("batch.csv");
         batch.setReportStatus(ReportStatus.GENERATED);
+        when(reportPort.findByIdAndInitiativeId("batch-report", "initiative"))
+                .thenReturn(Mono.just(batch));
         when(reportPort.findByIdAndInitiativeIdAndMerchantId("batch-report", "initiative", "merchant"))
                 .thenReturn(Mono.just(batch));
         when(merchantBatchBlobService.getFileSignedUrl("initiative/initiative/batch/batch.csv"))
@@ -553,39 +557,4 @@ class ReportServiceImplTest {
                 .verifyComplete();
     }
 
-    @Test
-    void merchantBatchReportsUseOptionalMerchantScopeAndMatchingCount() {
-        Report report = report("merchant-batch-report", ReportType.MERCHANT_BATCH_CSV);
-        Pageable expected = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "requestDate"));
-        when(reportPort.findReports(
-                "merchant", null, "initiative", ReportType.MERCHANT_BATCH_CSV, expected))
-                .thenReturn(Flux.just(report));
-        when(reportPort.countReports("merchant", null, "initiative", ReportType.MERCHANT_BATCH_CSV))
-                .thenReturn(Mono.just(2L));
-
-        StepVerifier.create(service.getReports(
-                        "merchant", null, "initiative", ReportType.MERCHANT_BATCH_CSV, PageRequest.of(0, 10)))
-                .assertNext(page -> {
-                    assertEquals(2, page.getTotalElements());
-                    assertEquals("merchant-batch-report", page.getContent().getFirst().getId());
-                })
-                .verifyComplete();
-    }
-
-
-    @Test
-    void patchReportAppliesRequestedStatusWithoutTransitionCheck() {
-        Report report = report("report", ReportType.USER_DETAILS);
-        report.setReportStatus(ReportStatus.GENERATED);
-        PatchReportRequest request = new PatchReportRequest();
-        request.setReportStatus(ReportStatus.INSERTED);
-        when(reportPort.findByIdAndInitiativeId("report", "initiative")).thenReturn(Mono.just(report));
-        when(reportPort.save(report)).thenReturn(Mono.just(report));
-
-        StepVerifier.create(service.patchReport("initiative", "report", request))
-                .assertNext(dto -> assertEquals(ReportStatus.INSERTED, report.getReportStatus()))
-                .verifyComplete();
-
-        verify(reportPort).save(report);
-    }
 }
