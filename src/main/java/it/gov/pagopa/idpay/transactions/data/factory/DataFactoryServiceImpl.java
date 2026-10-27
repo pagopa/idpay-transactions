@@ -21,6 +21,14 @@ import java.util.Map;
 @Service
 @Slf4j
 public class DataFactoryServiceImpl implements DataFactoryService{
+    private static final String INITIATIVE_ID = "initiativeId";
+    private static final String MERCHANT_ID = "merchantId";
+    private static final String REPORT_ID = "reportId";
+    private static final String REPORT_NAME = "reportName";
+    private static final String START_DATE = "startDate";
+    private static final String END_DATE = "endDate";
+    private static final String REWARD_BATCH_ID = "rewardBatchId";
+
     private final DataFactoryManager dataFactoryManager;
     private final String resourceGroup;
     private final String factoryName;
@@ -61,11 +69,11 @@ public class DataFactoryServiceImpl implements DataFactoryService{
     @Override
     public Mono<String> triggerRewardBatchCsvPipeline(String initiativeId, String merchantId, String rewardBatchId, String reportId, String reportName) {
         HashMap<String, Object> parameters = new HashMap<>();
-        parameters.put("initiativeId", initiativeId);
-        parameters.put("merchantId", merchantId);
-        parameters.put("rewardBatchId", rewardBatchId);
-        parameters.put("reportId", reportId);
-        parameters.put("reportName", reportName);
+        parameters.put(INITIATIVE_ID, initiativeId);
+        parameters.put(MERCHANT_ID, merchantId);
+        parameters.put(REWARD_BATCH_ID, rewardBatchId);
+        parameters.put(REPORT_ID, reportId);
+        parameters.put(REPORT_NAME, reportName);
         return triggerPipeline(pipelineRewardBatchCsvName, parameters, rewardBatchId);
     }
 
@@ -76,25 +84,25 @@ public class DataFactoryServiceImpl implements DataFactoryService{
         }
 
         HashMap<String, Object> parameters = new HashMap<>();
-        parameters.put("initiativeId", initiativeId);
+        parameters.put(INITIATIVE_ID, initiativeId);
         if (merchantId != null && !merchantId.isBlank()) {
-            parameters.put("merchantId", merchantId);
+            parameters.put(MERCHANT_ID, merchantId);
         }
-        parameters.put("reportId", reportId);
-        parameters.put("reportName", reportName);
-        parameters.put("startDate", startDate);
-        parameters.put("endDate", endDate);
+        parameters.put(REPORT_ID, reportId);
+        parameters.put(REPORT_NAME, reportName);
+        parameters.put(START_DATE, startDate);
+        parameters.put(END_DATE, endDate);
         return triggerPipeline(pipelineMerchantBatchCsvName, parameters, reportId);
     }
 
     private Map<String, Object> createReportPipelineParameters(Report report) {
         HashMap<String, Object> parameters = new HashMap<>();
-        parameters.put("reportId", report.getId());
-        parameters.put("merchantId", report.getMerchantId());
-        parameters.put("initiativeId", report.getInitiativeId());
-        parameters.put("startDate", report.getStartPeriod());
-        parameters.put("endDate", report.getEndPeriod());
-        parameters.put("reportName", report.getFileName());
+        parameters.put(REPORT_ID, report.getId());
+        parameters.put(MERCHANT_ID, report.getMerchantId());
+        parameters.put(INITIATIVE_ID, report.getInitiativeId());
+        parameters.put(START_DATE, report.getStartPeriod());
+        parameters.put(END_DATE, report.getEndPeriod());
+        parameters.put(REPORT_NAME, report.getFileName());
 
         return parameters;
     }
