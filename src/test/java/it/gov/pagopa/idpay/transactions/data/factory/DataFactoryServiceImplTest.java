@@ -508,4 +508,30 @@ class DataFactoryServiceImplTest {
                 eq(Context.NONE)
         );
     }
+
+    @Test
+    void triggerMerchantBatchCsvPipelineShouldFailWhenPipelineNameIsMissing() {
+        DataFactoryServiceImpl missingNameService = new DataFactoryServiceImpl(
+                dataFactoryManager,
+                "resourceGroup",
+                "factoryName",
+                "pipelineTransactionReportname",
+                "pipelineUserDetailsReportname",
+                "pipelineRewardBatchCsvName",
+                "   ",
+                0
+        );
+
+        StepVerifier.create(missingNameService.triggerMerchantBatchCsvPipeline(
+                        "initiative", "merchant", "report-123", "merchant_batch.csv",
+                        LocalDateTime.of(2026, Month.AUGUST, 1, 9, 0),
+                        LocalDateTime.of(2026, Month.AUGUST, 5, 18, 0)))
+                .expectErrorSatisfies(error -> {
+                    IllegalStateException exception = (IllegalStateException) error;
+                    assertEquals("Missing app.data-factory.pipeline-merchant-batch-csv-name configuration", exception.getMessage());
+                })
+                .verify();
+
+        verifyNoInteractions(pipelines);
+    }
 }

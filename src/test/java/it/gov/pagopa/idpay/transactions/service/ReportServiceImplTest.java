@@ -557,4 +557,55 @@ class ReportServiceImplTest {
                 .verifyComplete();
     }
 
+    @Test
+    void generateReportRejectsNullAndUnsupportedTypes() {
+        StepVerifier.create(service.generateReport("merchant", "operator1", "initiative", null))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+
+        ReportRequest missingType = new ReportRequest();
+        StepVerifier.create(service.generateReport("merchant", "operator1", "initiative", missingType))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+
+        ReportRequest unsupported = validRequest(ReportType.REWARD_BATCH_CSV);
+        StepVerifier.create(service.generateReport("merchant", "operator1", "initiative", unsupported))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+    }
+
+    @Test
+    void downloadReportsDispatchesMerchantTransactionsUsingOrganizationRole() {
+        Report trx = report("trx-report", ReportType.MERCHANT_TRANSACTIONS);
+        trx.setFileName("trx.csv");
+        trx.setReportStatus(ReportStatus.GENERATED);
+        when(reportPort.findByIdAndInitiativeId("trx-report", "initiative")).thenReturn(Mono.just(trx));
+        when(transactionBlobService.getFileSignedUrl("initiative/initiative/merchant/null/report/trx.csv"))
+                .thenReturn(Mono.just("trx-url"));
+
+        StepVerifier.create(service.downloadReports(null, "operator1", "initiative", "trx-report"))
+                .assertNext(result -> assertEquals("trx-url", result.getReportUrl()))
+                .verifyComplete();
+    }
+
+    @Test
+    void rewardBatchCsvReportsRejectMissingOrInvalidOrganizationRole() {
+        Pageable pageable = PageRequest.of(0, 5);
+        assertThrows(ClientExceptionWithBody.class,
+                () -> service.getRewardBatchCsvReports(" ", "initiative", pageable));
+        assertThrows(ClientExceptionWithBody.class,
+                () -> service.getRewardBatchCsvReports("admin", "initiative", pageable));
+    }
+
+    @Test
+    void merchantBatchCsvReportsRejectMissingOrInvalidOrganizationRole() {
+        ReportRequest request = validRequest(ReportType.MERCHANT_BATCH_CSV);
+        StepVerifier.create(service.generateMerchantBatchCsvReport("merchant", " ", "initiative", request))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+        StepVerifier.create(service.generateMerchantBatchCsvReport("merchant", "admin", "initiative", request))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+    }
+
 }
