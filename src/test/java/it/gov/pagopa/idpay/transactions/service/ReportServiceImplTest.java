@@ -608,4 +608,144 @@ class ReportServiceImplTest {
                 .verify();
     }
 
+    @Test
+    void getReportsRoutesMerchantBatchAndRejectsConflictingScopes() {
+        Pageable pageable = PageRequest.of(0, 5);
+        Pageable expected = PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "requestDate"));
+        assertThrows(ClientExceptionWithBody.class,
+                () -> service.getTransactionsReports("merchant", "operator1", "initiative", pageable));
+
+        Report batch = report("batch-report", ReportType.MERCHANT_BATCH_CSV);
+        when(reportPort.findReports("merchant", null, "initiative", ReportType.MERCHANT_BATCH_CSV, expected))
+                .thenReturn(Flux.just(batch));
+        when(reportPort.countReports("merchant", null, "initiative", ReportType.MERCHANT_BATCH_CSV))
+                .thenReturn(Mono.just(1L));
+
+        StepVerifier.create(service.getReports("merchant", null, "initiative", ReportType.MERCHANT_BATCH_CSV, pageable))
+                .assertNext(page -> assertEquals("batch-report", page.getContent().getFirst().getId()))
+                .verifyComplete();
+    }
+
+    @Test
+    void generateUserDetailsAndMerchantBatchRequestsRejectBlankOrNullInputs() {
+        StepVerifier.create(service.generateUserDetailsReport(" ", "initiative", validRequest(ReportType.USER_DETAILS)))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+        StepVerifier.create(service.generateUserDetailsReport("operator1", "initiative", null))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+
+        ReportRequest invalidRequest = new ReportRequest();
+        invalidRequest.setReportType(ReportType.MERCHANT_BATCH_CSV);
+        StepVerifier.create(service.generateMerchantBatchCsvReport("merchant", "operator1", "initiative", null))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+        StepVerifier.create(service.generateMerchantBatchCsvReport("merchant", "operator1", "initiative", invalidRequest))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+    }
+
+    @Test
+    void downloadReportsRejectUnsupportedPersistedTypesAndMissingDownloadFields() {
+        Report reward = report("reward-report", ReportType.REWARD_BATCH_CSV);
+        reward.setFileName("reward.csv");
+        reward.setReportStatus(ReportStatus.GENERATED);
+        when(reportPort.findByIdAndInitiativeId("reward-report", "initiative")).thenReturn(Mono.just(reward));
+
+        StepVerifier.create(service.downloadReports(null, "operator1", "initiative", "reward-report"))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+
+        Report unsupportedBatch = report("batch-report", ReportType.MERCHANT_BATCH_CSV);
+        unsupportedBatch.setMerchantId("merchant");
+        unsupportedBatch.setReportStatus(ReportStatus.GENERATED);
+        when(reportPort.findByIdAndInitiativeIdAndMerchantId("batch-report", "initiative", "merchant"))
+                .thenReturn(Mono.just(unsupportedBatch));
+
+        StepVerifier.create(service.downloadMerchantBatchCsvReports("merchant", "initiative", "batch-report"))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+
+        Report notGenerated = report("manual-report", ReportType.MERCHANT_BATCH_CSV);
+        notGenerated.setMerchantId("merchant");
+        notGenerated.setFileName("manual.csv");
+        notGenerated.setReportStatus(ReportStatus.INSERTED);
+        when(reportPort.findByIdAndInitiativeIdAndMerchantId("manual-report", "initiative", "merchant"))
+                .thenReturn(Mono.just(notGenerated));
+
+        StepVerifier.create(service.downloadMerchantBatchCsvReports("merchant", "initiative", "manual-report"))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+    }
+
+    @Test
+    void forceGenerateReportsDispatchesAllSupportedTypes() {
+        Report merchant = report("merchant-report", ReportType.MERCHANT_TRANSACTIONS);
+        Report user = report("user-report", ReportType.USER_DETAILS);
+        Report reward = report("reward-report", ReportType.REWARD_BATCH_CSV);
+        reward.setMerchantId("merchant");
+        reward.setFileName("reward.csv");
+        Report batch = report("batch-report", ReportType.MERCHANT_BATCH_CSV);
+        batch.setMerchantId("merchant");
+        batch.setFileName("batch.csv");
+        batch.setStartPeriod(LocalDateTime.now().minusDays(2));
+        batch.setEndPeriod(LocalDateTime.now().minusDays(1));
+
+        when(reportPort.findAllById(List.of("merchant-report", "user-report", "reward-report", "batch-report")))
+                .thenReturn(Flux.just(merchant, user, reward, batch));
+        when(dataFactoryService.triggerTransactionReportPipeline(merchant)).thenReturn(Mono.just("merchant-run"));
+        when(dataFactoryService.triggerUserDetailsReportPipeline(user)).thenReturn(Mono.just("user-run"));
+        when(dataFactoryService.triggerRewardBatchCsvPipeline(
+                "initiative", "merchant", "reward-report", "reward-report", "reward.csv"))
+                .thenReturn(Mono.just("reward-run"));
+        when(dataFactoryService.triggerMerchantBatchCsvPipeline(
+                "initiative", "merchant", "batch-report", "batch.csv",
+                batch.getStartPeriod(), batch.getEndPeriod()))
+                .thenReturn(Mono.just("batch-run"));
+
+        StepVerifier.create(service.forceGenerateReports(new ReportGenerateForce(List.of(
+                "merchant-report", "user-report", "reward-report", "batch-report"))))
+                .assertNext(list -> {
+                    assertEquals(4, list.size());
+                    assertEquals("merchant-report", list.get(0).getReportId());
+                    assertEquals("user-report", list.get(1).getReportId());
+                    assertEquals("reward-report", list.get(2).getReportId());
+                    assertEquals("batch-report", list.get(3).getReportId());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void downloadReportValidationCoversNotGeneratedMissingFilenameAndNullStatus() {
+        Report notGenerated = report("not-generated", ReportType.MERCHANT_TRANSACTIONS);
+        notGenerated.setMerchantId("merchant");
+        notGenerated.setFileName("trx.csv");
+        notGenerated.setReportStatus(ReportStatus.INSERTED);
+        when(reportPort.findByIdAndInitiativeIdAndMerchantId("not-generated", "initiative", "merchant"))
+                .thenReturn(Mono.just(notGenerated));
+
+        StepVerifier.create(service.downloadTransactionsReport("merchant", null, "initiative", "not-generated"))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+
+        Report missingFileName = report("missing-file", ReportType.USER_DETAILS);
+        missingFileName.setReportStatus(ReportStatus.GENERATED);
+        when(reportPort.findByIdAndInitiativeId("missing-file", "initiative")).thenReturn(Mono.just(missingFileName));
+
+        StepVerifier.create(service.downloadUserDetailsReports("operator1", "initiative", "missing-file"))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+
+        Report nullStatus = report("null-status", ReportType.MERCHANT_BATCH_CSV);
+        nullStatus.setMerchantId("merchant");
+        nullStatus.setFileName("batch.csv");
+        nullStatus.setReportStatus(null);
+        when(reportPort.findByIdAndInitiativeIdAndMerchantId("null-status", "initiative", "merchant"))
+                .thenReturn(Mono.just(nullStatus));
+
+        StepVerifier.create(service.downloadMerchantBatchCsvReports("merchant", "initiative", "null-status"))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
+    }
+
 }
