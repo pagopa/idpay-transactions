@@ -406,13 +406,6 @@ public class ReportServiceImpl implements ReportService {
                     ERROR_MESSAGE_INVALID_PERIOD));
         }
 
-        if (isPeriodTooLong(request)) {
-            return Mono.error(new ClientExceptionWithBody(
-                    HttpStatus.BAD_REQUEST,
-                    INVALID_LENGTH_PERIOD,
-                    ERROR_MESSAGE_INVALID_LENGTH_PERIOD.formatted(periodLengthTransactionsReport)));
-        }
-
         RewardBatchAssignee operatorLevel = resolveOperatorLevel(organizationRole);
 
         Report reportEntity = Report.builder()
