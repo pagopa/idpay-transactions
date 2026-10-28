@@ -83,6 +83,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private static final String OPERATOR_1 = "operator1";
     private static final String OPERATOR_2 = "operator2";
     private static final String OPERATOR_3 = "operator3";
+    private static final String SUPPORT = "support";
 
     private static final Set<String> OPERATORS = Set.of(OPERATOR_1, OPERATOR_2, OPERATOR_3);
     private final ApprovedRewardBatchBlobService approvedRewardBatchBlobService;
@@ -545,7 +546,8 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private boolean isValidInvitaliaOperator(String organizationRole) {
         return OPERATOR_1.equals(organizationRole)
                 || OPERATOR_2.equals(organizationRole)
-                || OPERATOR_3.equals(organizationRole);
+                || OPERATOR_3.equals(organizationRole)
+                || SUPPORT.equals(organizationRole);
     }
 
     private boolean isRefundState(RewardBatchStatus status) {
