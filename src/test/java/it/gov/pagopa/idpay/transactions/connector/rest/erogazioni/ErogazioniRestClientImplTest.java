@@ -1,14 +1,20 @@
 package it.gov.pagopa.idpay.transactions.connector.rest.erogazioni;
 
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.spi.ILoggingEvent;
 import com.github.javafaker.Faker;
 import it.gov.pagopa.common.config.JsonConfig;
+import it.gov.pagopa.common.utils.MemoryAppender;
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.InvitaliaTokenProviderService;
 import it.gov.pagopa.idpay.transactions.dto.AnagraficaDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryRequest;
 import it.gov.pagopa.idpay.transactions.dto.ErogazioneDTO;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
@@ -68,18 +74,47 @@ class ErogazioniRestClientImplTest extends BaseWireMockTest {
     void postErogazione_koInternalServerError() {
         String batchId = "BATCH_KO";
         DeliveryRequest request = createRequest(batchId, "12345678901");
+        Logger logger = (Logger) LoggerFactory.getLogger(ErogazioniRestClientImpl.class);
+        MemoryAppender appender = new MemoryAppender();
+        appender.setContext((LoggerContext) LoggerFactory.getILoggerFactory());
+        appender.start();
+        Level previousLevel = logger.getLevel();
+        logger.setLevel(Level.DEBUG);
+        logger.addAppender(appender);
 
         Mockito.when(invitaliaTokenProviderService.retrieveToken())
                 .thenReturn(Mono.just("MOCK_TOKEN_KO"));
 
-        StepVerifier.create(erogazioniRestClient.postErogazione(request))
-                .assertNext(outcome -> {
-                    assertFalse(outcome.isSucceded());
-                    assertTrue(outcome.getMessage().contains("Technical error"));
-                    assertTrue(outcome.getMessage().contains("Server error during erogazione"));
-                    assertNotNull(outcome.getTimestamp());
-                })
-                .verifyComplete();
+        try {
+            StepVerifier.create(erogazioniRestClient.postErogazione(request))
+                    .assertNext(outcome -> {
+                        assertFalse(outcome.isSucceded());
+                        assertTrue(outcome.getMessage().contains("Technical error"));
+                        assertTrue(outcome.getMessage().contains("Server error during erogazione"));
+                        assertNotNull(outcome.getTimestamp());
+                    })
+                    .verifyComplete();
+
+            ILoggingEvent errorEvent = appender.getLoggedEvents().stream()
+                    .filter(event -> event.getLevel() == Level.ERROR)
+                    .filter(event -> event.getFormattedMessage().contains("Permanent failure for batch"))
+                    .findFirst()
+                    .orElseThrow();
+            assertNull(errorEvent.getThrowableProxy());
+            assertTrue(errorEvent.getFormattedMessage().contains(batchId));
+
+            ILoggingEvent debugEvent = appender.getLoggedEvents().stream()
+                    .filter(event -> event.getLevel() == Level.DEBUG)
+                    .filter(event -> event.getFormattedMessage().contains("Stack trace for permanent failure"))
+                    .findFirst()
+                    .orElseThrow();
+            assertNotNull(debugEvent.getThrowableProxy());
+            assertTrue(debugEvent.getFormattedMessage().contains(batchId));
+        } finally {
+            logger.detachAppender(appender);
+            logger.setLevel(previousLevel);
+            appender.stop();
+        }
     }
 
     @Test

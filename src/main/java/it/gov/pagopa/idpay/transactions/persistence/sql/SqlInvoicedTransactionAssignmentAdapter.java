@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
-import org.jooq.JSONB;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 import org.springframework.http.HttpStatus;
@@ -221,7 +220,6 @@ public class SqlInvoicedTransactionAssignmentAdapter implements InvoicedTransact
                         .set(REWARD_TRANSACTIONS.REWARD_BATCH_ID, rewardBatchId)
                         .set(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS,
                                 RewardBatchTrxStatus.CONSULTABLE.name())
-                        .set(REWARD_TRANSACTIONS.REWARD_BATCH_REJECTION_REASONS, (JSONB) null)
                         .set(REWARD_TRANSACTIONS.REWARD_BATCH_INCLUSION_DATE, currentLocalDateTime())
                         .set(REWARD_TRANSACTIONS.SAMPLING_KEY, samplingKey)
                         .set(REWARD_TRANSACTIONS.UPDATE_DATE, currentLocalDateTime())

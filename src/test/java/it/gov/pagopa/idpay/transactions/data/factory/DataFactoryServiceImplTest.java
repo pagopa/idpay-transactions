@@ -413,7 +413,7 @@ class DataFactoryServiceImplTest {
         when(createRunResponse.runId()).thenReturn("BATCH_CSV_RUN_ID");
 
         StepVerifier.create(service.triggerRewardBatchCsvPipeline(
-                        "initiative", "merchant", "batch", "merchant_batch.csv"))
+                        "initiative", "merchant", "batch", "report-123", "merchant_batch.csv"))
                 .expectNext("BATCH_CSV_RUN_ID")
                 .verifyComplete();
 
@@ -429,9 +429,41 @@ class DataFactoryServiceImplTest {
                         "initiativeId", "initiative",
                         "merchantId", "merchant",
                         "rewardBatchId", "batch",
+                        "reportId", "report-123",
                         "reportName", "merchant_batch.csv"
                 ))),
                 eq(Context.NONE)
+        );
+    }
+
+    @Test
+    void triggerRewardBatchCsvPipelineShouldRecoverAfterOneRetryForNonSuccessfulStatus() {
+        DataFactoryServiceImpl retryingService = new DataFactoryServiceImpl(
+                dataFactoryManager,
+                "resourceGroup",
+                "factoryName",
+                "pipelineTransactionReportname",
+                "pipelineUserDetailsReportname",
+                "pipelineRewardBatchCsvName",
+                1
+        );
+        when(dataFactoryManager.pipelines()).thenReturn(pipelines);
+        when(pipelines.createRunWithResponse(
+                anyString(), anyString(), anyString(), isNull(), eq(false),
+                isNull(), eq(false), anyMap(), eq(Context.NONE)
+        )).thenReturn(response);
+        when(response.getStatusCode()).thenReturn(503, 200);
+        when(response.getValue()).thenReturn(createRunResponse);
+        when(createRunResponse.runId()).thenReturn("BATCH_CSV_RUN_ID");
+
+        StepVerifier.create(retryingService.triggerRewardBatchCsvPipeline(
+                        "initiative", "merchant", "batch", "report-123", "merchant_batch.csv"))
+                .expectNext("BATCH_CSV_RUN_ID")
+                .verifyComplete();
+
+        verify(pipelines, times(2)).createRunWithResponse(
+                eq("resourceGroup"), eq("factoryName"), eq("pipelineRewardBatchCsvName"),
+                isNull(), eq(false), isNull(), eq(false), anyMap(), eq(Context.NONE)
         );
     }
 }

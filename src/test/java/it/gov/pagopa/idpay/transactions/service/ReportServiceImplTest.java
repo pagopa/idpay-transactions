@@ -94,6 +94,49 @@ class ReportServiceImplTest {
     }
 
     @Test
+    void supportRoleIsAllowedForUserDetailsReportsListAndDownload() {
+        // BND-1914: the "support" (backstage read-only) role must be allowed to consult reports.
+        Report listed = report("support-report", ReportType.USER_DETAILS);
+        Pageable expected = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "requestDate"));
+        when(reportPort.findReports(
+                null, "support", "initiative", ReportType.USER_DETAILS, expected))
+                .thenReturn(Flux.just(listed));
+        when(reportPort.countReports(null, "support", "initiative", ReportType.USER_DETAILS))
+                .thenReturn(Mono.just(1L));
+
+        StepVerifier.create(service.getUserDetailsReports("support", "initiative", PageRequest.of(0, 10)))
+                .assertNext(page -> assertEquals("support-report", page.getContent().getFirst().getId()))
+                .verifyComplete();
+
+        Report user = report("user-report", ReportType.USER_DETAILS);
+        user.setFileName("users.csv");
+        user.setReportStatus(ReportStatus.GENERATED);
+        when(reportPort.findByIdAndInitiativeId("user-report", "initiative")).thenReturn(Mono.just(user));
+        when(userDetailsBlobService.getFileSignedUrl("initiative/initiative/report/users.csv"))
+                .thenReturn(Mono.just("users-url"));
+
+        StepVerifier.create(service.downloadUserDetailsReports("support", "initiative", "user-report"))
+                .assertNext(result -> assertEquals("users-url", result.getReportUrl()))
+                .verifyComplete();
+    }
+
+    @Test
+    void supportRoleIsAllowedForTransactionsReportsList() {
+        // BND-1914: the "support" role must also be allowed on the merchant-transactions report list.
+        Report listed = report("support-trx-report", ReportType.MERCHANT_TRANSACTIONS);
+        Pageable expected = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "requestDate"));
+        when(reportPort.findReports(
+                null, "support", "initiative", ReportType.MERCHANT_TRANSACTIONS, expected))
+                .thenReturn(Flux.just(listed));
+        when(reportPort.countReports(null, "support", "initiative", ReportType.MERCHANT_TRANSACTIONS))
+                .thenReturn(Mono.just(1L));
+
+        StepVerifier.create(service.getTransactionsReports(null, "support", "initiative", PageRequest.of(0, 10)))
+                .assertNext(page -> assertEquals("support-trx-report", page.getContent().getFirst().getId()))
+                .verifyComplete();
+    }
+
+    @Test
     void patchLoadsWithinInitiativeScopeBeforeSaving() {
         Report report = report("report", ReportType.USER_DETAILS);
         PatchReportRequest request = new PatchReportRequest();
@@ -401,5 +444,46 @@ class ReportServiceImplTest {
                 .requestDate(LocalDateTime.parse("2026-01-01T00:00:00"))
                 .reportType(type)
                 .build();
+    }
+
+    @Test
+    void rewardBatchCsvReportsUseOperatorScopeAndMatchingCount() {
+        Report report = report("csv-report", ReportType.REWARD_BATCH_CSV);
+        Pageable expected = PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "requestDate"));
+        when(reportPort.findReports(null, "operator1", "initiative", ReportType.REWARD_BATCH_CSV, expected))
+                .thenReturn(Flux.just(report));
+        when(reportPort.countReports(null, "operator1", "initiative", ReportType.REWARD_BATCH_CSV))
+                .thenReturn(Mono.just(1L));
+
+        StepVerifier.create(service.getRewardBatchCsvReports("operator1", "initiative", PageRequest.of(0, 5)))
+                .assertNext(page -> {
+                    assertEquals(1, page.getTotalElements());
+                    assertEquals("csv-report", page.getContent().getFirst().getId());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void generateReportRoutesMerchantAndUserRequestsAndRejectsMissingMerchantForMerchantReports() {
+        ReportRequest merchantRequest = validRequest(ReportType.MERCHANT_TRANSACTIONS);
+        ReportRequest userRequest = validRequest(ReportType.USER_DETAILS);
+        ReportDTO merchantDto = ReportDTO.builder().id("merchant-report").build();
+        ReportDTO userDto = ReportDTO.builder().id("user-report").build();
+
+        ReportServiceImpl dispatcher = spy(service);
+        doReturn(Mono.just(merchantDto)).when(dispatcher)
+                .generateMerchantTransactionsReport("merchant", "operator1", "initiative", merchantRequest);
+        doReturn(Mono.just(userDto)).when(dispatcher)
+                .generateUserDetailsReport("operator1", "initiative", userRequest);
+
+        StepVerifier.create(dispatcher.generateReport("merchant", "operator1", "initiative", merchantRequest))
+                .expectNext(merchantDto)
+                .verifyComplete();
+        StepVerifier.create(dispatcher.generateReport(null, "operator1", "initiative", userRequest))
+                .expectNext(userDto)
+                .verifyComplete();
+        StepVerifier.create(service.generateReport(null, "operator1", "initiative", merchantRequest))
+                .expectError(ClientExceptionWithBody.class)
+                .verify();
     }
 }
