@@ -14,7 +14,6 @@ import reactor.core.scheduler.Schedulers;
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -78,21 +77,21 @@ public class DataFactoryServiceImpl implements DataFactoryService{
     }
 
     @Override
-    public Mono<String> triggerMerchantBatchCsvPipeline(String initiativeId, String merchantId, String reportId, String reportName, LocalDateTime startDate, LocalDateTime endDate) {
+    public Mono<String> triggerMerchantBatchCsvPipeline(Report report) {
         if (pipelineMerchantBatchCsvName == null || pipelineMerchantBatchCsvName.isBlank()) {
             return Mono.error(new IllegalStateException("Missing app.data-factory.pipeline-merchant-batch-csv-name configuration"));
         }
 
         HashMap<String, Object> parameters = new HashMap<>();
-        parameters.put(INITIATIVE_ID, initiativeId);
-        if (merchantId != null && !merchantId.isBlank()) {
-            parameters.put(MERCHANT_ID, merchantId);
+        parameters.put(INITIATIVE_ID, report.getInitiativeId());
+        if (report.getMerchantId() != null && !report.getMerchantId().isBlank()) {
+            parameters.put(MERCHANT_ID, report.getMerchantId());
         }
-        parameters.put(REPORT_ID, reportId);
-        parameters.put(REPORT_NAME, reportName);
-        parameters.put(START_DATE, startDate);
-        parameters.put(END_DATE, endDate);
-        return triggerPipeline(pipelineMerchantBatchCsvName, parameters, reportId);
+        parameters.put(REPORT_ID, report.getId());
+        parameters.put(REPORT_NAME, report.getFileName());
+        parameters.put(START_DATE, report.getStartPeriod());
+        parameters.put(END_DATE, report.getEndPeriod());
+        return triggerPipeline(pipelineMerchantBatchCsvName, parameters, report.getId());
     }
 
     private Map<String, Object> createReportPipelineParameters(Report report) {

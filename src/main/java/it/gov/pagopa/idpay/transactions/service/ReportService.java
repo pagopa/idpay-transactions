@@ -42,7 +42,7 @@ public interface ReportService {
     );
 
     Mono<Page<Report>> getMerchantBatchCsvReports(
-            String merchantId,
+            String organizationRole,
             String initiativeId,
             Pageable pageable
     );
@@ -71,7 +71,7 @@ public interface ReportService {
     );
 
     Mono<DownloadReportResponseDTO> downloadMerchantBatchCsvReports(
-            String merchantId,
+            String organizationRole,
             String initiativeId,
             String reportId
     );

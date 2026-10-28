@@ -476,6 +476,14 @@ class DataFactoryServiceImplTest {
     void triggerMerchantBatchCsvPipelineShouldOmitMerchantIdWhenBlank() {
         LocalDateTime start = LocalDateTime.of(2026, Month.AUGUST, 1, 9, 0);
         LocalDateTime end = LocalDateTime.of(2026, Month.AUGUST, 5, 18, 0);
+        Report report = Report.builder()
+                .id("report-123")
+                .initiativeId("initiative")
+                .merchantId("   ")
+                .fileName("merchant_batch.csv")
+                .startPeriod(start)
+                .endPeriod(end)
+                .build();
         when(dataFactoryManager.pipelines()).thenReturn(pipelines);
         when(pipelines.createRunWithResponse(
                 anyString(), anyString(), anyString(), isNull(), eq(false),
@@ -485,8 +493,7 @@ class DataFactoryServiceImplTest {
         when(response.getValue()).thenReturn(createRunResponse);
         when(createRunResponse.runId()).thenReturn("MERCHANT_BATCH_RUN_ID");
 
-        StepVerifier.create(service.triggerMerchantBatchCsvPipeline(
-                        "initiative", "   ", "report-123", "merchant_batch.csv", start, end))
+        StepVerifier.create(service.triggerMerchantBatchCsvPipeline(report))
                 .expectNext("MERCHANT_BATCH_RUN_ID")
                 .verifyComplete();
 
@@ -522,10 +529,16 @@ class DataFactoryServiceImplTest {
                 0
         );
 
-        StepVerifier.create(missingNameService.triggerMerchantBatchCsvPipeline(
-                        "initiative", "merchant", "report-123", "merchant_batch.csv",
-                        LocalDateTime.of(2026, Month.AUGUST, 1, 9, 0),
-                        LocalDateTime.of(2026, Month.AUGUST, 5, 18, 0)))
+        Report report = Report.builder()
+                .id("report-123")
+                .initiativeId("initiative")
+                .merchantId("merchant")
+                .fileName("merchant_batch.csv")
+                .startPeriod(LocalDateTime.of(2026, Month.AUGUST, 1, 9, 0))
+                .endPeriod(LocalDateTime.of(2026, Month.AUGUST, 5, 18, 0))
+                .build();
+
+        StepVerifier.create(missingNameService.triggerMerchantBatchCsvPipeline(report))
                 .expectErrorSatisfies(error -> {
                     IllegalStateException exception = (IllegalStateException) error;
                     assertEquals("Missing app.data-factory.pipeline-merchant-batch-csv-name configuration", exception.getMessage());

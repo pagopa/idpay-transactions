@@ -475,9 +475,7 @@ class ReportServiceImplTest {
         ReportDTO dto = ReportDTO.builder().id("report").build();
 
         when(reportPort.save(any())).thenReturn(Mono.just(saved));
-        when(dataFactoryService.triggerMerchantBatchCsvPipeline(
-                "initiative", null, "report", null, request.getStartPeriod(), request.getEndPeriod()))
-                .thenReturn(Mono.just("run"));
+        when(dataFactoryService.triggerMerchantBatchCsvPipeline(saved)).thenReturn(Mono.just("run"));
         when(reportMapper.toDTO(saved)).thenReturn(dto);
 
         StepVerifier.create(service.generateMerchantBatchCsvReport(null, "operator1", "initiative", request))
@@ -487,20 +485,22 @@ class ReportServiceImplTest {
         verify(reportPort).save(argThat(created ->
                 created.getReportType() == ReportType.MERCHANT_BATCH_CSV
                         && created.getMerchantId() == null
-                        && created.getFileName() == null));
-        verify(dataFactoryService).triggerMerchantBatchCsvPipeline(
-                "initiative", null, "report", null, request.getStartPeriod(), request.getEndPeriod());
+                        && created.getFileName() != null));
+        verify(dataFactoryService).triggerMerchantBatchCsvPipeline(saved);
 
         MerchantDetailDTO merchant = new MerchantDetailDTO();
         merchant.setBusinessName("Business");
         when(merchantRestClient.getMerchantDetail("merchant", "initiative")).thenReturn(Mono.just(merchant));
-        when(dataFactoryService.triggerMerchantBatchCsvPipeline(
-                "initiative", "merchant", "report", null, request.getStartPeriod(), request.getEndPeriod()))
-                .thenReturn(Mono.just("run-merchant"));
 
         StepVerifier.create(service.generateMerchantBatchCsvReport("merchant", "operator1", "initiative", request))
                 .expectNext(dto)
                 .verifyComplete();
+
+        verify(reportPort).save(argThat(created ->
+                created.getReportType() == ReportType.MERCHANT_BATCH_CSV
+                        && "merchant".equals(created.getMerchantId())
+                        && "Business".equals(created.getBusinessName())
+                        && created.getFileName() != null));
     }
 
     @Test
@@ -509,9 +509,8 @@ class ReportServiceImplTest {
         Report saved = report("report", ReportType.MERCHANT_BATCH_CSV);
         ReportDTO dto = ReportDTO.builder().id("report").build();
         when(reportPort.save(any())).thenReturn(Mono.just(saved));
-        when(dataFactoryService.triggerMerchantBatchCsvPipeline(
-                "initiative", null, "report", null, request.getStartPeriod(), request.getEndPeriod()))
-                .thenReturn(Mono.error(new it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException("storage", new RuntimeException())));
+        when(dataFactoryService.triggerMerchantBatchCsvPipeline(saved)).thenReturn(Mono.error(
+                new it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException("storage", new RuntimeException())));
         when(reportMapper.toDTO(saved)).thenReturn(dto);
 
         StepVerifier.create(service.generateMerchantBatchCsvReport(null, "operator1", "initiative", request))
@@ -530,16 +529,14 @@ class ReportServiceImplTest {
         batch.setReportStatus(ReportStatus.GENERATED);
         when(reportPort.findByIdAndInitiativeId("batch-report", "initiative"))
                 .thenReturn(Mono.just(batch));
-        when(reportPort.findByIdAndInitiativeIdAndMerchantId("batch-report", "initiative", "merchant"))
-                .thenReturn(Mono.just(batch));
         when(merchantBatchBlobService.getFileSignedUrl("initiative/initiative/batch/batch.csv"))
                 .thenReturn(Mono.just("batch-url"));
 
-        StepVerifier.create(service.downloadReports("merchant", null, "initiative", "batch-report"))
+        StepVerifier.create(service.downloadReports(null, "operator1", "initiative", "batch-report"))
                 .assertNext(result -> assertEquals("batch-url", result.getReportUrl()))
                 .verifyComplete();
 
-        StepVerifier.create(service.downloadMerchantBatchCsvReports("merchant", "initiative", "batch-report"))
+        StepVerifier.create(service.downloadMerchantBatchCsvReports("operator1", "initiative", "batch-report"))
                 .assertNext(result -> assertEquals("batch-url", result.getReportUrl()))
                 .verifyComplete();
     }
@@ -616,12 +613,12 @@ class ReportServiceImplTest {
                 () -> service.getTransactionsReports("merchant", "operator1", "initiative", pageable));
 
         Report batch = report("batch-report", ReportType.MERCHANT_BATCH_CSV);
-        when(reportPort.findReports("merchant", null, "initiative", ReportType.MERCHANT_BATCH_CSV, expected))
+        when(reportPort.findReports(null, "operator1", "initiative", ReportType.MERCHANT_BATCH_CSV, expected))
                 .thenReturn(Flux.just(batch));
-        when(reportPort.countReports("merchant", null, "initiative", ReportType.MERCHANT_BATCH_CSV))
+        when(reportPort.countReports(null, "operator1", "initiative", ReportType.MERCHANT_BATCH_CSV))
                 .thenReturn(Mono.just(1L));
 
-        StepVerifier.create(service.getReports("merchant", null, "initiative", ReportType.MERCHANT_BATCH_CSV, pageable))
+        StepVerifier.create(service.getReports(null, "operator1", "initiative", ReportType.MERCHANT_BATCH_CSV, pageable))
                 .assertNext(page -> assertEquals("batch-report", page.getContent().getFirst().getId()))
                 .verifyComplete();
     }
@@ -659,10 +656,10 @@ class ReportServiceImplTest {
         Report unsupportedBatch = report("batch-report", ReportType.MERCHANT_BATCH_CSV);
         unsupportedBatch.setMerchantId("merchant");
         unsupportedBatch.setReportStatus(ReportStatus.GENERATED);
-        when(reportPort.findByIdAndInitiativeIdAndMerchantId("batch-report", "initiative", "merchant"))
+        when(reportPort.findByIdAndInitiativeId("batch-report", "initiative"))
                 .thenReturn(Mono.just(unsupportedBatch));
 
-        StepVerifier.create(service.downloadMerchantBatchCsvReports("merchant", "initiative", "batch-report"))
+        StepVerifier.create(service.downloadMerchantBatchCsvReports("operator1", "initiative", "batch-report"))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
 
@@ -670,10 +667,10 @@ class ReportServiceImplTest {
         notGenerated.setMerchantId("merchant");
         notGenerated.setFileName("manual.csv");
         notGenerated.setReportStatus(ReportStatus.INSERTED);
-        when(reportPort.findByIdAndInitiativeIdAndMerchantId("manual-report", "initiative", "merchant"))
+        when(reportPort.findByIdAndInitiativeId("manual-report", "initiative"))
                 .thenReturn(Mono.just(notGenerated));
 
-        StepVerifier.create(service.downloadMerchantBatchCsvReports("merchant", "initiative", "manual-report"))
+        StepVerifier.create(service.downloadMerchantBatchCsvReports("operator1", "initiative", "manual-report"))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
     }
@@ -698,9 +695,7 @@ class ReportServiceImplTest {
         when(dataFactoryService.triggerRewardBatchCsvPipeline(
                 "initiative", "merchant", "reward-report", "reward-report", "reward.csv"))
                 .thenReturn(Mono.just("reward-run"));
-        when(dataFactoryService.triggerMerchantBatchCsvPipeline(
-                "initiative", "merchant", "batch-report", "batch.csv",
-                batch.getStartPeriod(), batch.getEndPeriod()))
+        when(dataFactoryService.triggerMerchantBatchCsvPipeline(batch))
                 .thenReturn(Mono.just("batch-run"));
 
         StepVerifier.create(service.forceGenerateReports(new ReportGenerateForce(List.of(
@@ -740,10 +735,10 @@ class ReportServiceImplTest {
         nullStatus.setMerchantId("merchant");
         nullStatus.setFileName("batch.csv");
         nullStatus.setReportStatus(null);
-        when(reportPort.findByIdAndInitiativeIdAndMerchantId("null-status", "initiative", "merchant"))
+        when(reportPort.findByIdAndInitiativeId("null-status", "initiative"))
                 .thenReturn(Mono.just(nullStatus));
 
-        StepVerifier.create(service.downloadMerchantBatchCsvReports("merchant", "initiative", "null-status"))
+        StepVerifier.create(service.downloadMerchantBatchCsvReports("operator1", "initiative", "null-status"))
                 .expectError(ClientExceptionWithBody.class)
                 .verify();
     }
