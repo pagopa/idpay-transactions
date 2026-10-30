@@ -1,6 +1,5 @@
 package it.gov.pagopa.idpay.transactions.service;
 
-import it.gov.pagopa.common.web.exception.ClientExceptionWithBody;
 import it.gov.pagopa.common.web.exception.RewardBatchMissingFilenameException;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
@@ -1279,6 +1278,35 @@ class RewardBatchServiceImplTest {
                 .verify();
 
         verifyNoInteractions(batchBlobService);
+    }
+
+    @Test
+    void approvedFileOperatorScope_AllValidInvitaliaOperators_ShouldSucceed() {
+        List<String> validOperators = List.of("operator2", "operator3", "support");
+
+        for (String role : validOperators) {
+            String batchId = "batch-" + role;
+            String reportId = "report-" + role;
+
+            RewardBatch approved = batch(batchId, RewardBatchStatus.APPROVED);
+            approved.setReportId(reportId);
+
+            when(lifecyclePort.findBatch(batchId)).thenReturn(Mono.just(approved));
+            when(reportPersistencePort.findByIdAndInitiativeId(reportId, "initiative"))
+                    .thenReturn(Mono.just(Report.builder()
+                            .id(reportId)
+                            .initiativeId("initiative")
+                            .fileName("file.csv")
+                            .reportStatus(ReportStatus.GENERATED)
+                            .reportType(ReportType.REWARD_BATCH_CSV)
+                            .build()));
+            when(batchBlobService.getFileSignedUrl(anyString()))
+                    .thenReturn(Mono.just("signed-url-" + role));
+
+            StepVerifier.create(service.downloadApprovedRewardBatchFile(null, role, "initiative", batchId))
+                    .assertNext(response -> assertEquals("signed-url-" + role, response.getApprovedBatchUrl()))
+                    .verifyComplete();
+        }
     }
 
     @Test
