@@ -43,4 +43,9 @@ public class BlobStorageClientConfig {
   public BlobContainerAsyncClient reportsUserDetailsContainerClient(BlobServiceAsyncClient blobServiceClient){
     return blobServiceClient.getBlobContainerAsyncClient(properties.getReportsUserDetailsContainerReference());
   }
+
+  @Bean("reportsMerchantBatchContainerClient")
+  public BlobContainerAsyncClient reportsMerchantBatchContainerClient(BlobServiceAsyncClient blobServiceClient){
+    return blobServiceClient.getBlobContainerAsyncClient(properties.getReportsMerchantBatchContainerReference());
+  }
 }

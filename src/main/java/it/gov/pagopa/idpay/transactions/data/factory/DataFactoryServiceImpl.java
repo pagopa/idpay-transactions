@@ -20,12 +20,21 @@ import java.util.Map;
 @Service
 @Slf4j
 public class DataFactoryServiceImpl implements DataFactoryService{
+    private static final String INITIATIVE_ID = "initiativeId";
+    private static final String MERCHANT_ID = "merchantId";
+    private static final String REPORT_ID = "reportId";
+    private static final String REPORT_NAME = "reportName";
+    private static final String START_DATE = "startDate";
+    private static final String END_DATE = "endDate";
+    private static final String REWARD_BATCH_ID = "rewardBatchId";
+
     private final DataFactoryManager dataFactoryManager;
     private final String resourceGroup;
     private final String factoryName;
     private final String pipelineTransactionReportName;
     private final String pipelineUserDetailsReportName;
     private final String pipelineRewardBatchCsvName;
+    private final String pipelineMerchantBatchCsvName;
     private final int maxRetries;
 
     public DataFactoryServiceImpl(DataFactoryManager dataFactoryManager,
@@ -34,6 +43,7 @@ public class DataFactoryServiceImpl implements DataFactoryService{
                                   @Value("${app.data-factory.pipeline-transaction-report-name}") String pipelineTransactionReportName,
                                   @Value("${app.data-factory.pipeline-user-details-report-name}") String pipelineUserDetailsReportName,
                                   @Value("${app.data-factory.pipeline-reward-batch-csv-name}") String pipelineRewardBatchCsvName,
+                                  @Value("${app.data-factory.pipeline-merchant-batch-csv-name:#{null}}") String pipelineMerchantBatchCsvName,
                                   @Value("${app.data-factory.max-retries}") int maxRetries) {
         this.dataFactoryManager = dataFactoryManager;
         this.resourceGroup = resourceGroup;
@@ -41,6 +51,7 @@ public class DataFactoryServiceImpl implements DataFactoryService{
         this.pipelineTransactionReportName = pipelineTransactionReportName;
         this.pipelineUserDetailsReportName = pipelineUserDetailsReportName;
         this.pipelineRewardBatchCsvName = pipelineRewardBatchCsvName;
+        this.pipelineMerchantBatchCsvName = pipelineMerchantBatchCsvName;
         this.maxRetries = maxRetries;
     }
 
@@ -57,22 +68,40 @@ public class DataFactoryServiceImpl implements DataFactoryService{
     @Override
     public Mono<String> triggerRewardBatchCsvPipeline(String initiativeId, String merchantId, String rewardBatchId, String reportId, String reportName) {
         HashMap<String, Object> parameters = new HashMap<>();
-        parameters.put("initiativeId", initiativeId);
-        parameters.put("merchantId", merchantId);
-        parameters.put("rewardBatchId", rewardBatchId);
-        parameters.put("reportId", reportId);
-        parameters.put("reportName", reportName);
+        parameters.put(INITIATIVE_ID, initiativeId);
+        parameters.put(MERCHANT_ID, merchantId);
+        parameters.put(REWARD_BATCH_ID, rewardBatchId);
+        parameters.put(REPORT_ID, reportId);
+        parameters.put(REPORT_NAME, reportName);
         return triggerPipeline(pipelineRewardBatchCsvName, parameters, rewardBatchId);
+    }
+
+    @Override
+    public Mono<String> triggerMerchantBatchCsvPipeline(Report report) {
+        if (pipelineMerchantBatchCsvName == null || pipelineMerchantBatchCsvName.isBlank()) {
+            return Mono.error(new IllegalStateException("Missing app.data-factory.pipeline-merchant-batch-csv-name configuration"));
+        }
+
+        HashMap<String, Object> parameters = new HashMap<>();
+        parameters.put(INITIATIVE_ID, report.getInitiativeId());
+        if (report.getMerchantId() != null && !report.getMerchantId().isBlank()) {
+            parameters.put(MERCHANT_ID, report.getMerchantId());
+        }
+        parameters.put(REPORT_ID, report.getId());
+        parameters.put(REPORT_NAME, report.getFileName());
+        parameters.put(START_DATE, report.getStartPeriod());
+        parameters.put(END_DATE, report.getEndPeriod());
+        return triggerPipeline(pipelineMerchantBatchCsvName, parameters, report.getId());
     }
 
     private Map<String, Object> createReportPipelineParameters(Report report) {
         HashMap<String, Object> parameters = new HashMap<>();
-        parameters.put("reportId", report.getId());
-        parameters.put("merchantId", report.getMerchantId());
-        parameters.put("initiativeId", report.getInitiativeId());
-        parameters.put("startDate", report.getStartPeriod());
-        parameters.put("endDate", report.getEndPeriod());
-        parameters.put("reportName", report.getFileName());
+        parameters.put(REPORT_ID, report.getId());
+        parameters.put(MERCHANT_ID, report.getMerchantId());
+        parameters.put(INITIATIVE_ID, report.getInitiativeId());
+        parameters.put(START_DATE, report.getStartPeriod());
+        parameters.put(END_DATE, report.getEndPeriod());
+        parameters.put(REPORT_NAME, report.getFileName());
 
         return parameters;
     }
