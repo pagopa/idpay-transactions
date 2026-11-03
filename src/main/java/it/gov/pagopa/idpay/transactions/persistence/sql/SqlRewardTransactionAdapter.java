@@ -5,6 +5,7 @@ import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.
 import static org.jooq.impl.DSL.excluded;
 import static org.jooq.impl.DSL.val;
 
+import it.gov.pagopa.common.reactive.kafka.exception.PermanentMessageException;
 import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.RewardTransactionSynchronizationPort;
@@ -105,7 +106,7 @@ public class SqlRewardTransactionAdapter implements RewardTransactionSynchroniza
                 )))
                 .flatMap(existing -> {
                     if (!entity.initiativeId().equals(existing.getInitiatives().getFirst())) {
-                        return Mono.error(new IllegalStateException(
+                        return Mono.error(new PermanentMessageException(
                                 "Transaction %s already belongs to initiative %s"
                                         .formatted(entity.id(), existing.getInitiatives().getFirst())
                         ));

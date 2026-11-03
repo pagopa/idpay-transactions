@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import it.gov.pagopa.common.reactive.kafka.exception.PermanentMessageException;
 import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
@@ -37,6 +38,7 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
 
     private static SqlRewardTransactionAdapter adapter;
     private static SqlInvoicedTransactionAssignmentAdapter assignmentAdapter;
+    private static SqlRewardBatchListAdapter batchListAdapter;
 
     @BeforeAll
     static void setUpDatabase() {
@@ -47,6 +49,7 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
         );
         var jsonMapper = JsonMapper.builder().build();
         var transactionMapper = new RewardTransactionSqlMapper(jsonMapper);
+        var batchMapper = new RewardBatchSqlMapper(jsonMapper);
         adapter = new SqlRewardTransactionAdapter(
                 transactionalOperator(),
                 dslContext,
@@ -62,12 +65,13 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
                         connectionFactory(),
                         new R2dbcRepositoryFactory(r2dbcEntityTemplate())
                                 .getRepository(RewardBatchSqlRepository.class),
-                        new RewardBatchSqlMapper(jsonMapper)
+                        batchMapper
                 ),
                 adapter,
-                new RewardBatchSqlMapper(jsonMapper),
+                batchMapper,
                 transactionMapper
         );
+        batchListAdapter = new SqlRewardBatchListAdapter(dslContext, batchMapper);
     }
 
     @AfterAll
@@ -127,7 +131,7 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
         transaction.setInitiatives(List.of("initiative-1", "initiative-2"));
         RewardTransactionSqlMapper mapper = new RewardTransactionSqlMapper(JsonMapper.builder().build());
 
-        assertThrows(IllegalArgumentException.class, () -> mapper.toEntity(transaction));
+        assertThrows(PermanentMessageException.class, () -> mapper.toEntity(transaction));
     }
 
     @Test
@@ -557,33 +561,35 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
 
     @Test
     void shouldRejectARefundedSnapshotThatChangesTheExistingTransactionInitiative() {
-        RewardTransaction invoiced = invoicedTransaction("transaction-refunded-initiative", "initiative-1", 1L);
-        RewardTransaction conflicting = transaction("transaction-refunded-initiative", "initiative-2");
+        String transactionId = "transaction-refunded-initiative";
+        String batchId = "refunded-initiative-batch";
+        RewardTransaction invoiced = invoicedTransaction(transactionId, "initiative-1", 1L);
+        RewardTransaction conflicting = transaction(transactionId, "initiative-2");
         conflicting.setTransactionRevision(2L);
         conflicting.setStatus(SyncTrxStatus.REFUNDED.name());
+        conflicting.setAmountCents(9_999L);
+        conflicting.setRewards(Map.of(
+                "initiative-2",
+                Reward.builder().accruedRewardCents(9_000L).build()
+        ));
+
+        PersistedInvariant expected = assignedTransactionInvariant(batchId);
 
         StepVerifier.create(assignmentAdapter.assignInvoicedTransaction(
                                 invoiced,
-                                batch("refunded-initiative-batch"),
+                                batch(batchId),
                                 77
-                        )
-                        .then(adapter.upsertRefundedAndDetach(conflicting)))
-                .expectErrorMatches(error -> error instanceof IllegalStateException
+                        ).then(persistedInvariant(transactionId, batchId)))
+                .expectNext(expected)
+                .verifyComplete();
+
+        StepVerifier.create(adapter.upsertRefundedAndDetach(conflicting))
+                .expectErrorMatches(error -> error instanceof PermanentMessageException
                         && error.getMessage().contains("initiative-1"))
                 .verify();
 
-        StepVerifier.create(databaseClient()
-                        .sql("""
-                                SELECT initiative_id, status, reward_batch_id, sampling_key
-                                FROM reward_transactions
-                                WHERE transaction_id = 'transaction-refunded-initiative'
-                                """)
-                        .map((row, metadata) -> row.get("initiative_id", String.class)
-                                + ":" + row.get("status", String.class)
-                                + ":" + row.get("reward_batch_id", String.class)
-                                + ":" + row.get("sampling_key", Integer.class))
-                        .one())
-                .expectNext("initiative-1:INVOICED:refunded-initiative-batch:77")
+        StepVerifier.create(persistedInvariant(transactionId, batchId))
+                .expectNext(expected)
                 .verifyComplete();
     }
 
@@ -631,28 +637,35 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
 
     @Test
     void shouldRejectAnUpsertThatChangesTheExistingTransactionInitiative() {
-        RewardTransaction original = transaction("transaction-initiative", "initiative-1");
-        original.setTransactionRevision(1L);
-        RewardTransaction conflicting = transaction("transaction-initiative", "initiative-2");
+        String transactionId = "transaction-initiative";
+        String batchId = "upsert-initiative-batch";
+        RewardTransaction original = invoicedTransaction(transactionId, "initiative-1", 1L);
+        RewardTransaction conflicting = transaction(transactionId, "initiative-2");
         conflicting.setTransactionRevision(2L);
-        conflicting.setStatus("INVOICED");
+        conflicting.setStatus("CANCELLED");
+        conflicting.setAmountCents(9_999L);
+        conflicting.setRewards(Map.of(
+                "initiative-2",
+                Reward.builder().accruedRewardCents(9_000L).build()
+        ));
 
-        StepVerifier.create(adapter.upsert(original)
-                        .then(adapter.upsert(conflicting)))
-                .expectErrorMatches(error -> error instanceof IllegalStateException
+        PersistedInvariant expected = assignedTransactionInvariant(batchId);
+
+        StepVerifier.create(assignmentAdapter.assignInvoicedTransaction(
+                                original,
+                                batch(batchId),
+                                77
+                        ).then(persistedInvariant(transactionId, batchId)))
+                .expectNext(expected)
+                .verifyComplete();
+
+        StepVerifier.create(adapter.upsert(conflicting))
+                .expectErrorMatches(error -> error instanceof PermanentMessageException
                         && error.getMessage().contains("initiative-1"))
                 .verify();
 
-        StepVerifier.create(databaseClient()
-                        .sql("""
-                                SELECT initiative_id, status
-                                FROM reward_transactions
-                                WHERE transaction_id = 'transaction-initiative'
-                                """)
-                        .map((row, metadata) -> row.get("initiative_id", String.class)
-                                + ":" + row.get("status", String.class))
-                        .one())
-                .expectNext("initiative-1:AUTHORIZED")
+        StepVerifier.create(persistedInvariant(transactionId, batchId))
+                .expectNext(expected)
                 .verifyComplete();
     }
 
@@ -710,16 +723,65 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
     private static Mono<TransactionState> persistedTransactionState(String transactionId) {
         return databaseClient()
                 .sql("""
-                        SELECT reward_batch_id, accrued_reward_cents
+                        SELECT initiative_id,
+                               status,
+                               amount_cents,
+                               accrued_reward_cents,
+                               transaction_revision,
+                               reward_batch_id,
+                               reward_batch_trx_status,
+                               sampling_key
                         FROM reward_transactions
                         WHERE transaction_id = :transactionId
                         """)
                 .bind("transactionId", transactionId)
                 .map((row, metadata) -> new TransactionState(
+                        row.get("initiative_id", String.class),
+                        row.get("status", String.class),
+                        row.get("amount_cents", Long.class),
+                        row.get("accrued_reward_cents", Long.class),
+                        row.get("transaction_revision", Long.class),
                         row.get("reward_batch_id", String.class),
-                        row.get("accrued_reward_cents", Long.class)
+                        row.get("reward_batch_trx_status", String.class),
+                        row.get("sampling_key", Integer.class)
                 ))
                 .one();
+    }
+
+    private static Mono<PersistedInvariant> persistedInvariant(String transactionId, String batchId) {
+        return Mono.zip(persistedTransactionState(transactionId), batchCounters(batchId))
+                .map(state -> new PersistedInvariant(state.getT1(), state.getT2()));
+    }
+
+    private static Mono<BatchCounters> batchCounters(String batchId) {
+        return batchListAdapter.findBatch(batchId)
+                .map(batch -> new BatchCounters(
+                        batch.getNumberOfTransactions(),
+                        batch.getInitialAmountCents(),
+                        batch.getNumberOfTransactionsElaborated(),
+                        batch.getNumberOfTransactionsSuspended(),
+                        batch.getNumberOfTransactionsRejected(),
+                        batch.getSuspendedAmountCents(),
+                        batch.getApprovedAmountCents(),
+                        batch.getCurrentAmountCents(),
+                        batch.getExcludedAmountCents()
+                ));
+    }
+
+    private static PersistedInvariant assignedTransactionInvariant(String batchId) {
+        return new PersistedInvariant(
+                new TransactionState(
+                        "initiative-1",
+                        SyncTrxStatus.INVOICED.name(),
+                        1_000L,
+                        750L,
+                        1L,
+                        batchId,
+                        RewardBatchTrxStatus.CONSULTABLE.name(),
+                        77
+                ),
+                new BatchCounters(1L, 750L, 0L, 0L, 0L, 0L, 0L, 750L, 0L)
+        );
     }
 
     private static Mono<LifecycleSnapshots> lifecycleSnapshots(String batchId) {
@@ -771,7 +833,32 @@ class SqlRewardTransactionAdapterTest extends PostgresqlMigrationTestSupport {
     private record PersistedAccruedReward(Long typedAccruedRewardCents, String jsonAccruedRewardCents) {
     }
 
-    private record TransactionState(String batchId, Long accruedRewardCents) {
+    private record TransactionState(
+            String initiativeId,
+            String status,
+            Long amountCents,
+            Long accruedRewardCents,
+            Long transactionRevision,
+            String batchId,
+            String batchTransactionStatus,
+            Integer samplingKey
+    ) {
+    }
+
+    private record PersistedInvariant(TransactionState transaction, BatchCounters batchCounters) {
+    }
+
+    private record BatchCounters(
+            Long numberOfTransactions,
+            Long initialAmountCents,
+            Long numberOfTransactionsElaborated,
+            Long numberOfTransactionsSuspended,
+            Long numberOfTransactionsRejected,
+            Long suspendedAmountCents,
+            Long approvedAmountCents,
+            Long currentAmountCents,
+            Long excludedAmountCents
+    ) {
     }
 
     private record LifecycleSnapshots(Long initialAmountCentsAtSend, Long suspendedAmountCentsAtApproving) {
