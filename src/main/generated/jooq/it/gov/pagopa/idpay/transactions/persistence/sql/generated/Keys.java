@@ -39,5 +39,6 @@ public class Keys {
     // FOREIGN KEY definitions
     // -------------------------------------------------------------------------
 
+    public static final ForeignKey<RewardBatchesRecord, ReportsRecord> REWARD_BATCHES__FK_REWARD_BATCHES_REPORT = Internal.createForeignKey(RewardBatches.REWARD_BATCHES, DSL.name("fk_reward_batches_report"), new TableField[] { RewardBatches.REWARD_BATCHES.REPORT_ID }, Keys.REPORTS_PKEY, new TableField[] { Reports.REPORTS.ID }, true);
     public static final ForeignKey<RewardTransactionsRecord, RewardBatchesRecord> REWARD_TRANSACTIONS__FK_REWARD_TRANSACTIONS_BATCH_INITIATIVE = Internal.createForeignKey(RewardTransactions.REWARD_TRANSACTIONS, DSL.name("fk_reward_transactions_batch_initiative"), new TableField[] { RewardTransactions.REWARD_TRANSACTIONS.REWARD_BATCH_ID, RewardTransactions.REWARD_TRANSACTIONS.INITIATIVE_ID }, Keys.UK_REWARD_BATCHES_ID_INITIATIVE, new TableField[] { RewardBatches.REWARD_BATCHES.ID, RewardBatches.REWARD_BATCHES.INITIATIVE_ID }, true);
 }

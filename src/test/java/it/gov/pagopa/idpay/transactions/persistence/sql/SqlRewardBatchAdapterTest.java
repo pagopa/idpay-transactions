@@ -8,6 +8,7 @@ import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
+import it.gov.pagopa.idpay.transactions.model.TransactionNotes;
 import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
@@ -95,6 +96,10 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                         .sql("DELETE FROM reward_batches")
                         .fetch()
                         .rowsUpdated())
+                .then(databaseClient()
+                        .sql("DELETE FROM reports")
+                        .fetch()
+                        .rowsUpdated())
                 .block();
     }
 
@@ -171,7 +176,8 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
     void shouldPreserveRawLifecycleSnapshotsWhenGenericBatchSaveUpdatesMetadata() {
         RewardBatch batch = batch("batch-snapshot-protection");
 
-        StepVerifier.create(adapter.createOrRead(batch)
+        StepVerifier.create(insertReport("report-123", batch)
+                        .then(adapter.createOrRead(batch))
                         .flatMap(created -> databaseClient()
                                 .sql("""
                                         UPDATE reward_batches
@@ -184,12 +190,12 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                                 .then(adapter.findById(created.getId())))
                         .flatMap(loaded -> {
                             loaded.setBusinessName("Updated merchant");
-                            loaded.setFilename("updated.csv");
+                                            loaded.setReportId("report-123");
                             return adapter.save(loaded);
                         })
                         .flatMap(saved -> databaseClient()
                                 .sql("""
-                                        SELECT business_name, filename,
+                                                        SELECT business_name, report_id,
                                                initial_amount_cents_at_send,
                                                suspended_amount_cents_at_approving
                                         FROM reward_batches
@@ -198,12 +204,12 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                                 .bind("id", saved.getId())
                                 .map((row, metadata) -> new PersistedBatchValues(
                                         row.get("business_name", String.class),
-                                        row.get("filename", String.class),
+                                        row.get("report_id", String.class),
                                         row.get("initial_amount_cents_at_send", Long.class),
                                         row.get("suspended_amount_cents_at_approving", Long.class)
                                 ))
                                 .one()))
-                .expectNext(new PersistedBatchValues("Updated merchant", "updated.csv", 1234L, 567L))
+                .expectNext(new PersistedBatchValues("Updated merchant", "report-123", 1234L, 567L))
                 .verifyComplete();
     }
 
@@ -896,7 +902,7 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                                                 batch.getId(),
                                                 "approval-decision-race-transaction",
                                                 RewardBatchTrxStatus.APPROVED,
-                                                null,
+                                                new TransactionNotes(null, null),
                                                 batch.getMonth(),
                                                 null
                                         ))
@@ -961,14 +967,14 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                 .code(200)
                 .build();
 
-        StepVerifier.create(adapter.createOrRead(batch)
+        StepVerifier.create(insertReport("report-approved", batch)
+                        .then(adapter.createOrRead(batch))
                         .flatMap(created -> {
                             created.setStatus(RewardBatchStatus.SENT);
                             return adapter.save(created);
                         })
                         .flatMap(updated -> {
-                            updated.setFilename("approved.csv");
-                            updated.setReportPath("initiative/initiative-1/batch/approved.csv");
+                            updated.setReportId("report-approved");
                             updated.setMerchantSendDate(LocalDateTime.of(2026, Month.JULY, 1, 10, 30));
                             updated.setDeliveryOutcome(deliveryOutcome);
                             updated.setAssigneeLevel(RewardBatchAssignee.L2);
@@ -978,8 +984,7 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                     assertEquals(batch.getId(), updated.getId());
                     assertEquals(batch.getInitiativeId(), updated.getInitiativeId());
                     assertEquals(RewardBatchStatus.SENT, updated.getStatus());
-                    assertEquals("approved.csv", updated.getFilename());
-                    assertEquals("initiative/initiative-1/batch/approved.csv", updated.getReportPath());
+                    assertEquals("report-approved", updated.getReportId());
                     assertEquals(deliveryOutcome.getIdRichiesta(), updated.getDeliveryOutcome().getIdRichiesta());
                     assertEquals(deliveryOutcome.isSucceded(), updated.getDeliveryOutcome().isSucceded());
                     assertEquals(RewardBatchAssignee.L2, updated.getAssigneeLevel());
@@ -1526,9 +1531,36 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
                 .then();
     }
 
+    private static Mono<Void> insertReport(String reportId, RewardBatch batch) {
+        return databaseClient()
+                .sql("""
+                        INSERT INTO reports (
+                            id, initiative_id, report_status, start_period, end_period,
+                            merchant_id, business_name, request_date, elaboration_date,
+                            operator_level, file_name, report_type
+                        )
+                        VALUES (
+                            :id, :initiativeId, 'INSERTED', :startPeriod, :endPeriod,
+                            :merchantId, :businessName, :requestDate, NULL,
+                            'L3', :fileName, 'REWARD_BATCH_CSV'
+                        )
+                        """)
+                .bind("id", reportId)
+                .bind("initiativeId", batch.getInitiativeId())
+                .bind("startPeriod", batch.getStartDate())
+                .bind("endPeriod", batch.getEndDate())
+                .bind("merchantId", batch.getMerchantId())
+                .bind("businessName", batch.getBusinessName())
+                .bind("requestDate", batch.getCreationDate())
+                .bind("fileName", reportId + ".csv")
+                .fetch()
+                .rowsUpdated()
+                .then();
+    }
+
     private record PersistedBatchValues(
             String businessName,
-            String filename,
+            String reportId,
             Long initialAmountCentsAtSend,
             Long suspendedAmountCentsAtApproving
     ) {

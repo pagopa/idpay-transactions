@@ -324,6 +324,12 @@ public class RewardTransactions extends TableImpl<RewardTransactionsRecord> {
      */
     public final TableField<RewardTransactionsRecord, Long> LATEST_APPLIED_PAYMENT_IMPACT_REVISION = createField(DSL.name("latest_applied_payment_impact_revision"), SQLDataType.BIGINT.nullable(false).defaultValue(DSL.field(DSL.raw("0"), SQLDataType.BIGINT)), this, "");
 
+    /**
+     * The column
+     * <code>idpay-rimborsi.reward_transactions.reward_batch_official_notes</code>.
+     */
+    public final TableField<RewardTransactionsRecord, JSONB> REWARD_BATCH_OFFICIAL_NOTES = createField(DSL.name("reward_batch_official_notes"), SQLDataType.JSONB, this, "");
+
     private RewardTransactions(Name alias, Table<RewardTransactionsRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);
     }

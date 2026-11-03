@@ -12,6 +12,7 @@ import it.gov.pagopa.idpay.transactions.enums.SyncTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.ChecksError;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import it.gov.pagopa.idpay.transactions.model.TransactionNotes;
 import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
 import java.time.LocalDateTime;
 import java.time.Month;
@@ -197,6 +198,19 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
             RewardBatchTrxStatus oldStatus,
             RewardBatchTrxStatus newStatus
     ) {
+        boolean exclusionOrReport = newStatus == RewardBatchTrxStatus.REJECTED
+                || newStatus == RewardBatchTrxStatus.SUSPENDED;
+        boolean statusChanged = oldStatus != newStatus;
+        ReasonDTO internalNote = exclusionOrReport
+                ? new ReasonDTO(LocalDateTime.now(), "internal note")
+                : null;
+        ReasonDTO officialNote = exclusionOrReport && statusChanged
+                ? new ReasonDTO(LocalDateTime.now(), "official note")
+                : null;
+        ChecksError checksError = exclusionOrReport && !statusChanged
+                ? new ChecksError(true, false, false, false, false, false, false, false)
+                : null;
+
         StepVerifier.create(Flux.concat(
                         insertBatch(BATCH_ID, RewardBatchStatus.EVALUATING),
                         insertTransaction("decision-transaction", oldStatus, 1)
@@ -205,9 +219,9 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                         BATCH_ID,
                         "decision-transaction",
                         newStatus,
-                        null,
+                        new TransactionNotes(internalNote, officialNote),
                         BATCH_MONTH,
-                        null
+                        checksError
                 )))
                 .assertNext(previous -> {
                     assertEquals("decision-transaction", previous.getId());
@@ -239,7 +253,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                         BATCH_ID,
                         "null-decision-status",
                         RewardBatchTrxStatus.APPROVED,
-                        null,
+                        new TransactionNotes(null, null),
                         BATCH_MONTH,
                         null
                 )))
@@ -279,7 +293,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                         BATCH_ID,
                         "reason-transaction",
                         RewardBatchTrxStatus.REJECTED,
-                        firstReason,
+                        new TransactionNotes(firstReason, null),
                         BATCH_MONTH,
                         checksError
                 )).then(readTransaction("reason-transaction")))
@@ -294,13 +308,13 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                         BATCH_ID,
                         "reason-transaction",
                         RewardBatchTrxStatus.REJECTED,
-                        secondReason,
+                        new TransactionNotes(secondReason, null),
                         BATCH_MONTH,
-                        null
+                        checksError
                 ).then(readTransaction("reason-transaction")))
                 .assertNext(transaction -> {
                     assertEquals(List.of(firstReason, secondReason), transaction.getRewardBatchRejectionReason());
-                    assertNull(transaction.getChecksError());
+                    assertEquals(checksError, transaction.getChecksError());
                 })
                 .verifyComplete();
 
@@ -309,13 +323,14 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                         BATCH_ID,
                         "reason-transaction",
                         RewardBatchTrxStatus.APPROVED,
-                        replacementReason,
+                        new TransactionNotes(replacementReason, null),
                         BATCH_MONTH,
                         null
                 ).then(readTransaction("reason-transaction")))
                 .assertNext(transaction -> {
                     assertEquals(RewardBatchTrxStatus.APPROVED, transaction.getRewardBatchTrxStatus());
-                    assertEquals(List.of(replacementReason), transaction.getRewardBatchRejectionReason());
+                    assertEquals(List.of(firstReason, secondReason, replacementReason),
+                            transaction.getRewardBatchRejectionReason());
                 })
                 .verifyComplete();
     }
@@ -330,7 +345,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                         BATCH_ID,
                         "sent-transaction",
                         RewardBatchTrxStatus.APPROVED,
-                        null,
+                        new TransactionNotes(null, null),
                         BATCH_MONTH,
                         null
                 )))
@@ -355,7 +370,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                         OTHER_BATCH_ID,
                         "outside-scope-transaction",
                         RewardBatchTrxStatus.APPROVED,
-                        null,
+                        new TransactionNotes(null, null),
                         BATCH_MONTH,
                         null
                 )))
@@ -396,7 +411,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                                     BATCH_ID,
                                     transactionId,
                                     RewardBatchTrxStatus.APPROVED,
-                                    null,
+                                    new TransactionNotes(null, null),
                                     BATCH_MONTH,
                                     null
                             ).toFuture();
@@ -489,7 +504,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                                     BATCH_ID,
                                     transactionId,
                                     RewardBatchTrxStatus.APPROVED,
-                                    null,
+                                    new TransactionNotes(null, null),
                                     BATCH_MONTH,
                                     null
                             )))
@@ -533,7 +548,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                                 BATCH_ID,
                                 "concurrent-transaction",
                                 RewardBatchTrxStatus.APPROVED,
-                                null,
+                                new TransactionNotes(null, null),
                                 BATCH_MONTH,
                                 null
                         )),
@@ -542,7 +557,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                                 BATCH_ID,
                                 "concurrent-transaction",
                                 RewardBatchTrxStatus.APPROVED,
-                                null,
+                                new TransactionNotes(null, null),
                                 BATCH_MONTH,
                                 null
                         ))

@@ -78,7 +78,6 @@ public interface MerchantRewardBatchController {
           @PathVariable("rewardBatchId") String rewardBatchId,
           @RequestParam(value = "merchantId", required = false) String merchantId);
 
-
   @PostMapping("/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/transactions/rejected")
   Mono<RewardBatchDTO> rejectTransactions(
           @PathVariable("initiativeId") String initiativeId,

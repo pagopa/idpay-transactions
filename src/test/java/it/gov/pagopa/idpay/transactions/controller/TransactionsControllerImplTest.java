@@ -1,5 +1,10 @@
 package it.gov.pagopa.idpay.transactions.controller;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import it.gov.pagopa.common.utils.MemoryAppender;
 import it.gov.pagopa.common.web.dto.ErrorDTO;
 import it.gov.pagopa.idpay.transactions.dto.InvoiceLifecycleEligibilityResponse;
 import it.gov.pagopa.idpay.transactions.enums.InvoiceLifecycleEligibilityDecision;
@@ -12,6 +17,7 @@ import it.gov.pagopa.idpay.transactions.service.InvoiceLifecycleEligibilityServi
 import it.gov.pagopa.idpay.transactions.service.RewardTransactionService;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +37,9 @@ import java.time.Month;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -480,5 +489,55 @@ class TransactionsControllerImplTest {
                         eq(customIteration), eq(false),
                         isNull()
                 );
+    }
+
+    @Test
+    void cleanupInvoicedTransactions_error() {
+        Logger logger = (Logger) LoggerFactory.getLogger(TransactionsControllerImpl.class);
+        MemoryAppender appender = new MemoryAppender();
+        appender.setContext((LoggerContext) LoggerFactory.getILoggerFactory());
+        appender.start();
+        Level previousLevel = logger.getLevel();
+        logger.setLevel(Level.DEBUG);
+        logger.addAppender(appender);
+
+        when(rewardTransactionService.assignInvoicedTransactionsToBatches(anyInt(),
+                anyInt(), anyBoolean(), isNull()))
+                .thenReturn(Mono.error(new RuntimeException("Batch assignment failed")));
+
+        try {
+            webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
+                    .uri("/idpay/transactions/cleanup")
+                    .exchange()
+                    .expectStatus().isAccepted()
+                    .expectBody(String.class);
+
+            verify(rewardTransactionService, times(1))
+                    .assignInvoicedTransactionsToBatches(anyInt(), anyInt(), anyBoolean(), isNull());
+
+            ILoggingEvent errorEvent = appender.getLoggedEvents().stream()
+                    .filter(event -> event.getLevel() == Level.ERROR)
+                    .findFirst()
+                    .orElseThrow();
+            assertNull(errorEvent.getThrowableProxy());
+            assertTrue(errorEvent.getFormattedMessage().contains("Batch assignment failed"));
+
+            ILoggingEvent debugEvent = appender.getLoggedEvents().stream()
+                    .filter(event -> event.getLevel() == Level.DEBUG)
+                    .filter(event -> event.getFormattedMessage().contains("Stack trace for failed job"))
+                    .findFirst()
+                    .orElseThrow();
+            assertNotNull(debugEvent.getThrowableProxy());
+            String jobId = errorEvent.getFormattedMessage()
+                    .replaceFirst("^.*Job ", "")
+                    .replaceFirst(" failed:.*$", "");
+            assertTrue(debugEvent.getFormattedMessage().contains(jobId));
+            assertTrue(appender.getLoggedEvents().stream()
+                    .noneMatch(event -> event.getFormattedMessage().contains("Job  " + jobId + "  completed")));
+        } finally {
+            logger.detachAppender(appender);
+            logger.setLevel(previousLevel);
+            appender.stop();
+        }
     }
 }

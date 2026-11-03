@@ -28,6 +28,7 @@ public class RewardBatchSqlMapper {
                 batch.getBusinessName(),
                 batch.getMonth(),
                 batch.getPosType().name(),
+                batch.getReportId(),
                 batch.getStatus().name(),
                 Boolean.TRUE.equals(batch.getPartial()),
                 batch.getName(),
@@ -42,8 +43,6 @@ public class RewardBatchSqlMapper {
                 null,
                 null,
                 batch.getRefundOutcomeTimestamp(),
-                batch.getReportPath(),
-                batch.getFilename(),
                 batch.getAssigneeLevel().name(),
                 batch.getRefundValutaDate(),
                 batch.getRefundErrorMessage(),
@@ -59,6 +58,7 @@ public class RewardBatchSqlMapper {
                 .businessName(entity.businessName())
                 .month(entity.month())
                 .posType(PosType.valueOf(entity.posType()))
+                .reportId(entity.reportId())
                 .status(RewardBatchStatus.valueOf(entity.status()))
                 .partial(entity.partial())
                 .name(entity.name())
@@ -71,8 +71,6 @@ public class RewardBatchSqlMapper {
                 .deliveryDateRequest(entity.deliveryDateRequest())
                 .deliveryAmountCents(entity.deliveryAmountCents())
                 .refundOutcomeTimestamp(entity.refundOutcomeTimestamp())
-                .reportPath(entity.reportPath())
-                .filename(entity.filename())
                 .assigneeLevel(RewardBatchAssignee.valueOf(entity.assigneeLevel()))
                 .refundValutaDate(entity.refundValutaDate())
                 .refundErrorMessage(entity.refundErrorMessage())
@@ -88,6 +86,7 @@ public class RewardBatchSqlMapper {
                 batchRecord.getBusinessName(),
                 batchRecord.getMonth(),
                 batchRecord.getPosType(),
+                batchRecord.get("report_id", String.class),
                 batchRecord.getStatus(),
                 batchRecord.getPartial(),
                 batchRecord.getName(),
@@ -102,8 +101,7 @@ public class RewardBatchSqlMapper {
                 batchRecord.getInitialAmountCentsAtSend(),
                 batchRecord.getSuspendedAmountCentsAtApproving(),
                 batchRecord.getRefundOutcomeTimestamp(),
-                batchRecord.getReportPath(),
-                batchRecord.getFilename(),
+
                 batchRecord.getAssigneeLevel(),
                 batchRecord.getRefundValutaDate(),
                 batchRecord.getRefundErrorMessage(),

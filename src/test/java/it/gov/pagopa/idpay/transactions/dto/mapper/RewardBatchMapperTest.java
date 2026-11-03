@@ -42,6 +42,7 @@ class RewardBatchMapperTest {
                 .businessName("Test business")
                 .month("2025-11")
                 .posType(PosType.PHYSICAL)
+                .reportId("report-123")
                 .name("novembre 2025")
                 .status(RewardBatchStatus.CREATED)
                 .partial(false)
@@ -54,7 +55,7 @@ class RewardBatchMapperTest {
                 .numberOfTransactionsElaborated(8L)
                 .numberOfTransactionsSuspended(1L)
                 .numberOfTransactionsRejected(1L)
-                .reportPath("/reports/report.csv")
+
                 .assigneeLevel(RewardBatchAssignee.L1)
                 .refundErrorMessage("refund error")
                 .refundOutcomeTimestamp(refundOutcomeTimestamp)
@@ -72,6 +73,7 @@ class RewardBatchMapperTest {
                     assertEquals("Test business", dto.getBusinessName());
                     assertEquals("2025-11", dto.getMonth());
                     assertEquals(PosType.PHYSICAL, dto.getPosType());
+                    assertEquals("report-123", dto.getReportId());
                     assertEquals("novembre 2025", dto.getName());
                     assertEquals("CREATED", dto.getStatus());
                     assertFalse(dto.getPartial());
@@ -84,7 +86,7 @@ class RewardBatchMapperTest {
                     assertEquals(8L, dto.getNumberOfTransactionsElaborated());
                     assertEquals(1L, dto.getNumberOfTransactionsSuspended());
                     assertEquals(1L, dto.getNumberOfTransactionsRejected());
-                    assertEquals("/reports/report.csv", dto.getReportPath());
+
                     assertEquals("L1", dto.getAssigneeLevel());
                     assertEquals("refund error", dto.getRefundErrorMessage());
                     assertEquals(refundOutcomeTimestamp, dto.getRefundOutcomeTimestamp());
@@ -115,7 +117,7 @@ class RewardBatchMapperTest {
                 .numberOfTransactionsElaborated(18L)
                 .numberOfTransactionsSuspended(2L)
                 .numberOfTransactionsRejected(0L)
-                .reportPath(null)
+
                 .assigneeLevel(null)
                 .refundErrorMessage(null)
                 .refundOutcomeTimestamp(null)
@@ -145,7 +147,7 @@ class RewardBatchMapperTest {
                     assertEquals(18L, dto.getNumberOfTransactionsElaborated());
                     assertEquals(2L, dto.getNumberOfTransactionsSuspended());
                     assertEquals(0L, dto.getNumberOfTransactionsRejected());
-                    assertNull(dto.getReportPath());
+
                     assertEquals("null", dto.getAssigneeLevel());
                     assertNull(dto.getRefundErrorMessage());
                     assertNull(dto.getRefundOutcomeTimestamp());

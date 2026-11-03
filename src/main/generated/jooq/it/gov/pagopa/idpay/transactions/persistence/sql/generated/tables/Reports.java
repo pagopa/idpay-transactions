@@ -7,6 +7,7 @@ package it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.IdpayRimborsi;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.Indexes;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.Keys;
+import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches.RewardBatchesPath;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.ReportsRecord;
 
 import java.time.LocalDateTime;
@@ -16,10 +17,14 @@ import java.util.List;
 
 import org.jooq.Condition;
 import org.jooq.Field;
+import org.jooq.ForeignKey;
 import org.jooq.Index;
+import org.jooq.InverseForeignKey;
 import org.jooq.Name;
+import org.jooq.Path;
 import org.jooq.PlainSQL;
 import org.jooq.QueryPart;
+import org.jooq.Record;
 import org.jooq.SQL;
 import org.jooq.Schema;
 import org.jooq.Select;
@@ -143,6 +148,39 @@ public class Reports extends TableImpl<ReportsRecord> {
         this(DSL.name("reports"), null);
     }
 
+    public <O extends Record> Reports(Table<O> path, ForeignKey<O, ReportsRecord> childPath, InverseForeignKey<O, ReportsRecord> parentPath) {
+        super(path, childPath, parentPath, REPORTS);
+    }
+
+    /**
+     * A subtype implementing {@link Path} for simplified path-based joins.
+     */
+    public static class ReportsPath extends Reports implements Path<ReportsRecord> {
+
+        private static final long serialVersionUID = 1L;
+        public <O extends Record> ReportsPath(Table<O> path, ForeignKey<O, ReportsRecord> childPath, InverseForeignKey<O, ReportsRecord> parentPath) {
+            super(path, childPath, parentPath);
+        }
+        private ReportsPath(Name alias, Table<ReportsRecord> aliased) {
+            super(alias, aliased);
+        }
+
+        @Override
+        public ReportsPath as(String alias) {
+            return new ReportsPath(DSL.name(alias), this);
+        }
+
+        @Override
+        public ReportsPath as(Name alias) {
+            return new ReportsPath(alias, this);
+        }
+
+        @Override
+        public ReportsPath as(Table<?> alias) {
+            return new ReportsPath(alias.getQualifiedName(), this);
+        }
+    }
+
     @Override
     public Schema getSchema() {
         return aliased() ? null : IdpayRimborsi.IDPAY_RIMBORSI;
@@ -156,6 +194,19 @@ public class Reports extends TableImpl<ReportsRecord> {
     @Override
     public UniqueKey<ReportsRecord> getPrimaryKey() {
         return Keys.REPORTS_PKEY;
+    }
+
+    private transient RewardBatchesPath _rewardBatches;
+
+    /**
+     * Get the implicit to-many join path to the
+     * <code>idpay-rimborsi.reward_batches</code> table
+     */
+    public RewardBatchesPath rewardBatches() {
+        if (_rewardBatches == null)
+            _rewardBatches = new RewardBatchesPath(this, null, Keys.REWARD_BATCHES__FK_REWARD_BATCHES_REPORT.getInverseKey());
+
+        return _rewardBatches;
     }
 
     @Override
