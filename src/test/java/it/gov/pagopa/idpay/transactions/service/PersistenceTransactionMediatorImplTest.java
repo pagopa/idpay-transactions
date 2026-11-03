@@ -4,10 +4,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import it.gov.pagopa.common.config.JsonConfig;
@@ -31,7 +37,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.kafka.support.Acknowledgment;
@@ -87,11 +92,11 @@ class PersistenceTransactionMediatorImplTest {
         rt1.setStatus(SyncTrxStatus.AUTHORIZED.name());
         rt1.setInitiatives(List.of("initiative-1"));
 
-        Mockito.when(rewardTransactionMapper.mapFromDTO(Mockito.any(RewardTransactionDTO.class)))
+        when(rewardTransactionMapper.mapFromDTO(any(RewardTransactionDTO.class)))
                 .thenReturn(rt1)
                 .thenThrow(new RuntimeException("boom"));
 
-        Mockito.when(rewardTransactionService.save(Mockito.any(RewardTransactionEvent.class)))
+        when(rewardTransactionService.save(any(RewardTransactionEvent.class)))
                 .thenReturn(Mono.just(rt1));
 
         StepVerifier.withVirtualTime(() -> {
@@ -102,19 +107,19 @@ class PersistenceTransactionMediatorImplTest {
                 })
                 .thenRequest(Long.MAX_VALUE)
                 .thenAwait(Duration.ofSeconds(20))
-                .assertNext(results -> org.junit.jupiter.api.Assertions.assertEquals(List.of(rt1), results))
+                .assertNext(results -> assertEquals(List.of(rt1), results))
                 .verifyComplete();
 
-        Mockito.verify(rewardTransactionMapper, Mockito.times(5))
-                .mapFromDTO(Mockito.any(RewardTransactionDTO.class));
-        Mockito.verify(rewardTransactionService, Mockito.times(1))
-                .save(Mockito.any(RewardTransactionEvent.class));
-        Mockito.verify(transactionErrorNotifierService, Mockito.times(1))
+        verify(rewardTransactionMapper, times(5))
+                .mapFromDTO(any(RewardTransactionDTO.class));
+        verify(rewardTransactionService, times(1))
+                .save(any(RewardTransactionEvent.class));
+        verify(transactionErrorNotifierService, times(1))
                 .notifyTransaction(
                         same(failingMessage),
-                        Mockito.anyString(),
-                        Mockito.eq(true),
-                        Mockito.any(RuntimeException.class)
+                        anyString(),
+                        eq(true),
+                        any(RuntimeException.class)
                 );
     }
 
@@ -126,7 +131,7 @@ class PersistenceTransactionMediatorImplTest {
         rt.setInitiatives(List.of("initiative-1"));
 
         when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
-        when(rewardTransactionService.save(Mockito.any(RewardTransactionEvent.class)))
+        when(rewardTransactionService.save(any(RewardTransactionEvent.class)))
                 .thenReturn(Mono.just(rt));
 
         StepVerifier.create(persistenceTransactionMediator.execute(
@@ -159,7 +164,7 @@ class PersistenceTransactionMediatorImplTest {
 
         when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
         when(rewardTransactionService.save(
-                Mockito.any(RewardTransactionEvent.class)))
+                any(RewardTransactionEvent.class)))
                 .thenReturn(Mono.just(rt));
 
         StepVerifier.create(persistenceTransactionMediator.execute(
@@ -176,7 +181,7 @@ class PersistenceTransactionMediatorImplTest {
                         && event.occurredAt().equals(rtDTO.getOccurredAt())
                         && event.transactionRevision() == 6L
                         && event.transaction().getOperationType().equals("PAYMENT")));
-        Mockito.verifyNoMoreInteractions(rewardTransactionService);
+        verifyNoMoreInteractions(rewardTransactionService);
     }
 
     @Test
@@ -187,7 +192,7 @@ class PersistenceTransactionMediatorImplTest {
         rt.setInitiatives(List.of("initiative-1"));
 
         when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
-        when(rewardTransactionService.save(Mockito.any(RewardTransactionEvent.class)))
+        when(rewardTransactionService.save(any(RewardTransactionEvent.class)))
                 .thenReturn(Mono.just(rt));
 
         StepVerifier.create(persistenceTransactionMediator.execute(
@@ -207,7 +212,7 @@ class PersistenceTransactionMediatorImplTest {
             String description,
             String payload
     ) {
-        Acknowledgment acknowledgment = Mockito.mock(Acknowledgment.class);
+        Acknowledgment acknowledgment = mock(Acknowledgment.class);
         Message<String> message = kafkaMessage(payload, 5L, acknowledgment);
         CapturingPersistenceTransactionMediator capturingMediator =
                 capturingMediator(1_000, rewardTransactionMapper);
@@ -217,9 +222,9 @@ class PersistenceTransactionMediatorImplTest {
                 .assertNext(results -> assertEquals(List.of(), results))
                 .verifyComplete();
 
-        Mockito.verifyNoInteractions(rewardTransactionMapper, rewardTransactionService);
-        verify(transactionErrorNotifierService, Mockito.times(1))
-                .notifyTransaction(same(message), Mockito.anyString(), eq(false), any(Throwable.class));
+        verifyNoInteractions(rewardTransactionMapper, rewardTransactionService);
+        verify(transactionErrorNotifierService, times(1))
+                .notifyTransaction(same(message), anyString(), eq(false), any(Throwable.class));
         verify(acknowledgment).acknowledge();
     }
 
@@ -229,9 +234,9 @@ class PersistenceTransactionMediatorImplTest {
             String description,
             String payload
     ) {
-        Acknowledgment acknowledgment = Mockito.mock(Acknowledgment.class);
+        Acknowledgment acknowledgment = mock(Acknowledgment.class);
         Message<String> message = kafkaMessage(payload, 6L, acknowledgment);
-        RewardTransactionMapper actualMapper = Mockito.spy(new RewardTransactionMapper());
+        RewardTransactionMapper actualMapper = spy(new RewardTransactionMapper());
         CapturingPersistenceTransactionMediator capturingMediator =
                 capturingMediator(1_000, actualMapper);
         capturingMediator.execute(Flux.just(message));
@@ -241,15 +246,15 @@ class PersistenceTransactionMediatorImplTest {
                 .verifyComplete();
 
         ArgumentCaptor<RewardTransactionDTO> transactionDto = ArgumentCaptor.forClass(RewardTransactionDTO.class);
-        Mockito.verify(actualMapper, Mockito.times(1)).mapFromDTO(transactionDto.capture());
+        verify(actualMapper, times(1)).mapFromDTO(transactionDto.capture());
         if ("singular initiativeId".equals(description)) {
             assertNull(transactionDto.getValue().getInitiatives());
         }
-        Mockito.verifyNoInteractions(rewardTransactionService);
-        verify(transactionErrorNotifierService, Mockito.times(1))
+        verifyNoInteractions(rewardTransactionService);
+        verify(transactionErrorNotifierService, times(1))
                 .notifyTransaction(
                         same(message),
-                        Mockito.anyString(),
+                        anyString(),
                         eq(false),
                         any(PermanentMessageException.class)
                 );
@@ -267,7 +272,7 @@ class PersistenceTransactionMediatorImplTest {
         when(rewardTransactionService.save(any(RewardTransactionEvent.class)))
                 .thenAnswer(invocation -> Mono.error(failure));
 
-        Acknowledgment acknowledgment = Mockito.mock(Acknowledgment.class);
+        Acknowledgment acknowledgment = mock(Acknowledgment.class);
         Message<String> message = kafkaMessage(validTransactionPayload(), 7L, acknowledgment);
 
         StepVerifier.withVirtualTime(() -> {
@@ -279,12 +284,12 @@ class PersistenceTransactionMediatorImplTest {
                 .thenRequest(Long.MAX_VALUE)
                 .expectNoEvent(Duration.ofMillis(999))
                 .then(() -> {
-                    verify(rewardTransactionService, Mockito.times(1))
+                    verify(rewardTransactionService, times(1))
                             .save(any(RewardTransactionEvent.class));
-                    verify(transactionErrorNotifierService, Mockito.times(1))
+                    verify(transactionErrorNotifierService, times(1))
                             .notifyTransaction(
                                     same(message),
-                                    Mockito.anyString(),
+                                    anyString(),
                                     eq(false),
                                     same(failure)
                             );
@@ -295,7 +300,7 @@ class PersistenceTransactionMediatorImplTest {
                 .thenCancel()
                 .verify();
 
-        verify(rewardTransactionMapper, Mockito.times(1)).mapFromDTO(any(RewardTransactionDTO.class));
+        verify(rewardTransactionMapper, times(1)).mapFromDTO(any(RewardTransactionDTO.class));
         verify(acknowledgment).acknowledge();
     }
 
@@ -310,7 +315,7 @@ class PersistenceTransactionMediatorImplTest {
         when(rewardTransactionService.save(any(RewardTransactionEvent.class)))
                 .thenAnswer(invocation -> Mono.error(failure));
 
-        Acknowledgment acknowledgment = Mockito.mock(Acknowledgment.class);
+        Acknowledgment acknowledgment = mock(Acknowledgment.class);
         Message<String> message = kafkaMessage(validTransactionPayload(), 8L, acknowledgment);
 
         StepVerifier.withVirtualTime(() -> {
@@ -322,14 +327,14 @@ class PersistenceTransactionMediatorImplTest {
                 .thenRequest(Long.MAX_VALUE)
                 .expectNoEvent(Duration.ofSeconds(20))
                 .then(() -> {
-                    verify(rewardTransactionMapper, Mockito.times(4))
+                    verify(rewardTransactionMapper, times(4))
                             .mapFromDTO(any(RewardTransactionDTO.class));
-                    verify(rewardTransactionService, Mockito.times(4))
+                    verify(rewardTransactionService, times(4))
                             .save(any(RewardTransactionEvent.class));
-                    verify(transactionErrorNotifierService, Mockito.times(1))
+                    verify(transactionErrorNotifierService, times(1))
                             .notifyTransaction(
                                     same(message),
-                                    Mockito.anyString(),
+                                    anyString(),
                                     eq(true),
                                     same(failure)
                             );
@@ -351,7 +356,7 @@ class PersistenceTransactionMediatorImplTest {
         when(rewardTransactionService.save(any(RewardTransactionEvent.class)))
                 .thenReturn(Mono.error(failure));
 
-        Acknowledgment acknowledgment = Mockito.mock(Acknowledgment.class);
+        Acknowledgment acknowledgment = mock(Acknowledgment.class);
         Message<String> message = kafkaMessage(validTransactionPayload(), 9L, acknowledgment);
 
         StepVerifier.withVirtualTime(() -> {
@@ -364,9 +369,9 @@ class PersistenceTransactionMediatorImplTest {
                 .expectErrorMatches(error -> error == failure)
                 .verify();
 
-        verify(rewardTransactionMapper, Mockito.times(1)).mapFromDTO(any(RewardTransactionDTO.class));
-        verify(rewardTransactionService, Mockito.times(1)).save(any(RewardTransactionEvent.class));
-        Mockito.verifyNoInteractions(transactionErrorNotifierService);
+        verify(rewardTransactionMapper, times(1)).mapFromDTO(any(RewardTransactionDTO.class));
+        verify(rewardTransactionService, times(1)).save(any(RewardTransactionEvent.class));
+        verifyNoInteractions(transactionErrorNotifierService);
         verify(acknowledgment, never()).acknowledge();
     }
 
@@ -376,11 +381,11 @@ class PersistenceTransactionMediatorImplTest {
                 {"id":"incident-transaction","status":"INVOICED","initiativeId":"legacy-initiative"}
                 """;
         String validPayload = validTransactionPayload();
-        Acknowledgment invalidAcknowledgment = Mockito.mock(Acknowledgment.class);
-        Acknowledgment validAcknowledgment = Mockito.mock(Acknowledgment.class);
+        Acknowledgment invalidAcknowledgment = mock(Acknowledgment.class);
+        Acknowledgment validAcknowledgment = mock(Acknowledgment.class);
         Message<String> invalidMessage = kafkaMessage(invalidPayload, 10L, invalidAcknowledgment);
         Message<String> validMessage = kafkaMessage(validPayload, 11L, validAcknowledgment);
-        RewardTransactionMapper actualMapper = Mockito.spy(new RewardTransactionMapper());
+        RewardTransactionMapper actualMapper = spy(new RewardTransactionMapper());
 
         when(rewardTransactionService.save(any(RewardTransactionEvent.class)))
                 .thenAnswer(invocation -> {
@@ -400,15 +405,15 @@ class PersistenceTransactionMediatorImplTest {
                 .thenRequest(Long.MAX_VALUE)
                 .expectNoEvent(Duration.ofMillis(999))
                 .then(() -> {
-                    Mockito.verifyNoInteractions(invalidAcknowledgment, validAcknowledgment);
-                    verify(transactionErrorNotifierService, Mockito.times(1))
+                    verifyNoInteractions(invalidAcknowledgment, validAcknowledgment);
+                    verify(transactionErrorNotifierService, times(1))
                             .notifyTransaction(
                                     same(invalidMessage),
-                                    Mockito.anyString(),
+                                    anyString(),
                                     eq(false),
                                     any(PermanentMessageException.class)
                             );
-                    verify(rewardTransactionService, Mockito.times(1))
+                    verify(rewardTransactionService, times(1))
                             .save(any(RewardTransactionEvent.class));
                 })
                 .thenAwait(Duration.ofMillis(1))
@@ -420,7 +425,7 @@ class PersistenceTransactionMediatorImplTest {
                 .thenCancel()
                 .verify();
 
-        verify(actualMapper, Mockito.times(2)).mapFromDTO(any(RewardTransactionDTO.class));
+        verify(actualMapper, times(2)).mapFromDTO(any(RewardTransactionDTO.class));
         verify(invalidAcknowledgment, never()).acknowledge();
         verify(validAcknowledgment).acknowledge();
     }
@@ -443,7 +448,7 @@ class PersistenceTransactionMediatorImplTest {
 
         persistenceTransactionMediator.execute(msgs);
 
-        Mockito.verifyNoInteractions(rewardTransactionMapper, rewardTransactionService, transactionErrorNotifierService);
+        verifyNoInteractions(rewardTransactionMapper, rewardTransactionService, transactionErrorNotifierService);
     }
 
     @Test
@@ -455,7 +460,7 @@ class PersistenceTransactionMediatorImplTest {
         rt.setInitiatives(List.of("initiative-1"));
 
         when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
-        when(rewardTransactionService.save(Mockito.any(RewardTransactionEvent.class)))
+        when(rewardTransactionService.save(any(RewardTransactionEvent.class)))
                 .thenReturn(Mono.just(rt));
 
         StepVerifier.create(persistenceTransactionMediator.execute(
@@ -481,7 +486,7 @@ class PersistenceTransactionMediatorImplTest {
         rt.setInitiatives(List.of("initiative-1"));
 
         when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
-        when(rewardTransactionService.save(Mockito.any(RewardTransactionEvent.class)))
+        when(rewardTransactionService.save(any(RewardTransactionEvent.class)))
                 .thenReturn(Mono.just(rt));
 
         StepVerifier.create(persistenceTransactionMediator.execute(
@@ -499,7 +504,7 @@ class PersistenceTransactionMediatorImplTest {
 
     @Test
     void getFlowNameShouldReturnTRANSACTION() {
-        org.junit.jupiter.api.Assertions.assertEquals("TRANSACTION", persistenceTransactionMediator.getFlowName());
+        assertEquals("TRANSACTION", persistenceTransactionMediator.getFlowName());
     }
 
     private static Stream<Arguments> invalidJsonPayloads() {

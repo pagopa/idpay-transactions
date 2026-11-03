@@ -3,6 +3,7 @@ package it.gov.pagopa.common.reactive.kafka.consumer;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -26,7 +27,7 @@ class BaseKafkaConsumerTest {
 
     @Test
     void subclassWithoutRetryOverrideKeepsBaseRetryPolicy() {
-        Acknowledgment acknowledgment = org.mockito.Mockito.mock(Acknowledgment.class);
+        Acknowledgment acknowledgment = mock(Acknowledgment.class);
         Message<String> message = MessageBuilder.withPayload("\"transaction\"")
                 .setHeader(KafkaHeaders.RECEIVED_PARTITION, 0)
                 .setHeader(KafkaHeaders.OFFSET, 1L)
