@@ -53,6 +53,7 @@ public final class ExceptionConstants {
         public static final String INVALID_CHECKS_ERROR = "INVALID_CHECKS_ERROR";
         public static final String REPORT_NOT_FOUND = "REPORT_NOT_FOUND";
         public static final String REPORT_NOT_GENERATED = "REPORT_NOT_GENERATED";
+        public static final String REPORT_STATUS_NOT_ALLOWED = "REPORT_STATUS_NOT_ALLOWED";
         public static final String MERCHANT_NOT_FOUND = "MERCHANT_NOT_FOUND";
         public static final String MERCHANT_NOT_FOUND_IN_SELFCARE = "MERCHANT_NOT_FOUND_IN_SELFCARE";
         public static final String AMBIGUOUS_MERCHANT_DATA_IN_SELFCARE = "AMBIGUOUS_MERCHANT_DATA_IN_SELFCARE";
