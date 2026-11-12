@@ -79,6 +79,8 @@ class RewardBatchServiceImplTest {
                 batchBlobService, checksErrorMapper, auditUtilities, merchantRestClient,
                 paymentRestClient, selfcareClient, erogazioniClient, initiativeDataService,
                 dataFactoryService, reportPersistencePort, 10);
+        lenient().when(initiativeDataService.getRewardBatchControlThreshold(anyString()))
+                .thenReturn(Mono.just(15));
     }
 
     @Test
@@ -120,7 +122,7 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Flux.just("trx-1", "trx-2"), Flux.empty());
         when(paymentRestClient.updateTransactionsStatus(java.util.Set.of("trx-1", "trx-2"), SyncTrxStatus.REWARDED))
                 .thenReturn(Mono.just(2));
-        when(decisionPort.prepareEvaluation("batch", "initiative")).thenReturn(Mono.just(sent));
+        when(decisionPort.prepareEvaluation("batch", "initiative", 15)).thenReturn(Mono.just(sent));
 
         StepVerifier.create(service.evaluatingRewardBatches(null, "initiative"))
                 .expectNext(1L)
@@ -132,7 +134,7 @@ class RewardBatchServiceImplTest {
         InOrder inOrder = inOrder(paymentRestClient, decisionPort);
         inOrder.verify(paymentRestClient)
                 .updateTransactionsStatus(java.util.Set.of("trx-1", "trx-2"), SyncTrxStatus.REWARDED);
-        inOrder.verify(decisionPort).prepareEvaluation("batch", "initiative");
+        inOrder.verify(decisionPort).prepareEvaluation("batch", "initiative", 15);
     }
 
     @Test
@@ -150,7 +152,7 @@ class RewardBatchServiceImplTest {
                 .expectErrorMatches(error -> error == failure)
                 .verify();
 
-        verify(decisionPort, never()).prepareEvaluation("batch", "initiative");
+        verify(decisionPort, never()).prepareEvaluation("batch", "initiative", 15);
     }
 
     @Test
@@ -172,14 +174,14 @@ class RewardBatchServiceImplTest {
                     }
                     return Mono.just(chunk.size());
                 });
-        when(decisionPort.prepareEvaluation("batch", "initiative")).thenReturn(Mono.just(sent));
+        when(decisionPort.prepareEvaluation("batch", "initiative", 15)).thenReturn(Mono.just(sent));
 
         StepVerifier.create(service.evaluatingRewardBatches(null, "initiative"))
                 .expectNext(1L)
                 .verifyComplete();
 
         verify(paymentRestClient, times(3)).updateTransactionsStatus(any(), eq(SyncTrxStatus.REWARDED));
-        verify(decisionPort).prepareEvaluation("batch", "initiative");
+        verify(decisionPort).prepareEvaluation("batch", "initiative", 15);
     }
 
     @Test
@@ -355,6 +357,23 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
+    void confirmationUsesFiftyPercentConfiguredForInitiative() {
+        RewardBatch existingBatch = batch("batch", RewardBatchStatus.EVALUATING);
+        existingBatch.setNumberOfTransactions(10L);
+        existingBatch.setNumberOfTransactionsElaborated(4L);
+
+        when(initiativeDataService.getRewardBatchControlThreshold("initiative"))
+                .thenReturn(Mono.just(50));
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(existingBatch));
+
+        StepVerifier.create(service.rewardBatchConfirmation("initiative", "batch"))
+                .expectErrorMatches(error -> error.getMessage().contains("50%"))
+                .verify();
+
+        verify(lifecyclePort, never()).enterApproval(anyString(), anyString());
+    }
+
+    @Test
     void confirmationFailsWhenBatchNotFound() {
         when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.empty());
 
@@ -440,7 +459,7 @@ class RewardBatchServiceImplTest {
         RewardBatch promoted = batch("batch", RewardBatchStatus.EVALUATING);
         promoted.setAssigneeLevel(RewardBatchAssignee.L2);
         when(promotionPort.findBatchForPromotion("batch", "initiative")).thenReturn(Mono.just(l1));
-        when(promotionPort.promote("batch", "initiative", RewardBatchAssignee.L1, RewardBatchAssignee.L2))
+        when(promotionPort.promote("batch", "initiative", RewardBatchAssignee.L1, RewardBatchAssignee.L2, 15))
                 .thenReturn(Mono.just(promoted));
         StepVerifier.create(service.validateRewardBatch("operator1", "initiative", "batch"))
                 .expectNext(promoted).verifyComplete();
@@ -902,7 +921,7 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Flux.just("trx-1"), Flux.empty());
         when(paymentRestClient.updateTransactionsStatus(java.util.Set.of("trx-1"), SyncTrxStatus.REWARDED))
                 .thenReturn(Mono.just(1));
-        when(decisionPort.prepareEvaluation("sent", "initiative")).thenReturn(Mono.just(sent));
+        when(decisionPort.prepareEvaluation("sent", "initiative", 15)).thenReturn(Mono.just(sent));
 
         StepVerifier.create(service.evaluatingRewardBatches(List.of("sent", "missing"), "initiative"))
                 .expectNext(1L).verifyComplete();

@@ -1,14 +1,15 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql;
 
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.BATCH_NOT_ELABORATED_15_PERCENT;
-import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_BATCH_NOT_ELABORATED_15_PERCENT;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.BATCH_CONTROL_THRESHOLD_NOT_MET;
+import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.ERROR_MESSAGE_BATCH_CONTROL_THRESHOLD_NOT_MET;
 import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches.REWARD_BATCHES;
 import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions.REWARD_TRANSACTIONS;
+import static it.gov.pagopa.idpay.transactions.utils.RewardBatchControlThreshold.isSatisfied;
 import static org.jooq.impl.DSL.count;
 import static org.jooq.impl.DSL.currentLocalDateTime;
 
 import io.r2dbc.spi.ConnectionFactory;
-import it.gov.pagopa.common.web.exception.BatchNotElaborated15PercentException;
+import it.gov.pagopa.common.web.exception.BatchControlThresholdNotMetException;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
@@ -45,7 +46,8 @@ public class SqlRewardBatchAssigneePromotionAdapter implements RewardBatchAssign
             String rewardBatchId,
             String initiativeId,
             RewardBatchAssignee expectedAssignee,
-            RewardBatchAssignee nextAssignee
+            RewardBatchAssignee nextAssignee,
+            int controlThresholdPercentage
     ) {
         validateIdentity(rewardBatchId, initiativeId);
         validateTransition(expectedAssignee, nextAssignee);
@@ -55,7 +57,8 @@ public class SqlRewardBatchAssigneePromotionAdapter implements RewardBatchAssign
                                 rewardBatchId,
                                 initiativeId,
                                 expectedAssignee,
-                                nextAssignee
+                                nextAssignee,
+                                controlThresholdPercentage
                         )))
                 .retryWhen(Retry.max(3).filter(SqlTransactionRetrySupport::isRetryableConcurrencyFailure));
     }
@@ -65,7 +68,8 @@ public class SqlRewardBatchAssigneePromotionAdapter implements RewardBatchAssign
             String rewardBatchId,
             String initiativeId,
             RewardBatchAssignee expectedAssignee,
-            RewardBatchAssignee nextAssignee
+            RewardBatchAssignee nextAssignee,
+            int controlThresholdPercentage
     ) {
         return Mono.from(transactionDslContext.selectFrom(REWARD_BATCHES)
                         .where(REWARD_BATCHES.ID.eq(rewardBatchId)
@@ -76,7 +80,8 @@ public class SqlRewardBatchAssigneePromotionAdapter implements RewardBatchAssign
                                 transactionDslContext,
                                 rewardBatchId,
                                 initiativeId,
-                                expectedAssignee
+                                expectedAssignee,
+                                controlThresholdPercentage
                         )
                         .then(Mono.from(transactionDslContext.update(REWARD_BATCHES)
                                         .set(REWARD_BATCHES.ASSIGNEE_LEVEL, nextAssignee.name())
@@ -92,12 +97,9 @@ public class SqlRewardBatchAssigneePromotionAdapter implements RewardBatchAssign
             DSLContext transactionDslContext,
             String rewardBatchId,
             String initiativeId,
-            RewardBatchAssignee expectedAssignee
+            RewardBatchAssignee expectedAssignee,
+            int controlThresholdPercentage
     ) {
-        if (expectedAssignee != RewardBatchAssignee.L1) {
-            return Mono.empty();
-        }
-
         return Mono.from(transactionDslContext.select(
                                 count(),
                                 count().filterWhere(REWARD_TRANSACTIONS.REWARD_BATCH_TRX_STATUS.in(
@@ -112,10 +114,10 @@ public class SqlRewardBatchAssigneePromotionAdapter implements RewardBatchAssign
                 .flatMap(counters -> {
                     long total = counters.value1().longValue();
                     long elaborated = counters.value2().longValue();
-                    return total > 0 && elaborated < Math.ceil(total * 0.15)
-                            ? Mono.error(new BatchNotElaborated15PercentException(
-                            BATCH_NOT_ELABORATED_15_PERCENT,
-                            ERROR_MESSAGE_BATCH_NOT_ELABORATED_15_PERCENT
+                    return !isSatisfied(total, elaborated, controlThresholdPercentage)
+                            ? Mono.error(new BatchControlThresholdNotMetException(
+                            BATCH_CONTROL_THRESHOLD_NOT_MET,
+                            ERROR_MESSAGE_BATCH_CONTROL_THRESHOLD_NOT_MET.formatted(controlThresholdPercentage)
                     ))
                             : Mono.empty();
                 });
