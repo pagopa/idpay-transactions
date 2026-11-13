@@ -80,7 +80,6 @@ public class SqlRewardBatchAssigneePromotionAdapter implements RewardBatchAssign
                                 transactionDslContext,
                                 rewardBatchId,
                                 initiativeId,
-                                expectedAssignee,
                                 controlThresholdPercentage
                         )
                         .then(Mono.from(transactionDslContext.update(REWARD_BATCHES)
@@ -97,7 +96,6 @@ public class SqlRewardBatchAssigneePromotionAdapter implements RewardBatchAssign
             DSLContext transactionDslContext,
             String rewardBatchId,
             String initiativeId,
-            RewardBatchAssignee expectedAssignee,
             int controlThresholdPercentage
     ) {
         return Mono.from(transactionDslContext.select(
@@ -114,12 +112,12 @@ public class SqlRewardBatchAssigneePromotionAdapter implements RewardBatchAssign
                 .flatMap(counters -> {
                     long total = counters.value1().longValue();
                     long elaborated = counters.value2().longValue();
-                    return !isSatisfied(total, elaborated, controlThresholdPercentage)
-                            ? Mono.error(new BatchControlThresholdNotMetException(
-                            BATCH_CONTROL_THRESHOLD_NOT_MET,
-                            ERROR_MESSAGE_BATCH_CONTROL_THRESHOLD_NOT_MET.formatted(controlThresholdPercentage)
-                    ))
-                            : Mono.empty();
+                    return isSatisfied(total, elaborated, controlThresholdPercentage)
+                            ? Mono.empty()
+                            : Mono.error(new BatchControlThresholdNotMetException(
+                                    BATCH_CONTROL_THRESHOLD_NOT_MET,
+                                    ERROR_MESSAGE_BATCH_CONTROL_THRESHOLD_NOT_MET.formatted(controlThresholdPercentage)
+                            ));
                 });
     }
 

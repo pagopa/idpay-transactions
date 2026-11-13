@@ -612,6 +612,21 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
     }
 
     @Test
+    void shouldIgnoreAnEarlierEmptyBatchOutsideTheAllowedFinalApprovalStates() {
+        RewardBatch previous = approvalBatch("approval-empty-previous");
+        previous.setMonth("2026-06");
+        previous.setStatus(RewardBatchStatus.CREATED);
+        RewardBatch current = approvalBatch("approval-after-empty-current");
+
+        StepVerifier.create(adapter.createOrRead(previous)
+                        .then(adapter.createOrRead(current))
+                        .then(setSendSnapshot(current.getId(), 10L))
+                        .then(adapter.enterApproval(current.getId(), current.getInitiativeId())))
+                .assertNext(entered -> assertEquals(RewardBatchStatus.APPROVING, entered.getStatus()))
+                .verifyComplete();
+    }
+
+    @Test
     void shouldRejectAnEarlierBatchOutsideTheAllowedFinalApprovalStatesWithoutWriting() {
         RewardBatch previous = approvalBatch("approval-blocking-previous");
         previous.setMonth("2026-06");
@@ -620,6 +635,12 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
 
         StepVerifier.create(adapter.createOrRead(previous)
                         .then(adapter.createOrRead(current))
+                        .then(insertTransaction(
+                                "approval-blocking-previous-transaction",
+                                previous.getId(),
+                                "CONSULTABLE",
+                                100L
+                        ))
                         .then(setSendSnapshot(current.getId(), 10L))
                         .then(adapter.enterApproval(current.getId(), current.getInitiativeId())))
                 .expectErrorSatisfies(error -> assertApprovalRequestError(error, HttpStatus.BAD_REQUEST))
