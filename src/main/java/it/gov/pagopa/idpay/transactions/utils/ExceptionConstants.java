@@ -44,6 +44,7 @@ public final class ExceptionConstants {
         public static final String ROLE_NOT_ALLOWED_FOR_L1_PROMOTION = "ROLE_NOT_ALLOWED_FOR_L1_PROMOTION";
         public static final String ROLE_NOT_ALLOWED_FOR_L2_PROMOTION = "ROLE_NOT_ALLOWED_FOR_L2_PROMOTION";
         public static final String BATCH_NOT_ELABORATED_15_PERCENT = "BATCH_NOT_ELABORATED_15_PERCENT";
+        public static final String BATCH_CONTROL_THRESHOLD_NOT_MET = "BATCH_CONTROL_THRESHOLD_NOT_MET";
         public static final String INVALID_BATCH_STATE_FOR_PROMOTION = "INVALID_BATCH_STATE_FOR_PROMOTION";
         public static final String REWARD_BATCH_ALREADY_SENT = "REWARD_BATCH_ALREADY_SENT";
         public static final String REWARD_BATCH_STATUS_NOT_ALLOWED = "REWARD_BATCH_STATUS_NOT_ALLOWED";
@@ -101,6 +102,7 @@ public final class ExceptionConstants {
         public static final String ERROR_MESSAGE_REWARD_BATCH_ALREADY_SENT = "Reward batch has already been sent";
         public static final String ERROR_MESSAGE_ROLE_NOT_ALLOWED_FOR_L1_PROMOTION = "Operator not allowed to promote from L1";
         public static final String ERROR_MESSAGE_BATCH_NOT_ELABORATED_15_PERCENT = "At least 15% of transactions must be elaborated";
+        public static final String ERROR_MESSAGE_BATCH_CONTROL_THRESHOLD_NOT_MET = "At least %d%% of transactions must be elaborated";
         public static final String ERROR_MESSAGE_ROLE_NOT_ALLOWED_FOR_L2_PROMOTION = "Operator not allowed to promote from L2";
         public static final String ERROR_MESSAGE_INVALID_BATCH_STATE_FOR_PROMOTION = "Invalid state for batch promotion";
 

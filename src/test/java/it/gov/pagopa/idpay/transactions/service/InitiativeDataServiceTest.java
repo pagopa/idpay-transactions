@@ -174,6 +174,44 @@ class InitiativeDataServiceTest {
         verify(initiativeRestClient, never()).getInitiativeBeneficiaryDetail(anyString());
     }
 
+    @Test
+    void rewardBatchThresholdUsesCurrentConfiguredValueWithoutCache() {
+        InitiativeDetailDTO first = InitiativeDetailDTO.builder()
+                .rewardBatchControlThreshold(15).build();
+        InitiativeDetailDTO second = InitiativeDetailDTO.builder()
+                .rewardBatchControlThreshold(50).build();
+        when(initiativeRestClient.getInitiativeBeneficiaryDetail(INITIATIVE_ID_1))
+                .thenReturn(Mono.just(first), Mono.just(second));
+
+        StepVerifier.create(initiativeDataService.getRewardBatchControlThreshold(INITIATIVE_ID_1))
+                .expectNext(15).verifyComplete();
+        StepVerifier.create(initiativeDataService.getRewardBatchControlThreshold(INITIATIVE_ID_1))
+                .expectNext(50).verifyComplete();
+
+        verify(initiativeRestClient, times(2)).getInitiativeBeneficiaryDetail(INITIATIVE_ID_1);
+    }
+
+    @Test
+    void missingRewardBatchThresholdMeansInitiativeDoesNotSupportBatches() {
+        when(initiativeRestClient.getInitiativeBeneficiaryDetail(INITIATIVE_ID_1))
+                .thenReturn(Mono.just(InitiativeDetailDTO.builder().build()));
+
+        StepVerifier.create(initiativeDataService.getRewardBatchControlThreshold(INITIATIVE_ID_1))
+                .expectErrorMatches(error -> error instanceof IllegalStateException
+                        && error.getMessage().contains("does not support reward batches"))
+                .verify();
+    }
+
+    @Test
+    void rewardBatchThresholdRejectsValuesOutsideAllowedRange() {
+        when(initiativeRestClient.getInitiativeBeneficiaryDetail(INITIATIVE_ID_1))
+                .thenReturn(Mono.just(InitiativeDetailDTO.builder()
+                        .rewardBatchControlThreshold(0).build()));
+
+        StepVerifier.create(initiativeDataService.getRewardBatchControlThreshold(INITIATIVE_ID_1))
+                .verifyError(IllegalArgumentException.class);
+    }
+
     private InitiativeDetailDTO buildInitiativeDetailDTO(
             String name, String status, LocalDate fruitionEndDate) {
         return InitiativeDetailDTO.builder()
