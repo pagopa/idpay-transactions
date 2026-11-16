@@ -13,6 +13,7 @@ import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionD
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionList;
 import it.gov.pagopa.idpay.transactions.dto.ChecksErrorDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryOutcomeDTO;
+import it.gov.pagopa.idpay.transactions.dto.RewardBatchMonthDTO;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.*;
@@ -241,6 +242,35 @@ class RewardBatchServiceImplTest {
         StepVerifier.create(service.getRewardBatches(
                         "merchant", "initiative", "merchant", null, null, null, PageRequest.of(0, 10)))
                 .assertNext(page -> assertEquals("batch", page.getContent().getFirst().getId()))
+                .verifyComplete();
+    }
+
+    @Test
+    void returnsAvailableMonthsFromThePort() {
+        when(listPort.findAvailableMonths("initiative"))
+                .thenReturn(Flux.just(
+                        new RewardBatchMonthDTO("gennaio 2026", "2026-01"),
+                        new RewardBatchMonthDTO("febbraio 2026", "2026-02")
+                ));
+
+        StepVerifier.create(service.getAvailableRewardBatchMonths("initiative"))
+                .assertNext(result -> assertEquals(
+                        List.of(
+                                new RewardBatchMonthDTO("gennaio 2026", "2026-01"),
+                                new RewardBatchMonthDTO("febbraio 2026", "2026-02")
+                        ),
+                        result.getMonths()
+                ))
+                .verifyComplete();
+    }
+
+    @Test
+    void returnsEmptyMonthListWhenInitiativeHasNoBatches() {
+        when(listPort.findAvailableMonths("initiative-without-batches"))
+                .thenReturn(Flux.empty());
+
+        StepVerifier.create(service.getAvailableRewardBatchMonths("initiative-without-batches"))
+                .assertNext(result -> assertEquals(List.of(), result.getMonths()))
                 .verifyComplete();
     }
 

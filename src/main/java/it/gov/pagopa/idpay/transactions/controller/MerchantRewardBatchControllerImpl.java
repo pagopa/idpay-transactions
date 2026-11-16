@@ -86,6 +86,13 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
+  public Mono<RewardBatchMonthListDTO> getAvailableRewardBatchMonths(String initiativeId) {
+    String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
+    log.info("[GET_AVAILABLE_REWARD_BATCH_MONTHS] Request received. Initiative: {}", sanitizeInitiativeId);
+    return rewardBatchService.getAvailableRewardBatchMonths(sanitizeInitiativeId);
+  }
+
+  @Override
   public Mono<RewardBatchDTO> getRewardBatchById(String merchantId, String initiativeId, String rewardBatchId) {
       String sanitizeMerchantId = merchantId == null ? null : Utilities.sanitizeString(merchantId);
       String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
