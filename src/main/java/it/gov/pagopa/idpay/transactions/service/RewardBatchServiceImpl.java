@@ -298,13 +298,17 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                     .flatMap(batchId -> rewardBatchLifecyclePort.findBatchWithStatus(batchId, initiativeId, RewardBatchStatus.SENT));
         }
 
+        Mono<Integer> controlThreshold = Mono.defer(() ->
+                        initiativeDataService.getRewardBatchControlThreshold(initiativeId))
+                .cache();
+
         return rewardBatchToElaborate
                 .flatMap(rewardBatch -> {
                     log.info(
                             "[EVALUATING_REWARD_BATCH] Evaluating reward batch {}",
                             Utilities.sanitizeString(rewardBatch.getId())
                     );
-                    return initiativeDataService.getRewardBatchControlThreshold(initiativeId)
+                    return controlThreshold
                             .flatMap(threshold -> syncPaymentTransactionsToRewarded(
                                             rewardBatch.getId(), initiativeId)
                                     .then(Mono.defer(() -> rewardBatchTransactionDecisionPort.prepareEvaluation(

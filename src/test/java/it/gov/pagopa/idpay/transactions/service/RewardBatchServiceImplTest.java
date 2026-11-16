@@ -138,6 +138,26 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
+    void evaluationReadsControlThresholdOnceForMultipleBatches() {
+        RewardBatch first = RewardBatch.builder().id("batch-1").build();
+        RewardBatch second = RewardBatch.builder().id("batch-2").build();
+        when(lifecyclePort.findBatchesWithStatus(RewardBatchStatus.SENT, "initiative"))
+                .thenReturn(Flux.just(first, second));
+        when(transactionReadPort.findBatchTransactionIds(anyString(), eq("initiative"), anyInt(), anyInt()))
+                .thenReturn(Flux.empty());
+        when(decisionPort.prepareEvaluation("batch-1", "initiative", 15)).thenReturn(Mono.just(first));
+        when(decisionPort.prepareEvaluation("batch-2", "initiative", 15)).thenReturn(Mono.just(second));
+
+        StepVerifier.create(service.evaluatingRewardBatches(null, "initiative"))
+                .expectNext(2L)
+                .verifyComplete();
+
+        verify(initiativeDataService, times(1)).getRewardBatchControlThreshold("initiative");
+        verify(decisionPort).prepareEvaluation("batch-1", "initiative", 15);
+        verify(decisionPort).prepareEvaluation("batch-2", "initiative", 15);
+    }
+
+    @Test
     void evaluationStopsBeforeSqlPreparationWhenPaymentStatusSyncFails() {
         RewardBatch sent = RewardBatch.builder().id("batch").build();
         RuntimeException failure = new IllegalStateException("payment status update failed");
