@@ -335,6 +335,55 @@ class MerchantRewardBatchControllerImplTest {
     }
 
     @Test
+    void getAvailableRewardBatchMonthsOk() {
+        RewardBatchMonthListDTO response = RewardBatchMonthListDTO.builder()
+                .months(List.of(
+                        new RewardBatchMonthDTO("Gennaio 2026", "2026-01"),
+                        new RewardBatchMonthDTO("Febbraio 2026", "2026-02")
+                ))
+                .build();
+
+        when(rewardBatchService.getAvailableRewardBatchMonths(INITIATIVE_ID))
+                .thenReturn(Mono.just(response));
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/months")
+                        .build(INITIATIVE_ID))
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(RewardBatchMonthListDTO.class)
+                .value(result -> {
+                    assertNotNull(result);
+                    assertEquals(2, result.getMonths().size());
+                    assertEquals("Gennaio 2026", result.getMonths().get(0).getLabel());
+                    assertEquals("2026-01", result.getMonths().get(0).getValue());
+                    assertEquals("Febbraio 2026", result.getMonths().get(1).getLabel());
+                    assertEquals("2026-02", result.getMonths().get(1).getValue());
+                });
+
+        verify(rewardBatchService, times(1)).getAvailableRewardBatchMonths(INITIATIVE_ID);
+    }
+
+    @Test
+    void getAvailableRewardBatchMonthsEmptyWhenNoBatches() {
+        when(rewardBatchService.getAvailableRewardBatchMonths(INITIATIVE_ID))
+                .thenReturn(Mono.just(RewardBatchMonthListDTO.builder().months(List.of()).build()));
+
+        webClient.mutateWith(mockUser()).mutateWith(csrf()).get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/months")
+                        .build(INITIATIVE_ID))
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(RewardBatchMonthListDTO.class)
+                .value(result -> {
+                    assertNotNull(result);
+                    assertTrue(result.getMonths().isEmpty());
+                });
+    }
+
+    @Test
     void sendRewardBatchesOk() {
 
         String batchId = "BATCH1";

@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql;
 
+import it.gov.pagopa.idpay.transactions.dto.RewardBatchMonthDTO;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
@@ -343,6 +344,34 @@ class SqlRewardBatchEffectiveAggregateReadModelTest extends PostgresqlMigrationT
                 .verifyComplete();
     }
 
+    @Test
+    void shouldReturnDistinctMonthsOrderedAscendingForInitiative() {
+        StepVerifier.create(Flux.concat(
+                        insertBatch("batch-months-feb", RewardBatchStatus.CREATED, "2026-02", null, null),
+                        insertBatch("batch-months-jan-a", RewardBatchStatus.CREATED, "2026-01", null, null),
+                        insertBatch("batch-months-jan-b", RewardBatchStatus.APPROVED, "2026-01", 100L, 0L),
+                        insertBatch("batch-months-other-initiative", RewardBatchStatus.CREATED, "2026-03", null, null)
+                                .flatMap(ignored -> databaseClient()
+                                        .sql("UPDATE reward_batches SET initiative_id = 'initiative-other' WHERE id = 'batch-months-other-initiative'")
+                                        .fetch()
+                                        .rowsUpdated())
+                )
+                        .thenMany(listAdapter.findAvailableMonths(INITIATIVE_ID))
+                        .collectList())
+                .expectNext(List.of(
+                        new RewardBatchMonthDTO("Batch 2026-01", "2026-01"),
+                        new RewardBatchMonthDTO("Batch 2026-02", "2026-02")
+                ))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldReturnEmptyWhenInitiativeHasNoBatches() {
+        StepVerifier.create(listAdapter.findAvailableMonths("initiative-without-batches").collectList())
+                .expectNext(List.of())
+                .verifyComplete();
+    }
+
     private static Stream<Arguments> effectiveAmountStates() {
         return Stream.of(
                 Arguments.of(RewardBatchStatus.CREATED, 1_500L, 400L, null, null),
@@ -420,7 +449,7 @@ class SqlRewardBatchEffectiveAggregateReadModelTest extends PostgresqlMigrationT
                 .bind("merchantId", MERCHANT_ID)
                 .bind("month", month)
                 .bind("status", status.name())
-                .bind("name", "Batch " + batchId);
+                .bind("name", "Batch " + month);
         spec = initialAmountCentsAtSend == null
                 ? spec.bindNull("initialAmountCentsAtSend", Long.class)
                 : spec.bind("initialAmountCentsAtSend", initialAmountCentsAtSend);
