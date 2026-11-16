@@ -216,9 +216,9 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
                         .from(REWARD_BATCHES)
                         .where(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId))
                         .orderBy(REWARD_BATCHES.MONTH.asc()))
-                .map(record -> RewardBatchMonthDTO.builder()
-                        .value(record.value1())
-                        .label(record.value2())
+                .map(r -> RewardBatchMonthDTO.builder()
+                        .value(r.value1())
+                        .label(r.value2())
                         .build());
     }
 
