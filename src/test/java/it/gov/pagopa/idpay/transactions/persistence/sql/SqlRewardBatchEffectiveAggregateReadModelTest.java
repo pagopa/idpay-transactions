@@ -347,10 +347,10 @@ class SqlRewardBatchEffectiveAggregateReadModelTest extends PostgresqlMigrationT
     @Test
     void shouldReturnDistinctMonthsOrderedAscendingForInitiative() {
         StepVerifier.create(Flux.concat(
-                        insertBatch("batch-months-feb", RewardBatchStatus.CREATED, "2026-02", null, null),
-                        insertBatch("batch-months-jan-a", RewardBatchStatus.CREATED, "2026-01", null, null),
-                        insertBatch("batch-months-jan-b", RewardBatchStatus.APPROVED, "2026-01", 100L, 0L),
-                        insertBatch("batch-months-other-initiative", RewardBatchStatus.CREATED, "2026-03", null, null)
+                        insertBatch("batch-months-feb", MERCHANT_ID, RewardBatchStatus.CREATED, "2026-02", null, null),
+                        insertBatch("batch-months-jan-a", MERCHANT_ID, RewardBatchStatus.CREATED, "2026-01", null, null),
+                        insertBatch("batch-months-jan-b", "merchant-2", RewardBatchStatus.APPROVED, "2026-01", 100L, 0L),
+                        insertBatch("batch-months-other-initiative", MERCHANT_ID, RewardBatchStatus.CREATED, "2026-03", null, null)
                                 .flatMap(ignored -> databaseClient()
                                         .sql("UPDATE reward_batches SET initiative_id = 'initiative-other' WHERE id = 'batch-months-other-initiative'")
                                         .fetch()
@@ -417,6 +417,17 @@ class SqlRewardBatchEffectiveAggregateReadModelTest extends PostgresqlMigrationT
             Long initialAmountCentsAtSend,
             Long suspendedAmountCentsAtApproving
     ) {
+        return insertBatch(batchId, MERCHANT_ID, status, month, initialAmountCentsAtSend, suspendedAmountCentsAtApproving);
+    }
+
+    private static Mono<Long> insertBatch(
+            String batchId,
+            String merchantId,
+            RewardBatchStatus status,
+            String month,
+            Long initialAmountCentsAtSend,
+            Long suspendedAmountCentsAtApproving
+    ) {
         var spec = databaseClient()
                 .sql("""
                         INSERT INTO reward_batches (
@@ -446,7 +457,7 @@ class SqlRewardBatchEffectiveAggregateReadModelTest extends PostgresqlMigrationT
                         """)
                 .bind("id", batchId)
                 .bind("initiativeId", INITIATIVE_ID)
-                .bind("merchantId", MERCHANT_ID)
+                .bind("merchantId", merchantId)
                 .bind("month", month)
                 .bind("status", status.name())
                 .bind("name", "Batch " + month);
