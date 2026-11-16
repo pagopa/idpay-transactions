@@ -347,10 +347,11 @@ class SqlRewardBatchEffectiveAggregateReadModelTest extends PostgresqlMigrationT
     @Test
     void shouldReturnDistinctMonthsOrderedAscendingForInitiative() {
         StepVerifier.create(Flux.concat(
-                        insertBatch("batch-months-feb", MERCHANT_ID, RewardBatchStatus.CREATED, "2026-02", null, null),
+                        insertBatch("batch-months-feb", MERCHANT_ID, RewardBatchStatus.EVALUATING, "2026-02", null, null),
                         insertBatch("batch-months-jan-a", MERCHANT_ID, RewardBatchStatus.CREATED, "2026-01", null, null),
                         insertBatch("batch-months-jan-b", "merchant-2", RewardBatchStatus.APPROVED, "2026-01", 100L, 0L),
-                        insertBatch("batch-months-other-initiative", MERCHANT_ID, RewardBatchStatus.CREATED, "2026-03", null, null)
+                        insertBatch("batch-months-created-only", MERCHANT_ID, RewardBatchStatus.CREATED, "2026-04", null, null),
+                        insertBatch("batch-months-other-initiative", MERCHANT_ID, RewardBatchStatus.EVALUATING, "2026-03", null, null)
                                 .flatMap(ignored -> databaseClient()
                                         .sql("UPDATE reward_batches SET initiative_id = 'initiative-other' WHERE id = 'batch-months-other-initiative'")
                                         .fetch()
@@ -371,6 +372,18 @@ class SqlRewardBatchEffectiveAggregateReadModelTest extends PostgresqlMigrationT
                 .expectNext(List.of())
                 .verifyComplete();
     }
+
+
+    @Test
+    void shouldExcludeMonthWhenAllBatchesAreCreated() {
+        StepVerifier.create(
+                        insertBatch("batch-months-created-only-month", MERCHANT_ID, RewardBatchStatus.CREATED, "2026-05", null, null)
+                                .thenMany(listAdapter.findAvailableMonths(INITIATIVE_ID))
+                                .collectList())
+                .expectNext(List.of())
+                .verifyComplete();
+    }
+
 
     private static Stream<Arguments> effectiveAmountStates() {
         return Stream.of(
