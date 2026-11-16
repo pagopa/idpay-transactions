@@ -373,6 +373,7 @@ class SqlRewardBatchEffectiveAggregateReadModelTest extends PostgresqlMigrationT
                 .verifyComplete();
     }
 
+
     @Test
     void shouldExcludeMonthWhenAllBatchesAreCreated() {
         StepVerifier.create(
@@ -382,6 +383,7 @@ class SqlRewardBatchEffectiveAggregateReadModelTest extends PostgresqlMigrationT
                 .expectNext(List.of())
                 .verifyComplete();
     }
+
 
     private static Stream<Arguments> effectiveAmountStates() {
         return Stream.of(
