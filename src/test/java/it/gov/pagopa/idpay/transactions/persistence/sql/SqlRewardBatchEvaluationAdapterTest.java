@@ -89,7 +89,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
     }
 
     @Test
-    void shouldPrepareSentBatchUsingAllAssignedRowsWithoutMutatingPaymentStatus() {
+    void shouldPrepareSentBatchUsingDynamicFiftyPercentWithoutMutatingPaymentStatus() {
         StepVerifier.create(Flux.concat(
                         insertBatch(BATCH_ID, RewardBatchStatus.SENT, BATCH_MONTH, 800L),
                         insertTransaction("sample-first", RewardBatchTrxStatus.CONSULTABLE, 1),
@@ -100,7 +100,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                         insertTransactionWithoutBatchStatus("null-status", 1),
                         insertTransaction("remaining-second", RewardBatchTrxStatus.CONSULTABLE, 4),
                         insertTransaction("remaining-third", RewardBatchTrxStatus.CONSULTABLE, 5)
-                ).then(adapter.prepareEvaluation(BATCH_ID, INITIATIVE_ID)))
+                ).then(adapter.prepareEvaluation(BATCH_ID, INITIATIVE_ID, 50)))
                 .assertNext(batch -> assertEquals(RewardBatchStatus.EVALUATING, batch.getStatus()))
                 .verifyComplete();
 
@@ -113,8 +113,10 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                             states.get("null-status").batchStatus());
                     assertEquals(RewardBatchTrxStatus.TO_CHECK.name(),
                             states.get("sample-first").batchStatus());
-                    assertEquals(RewardBatchTrxStatus.CONSULTABLE.name(),
+                    assertEquals(RewardBatchTrxStatus.TO_CHECK.name(),
                             states.get("sample-tie-a").batchStatus());
+                    assertEquals(RewardBatchTrxStatus.TO_CHECK.name(),
+                            states.get("sample-tie-b").batchStatus());
                     assertEquals(RewardBatchTrxStatus.SUSPENDED.name(),
                             states.get("suspended").batchStatus());
                 })
@@ -136,7 +138,7 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
     @Test
     void shouldPrepareEmptySentBatchWithoutSamplingRows() {
         StepVerifier.create(insertBatch(BATCH_ID, RewardBatchStatus.SENT, BATCH_MONTH, 0L)
-                        .then(adapter.prepareEvaluation(BATCH_ID, INITIATIVE_ID)))
+                        .then(adapter.prepareEvaluation(BATCH_ID, INITIATIVE_ID, 15)))
                 .assertNext(batch -> assertEquals(RewardBatchStatus.EVALUATING, batch.getStatus()))
                 .verifyComplete();
 
@@ -173,8 +175,8 @@ class SqlRewardBatchEvaluationAdapterTest extends PostgresqlMigrationTestSupport
                         insertTransaction("transaction-9", RewardBatchTrxStatus.CONSULTABLE, 9),
                         insertTransaction("transaction-10", RewardBatchTrxStatus.CONSULTABLE, 10)
                 ).thenMany(Flux.merge(
-                        Mono.defer(() -> adapter.prepareEvaluation(BATCH_ID, INITIATIVE_ID)),
-                        Mono.defer(() -> adapter.prepareEvaluation(BATCH_ID, INITIATIVE_ID))
+                        Mono.defer(() -> adapter.prepareEvaluation(BATCH_ID, INITIATIVE_ID, 15)),
+                        Mono.defer(() -> adapter.prepareEvaluation(BATCH_ID, INITIATIVE_ID, 15))
                 )).collectList())
                 .assertNext(batches -> {
                     assertEquals(1, batches.size());

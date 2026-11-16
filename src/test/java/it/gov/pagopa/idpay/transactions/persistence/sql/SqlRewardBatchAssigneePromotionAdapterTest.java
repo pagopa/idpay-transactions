@@ -3,7 +3,6 @@ package it.gov.pagopa.idpay.transactions.persistence.sql;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import it.gov.pagopa.common.web.exception.BatchNotElaborated15PercentException;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchTrxStatus;
 import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
@@ -19,6 +18,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import tools.jackson.databind.json.JsonMapper;
+import it.gov.pagopa.common.web.exception.BatchControlThresholdNotMetException;
 
 @Testcontainers(disabledWithoutDocker = true)
 class SqlRewardBatchAssigneePromotionAdapterTest extends PostgresqlMigrationTestSupport {
@@ -58,9 +58,9 @@ class SqlRewardBatchAssigneePromotionAdapterTest extends PostgresqlMigrationTest
                                 Flux.range(1, 17).concatMap(index -> insertTransaction(
                                         "pending-" + index, BATCH, RewardBatchTrxStatus.CONSULTABLE))
                         ))
-                        .then(adapter.promote(BATCH, INITIATIVE, RewardBatchAssignee.L1, RewardBatchAssignee.L2))
+                        .then(adapter.promote(BATCH, INITIATIVE, RewardBatchAssignee.L1, RewardBatchAssignee.L2, 15))
                         .flatMap(ignored -> adapter.promote(
-                                BATCH, INITIATIVE, RewardBatchAssignee.L2, RewardBatchAssignee.L3
+                                BATCH, INITIATIVE, RewardBatchAssignee.L2, RewardBatchAssignee.L3, 15
                         )))
                 .assertNext(batch -> assertEquals(RewardBatchAssignee.L3, batch.getAssigneeLevel()))
                 .verifyComplete();
@@ -75,35 +75,57 @@ class SqlRewardBatchAssigneePromotionAdapterTest extends PostgresqlMigrationTest
                                 Flux.range(1, 18).concatMap(index -> insertTransaction(
                                         "remaining-" + index, BATCH, RewardBatchTrxStatus.CONSULTABLE))
                         ))
-                        .then(adapter.promote(BATCH, INITIATIVE, RewardBatchAssignee.L1, RewardBatchAssignee.L2)))
-                .expectError(BatchNotElaborated15PercentException.class)
+                        .then(adapter.promote(BATCH, INITIATIVE, RewardBatchAssignee.L1, RewardBatchAssignee.L2, 15)))
+                .expectError(BatchControlThresholdNotMetException.class)
                 .verify();
 
         StepVerifier.create(insertBatch("empty", INITIATIVE, RewardBatchAssignee.L1)
-                        .then(adapter.promote("empty", INITIATIVE, RewardBatchAssignee.L1, RewardBatchAssignee.L2))
+                        .then(adapter.promote("empty", INITIATIVE, RewardBatchAssignee.L1, RewardBatchAssignee.L2, 15))
                         .flatMap(ignored -> adapter.promote(
-                                "empty", INITIATIVE, RewardBatchAssignee.L2, RewardBatchAssignee.L3
+                                "empty", INITIATIVE, RewardBatchAssignee.L2, RewardBatchAssignee.L3, 15
                         )))
                 .assertNext(batch -> assertEquals(RewardBatchAssignee.L3, batch.getAssigneeLevel()))
                 .verifyComplete();
 
         StepVerifier.create(adapter.findBatchForPromotion(BATCH, "other-initiative"))
                 .verifyComplete();
-        StepVerifier.create(adapter.promote(BATCH, INITIATIVE, RewardBatchAssignee.L2, RewardBatchAssignee.L3))
+        StepVerifier.create(adapter.promote(BATCH, INITIATIVE, RewardBatchAssignee.L2, RewardBatchAssignee.L3, 15))
                 .verifyComplete();
+    }
+
+    @Test
+    void shouldApplyFiftyPercentAgainWhenL2PromotesToL3() {
+        StepVerifier.create(insertBatch(BATCH, INITIATIVE, RewardBatchAssignee.L1)
+                        .thenMany(Flux.concat(
+                                Flux.range(1, 10).concatMap(index -> insertTransaction(
+                                        "elaborated-" + index, BATCH, RewardBatchTrxStatus.APPROVED)),
+                                Flux.range(1, 10).concatMap(index -> insertTransaction(
+                                        "pending-" + index, BATCH, RewardBatchTrxStatus.CONSULTABLE))
+                        ))
+                        .then(adapter.promote(
+                                BATCH, INITIATIVE, RewardBatchAssignee.L1, RewardBatchAssignee.L2, 50))
+                        .then(databaseClient().sql("""
+                                        UPDATE reward_transactions
+                                        SET reward_batch_trx_status = 'CONSULTABLE'
+                                        WHERE transaction_id = 'elaborated-1'
+                                        """).fetch().rowsUpdated())
+                        .then(adapter.promote(
+                                BATCH, INITIATIVE, RewardBatchAssignee.L2, RewardBatchAssignee.L3, 50)))
+                .expectError(BatchControlThresholdNotMetException.class)
+                .verify();
     }
 
     @Test
     void shouldRejectUnsupportedPromotionAndBlankIdentityBeforeQuerying() {
         IllegalArgumentException transitionError = assertThrows(
                 IllegalArgumentException.class,
-                () -> adapter.promote(BATCH, INITIATIVE, RewardBatchAssignee.L1, RewardBatchAssignee.L3)
+                () -> adapter.promote(BATCH, INITIATIVE, RewardBatchAssignee.L1, RewardBatchAssignee.L3, 15)
         );
         assertEquals("Unsupported reward batch assignee promotion", transitionError.getMessage());
 
         IllegalArgumentException complementaryTransitionError = assertThrows(
                 IllegalArgumentException.class,
-                () -> adapter.promote(BATCH, INITIATIVE, RewardBatchAssignee.L2, RewardBatchAssignee.L1)
+                () -> adapter.promote(BATCH, INITIATIVE, RewardBatchAssignee.L2, RewardBatchAssignee.L1, 15)
         );
         assertEquals("Unsupported reward batch assignee promotion", complementaryTransitionError.getMessage());
 
@@ -115,7 +137,7 @@ class SqlRewardBatchAssigneePromotionAdapterTest extends PostgresqlMigrationTest
 
         IllegalArgumentException blankInitiativeError = assertThrows(
                 IllegalArgumentException.class,
-                () -> adapter.promote(BATCH, " ", RewardBatchAssignee.L1, RewardBatchAssignee.L2)
+                () -> adapter.promote(BATCH, " ", RewardBatchAssignee.L1, RewardBatchAssignee.L2, 15)
         );
         assertEquals("Reward batch and initiative identifiers are required", blankInitiativeError.getMessage());
 

@@ -810,7 +810,7 @@ class MerchantRewardBatchControllerImplTest {
 
         when(rewardBatchService.validateRewardBatch("operator1", INITIATIVE_ID, rewardBatchId))
                 .thenReturn(Mono.error(new RewardBatchException(HttpStatus.BAD_REQUEST,
-                        ExceptionConstants.ExceptionCode.BATCH_NOT_ELABORATED_15_PERCENT)));
+                        ExceptionCode.BATCH_CONTROL_THRESHOLD_NOT_MET)));
 
         webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
                 .uri("/idpay/merchant/portal/initiatives/{initiativeId}/reward-batches/{rewardBatchId}/validated",
@@ -819,7 +819,7 @@ class MerchantRewardBatchControllerImplTest {
                 .exchange()
                 .expectStatus().isBadRequest()
                 .expectBody()
-                .jsonPath("$.message").isEqualTo(ExceptionConstants.ExceptionCode.BATCH_NOT_ELABORATED_15_PERCENT);
+                .jsonPath("$.message").isEqualTo(ExceptionCode.BATCH_CONTROL_THRESHOLD_NOT_MET);
 
         verify(rewardBatchService, times(1)).validateRewardBatch("operator1", INITIATIVE_ID, rewardBatchId);
     }

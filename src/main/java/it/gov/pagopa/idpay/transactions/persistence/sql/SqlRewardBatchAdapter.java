@@ -299,6 +299,9 @@ public class SqlRewardBatchAdapter {
     ) {
         return Mono.from(transactionDslContext.selectOne()
                         .from(REWARD_BATCHES)
+                        .join(REWARD_TRANSACTIONS)
+                        .on(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(REWARD_BATCHES.ID)
+                                .and(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(REWARD_BATCHES.INITIATIVE_ID)))
                         .where(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId)
                                 .and(REWARD_BATCHES.MERCHANT_ID.eq(merchantId))
                                 .and(REWARD_BATCHES.POS_TYPE.eq(posType))

@@ -48,6 +48,7 @@ import java.util.function.BiFunction;
 import static it.gov.pagopa.common.utils.CommonConstants.ZONEID;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.*;
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionMessage.*;
+import static it.gov.pagopa.idpay.transactions.utils.RewardBatchControlThreshold.isSatisfied;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
@@ -297,17 +298,24 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                     .flatMap(batchId -> rewardBatchLifecyclePort.findBatchWithStatus(batchId, initiativeId, RewardBatchStatus.SENT));
         }
 
+        Mono<Integer> controlThreshold = Mono.defer(() ->
+                        initiativeDataService.getRewardBatchControlThreshold(initiativeId))
+                .cache();
+
         return rewardBatchToElaborate
                 .flatMap(rewardBatch -> {
                     log.info(
                             "[EVALUATING_REWARD_BATCH] Evaluating reward batch {}",
                             Utilities.sanitizeString(rewardBatch.getId())
                     );
-                    return syncPaymentTransactionsToRewarded(rewardBatch.getId(), initiativeId)
-                            .then(Mono.defer(() -> rewardBatchTransactionDecisionPort.prepareEvaluation(
-                                    rewardBatch.getId(),
-                                    initiativeId
-                            )));
+                    return controlThreshold
+                            .flatMap(threshold -> syncPaymentTransactionsToRewarded(
+                                            rewardBatch.getId(), initiativeId)
+                                    .then(Mono.defer(() -> rewardBatchTransactionDecisionPort.prepareEvaluation(
+                                            rewardBatch.getId(),
+                                            initiativeId,
+                                            threshold
+                                    ))));
                 })
                 .count()
                 .doOnSuccess(count ->
@@ -566,30 +574,25 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                         REWARD_BATCH_NOT_FOUND,
                         ERROR_MESSAGE_NOT_FOUND_BATCH.formatted(rewardBatchId)
                 )))
-                .flatMap(batch -> {
+                .flatMap(batch -> initiativeDataService.getRewardBatchControlThreshold(initiativeId)
+                        .flatMap(threshold -> {
                     long totalTrx = batch.getNumberOfTransactions() != null ? batch.getNumberOfTransactions() : 0L;
                     long elaboratedTrx = batch.getNumberOfTransactionsElaborated() != null ? batch.getNumberOfTransactionsElaborated() : 0L;
 
-                    if (!isElaborationThresholdSatisfied(elaboratedTrx, totalTrx)) {
-                        log.warn("[CONFIRMATION_FAILED] Batch {} has only {}/{} transactions elaborated (below 15% threshold)",
-                                Utilities.sanitizeString(rewardBatchId), elaboratedTrx, totalTrx);
+                    if (!isSatisfied(totalTrx, elaboratedTrx, threshold)) {
+                        log.warn("[CONFIRMATION_FAILED] Batch {} has only {}/{} transactions elaborated (below {}% threshold)",
+                                Utilities.sanitizeString(rewardBatchId), elaboratedTrx, totalTrx, threshold);
 
                         return Mono.error(new ClientExceptionWithBody(
                                 BAD_REQUEST,
                                 REWARD_BATCH_INVALID_REQUEST,
-                                "Cannot confirm batch: elaborated transactions ratio is below 15%% (%d/%d)".formatted(elaboratedTrx, totalTrx)
+                                "Cannot confirm batch: elaborated transactions ratio is below %d%% (%d/%d)"
+                                        .formatted(threshold, elaboratedTrx, totalTrx)
                         ));
                     }
 
                     return rewardBatchLifecyclePort.enterApproval(rewardBatchId, initiativeId);
-                });
-    }
-
-    private boolean isElaborationThresholdSatisfied(long elaboratedTrx, long totalTrx) {
-        if (totalTrx < 0) {
-            return false;
-        }
-        return totalTrx == 0 || ((double) elaboratedTrx / totalTrx) >= 0.15;
+                }));
     }
 
     @Override
@@ -982,12 +985,14 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             ));
                         }
 
-                        return rewardBatchAssigneePromotionPort.promote(
+                        return initiativeDataService.getRewardBatchControlThreshold(initiativeId)
+                                .flatMap(threshold -> rewardBatchAssigneePromotionPort.promote(
                                         rewardBatchId,
                                         initiativeId,
                                         RewardBatchAssignee.L1,
-                                        RewardBatchAssignee.L2
-                                )
+                                        RewardBatchAssignee.L2,
+                                        threshold
+                                ))
                                 .switchIfEmpty(Mono.error(new InvalidBatchStateForPromotionException(
                                         INVALID_BATCH_STATE_FOR_PROMOTION,
                                         ERROR_MESSAGE_INVALID_BATCH_STATE_FOR_PROMOTION
@@ -1003,12 +1008,14 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                             ));
                         }
 
-                        return rewardBatchAssigneePromotionPort.promote(
+                        return initiativeDataService.getRewardBatchControlThreshold(initiativeId)
+                                .flatMap(threshold -> rewardBatchAssigneePromotionPort.promote(
                                         rewardBatchId,
                                         initiativeId,
                                         RewardBatchAssignee.L2,
-                                        RewardBatchAssignee.L3
-                                )
+                                        RewardBatchAssignee.L3,
+                                        threshold
+                                ))
                                 .switchIfEmpty(Mono.error(new InvalidBatchStateForPromotionException(
                                         INVALID_BATCH_STATE_FOR_PROMOTION,
                                         ERROR_MESSAGE_INVALID_BATCH_STATE_FOR_PROMOTION
