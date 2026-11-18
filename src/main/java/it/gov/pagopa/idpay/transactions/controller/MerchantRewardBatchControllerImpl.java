@@ -222,7 +222,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   private static String requireInternalNote(TransactionsRequest request) {
-    String internalNote = request.getResolvedInternalNote();
+    String internalNote = request.getInternalNote();
     if (internalNote == null || internalNote.isBlank()) {
       throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
               ExceptionCode.REASON_FIELD_IS_MANDATORY,

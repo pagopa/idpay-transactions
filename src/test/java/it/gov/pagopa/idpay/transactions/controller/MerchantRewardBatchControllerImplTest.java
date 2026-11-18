@@ -446,7 +446,6 @@ class MerchantRewardBatchControllerImplTest {
         request.setTransactionIds(List.of("trx1", "trx2"));
         request.setInternalNote("Internal note");
         request.setOfficialNote("Official note");
-        request.setReason("Test reason");
 
         RewardBatch batch = RewardBatch.builder()
                 .id(rewardBatchId)
@@ -485,7 +484,7 @@ class MerchantRewardBatchControllerImplTest {
         String rewardBatchId = "BATCH2";
         TransactionsRequest request = new TransactionsRequest();
         request.setTransactionIds(List.of("trx1"));
-        request.setReason("Test reason");
+        request.setInternalNote("Test internal note");
 
         when(rewardBatchService.suspendTransactions(rewardBatchId, INITIATIVE_ID, request))
                 .thenReturn(Mono.error(new IllegalStateException("Cannot suspend transactions on an APPROVED batch")));
@@ -510,7 +509,7 @@ class MerchantRewardBatchControllerImplTest {
 
         TransactionsRequest request = TransactionsRequest.builder()
                 .transactionIds(List.of("trx1"))
-                .reason(null)
+                .internalNote(null)
                 .build();
 
         webClient.mutateWith(mockUser()).mutateWith(csrf()).post()
@@ -628,7 +627,7 @@ class MerchantRewardBatchControllerImplTest {
         String rewardBatchId = "BATCH";
         TransactionsRequest request = new TransactionsRequest();
         request.setTransactionIds(List.of("trx1", "trx2"));
-        request.setReason("Test reason");
+        request.setInternalNote("Test internal note");
         request.setOfficialNote("Official note");
 
         RewardBatch batch = RewardBatch.builder()
@@ -668,7 +667,7 @@ class MerchantRewardBatchControllerImplTest {
 
         TransactionsRequest request = TransactionsRequest.builder()
                 .transactionIds(List.of("trx1"))
-                .reason(null)
+                .internalNote(null)
                 .build();
 
         webClient.mutateWith(mockUser()).mutateWith(csrf()).post()

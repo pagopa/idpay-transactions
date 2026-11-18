@@ -174,14 +174,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 initiativeId,
                 request,
                 RewardBatchTrxStatus.SUSPENDED,
-                generateInternalNote(request),
+                generateNoteDto(request.getInternalNote()),
                 generateNoteDto(request.getOfficialNote()),
                 checksErrorMapper.toModel(request.getChecksError())
         );
-    }
-
-    private static ReasonDTO generateInternalNote(TransactionsRequest request) {
-        return generateNoteDto(request.getResolvedInternalNote());
     }
 
     private static ReasonDTO generateNoteDto(String note) {
@@ -275,7 +271,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 initiativeId,
                 request,
                 RewardBatchTrxStatus.REJECTED,
-                generateInternalNote(request),
+                generateNoteDto(request.getInternalNote()),
                 generateNoteDto(request.getOfficialNote()),
                 checksErrorMapper.toModel(request.getChecksError())
         );
