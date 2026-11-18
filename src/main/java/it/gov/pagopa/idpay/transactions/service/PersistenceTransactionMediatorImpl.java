@@ -1,11 +1,14 @@
 package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.common.reactive.kafka.consumer.BaseKafkaConsumer;
+import it.gov.pagopa.common.reactive.kafka.exception.PermanentMessageException;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransactionEvent;
+import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Service;
@@ -63,12 +66,21 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
 
     @Override
     protected Consumer<Throwable> onDeserializationError(Message<String> message) {
-        return e -> transactionErrorNotifierService.notifyTransaction(message, "[TRANSACTION] Unexpected JSON", true, e);
+        return e -> transactionErrorNotifierService.notifyTransaction(message, "[TRANSACTION] Unexpected JSON", false, e);
+    }
+
+    @Override
+    protected boolean isRetryable(Throwable error) {
+        return super.isRetryable(error) && !isPermanentFailure(error);
     }
 
     @Override
     protected void notifyError(Message<String> message, Throwable e) {
-        transactionErrorNotifierService.notifyTransaction(message, "[TRANSACTION] An error occurred evaluating transaction", true, e);
+        transactionErrorNotifierService.notifyTransaction(message, "[TRANSACTION] An error occurred evaluating transaction", !isPermanentFailure(e), e);
+    }
+
+    private boolean isPermanentFailure(Throwable error) {
+        return ExceptionUtils.indexOfType(error, PermanentMessageException.class) >= 0;
     }
 
   @Override
@@ -76,13 +88,16 @@ public class PersistenceTransactionMediatorImpl extends BaseKafkaConsumer<Reward
       Message<String> message,
       Map<String, Object> ctx) {
 
+    RewardTransaction transaction = rewardTransactionMapper.mapFromDTO(payload);
+    Utilities.requireInitiativeId(transaction);
+
     return rewardTransactionService.save(new RewardTransactionEvent(
                 payload.getEventId(),
                 payload.getSchemaVersion() == null ? 0 : payload.getSchemaVersion(),
                 payload.getEventType(),
                 payload.getOccurredAt(),
                 payload.getTransactionRevision() == null ? 0L : payload.getTransactionRevision(),
-                rewardTransactionMapper.mapFromDTO(payload)
+                transaction
         ));
   }
 

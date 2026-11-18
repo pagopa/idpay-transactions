@@ -139,7 +139,7 @@ public abstract class BaseKafkaConsumer<T, R> {
 
                 .retryWhen(
                         Retry.backoff(3, Duration.ofSeconds(1))
-                                .filter(e -> !(e instanceof UncommittableError))
+                                .filter(this::isRetryable)
                                 .onRetryExhaustedThrow((spec, signal) -> signal.failure())
                 )
 
@@ -161,6 +161,10 @@ public abstract class BaseKafkaConsumer<T, R> {
                 })
 
                 .doFinally(signalType -> doFinally(message, ctx));
+    }
+
+    protected boolean isRetryable(Throwable error) {
+        return !(error instanceof UncommittableError);
     }
 
     /** to perform some operation at the end of business logic execution, thus before to wait for commit. As default, it will perform an INFO logging with performance time */

@@ -10,6 +10,7 @@ import it.gov.pagopa.idpay.transactions.model.RefundInfo;
 import it.gov.pagopa.idpay.transactions.model.Reward;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardTransactionsRecord;
+import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +27,7 @@ public class RewardTransactionSqlMapper {
     private final ObjectMapper objectMapper;
 
     RewardTransactionEntity toEntity(RewardTransaction transaction) {
-        String initiativeId = initiativeId(transaction);
+        String initiativeId = Utilities.requireInitiativeId(transaction);
         return new RewardTransactionEntity(
                 transaction.getId(),
                 initiativeId,
@@ -238,14 +239,6 @@ public class RewardTransactionSqlMapper {
                 entity.latestAppliedPaymentImpactRevision(),
                 jsonb(entity.rewardBatchOfficialNotes())
         );
-    }
-
-    private String initiativeId(RewardTransaction transaction) {
-        List<String> initiatives = transaction.getInitiatives();
-        if (initiatives == null || initiatives.size() != 1 || initiatives.getFirst().isBlank()) {
-            throw new IllegalArgumentException("A reward transaction must have exactly one initiative");
-        }
-        return initiatives.getFirst();
     }
 
     private long accruedRewardCents(Map<String, Reward> rewards, String initiativeId) {

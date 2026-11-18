@@ -9,8 +9,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import it.gov.pagopa.common.reactive.kafka.exception.PermanentMessageException;
 import it.gov.pagopa.idpay.transactions.model.RefundInfo;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
+import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import tools.jackson.core.JsonParser;
@@ -38,6 +40,14 @@ class RewardTransactionSqlMapperTest {
         RewardTransaction blankInitiative = transaction();
         blankInitiative.setInitiatives(List.of(" "));
         assertInvalidInitiative(mapper, blankInitiative);
+
+        RewardTransaction emptyStringInitiative = transaction();
+        emptyStringInitiative.setInitiatives(List.of(""));
+        assertInvalidInitiative(mapper, emptyStringInitiative);
+
+        RewardTransaction nullInitiative = transaction();
+        nullInitiative.setInitiatives(Collections.singletonList(null));
+        assertInvalidInitiative(mapper, nullInitiative);
 
         RewardTransaction multipleInitiatives = transaction();
         multipleInitiatives.setInitiatives(List.of(INITIATIVE_ID, "another-initiative"));
@@ -139,8 +149,8 @@ class RewardTransactionSqlMapperTest {
             RewardTransactionSqlMapper mapper,
             RewardTransaction transaction
     ) {
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
+        PermanentMessageException exception = assertThrows(
+                PermanentMessageException.class,
                 () -> mapper.toEntity(transaction)
         );
         assertEquals("A reward transaction must have exactly one initiative", exception.getMessage());

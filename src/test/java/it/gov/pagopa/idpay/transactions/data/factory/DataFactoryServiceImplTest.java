@@ -48,6 +48,7 @@ class DataFactoryServiceImplTest {
                 "pipelineTransactionReportname",
                 "pipelineUserDetailsReportname",
                 "pipelineRewardBatchCsvName",
+                "pipelineMerchantBatchCsvName",
                 0
         );
     }
@@ -178,6 +179,7 @@ class DataFactoryServiceImplTest {
                 "pipelineTransactionReportname",
                 "pipelineUserDetailsReportname",
                 "pipelineRewardBatchCsvName",
+                "pipelineMerchantBatchCsvName",
                 1
         );
         when(dataFactoryManager.pipelines()).thenReturn(pipelines);
@@ -324,6 +326,7 @@ class DataFactoryServiceImplTest {
                 "pipelineTransactionReportname",
                 "pipelineUserDetailsReportname",
                 "pipelineRewardBatchCsvName",
+                "pipelineMerchantBatchCsvName",
                 1
         );
         when(dataFactoryManager.pipelines()).thenReturn(pipelines);
@@ -356,6 +359,7 @@ class DataFactoryServiceImplTest {
                 "pipelineTransactionReportname",
                 "pipelineUserDetailsReportname",
                 "pipelineRewardBatchCsvName",
+                "pipelineMerchantBatchCsvName",
                 1
         );
         when(dataFactoryManager.pipelines()).thenReturn(pipelines);
@@ -445,6 +449,7 @@ class DataFactoryServiceImplTest {
                 "pipelineTransactionReportname",
                 "pipelineUserDetailsReportname",
                 "pipelineRewardBatchCsvName",
+                "pipelineMerchantBatchCsvName",
                 1
         );
         when(dataFactoryManager.pipelines()).thenReturn(pipelines);
@@ -465,5 +470,81 @@ class DataFactoryServiceImplTest {
                 eq("resourceGroup"), eq("factoryName"), eq("pipelineRewardBatchCsvName"),
                 isNull(), eq(false), isNull(), eq(false), anyMap(), eq(Context.NONE)
         );
+    }
+
+    @Test
+    void triggerMerchantBatchCsvPipelineShouldOmitMerchantIdWhenBlank() {
+        LocalDateTime start = LocalDateTime.of(2026, Month.AUGUST, 1, 9, 0);
+        LocalDateTime end = LocalDateTime.of(2026, Month.AUGUST, 5, 18, 0);
+        Report report = Report.builder()
+                .id("report-123")
+                .initiativeId("initiative")
+                .merchantId("   ")
+                .fileName("merchant_batch.csv")
+                .startPeriod(start)
+                .endPeriod(end)
+                .build();
+        when(dataFactoryManager.pipelines()).thenReturn(pipelines);
+        when(pipelines.createRunWithResponse(
+                anyString(), anyString(), anyString(), isNull(), eq(false),
+                isNull(), eq(false), anyMap(), eq(Context.NONE)
+        )).thenReturn(response);
+        when(response.getStatusCode()).thenReturn(200);
+        when(response.getValue()).thenReturn(createRunResponse);
+        when(createRunResponse.runId()).thenReturn("MERCHANT_BATCH_RUN_ID");
+
+        StepVerifier.create(service.triggerMerchantBatchCsvPipeline(report))
+                .expectNext("MERCHANT_BATCH_RUN_ID")
+                .verifyComplete();
+
+        verify(pipelines).createRunWithResponse(
+                eq("resourceGroup"),
+                eq("factoryName"),
+                eq("pipelineMerchantBatchCsvName"),
+                isNull(),
+                eq(false),
+                isNull(),
+                eq(false),
+                argThat(parameters -> parameters.equals(Map.of(
+                        "initiativeId", "initiative",
+                        "reportId", "report-123",
+                        "reportName", "merchant_batch.csv",
+                        "startDate", start,
+                        "endDate", end
+                ))),
+                eq(Context.NONE)
+        );
+    }
+
+    @Test
+    void triggerMerchantBatchCsvPipelineShouldFailWhenPipelineNameIsMissing() {
+        DataFactoryServiceImpl missingNameService = new DataFactoryServiceImpl(
+                dataFactoryManager,
+                "resourceGroup",
+                "factoryName",
+                "pipelineTransactionReportname",
+                "pipelineUserDetailsReportname",
+                "pipelineRewardBatchCsvName",
+                "   ",
+                0
+        );
+
+        Report report = Report.builder()
+                .id("report-123")
+                .initiativeId("initiative")
+                .merchantId("merchant")
+                .fileName("merchant_batch.csv")
+                .startPeriod(LocalDateTime.of(2026, Month.AUGUST, 1, 9, 0))
+                .endPeriod(LocalDateTime.of(2026, Month.AUGUST, 5, 18, 0))
+                .build();
+
+        StepVerifier.create(missingNameService.triggerMerchantBatchCsvPipeline(report))
+                .expectErrorSatisfies(error -> {
+                    IllegalStateException exception = (IllegalStateException) error;
+                    assertEquals("Missing app.data-factory.pipeline-merchant-batch-csv-name configuration", exception.getMessage());
+                })
+                .verify();
+
+        verifyNoInteractions(pipelines);
     }
 }

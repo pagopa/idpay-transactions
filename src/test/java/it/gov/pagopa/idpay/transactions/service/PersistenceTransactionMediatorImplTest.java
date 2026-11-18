@@ -1,10 +1,25 @@
 package it.gov.pagopa.idpay.transactions.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import it.gov.pagopa.common.config.JsonConfig;
 import it.gov.pagopa.common.kafka.utils.KafkaConstants;
+import it.gov.pagopa.common.reactive.kafka.exception.PermanentMessageException;
+import it.gov.pagopa.common.reactive.kafka.exception.UncommittableError;
 import it.gov.pagopa.common.utils.TestUtils;
 import it.gov.pagopa.idpay.transactions.dto.RewardTransactionDTO;
 import it.gov.pagopa.idpay.transactions.dto.mapper.RewardTransactionMapper;
@@ -13,16 +28,21 @@ import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.RewardTransactionEvent;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionDTOFaker;
 import it.gov.pagopa.idpay.transactions.test.fakers.RewardTransactionFaker;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
-import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -32,7 +52,6 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 @ExtendWith(MockitoExtension.class)
 class PersistenceTransactionMediatorImplTest {
@@ -56,7 +75,7 @@ class PersistenceTransactionMediatorImplTest {
                 transactionErrorNotifierService,
                 rewardTransactionMapper,
                 1000,
-                TestUtils.objectMapper
+                new JsonConfig().objectMapper()
         );
     }
 
@@ -65,37 +84,42 @@ class PersistenceTransactionMediatorImplTest {
         RewardTransactionDTO rtDT1 = RewardTransactionDTOFaker.mockInstance(1);
         RewardTransactionDTO rtDT2 = RewardTransactionDTOFaker.mockInstance(2);
 
-        Flux<Message<String>> messageFlux = Flux.just(rtDT1, rtDT2)
-                .map(TestUtils::jsonSerializer)
-                .map(payload -> MessageBuilder
-                        .withPayload(payload)
-                        .setHeader(KafkaHeaders.RECEIVED_PARTITION, 0)
-                        .setHeader(KafkaHeaders.OFFSET, 0L)
-                        .build()
-                );
+        Message<String> firstMessage = kafkaMessage(TestUtils.jsonSerializer(rtDT1), 0L);
+        Message<String> failingMessage = kafkaMessage(TestUtils.jsonSerializer(rtDT2), 1L);
+        Flux<Message<String>> messageFlux = Flux.just(firstMessage, failingMessage);
 
         RewardTransaction rt1 = RewardTransactionFaker.mockInstance(1);
         rt1.setStatus(SyncTrxStatus.AUTHORIZED.name());
+        rt1.setInitiatives(List.of("initiative-1"));
 
-        Mockito.when(rewardTransactionMapper.mapFromDTO(Mockito.any(RewardTransactionDTO.class)))
+        when(rewardTransactionMapper.mapFromDTO(any(RewardTransactionDTO.class)))
                 .thenReturn(rt1)
                 .thenThrow(new RuntimeException("boom"));
 
-        Mockito.when(rewardTransactionService.save(Mockito.any(RewardTransactionEvent.class)))
+        when(rewardTransactionService.save(any(RewardTransactionEvent.class)))
                 .thenReturn(Mono.just(rt1));
 
-        persistenceTransactionMediator.execute(messageFlux);
+        StepVerifier.withVirtualTime(() -> {
+                    CapturingPersistenceTransactionMediator capturingMediator =
+                            capturingMediator(60_000, rewardTransactionMapper);
+                    capturingMediator.execute(messageFlux);
+                    return capturingMediator.afterCommits();
+                })
+                .thenRequest(Long.MAX_VALUE)
+                .thenAwait(Duration.ofSeconds(20))
+                .assertNext(results -> assertEquals(List.of(rt1), results))
+                .verifyComplete();
 
-        Mockito.verify(rewardTransactionMapper, Mockito.timeout(10000).times(2))
-                .mapFromDTO(Mockito.any(RewardTransactionDTO.class));
-        Mockito.verify(rewardTransactionService, Mockito.timeout(10000).times(1))
-                .save(Mockito.any(RewardTransactionEvent.class));
-        Mockito.verify(transactionErrorNotifierService, Mockito.timeout(10000).times(1))
+        verify(rewardTransactionMapper, times(5))
+                .mapFromDTO(any(RewardTransactionDTO.class));
+        verify(rewardTransactionService, times(1))
+                .save(any(RewardTransactionEvent.class));
+        verify(transactionErrorNotifierService, times(1))
                 .notifyTransaction(
-                        Mockito.any(Message.class),
-                        Mockito.anyString(),
-                        Mockito.anyBoolean(),
-                        Mockito.any(RuntimeException.class)
+                        same(failingMessage),
+                        anyString(),
+                        eq(true),
+                        any(RuntimeException.class)
                 );
     }
 
@@ -104,9 +128,10 @@ class PersistenceTransactionMediatorImplTest {
         RewardTransactionDTO rtDTO = RewardTransactionDTOFaker.mockInstance(1);
         RewardTransaction rt = RewardTransactionFaker.mockInstance(1);
         rt.setStatus(SyncTrxStatus.INVOICED.name());
+        rt.setInitiatives(List.of("initiative-1"));
 
         when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
-        when(rewardTransactionService.save(Mockito.any(RewardTransactionEvent.class)))
+        when(rewardTransactionService.save(any(RewardTransactionEvent.class)))
                 .thenReturn(Mono.just(rt));
 
         StepVerifier.create(persistenceTransactionMediator.execute(
@@ -135,10 +160,11 @@ class PersistenceTransactionMediatorImplTest {
         rt.setTransactionRevision(6L);
         rt.setStatus(SyncTrxStatus.INVOICED.name());
         rt.setOperationType("PAYMENT");
+        rt.setInitiatives(List.of("initiative-1"));
 
         when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
         when(rewardTransactionService.save(
-                Mockito.any(RewardTransactionEvent.class)))
+                any(RewardTransactionEvent.class)))
                 .thenReturn(Mono.just(rt));
 
         StepVerifier.create(persistenceTransactionMediator.execute(
@@ -155,7 +181,7 @@ class PersistenceTransactionMediatorImplTest {
                         && event.occurredAt().equals(rtDTO.getOccurredAt())
                         && event.transactionRevision() == 6L
                         && event.transaction().getOperationType().equals("PAYMENT")));
-        Mockito.verifyNoMoreInteractions(rewardTransactionService);
+        verifyNoMoreInteractions(rewardTransactionService);
     }
 
     @Test
@@ -163,9 +189,10 @@ class PersistenceTransactionMediatorImplTest {
         RewardTransactionDTO rtDTO = RewardTransactionDTOFaker.mockInstance(1);
         RewardTransaction rt = RewardTransactionFaker.mockInstance(1);
         rt.setStatus(SyncTrxStatus.AUTHORIZED.name());
+        rt.setInitiatives(List.of("initiative-1"));
 
         when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
-        when(rewardTransactionService.save(Mockito.any(RewardTransactionEvent.class)))
+        when(rewardTransactionService.save(any(RewardTransactionEvent.class)))
                 .thenReturn(Mono.just(rt));
 
         StepVerifier.create(persistenceTransactionMediator.execute(
@@ -179,20 +206,228 @@ class PersistenceTransactionMediatorImplTest {
         verify(rewardTransactionService).save(argThat((RewardTransactionEvent event) ->
                 event.transaction() == rt));
     }
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("invalidJsonPayloads")
+    void invalidJsonAndIncompatibleFieldsAreNotifiedOnceWithoutPersistence(
+            String description,
+            String payload
+    ) {
+        Acknowledgment acknowledgment = mock(Acknowledgment.class);
+        Message<String> message = kafkaMessage(payload, 5L, acknowledgment);
+        CapturingPersistenceTransactionMediator capturingMediator =
+                capturingMediator(1_000, rewardTransactionMapper);
+        capturingMediator.execute(Flux.just(message));
+
+        StepVerifier.create(capturingMediator.afterCommits())
+                .assertNext(results -> assertEquals(List.of(), results))
+                .verifyComplete();
+
+        verifyNoInteractions(rewardTransactionMapper, rewardTransactionService);
+        verify(transactionErrorNotifierService, times(1))
+                .notifyTransaction(same(message), anyString(), eq(false), any(Throwable.class));
+        verify(acknowledgment).acknowledge();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("invalidInitiativePayloads")
+    void malformedInvoicedInitiativesArePermanentBeforeServicePersistence(
+            String description,
+            String payload
+    ) {
+        Acknowledgment acknowledgment = mock(Acknowledgment.class);
+        Message<String> message = kafkaMessage(payload, 6L, acknowledgment);
+        RewardTransactionMapper actualMapper = spy(new RewardTransactionMapper());
+        CapturingPersistenceTransactionMediator capturingMediator =
+                capturingMediator(1_000, actualMapper);
+        capturingMediator.execute(Flux.just(message));
+
+        StepVerifier.create(capturingMediator.afterCommits())
+                .assertNext(results -> assertEquals(List.of(), results))
+                .verifyComplete();
+
+        ArgumentCaptor<RewardTransactionDTO> transactionDto = ArgumentCaptor.forClass(RewardTransactionDTO.class);
+        verify(actualMapper, times(1)).mapFromDTO(transactionDto.capture());
+        if ("singular initiativeId".equals(description)) {
+            assertNull(transactionDto.getValue().getInitiatives());
+        }
+        verifyNoInteractions(rewardTransactionService);
+        verify(transactionErrorNotifierService, times(1))
+                .notifyTransaction(
+                        same(message),
+                        anyString(),
+                        eq(false),
+                        any(PermanentMessageException.class)
+                );
+        verify(acknowledgment).acknowledge();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("permanentFailures")
+    void permanentProcessingFailuresAreAttemptedOnceAndNotifiedAsNonRetryable(
+            String description,
+            Throwable failure
+    ) {
+        when(rewardTransactionMapper.mapFromDTO(any(RewardTransactionDTO.class)))
+                .thenReturn(validMappedTransaction());
+        when(rewardTransactionService.save(any(RewardTransactionEvent.class)))
+                .thenAnswer(invocation -> Mono.error(failure));
+
+        Acknowledgment acknowledgment = mock(Acknowledgment.class);
+        Message<String> message = kafkaMessage(validTransactionPayload(), 7L, acknowledgment);
+
+        StepVerifier.withVirtualTime(() -> {
+                    CapturingPersistenceTransactionMediator capturingMediator =
+                            capturingMediator(1_000, rewardTransactionMapper);
+                    capturingMediator.execute(Flux.concat(Flux.just(message), Flux.never()));
+                    return capturingMediator.afterCommits();
+                })
+                .thenRequest(Long.MAX_VALUE)
+                .expectNoEvent(Duration.ofMillis(999))
+                .then(() -> {
+                    verify(rewardTransactionService, times(1))
+                            .save(any(RewardTransactionEvent.class));
+                    verify(transactionErrorNotifierService, times(1))
+                            .notifyTransaction(
+                                    same(message),
+                                    anyString(),
+                                    eq(false),
+                                    same(failure)
+                            );
+                    verify(acknowledgment, never()).acknowledge();
+                })
+                .thenAwait(Duration.ofMillis(1))
+                .assertNext(results -> assertEquals(List.of(), results))
+                .thenCancel()
+                .verify();
+
+        verify(rewardTransactionMapper, times(1)).mapFromDTO(any(RewardTransactionDTO.class));
+        verify(acknowledgment).acknowledge();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("retryableFailures")
+    void unrelatedProcessingFailuresKeepFourAttemptsAndRetryableNotification(
+            String description,
+            Throwable failure
+    ) {
+        when(rewardTransactionMapper.mapFromDTO(any(RewardTransactionDTO.class)))
+                .thenReturn(validMappedTransaction());
+        when(rewardTransactionService.save(any(RewardTransactionEvent.class)))
+                .thenAnswer(invocation -> Mono.error(failure));
+
+        Acknowledgment acknowledgment = mock(Acknowledgment.class);
+        Message<String> message = kafkaMessage(validTransactionPayload(), 8L, acknowledgment);
+
+        StepVerifier.withVirtualTime(() -> {
+                    CapturingPersistenceTransactionMediator capturingMediator =
+                            capturingMediator(60_000, rewardTransactionMapper);
+                    capturingMediator.execute(Flux.concat(Flux.just(message), Flux.never()));
+                    return capturingMediator.afterCommits();
+                })
+                .thenRequest(Long.MAX_VALUE)
+                .expectNoEvent(Duration.ofSeconds(20))
+                .then(() -> {
+                    verify(rewardTransactionMapper, times(4))
+                            .mapFromDTO(any(RewardTransactionDTO.class));
+                    verify(rewardTransactionService, times(4))
+                            .save(any(RewardTransactionEvent.class));
+                    verify(transactionErrorNotifierService, times(1))
+                            .notifyTransaction(
+                                    same(message),
+                                    anyString(),
+                                    eq(true),
+                                    same(failure)
+                            );
+                    verify(acknowledgment, never()).acknowledge();
+                })
+                .thenAwait(Duration.ofSeconds(40))
+                .assertNext(results -> assertEquals(List.of(), results))
+                .thenCancel()
+                .verify();
+
+        verify(acknowledgment).acknowledge();
+    }
+
     @Test
-    void executeErrorDeserializer() {
-        Flux<Message<String>> messageFlux = Flux.just(
-                MessageBuilder
-                        .withPayload("Error message")
-                        .setHeader(KafkaHeaders.RECEIVED_PARTITION, 0)
-                        .setHeader(KafkaHeaders.OFFSET, 0L)
-                        .build()
-        );
+    void uncommittableErrorIsNotRetriedNotNotifiedAndNotAcknowledged() {
+        when(rewardTransactionMapper.mapFromDTO(any(RewardTransactionDTO.class)))
+                .thenReturn(validMappedTransaction());
+        UncommittableError failure = new UncommittableError("do not commit");
+        when(rewardTransactionService.save(any(RewardTransactionEvent.class)))
+                .thenReturn(Mono.error(failure));
 
-        persistenceTransactionMediator.execute(messageFlux);
+        Acknowledgment acknowledgment = mock(Acknowledgment.class);
+        Message<String> message = kafkaMessage(validTransactionPayload(), 9L, acknowledgment);
 
-        Mockito.verifyNoInteractions(rewardTransactionMapper);
-        Mockito.verifyNoInteractions(rewardTransactionService);
+        StepVerifier.withVirtualTime(() -> {
+                    CapturingPersistenceTransactionMediator capturingMediator =
+                            capturingMediator(1_000, rewardTransactionMapper);
+                    capturingMediator.execute(Flux.just(message));
+                    return capturingMediator.afterCommits();
+                })
+                .thenRequest(Long.MAX_VALUE)
+                .expectErrorMatches(error -> error == failure)
+                .verify();
+
+        verify(rewardTransactionMapper, times(1)).mapFromDTO(any(RewardTransactionDTO.class));
+        verify(rewardTransactionService, times(1)).save(any(RewardTransactionEvent.class));
+        verifyNoInteractions(transactionErrorNotifierService);
+        verify(acknowledgment, never()).acknowledge();
+    }
+
+    @Test
+    void permanentIncidentDoesNotBlockValidRecordAndAcknowledgesOnTheTimedPath() {
+        String invalidPayload = """
+                {"id":"incident-transaction","status":"INVOICED","initiativeId":"legacy-initiative"}
+                """;
+        String validPayload = validTransactionPayload();
+        Acknowledgment invalidAcknowledgment = mock(Acknowledgment.class);
+        Acknowledgment validAcknowledgment = mock(Acknowledgment.class);
+        Message<String> invalidMessage = kafkaMessage(invalidPayload, 10L, invalidAcknowledgment);
+        Message<String> validMessage = kafkaMessage(validPayload, 11L, validAcknowledgment);
+        RewardTransactionMapper actualMapper = spy(new RewardTransactionMapper());
+
+        when(rewardTransactionService.save(any(RewardTransactionEvent.class)))
+                .thenAnswer(invocation -> {
+                    RewardTransactionEvent event = invocation.getArgument(0);
+                    return Mono.just(event.transaction());
+                });
+
+        StepVerifier.withVirtualTime(() -> {
+                    CapturingPersistenceTransactionMediator capturingMediator =
+                            capturingMediator(1_000, actualMapper);
+                    capturingMediator.execute(Flux.concat(
+                            Flux.just(invalidMessage, validMessage),
+                            Flux.never()
+                    ));
+                    return capturingMediator.afterCommits();
+                })
+                .thenRequest(Long.MAX_VALUE)
+                .expectNoEvent(Duration.ofMillis(999))
+                .then(() -> {
+                    verifyNoInteractions(invalidAcknowledgment, validAcknowledgment);
+                    verify(transactionErrorNotifierService, times(1))
+                            .notifyTransaction(
+                                    same(invalidMessage),
+                                    anyString(),
+                                    eq(false),
+                                    any(PermanentMessageException.class)
+                            );
+                    verify(rewardTransactionService, times(1))
+                            .save(any(RewardTransactionEvent.class));
+                })
+                .thenAwait(Duration.ofMillis(1))
+                .assertNext(results -> {
+                    assertEquals(1, results.size());
+                    assertEquals("valid-transaction", results.getFirst().getId());
+                    assertEquals(List.of("initiative-1"), results.getFirst().getInitiatives());
+                })
+                .thenCancel()
+                .verify();
+
+        verify(actualMapper, times(2)).mapFromDTO(any(RewardTransactionDTO.class));
+        verify(invalidAcknowledgment, never()).acknowledge();
+        verify(validAcknowledgment).acknowledge();
     }
 
     @Test
@@ -213,7 +448,7 @@ class PersistenceTransactionMediatorImplTest {
 
         persistenceTransactionMediator.execute(msgs);
 
-        Mockito.verifyNoInteractions(rewardTransactionMapper, rewardTransactionService, transactionErrorNotifierService);
+        verifyNoInteractions(rewardTransactionMapper, rewardTransactionService, transactionErrorNotifierService);
     }
 
     @Test
@@ -222,9 +457,10 @@ class PersistenceTransactionMediatorImplTest {
         rtDTO.setStatus(SyncTrxStatus.REFUNDED.name());
         RewardTransaction rt = RewardTransactionFaker.mockInstance(1);
         rt.setStatus(SyncTrxStatus.REFUNDED.name());
+        rt.setInitiatives(List.of("initiative-1"));
 
         when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
-        when(rewardTransactionService.save(Mockito.any(RewardTransactionEvent.class)))
+        when(rewardTransactionService.save(any(RewardTransactionEvent.class)))
                 .thenReturn(Mono.just(rt));
 
         StepVerifier.create(persistenceTransactionMediator.execute(
@@ -247,9 +483,10 @@ class PersistenceTransactionMediatorImplTest {
         rtDTO.setStatus(SyncTrxStatus.INVOICED.name());
         RewardTransaction rt = RewardTransactionFaker.mockInstance(1);
         rt.setStatus(SyncTrxStatus.INVOICED.name());
+        rt.setInitiatives(List.of("initiative-1"));
 
         when(rewardTransactionMapper.mapFromDTO(rtDTO)).thenReturn(rt);
-        when(rewardTransactionService.save(Mockito.any(RewardTransactionEvent.class)))
+        when(rewardTransactionService.save(any(RewardTransactionEvent.class)))
                 .thenReturn(Mono.just(rt));
 
         StepVerifier.create(persistenceTransactionMediator.execute(
@@ -267,57 +504,183 @@ class PersistenceTransactionMediatorImplTest {
 
     @Test
     void getFlowNameShouldReturnTRANSACTION() {
-        org.junit.jupiter.api.Assertions.assertEquals("TRANSACTION", persistenceTransactionMediator.getFlowName());
+        assertEquals("TRANSACTION", persistenceTransactionMediator.getFlowName());
     }
 
-    @Test
-    void protectedMethods_shouldBeCovered_viaReflection() {
-        Duration d = (Duration) ReflectionTestUtils.invokeMethod(persistenceTransactionMediator, "getCommitDelay");
-        org.junit.jupiter.api.Assertions.assertEquals(Duration.ofMillis(1000), d);
-
-        Object reader = ReflectionTestUtils.invokeMethod(persistenceTransactionMediator, "getObjectReader");
-        org.junit.jupiter.api.Assertions.assertNotNull(reader);
-
-        ReflectionTestUtils.invokeMethod(
-                persistenceTransactionMediator,
-                "subscribeAfterCommits",
-                Flux.just(List.of(RewardTransactionFaker.mockInstance(1)))
+    private static Stream<Arguments> invalidJsonPayloads() {
+        return Stream.of(
+                Arguments.of("invalid JSON", "{"),
+                Arguments.of(
+                        "incompatible amount type",
+                        """
+                                {"id":"bad-amount","amountCents":"not-a-number","initiatives":["initiative-1"]}
+                                """
+                )
         );
     }
 
-    @Test
-    void onDeserializationError_shouldNotifyTransactionErrorNotifierService() {
-        Message<String> msg = MessageBuilder.withPayload("bad-json")
-                .setHeader(KafkaHeaders.RECEIVED_PARTITION, 0)
-                .setHeader(KafkaHeaders.OFFSET, 0L)
-                .build();
-
-        Consumer<Throwable> consumer = (Consumer<Throwable>) ReflectionTestUtils.invokeMethod(
-                persistenceTransactionMediator,
-                "onDeserializationError",
-                msg
+    private static Stream<Arguments> invalidInitiativePayloads() {
+        return Stream.of(
+                Arguments.of(
+                        "singular initiativeId",
+                        """
+                                {"id":"incident-transaction","status":"INVOICED","initiativeId":"legacy-initiative"}
+                                """
+                ),
+                Arguments.of(
+                        "missing initiatives",
+                        """
+                                {"id":"missing-initiatives","status":"INVOICED"}
+                                """
+                ),
+                Arguments.of(
+                        "null initiatives",
+                        """
+                                {"id":"null-initiatives","status":"INVOICED","initiatives":null}
+                                """
+                ),
+                Arguments.of(
+                        "empty initiatives",
+                        """
+                                {"id":"empty-initiatives","status":"INVOICED","initiatives":[]}
+                                """
+                ),
+                Arguments.of(
+                        "empty initiative value",
+                        """
+                                {"id":"empty-initiative","status":"INVOICED","initiatives":[""]}
+                                """
+                ),
+                Arguments.of(
+                        "blank initiative value",
+                        """
+                                {"id":"blank-initiative","status":"INVOICED","initiatives":["  "]}
+                                """
+                ),
+                Arguments.of(
+                        "null initiative element",
+                        """
+                                {"id":"null-initiative-element","status":"INVOICED","initiatives":[null]}
+                                """
+                ),
+                Arguments.of(
+                        "multiple initiatives",
+                        """
+                                {"id":"multiple-initiatives","status":"INVOICED",
+                                 "initiatives":["initiative-1","initiative-2"]}
+                                """
+                )
         );
-
-        RuntimeException ex = new RuntimeException("deserialize");
-
-        consumer.accept(ex);
-
-        Mockito.verify(transactionErrorNotifierService, Mockito.times(1))
-                .notifyTransaction(Mockito.eq(msg), Mockito.anyString(), Mockito.eq(true), Mockito.eq(ex));
     }
 
-    @Test
-    void notifyError_shouldNotifyTransactionErrorNotifierService() {
-        Message<String> msg = MessageBuilder.withPayload("any")
+    private static Stream<Arguments> permanentFailures() {
+        return Stream.of(
+                Arguments.of("direct permanent failure", new PermanentMessageException("invalid transaction")),
+                Arguments.of(
+                        "permanent failure with a retryable cause",
+                        new PermanentMessageException("invalid transaction", new RuntimeException("cause"))
+                ),
+                Arguments.of(
+                        "wrapped permanent failure",
+                        new IllegalStateException(
+                                "service wrapper",
+                                new IllegalArgumentException(
+                                        "adapter wrapper",
+                                        new PermanentMessageException("invalid transaction")
+                                )
+                        )
+                )
+        );
+    }
+
+    private static Stream<Arguments> retryableFailures() {
+        return Stream.of(
+                Arguments.of("illegal argument", new IllegalArgumentException("bad argument")),
+                Arguments.of("illegal state", new IllegalStateException("unexpected state")),
+                Arguments.of(
+                        "database failure",
+                        new DataAccessResourceFailureException("database unavailable")
+                ),
+                Arguments.of("runtime failure", new RuntimeException("unexpected failure"))
+        );
+    }
+
+    private CapturingPersistenceTransactionMediator capturingMediator(
+            long commitMillis,
+            RewardTransactionMapper mapper
+    ) {
+        return new CapturingPersistenceTransactionMediator(
+                "appName",
+                rewardTransactionService,
+                transactionErrorNotifierService,
+                mapper,
+                commitMillis,
+                new JsonConfig().objectMapper()
+        );
+    }
+
+    private static Message<String> kafkaMessage(String payload, long offset) {
+        return MessageBuilder.withPayload(payload)
                 .setHeader(KafkaHeaders.RECEIVED_PARTITION, 0)
-                .setHeader(KafkaHeaders.OFFSET, 0L)
+                .setHeader(KafkaHeaders.OFFSET, offset)
                 .build();
+    }
 
-        RuntimeException ex = new RuntimeException("handler");
+    private static Message<String> kafkaMessage(
+            String payload,
+            long offset,
+            Acknowledgment acknowledgment
+    ) {
+        return MessageBuilder.withPayload(payload)
+                .setHeader(KafkaHeaders.RECEIVED_PARTITION, 0)
+                .setHeader(KafkaHeaders.OFFSET, offset)
+                .setHeader(KafkaHeaders.ACKNOWLEDGMENT, acknowledgment)
+                .build();
+    }
 
-        ReflectionTestUtils.invokeMethod(persistenceTransactionMediator, "notifyError", msg, ex);
+    private static String validTransactionPayload() {
+        return """
+                {"id":"valid-transaction","status":"AUTHORIZED","initiatives":["initiative-1"]}
+                """;
+    }
 
-        Mockito.verify(transactionErrorNotifierService, Mockito.times(1))
-                .notifyTransaction(Mockito.eq(msg), Mockito.anyString(), Mockito.eq(true), Mockito.eq(ex));
+    private static RewardTransaction validMappedTransaction() {
+        return RewardTransaction.builder()
+                .id("valid-transaction")
+                .status(SyncTrxStatus.AUTHORIZED.name())
+                .initiatives(List.of("initiative-1"))
+                .build();
+    }
+
+    private static class CapturingPersistenceTransactionMediator extends PersistenceTransactionMediatorImpl {
+
+        private Flux<List<RewardTransaction>> afterCommits;
+
+        private CapturingPersistenceTransactionMediator(
+                String applicationName,
+                RewardTransactionService rewardTransactionService,
+                TransactionErrorNotifierService transactionErrorNotifierService,
+                RewardTransactionMapper rewardTransactionMapper,
+                long commitMillis,
+                tools.jackson.databind.ObjectMapper objectMapper
+        ) {
+            super(
+                    applicationName,
+                    rewardTransactionService,
+                    transactionErrorNotifierService,
+                    rewardTransactionMapper,
+                    commitMillis,
+                    objectMapper
+            );
+        }
+
+        @Override
+        protected void subscribeAfterCommits(Flux<List<RewardTransaction>> afterCommits2subscribe) {
+            this.afterCommits = afterCommits2subscribe;
+        }
+
+        private Flux<List<RewardTransaction>> afterCommits() {
+            return afterCommits;
+        }
     }
 }
