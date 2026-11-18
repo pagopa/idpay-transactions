@@ -10,7 +10,7 @@ import reactor.core.publisher.Mono;
 
 public interface RewardBatchTransactionDecisionPort {
 
-    Mono<RewardBatch> prepareEvaluation(String rewardBatchId, String initiativeId);
+    Mono<RewardBatch> prepareEvaluation(String rewardBatchId, String initiativeId, int controlThresholdPercentage);
 
     Mono<RewardTransaction> updateStatusAndReturnOld(
             String initiativeId,

@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.persistence.sql;
 
 import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches.REWARD_BATCHES;
 import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions.REWARD_TRANSACTIONS;
+import static it.gov.pagopa.idpay.transactions.utils.RewardBatchControlThreshold.requiredTransactions;
 import static org.jooq.impl.DSL.currentLocalDateTime;
 
 import io.r2dbc.spi.ConnectionFactory;
@@ -40,21 +41,23 @@ import reactor.core.publisher.Mono;
 @Component
 public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDecisionPort {
 
-    private static final long SAMPLE_PERCENT_NUMERATOR = 3L;
-    private static final long SAMPLE_PERCENT_DENOMINATOR = 20L;
-
     private final TransactionalOperator transactionalOperator;
     private final ConnectionFactory connectionFactory;
     private final RewardBatchSqlMapper batchMapper;
     private final RewardTransactionSqlMapper transactionMapper;
 
     @Override
-    public Mono<RewardBatch> prepareEvaluation(String rewardBatchId, String initiativeId) {
+    public Mono<RewardBatch> prepareEvaluation(
+            String rewardBatchId,
+            String initiativeId,
+            int controlThresholdPercentage
+    ) {
         return transactionalOperator.transactional(ConnectionFactoryUtils.getConnection(connectionFactory)
                 .flatMap(connection -> prepareEvaluationWithinTransaction(
                         DSL.using(connection, SQLDialect.POSTGRES),
                         rewardBatchId,
-                        initiativeId
+                        initiativeId,
+                        controlThresholdPercentage
                 )));
     }
 
@@ -88,7 +91,8 @@ public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDe
     private Mono<RewardBatch> prepareEvaluationWithinTransaction(
             DSLContext transactionDslContext,
             String rewardBatchId,
-            String initiativeId
+            String initiativeId,
+            int controlThresholdPercentage
     ) {
         return lockBatch(
                         transactionDslContext,
@@ -105,7 +109,7 @@ public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDe
                                         transactionDslContext,
                                         rewardBatchId,
                                         initiativeId,
-                                        numberOfTransactionsToCheck(total)
+                                        numberOfTransactionsToCheck(total, controlThresholdPercentage)
                                 )
                                 .then(moveBatchToEvaluating(
                                         transactionDslContext,
@@ -297,13 +301,8 @@ public class SqlRewardBatchEvaluationAdapter implements RewardBatchTransactionDe
         return history.isEmpty() ? null : history;
     }
 
-    private static int numberOfTransactionsToCheck(long total) {
-        long completeGroups = total / SAMPLE_PERCENT_DENOMINATOR;
-        long remainder = total % SAMPLE_PERCENT_DENOMINATOR;
-        long sampleSize = completeGroups * SAMPLE_PERCENT_NUMERATOR
-                + (remainder * SAMPLE_PERCENT_NUMERATOR + SAMPLE_PERCENT_DENOMINATOR - 1)
-                / SAMPLE_PERCENT_DENOMINATOR;
-        return Math.toIntExact(sampleSize);
+    private static int numberOfTransactionsToCheck(long total, int controlThresholdPercentage) {
+        return Math.toIntExact(requiredTransactions(total, controlThresholdPercentage));
     }
 
     private record DecisionMutation(

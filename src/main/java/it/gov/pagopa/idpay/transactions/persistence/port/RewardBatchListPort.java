@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.persistence.port;
 
+import it.gov.pagopa.idpay.transactions.dto.RewardBatchMonthDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import org.springframework.data.domain.Pageable;
@@ -33,4 +34,6 @@ public interface RewardBatchListPort {
             PosType posType,
             String month
     );
+
+    Flux<RewardBatchMonthDTO> findAvailableMonths(String initiativeId);
 }
