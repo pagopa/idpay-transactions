@@ -308,6 +308,7 @@ public class SqlRewardBatchAdapter {
                                 .and(REWARD_BATCHES.MONTH.lt(month))
                                 .and(REWARD_BATCHES.ID.ne(rewardBatchId))
                                 .and(REWARD_BATCHES.STATUS.notIn(
+                                        RewardBatchStatus.CREATED.name(),
                                         RewardBatchStatus.APPROVED.name(),
                                         RewardBatchStatus.PENDING_REFUND.name(),
                                         RewardBatchStatus.NOT_REFUNDED.name(),
