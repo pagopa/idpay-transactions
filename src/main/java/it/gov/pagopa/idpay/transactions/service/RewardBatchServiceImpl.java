@@ -150,6 +150,13 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 .map(tuple -> new PageImpl<>(tuple.getT1(), pageable, tuple.getT2()));
     }
 
+    @Override
+    public Mono<RewardBatchMonthListDTO> getAvailableRewardBatchMonths(String initiativeId) {
+        return rewardBatchListPort.findAvailableMonths(initiativeId)
+                .collectList()
+                .map(months -> RewardBatchMonthListDTO.builder().months(months).build());
+    }
+
     private boolean isOperator(String role) {
         return role != null && OPERATORS.contains(role.toLowerCase());
     }
@@ -167,14 +174,10 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 initiativeId,
                 request,
                 RewardBatchTrxStatus.SUSPENDED,
-                generateInternalNote(request),
+                generateNoteDto(request.getInternalNote()),
                 generateNoteDto(request.getOfficialNote()),
                 checksErrorMapper.toModel(request.getChecksError())
         );
-    }
-
-    private static ReasonDTO generateInternalNote(TransactionsRequest request) {
-        return generateNoteDto(request.getResolvedInternalNote());
     }
 
     private static ReasonDTO generateNoteDto(String note) {
@@ -268,7 +271,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                 initiativeId,
                 request,
                 RewardBatchTrxStatus.REJECTED,
-                generateInternalNote(request),
+                generateNoteDto(request.getInternalNote()),
                 generateNoteDto(request.getOfficialNote()),
                 checksErrorMapper.toModel(request.getChecksError())
         );

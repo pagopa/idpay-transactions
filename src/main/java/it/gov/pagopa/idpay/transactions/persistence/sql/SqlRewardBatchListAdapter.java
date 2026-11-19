@@ -1,5 +1,6 @@
 package it.gov.pagopa.idpay.transactions.persistence.sql;
 
+import it.gov.pagopa.idpay.transactions.dto.RewardBatchMonthDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchAssignee;
 import it.gov.pagopa.idpay.transactions.enums.RewardBatchStatus;
@@ -207,6 +208,19 @@ public class SqlRewardBatchListAdapter implements RewardBatchListPort {
                         .and(REWARD_BATCHES.MONTH.lt(month)))
                 .orderBy(REWARD_BATCHES.MONTH.asc()))
                 .map(this::toBatch);
+    }
+
+    @Override
+    public Flux<RewardBatchMonthDTO> findAvailableMonths(String initiativeId) {
+        return Flux.from(dslContext.selectDistinct(REWARD_BATCHES.MONTH, REWARD_BATCHES.NAME)
+                        .from(REWARD_BATCHES)
+                        .where(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId))
+                        .and(REWARD_BATCHES.STATUS.ne(RewardBatchStatus.CREATED.name()))
+                        .orderBy(REWARD_BATCHES.MONTH.asc()))
+                .map(r -> RewardBatchMonthDTO.builder()
+                        .value(r.value1())
+                        .label(r.value2())
+                        .build());
     }
 
     public Mono<RewardBatch> findBatch(String rewardBatchId) {
