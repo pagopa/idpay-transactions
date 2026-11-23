@@ -4,6 +4,7 @@ import static it.gov.pagopa.common.utils.CommonConstants.ZONEID;
 import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches.REWARD_BATCHES;
 import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions.REWARD_TRANSACTIONS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.r2dbc.spi.Connection;
 import it.gov.pagopa.idpay.transactions.enums.PaymentRewardBatchImpactType;
@@ -21,7 +22,9 @@ import java.time.OffsetDateTime;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Pattern;
 import org.jooq.DSLContext;
 import org.jooq.Record;
 import org.jooq.SQLDialect;
@@ -47,6 +50,7 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
     private static final String SOURCE_BATCH_ID = "source-batch";
     private static final String TARGET_BATCH_ID = "target-batch";
     private static final String FUTURE_SOURCE_BATCH_ID = "future-source-batch";
+    private static final Pattern OBJECT_ID_PATTERN = Pattern.compile("^[0-9a-f]{24}$");
 
     private static final YearMonth CURRENT_MONTH = YearMonth.now(ZONEID);
     private static final String PAST_MONTH = CURRENT_MONTH.minusMonths(1).toString();
@@ -184,6 +188,10 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
                     RewardBatch target = result.getT2();
                     assertEquals(RewardBatchStatus.CREATED, target.getStatus());
                     assertEquals(CURRENT_MONTH.toString(), target.getMonth());
+                    assertTrue(
+                            OBJECT_ID_PATTERN.matcher(target.getId()).matches(),
+                            "id '%s' does not match ^[0-9a-f]{24}$".formatted(target.getId())
+                    );
                     assertAggregate(target, 2L, 350L, 2L, 2L, 0L, 350L, 0L);
 
                     Map<String, TransactionRow> transactions = result.getT3();
@@ -261,6 +269,45 @@ class SqlSuspendedTransactionReassignmentAdapterTest extends PostgresqlMigration
                     assertRow(transactions.get("future-suspended"),
                             FUTURE_SOURCE_BATCH_ID, SyncTrxStatus.INVOICED,
                             RewardBatchTrxStatus.SUSPENDED, FUTURE_MONTH);
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldReuseExistingLegacyUuidFormattedTargetWithoutOverwritingItsId() {
+        String legacyTargetId = UUID.randomUUID().toString();
+
+        StepVerifier.create(Flux.concat(
+                        insertBatch(
+                                SOURCE_BATCH_ID,
+                                INITIATIVE_ID,
+                                PAST_MONTH,
+                                RewardBatchStatus.EVALUATING,
+                                100L
+                        ),
+                        insertBatch(legacyTargetId, INITIATIVE_ID, CURRENT_MONTH.toString(),
+                                RewardBatchStatus.CREATED),
+                        insertTransaction(
+                                "past-suspended-legacy",
+                                INITIATIVE_ID,
+                                SOURCE_BATCH_ID,
+                                SyncTrxStatus.REWARDED,
+                                RewardBatchTrxStatus.SUSPENDED,
+                                100L,
+                                null
+                        )
+                ).then(adapter.reassignSuspendedTransactions(SOURCE_BATCH_ID, INITIATIVE_ID)))
+                .verifyComplete();
+
+        StepVerifier.create(Mono.zip(
+                        batchesInGrouping(CURRENT_MONTH.toString()),
+                        transactionRows()
+                ))
+                .assertNext(result -> {
+                    assertEquals(1L, result.getT1());
+                    Map<String, TransactionRow> transactions = result.getT2();
+                    assertRow(transactions.get("past-suspended-legacy"),
+                            legacyTargetId, SyncTrxStatus.INVOICED, RewardBatchTrxStatus.SUSPENDED, PAST_MONTH);
                 })
                 .verifyComplete();
     }

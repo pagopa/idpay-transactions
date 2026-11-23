@@ -131,6 +131,24 @@ class SqlRewardBatchAdapterTest extends PostgresqlMigrationTestSupport {
     }
 
     @Test
+    void shouldRejectCreateOrReadWhenBatchIdIsNull() {
+        RewardBatch batch = batch("batch-null-id");
+        batch.setId(null);
+
+        StepVerifier.create(adapter.createOrRead(batch))
+                .expectError(IllegalStateException.class)
+                .verify();
+
+        StepVerifier.create(adapter.findByGrouping(
+                        batch.getInitiativeId(),
+                        batch.getMerchantId(),
+                        batch.getPosType(),
+                        batch.getMonth()
+                ))
+                .verifyComplete();
+    }
+
+    @Test
     void shouldReadBatchOnlyWithinItsRequestedIdentityScope() {
         RewardBatch batch = batch("batch-identity");
 

@@ -18,7 +18,6 @@ import it.gov.pagopa.idpay.transactions.persistence.port.PaymentRewardBatchImpac
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
@@ -255,7 +254,6 @@ public class SqlPaymentRewardBatchImpactAdapter implements PaymentRewardBatchImp
                 currentMonth,
                 transaction.getBusinessName()
         );
-        candidate.setId(UUID.randomUUID().toString());
 
         return batchAdapter.createOrReadWithinTransaction(candidate, transactionDslContext)
                 .flatMap(target -> target.getId().equals(source.getId())

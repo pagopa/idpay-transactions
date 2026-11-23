@@ -14,7 +14,6 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatchFactory;
 import it.gov.pagopa.idpay.transactions.persistence.port.SuspendedTransactionReassignmentPort;
 import java.time.YearMonth;
 import java.util.List;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
@@ -95,7 +94,6 @@ public class SqlSuspendedTransactionReassignmentAdapter implements SuspendedTran
                 targetMonth(source.getMonth()),
                 source.getBusinessName()
         );
-        target.setId(UUID.randomUUID().toString());
         return batchAdapter.createOrReadWithinTransaction(target, transactionDslContext);
     }
 

@@ -19,7 +19,6 @@ import it.gov.pagopa.idpay.transactions.persistence.port.MerchantTransactionPost
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
@@ -148,7 +147,6 @@ public class SqlMerchantTransactionPostponementAdapter implements MerchantTransa
                 nextMonth(source.getMonth()).toString(),
                 source.getBusinessName()
         );
-        target.setId(UUID.randomUUID().toString());
 
         return batchAdapter.createOrReadWithinTransaction(target, transactionDslContext)
                 .flatMap(created -> Mono.from(transactionDslContext.selectFrom(REWARD_BATCHES)

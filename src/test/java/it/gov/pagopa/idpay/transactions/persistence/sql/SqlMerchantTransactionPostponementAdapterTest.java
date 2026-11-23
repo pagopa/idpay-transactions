@@ -5,6 +5,7 @@ import static it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.
 import static it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode.REWARD_BATCH_TRANSACTION_POSTPONE_LIMIT_EXCEEDED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import it.gov.pagopa.common.web.exception.ClientException;
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
@@ -18,6 +19,8 @@ import it.gov.pagopa.idpay.transactions.support.PostgresqlMigrationTestSupport;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
+import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.jooq.DSLContext;
 import org.jooq.Record;
@@ -51,6 +54,7 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
     private static final String TARGET_BATCH_ID = "target-batch";
     private static final String SOURCE_MONTH = "2026-04";
     private static final String TARGET_MONTH = "2026-05";
+    private static final Pattern OBJECT_ID_PATTERN = Pattern.compile("^[0-9a-f]{24}$");
 
     private static SqlMerchantTransactionPostponementAdapter adapter;
     private static SqlRewardBatchListAdapter listAdapter;
@@ -179,9 +183,39 @@ class SqlMerchantTransactionPostponementAdapterTest extends PostgresqlMigrationT
                     assertEquals(MERCHANT_ID, target.getMerchantId());
                     assertEquals(TARGET_MONTH, target.getMonth());
                     assertEquals("Business", target.getBusinessName());
+                    assertTrue(
+                            OBJECT_ID_PATTERN.matcher(target.getId()).matches(),
+                            "id '%s' does not match ^[0-9a-f]{24}$".formatted(target.getId())
+                    );
                     assertAggregate(result.getT3(), 0L, 0L, 0L, 0L, 0L, 0L, 0L);
                     assertEquals(target.getId(), result.getT4().batchId());
                 })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldReuseExistingLegacyUuidFormattedTargetWithoutOverwritingItsId() {
+        String legacyTargetId = UUID.randomUUID().toString();
+
+        StepVerifier.create(Flux.concat(
+                        insertBatch(SOURCE_BATCH_ID, INITIATIVE_ID, MERCHANT_ID, SOURCE_MONTH,
+                                RewardBatchStatus.CREATED),
+                        insertBatch(legacyTargetId, INITIATIVE_ID, MERCHANT_ID, TARGET_MONTH,
+                                RewardBatchStatus.CREATED),
+                        insertTransaction("moved-to-legacy", INITIATIVE_ID, MERCHANT_ID, SOURCE_BATCH_ID,
+                                SyncTrxStatus.REWARDED, RewardBatchTrxStatus.CONSULTABLE, 100L)
+                ).then(adapter.postponeTransaction(
+                        MERCHANT_ID,
+                        INITIATIVE_ID,
+                        SOURCE_BATCH_ID,
+                        "moved-to-legacy",
+                        LocalDate.of(2026, Month.DECEMBER, 31)
+                )))
+                .assertNext(moved -> assertEquals(legacyTargetId, moved.getRewardBatchId()))
+                .verifyComplete();
+
+        StepVerifier.create(targetGroupingCount())
+                .assertNext(count -> assertEquals(1L, count))
                 .verifyComplete();
     }
 

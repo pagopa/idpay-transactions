@@ -28,9 +28,11 @@ import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
@@ -57,6 +59,7 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
     private static final String MERCHANT_ID = "merchant-1";
     private static final String SOURCE_BATCH_ID = "source-batch";
     private static final String TARGET_BATCH_ID = "target-batch";
+    private static final Pattern OBJECT_ID_PATTERN = Pattern.compile("^[0-9a-f]{24}$");
 
     private static SqlPaymentRewardBatchImpactAdapter adapter;
     private static SqlRewardTransactionAdapter transactionAdapter;
@@ -193,6 +196,10 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                 .assertNext(result -> {
                     assertEquals(2L, result.get(0));
                     assertEquals(RewardBatchStatus.CREATED, ((RewardBatch) result.get(1)).getStatus());
+                    assertTrue(
+                            OBJECT_ID_PATTERN.matcher(((RewardBatch) result.get(1)).getId()).matches(),
+                            "id '%s' does not match ^[0-9a-f]{24}$".formatted(((RewardBatch) result.get(1)).getId())
+                    );
                     assertEquals(new BatchAggregate(0L, 0L, 0L), result.get(2));
                     assertEquals(new BatchAggregate(1L, 125L, 1L), result.get(3));
                 })
@@ -287,6 +294,43 @@ class SqlPaymentRewardBatchImpactAdapterTest extends PostgresqlMigrationTestSupp
                 .verifyComplete();
 
         StepVerifier.create(Mono.zip(batchCount(), aggregate(TARGET_BATCH_ID)))
+                .assertNext(result -> {
+                    assertEquals(2L, result.getT1());
+                    assertEquals(new BatchAggregate(1L, 125L, 1L), result.getT2());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldReuseExistingLegacyUuidFormattedCurrentMonthGrouping() {
+        String transactionId = "move-existing-legacy-target";
+        String currentMonth = YearMonth.now(ZONEID).toString();
+        String legacyTargetId = UUID.randomUUID().toString();
+
+        StepVerifier.create(Flux.concat(
+                        insertBatch(SOURCE_BATCH_ID, RewardBatchStatus.SENT, "2026-07"),
+                        insertBatch(legacyTargetId, RewardBatchStatus.CREATED, currentMonth),
+                        insertMembership(
+                                transactionId,
+                                SOURCE_BATCH_ID,
+                                RewardBatchTrxStatus.TO_CHECK,
+                                SyncTrxStatus.AUTHORIZED,
+                                5L,
+                                12
+                        )
+                ).then(adapter.applyImpact(replacement(
+                        transactionId,
+                        "move-existing-legacy-target-event",
+                        6L,
+                        previousMonthEventTime()
+                ))))
+                .assertNext(transaction -> {
+                    assertEquals(legacyTargetId, transaction.getRewardBatchId());
+                    assertEquals(RewardBatchTrxStatus.SUSPENDED, transaction.getRewardBatchTrxStatus());
+                })
+                .verifyComplete();
+
+        StepVerifier.create(Mono.zip(batchCount(), aggregate(legacyTargetId)))
                 .assertNext(result -> {
                     assertEquals(2L, result.getT1());
                     assertEquals(new BatchAggregate(1L, 125L, 1L), result.getT2());
