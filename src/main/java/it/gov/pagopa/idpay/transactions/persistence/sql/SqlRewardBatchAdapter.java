@@ -98,6 +98,12 @@ public class SqlRewardBatchAdapter {
     }
 
     Mono<RewardBatch> createOrReadWithinTransaction(RewardBatch batch, DSLContext transactionDslContext) {
+        if (batch.getId() == null) {
+            return Mono.error(new IllegalStateException(
+                    "Reward batch id must be generated before persistence"
+            ));
+        }
+
         RewardBatchEntity entity = mapper.toEntity(batch);
         return insert(transactionDslContext, entity)
                 .switchIfEmpty(findByGrouping(transactionDslContext,

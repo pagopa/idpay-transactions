@@ -26,6 +26,7 @@ public final class RewardBatchFactory {
         LocalDateTime now = LocalDateTime.now(ZONEID);
 
         return RewardBatch.builder()
+                .id(RewardBatchIdGenerator.generate())
                 .merchantId(merchantId)
                 .initiativeId(initiativeId)
                 .businessName(businessName)

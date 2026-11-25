@@ -14,7 +14,6 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.persistence.port.InvoicedTransactionAssignmentPort;
 import java.util.List;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
@@ -182,10 +181,6 @@ public class SqlInvoicedTransactionAssignmentAdapter implements InvoicedTransact
     }
 
     private Mono<RewardBatch> lockOrCreateBatch(DSLContext transactionDslContext, RewardBatch batch) {
-        if (batch.getId() == null) {
-            batch.setId(UUID.randomUUID().toString());
-        }
-
         return batchAdapter.createOrReadWithinTransaction(batch, transactionDslContext)
                 .flatMap(created -> Mono.from(transactionDslContext.selectFrom(REWARD_BATCHES)
                                 .where(REWARD_BATCHES.ID.eq(created.getId())

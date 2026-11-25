@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import it.gov.pagopa.common.web.exception.ClientExceptionNoBody;
 import it.gov.pagopa.idpay.transactions.dto.ReasonDTO;
 import it.gov.pagopa.idpay.transactions.enums.PosType;
@@ -23,6 +22,8 @@ import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.regex.Pattern;
 import org.jooq.DSLContext;
 import org.jooq.Record1;
 import org.jooq.SQLDialect;
@@ -45,6 +46,7 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
 
     private static final String INITIATIVE_ID = "initiative-1";
     private static final String MERCHANT_ID = "merchant-1";
+    private static final Pattern OBJECT_ID_PATTERN = Pattern.compile("^[0-9a-f]{24}$");
 
     private static SqlInvoicedTransactionAssignmentAdapter adapter;
     private static SqlRewardBatchAdapter batchAdapter;
@@ -113,6 +115,10 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
         StepVerifier.create(adapter.assignInvoicedTransaction(transaction, batch(), 123))
                 .assertNext(assigned -> {
                     assertNotNull(assigned.getRewardBatchId());
+                    assertTrue(
+                            OBJECT_ID_PATTERN.matcher(assigned.getRewardBatchId()).matches(),
+                            "id '%s' does not match ^[0-9a-f]{24}$".formatted(assigned.getRewardBatchId())
+                    );
                     assertEquals(RewardBatchTrxStatus.CONSULTABLE, assigned.getRewardBatchTrxStatus());
                     assertNotNull(assigned.getRewardBatchInclusionDate());
                     assertEquals(123, assigned.getSamplingKey());
@@ -314,6 +320,28 @@ class SqlInvoicedTransactionAssignmentAdapterTest extends PostgresqlMigrationTes
                         123
                 ))
                 .assertNext(assigned -> assertEquals("provided-batch-id", assigned.getRewardBatchId()))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldReuseExistingLegacyUuidFormattedBatchWithoutOverwritingItsId() {
+        String legacyBatchId = UUID.randomUUID().toString();
+        RewardBatch existing = batch();
+        existing.setId(legacyBatchId);
+
+        StepVerifier.create(batchAdapter.createOrRead(existing)
+                        .then(adapter.assignInvoicedTransaction(
+                                transaction("transaction-legacy-batch", 750L),
+                                batch(),
+                                123
+                        )))
+                .assertNext(assigned -> assertEquals(legacyBatchId, assigned.getRewardBatchId()))
+                .verifyComplete();
+
+        StepVerifier.create(Mono.from(dslContext.selectCount()
+                        .from(REWARD_BATCHES)
+                        .where(REWARD_BATCHES.INITIATIVE_ID.eq(INITIATIVE_ID))))
+                .expectNextMatches(result -> result.value1() == 1)
                 .verifyComplete();
     }
 
