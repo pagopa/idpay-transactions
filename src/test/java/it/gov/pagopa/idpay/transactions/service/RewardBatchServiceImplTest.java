@@ -3,30 +3,36 @@ package it.gov.pagopa.idpay.transactions.service;
 import it.gov.pagopa.common.web.exception.RewardBatchMissingFilenameException;
 import it.gov.pagopa.idpay.transactions.connector.rest.MerchantRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.PaymentRestClient;
-import it.gov.pagopa.idpay.transactions.data.factory.DataFactoryService;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.InitiativeDetailDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.dto.MerchantDetailDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.erogazioni.ErogazioniRestClient;
-import it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException;
+import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.ErogazioneOutcomeDTO;
+import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.ErrorInvitaliaDTO;
+import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.SelfcareInstitutionsRestClient;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionDTO;
 import it.gov.pagopa.idpay.transactions.connector.rest.selfcare.dto.InstitutionList;
+import it.gov.pagopa.idpay.transactions.data.factory.DataFactoryService;
 import it.gov.pagopa.idpay.transactions.dto.ChecksErrorDTO;
 import it.gov.pagopa.idpay.transactions.dto.DeliveryOutcomeDTO;
 import it.gov.pagopa.idpay.transactions.dto.RewardBatchMonthDTO;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.dto.mapper.ChecksErrorMapper;
 import it.gov.pagopa.idpay.transactions.enums.*;
+import it.gov.pagopa.idpay.transactions.exception.AzureConnectingErrorException;
 import it.gov.pagopa.idpay.transactions.model.Report;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.TransactionNotes;
 import it.gov.pagopa.idpay.transactions.persistence.port.*;
+import it.gov.pagopa.idpay.transactions.persistence.sql.OutcomeCheckCommand;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
+import org.jooq.JSONB;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -34,7 +40,9 @@ import org.springframework.data.domain.PageRequest;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+import tools.jackson.databind.ObjectMapper;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -42,8 +50,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.IntStream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -79,7 +86,7 @@ class RewardBatchServiceImplTest {
                 postponementPort, finalApprovalPort, promotionPort, deliveryPort, reassignmentPort,
                 batchBlobService, checksErrorMapper, auditUtilities, merchantRestClient,
                 paymentRestClient, selfcareClient, erogazioniClient, initiativeDataService,
-                dataFactoryService, reportPersistencePort, 10);
+                dataFactoryService, reportPersistencePort, new ObjectMapper(), 10);
         lenient().when(initiativeDataService.getRewardBatchControlThreshold(anyString()))
                 .thenReturn(Mono.just(15));
     }
@@ -118,10 +125,10 @@ class RewardBatchServiceImplTest {
     void evaluationDelegatesEachSentBatchToSqlDecisionPort() {
         RewardBatch sent = RewardBatch.builder().id("batch").build();
         when(lifecyclePort.findBatchesWithStatus(RewardBatchStatus.SENT, "initiative"))
-                .thenReturn(reactor.core.publisher.Flux.just(sent));
+                .thenReturn(Flux.just(sent));
         when(transactionReadPort.findBatchTransactionIds(eq("batch"), eq("initiative"), anyInt(), anyInt()))
                 .thenReturn(Flux.just("trx-1", "trx-2"), Flux.empty());
-        when(paymentRestClient.updateTransactionsStatus(java.util.Set.of("trx-1", "trx-2"), SyncTrxStatus.REWARDED))
+        when(paymentRestClient.updateTransactionsStatus(Set.of("trx-1", "trx-2"), SyncTrxStatus.REWARDED))
                 .thenReturn(Mono.just(2));
         when(decisionPort.prepareEvaluation("batch", "initiative", 15)).thenReturn(Mono.just(sent));
 
@@ -134,7 +141,7 @@ class RewardBatchServiceImplTest {
                 anyString(), eq("initiative"), eq(RewardBatchStatus.SENT));
         InOrder inOrder = inOrder(paymentRestClient, decisionPort);
         inOrder.verify(paymentRestClient)
-                .updateTransactionsStatus(java.util.Set.of("trx-1", "trx-2"), SyncTrxStatus.REWARDED);
+                .updateTransactionsStatus(Set.of("trx-1", "trx-2"), SyncTrxStatus.REWARDED);
         inOrder.verify(decisionPort).prepareEvaluation("batch", "initiative", 15);
     }
 
@@ -787,20 +794,30 @@ class RewardBatchServiceImplTest {
     void refundOutcomesUseSqlDeliveryPortForCompletionAndRejection() {
         RewardBatch pending = batch("batch", RewardBatchStatus.PENDING_REFUND);
         RewardBatch refunded = batch("batch", RewardBatchStatus.REFUNDED);
-        var completed = it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO.builder()
-                .erogazione(it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.ErogazioneOutcomeDTO.builder()
-                        .status("COMPLETATA").dateValue(LocalDate.parse("2026-01-02")).build()).build();
-        when(deliveryPort.recordRefundOutcome(
-                "batch", "initiative", RewardBatchStatus.REFUNDED, LocalDate.parse("2026-01-02"), null))
+        var completed = InvitaliaOutcomeResponseDTO.builder()
+                .erogazione(ErogazioneOutcomeDTO.builder()
+                        .status("COMPLETATA")
+                        .amountPaid(new BigDecimal("12.34"))
+                        .dateValue(LocalDate.parse("2026-01-02"))
+                        .build())
+                .build();
+        when(deliveryPort.recordOutcomeCheck(
+                eq("batch"), eq("initiative"),
+                eq(new OutcomeCheckCommand("COMPLETATA", 1234L, LocalDate.parse("2026-01-02"), null, RewardBatchStatus.REFUNDED)),
+                any(JSONB.class)))
                 .thenReturn(Mono.just(refunded));
         StepVerifier.create(service.updateBatch(pending, completed)).expectNext(refunded).verifyComplete();
 
         RewardBatch notRefunded = batch("batch", RewardBatchStatus.NOT_REFUNDED);
-        var rejected = it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO.builder()
-                .erogazione(it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.ErogazioneOutcomeDTO.builder()
-                        .status("RIFIUTATA").build()).build();
-        when(deliveryPort.recordRefundOutcome(
-                "batch", "initiative", RewardBatchStatus.NOT_REFUNDED, null, null))
+        var rejected = InvitaliaOutcomeResponseDTO.builder()
+                .erogazione(ErogazioneOutcomeDTO.builder()
+                        .status("RIFIUTATA")
+                        .build())
+                .build();
+        when(deliveryPort.recordOutcomeCheck(
+                eq("batch"), eq("initiative"),
+                eq(new OutcomeCheckCommand("RIFIUTATA", null, null, null, RewardBatchStatus.NOT_REFUNDED)),
+                any(JSONB.class)))
                 .thenReturn(Mono.just(notRefunded));
         StepVerifier.create(service.updateBatch(pending, rejected)).expectNext(notRefunded).verifyComplete();
     }
@@ -808,18 +825,23 @@ class RewardBatchServiceImplTest {
     @Test
     void refundOutcomeStateMismatchAndNonTerminalOutcomesAreHandled() {
         RewardBatch pending = batch("batch", RewardBatchStatus.PENDING_REFUND);
-        var completed = it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO.builder()
-                .erogazione(it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.ErogazioneOutcomeDTO.builder()
+        var completed = InvitaliaOutcomeResponseDTO.builder()
+                .erogazione(ErogazioneOutcomeDTO.builder()
                         .status("COMPLETATA").dateValue(LocalDate.parse("2026-01-02")).build()).build();
-        when(deliveryPort.recordRefundOutcome(
-                "batch", "initiative", RewardBatchStatus.REFUNDED, LocalDate.parse("2026-01-02"), null))
+        when(deliveryPort.recordOutcomeCheck(eq("batch"), eq("initiative"), any(OutcomeCheckCommand.class), any()))
                 .thenReturn(Mono.empty());
         StepVerifier.create(service.updateBatch(pending, completed)).expectError().verify();
 
-        var processing = it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO.builder()
-                .erogazione(it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.ErogazioneOutcomeDTO.builder()
+        RewardBatch updatedProcessing = batch("batch", RewardBatchStatus.PENDING_REFUND);
+        var processing = InvitaliaOutcomeResponseDTO.builder()
+                .erogazione(ErogazioneOutcomeDTO.builder()
                         .status("IN_LAVORAZIONE").build()).build();
-        StepVerifier.create(service.updateBatch(pending, processing)).expectNext(pending).verifyComplete();
+        when(deliveryPort.recordOutcomeCheck(
+                eq("batch"), eq("initiative"),
+                eq(new OutcomeCheckCommand("IN_LAVORAZIONE", null, null, null, null)),
+                any(JSONB.class)))
+                .thenReturn(Mono.just(updatedProcessing));
+        StepVerifier.create(service.updateBatch(pending, processing)).expectNext(updatedProcessing).verifyComplete();
     }
 
     @Test
@@ -835,26 +857,68 @@ class RewardBatchServiceImplTest {
         RewardBatch requested = batch("batch", RewardBatchStatus.APPROVED);
         RewardBatch snapshotted = batch("batch", RewardBatchStatus.APPROVED);
         snapshotted.setDeliveryAmountCents(123L);
-        snapshotted.setApprovalDate(java.time.LocalDateTime.parse("2026-01-01T10:00:00"));
+        snapshotted.setApprovalDate(LocalDateTime.parse("2026-01-01T10:00:00"));
         RewardBatch delivered = batch("batch", RewardBatchStatus.PENDING_REFUND);
         MerchantDetailDTO merchant = MerchantDetailDTO.builder()
                 .fiscalCode("fiscal").vatNumber("vat").businessName("business")
-                .iban("iban").ibanHolder("holder").build();
+                .iban("IT60X0542811101000000123456").ibanHolder("holder").build();
         InstitutionDTO institution = InstitutionDTO.builder()
                 .zipCode("00100").address("street").city("Rome").county("RM")
                 .digitalAddress("pec@example.com").build();
-        DeliveryOutcomeDTO outcome = DeliveryOutcomeDTO.builder().succeded(true).message("accepted").build();
+        DeliveryOutcomeDTO outcome = DeliveryOutcomeDTO.builder().succeded(true).message("accepted").code(200).build();
         when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(requested));
         when(deliveryPort.snapshotDeliveryAmount("batch", "initiative")).thenReturn(Mono.just(snapshotted));
         when(merchantRestClient.getMerchantDetail("merchant", "initiative")).thenReturn(Mono.just(merchant));
         when(selfcareClient.getInstitutions("fiscal")).thenReturn(Mono.just(new InstitutionList(List.of(institution))));
         when(erogazioniClient.postErogazione(any())).thenReturn(Mono.just(outcome));
-        when(deliveryPort.recordDeliveryOutcome("batch", "initiative", outcome)).thenReturn(Mono.just(delivered));
+        when(deliveryPort.recordDeliveryOutcome(eq("batch"), eq("initiative"), any(DeliveryOutcomeDTO.class)))
+                .thenReturn(Mono.just(delivered));
+
+        ArgumentCaptor<JSONB> reqJsonCaptor = ArgumentCaptor.forClass(JSONB.class);
+        when(deliveryPort.recordDeliveryEvent(
+                eq("batch"), eq("initiative"), eq("ACCEPTED"), eq(200), reqJsonCaptor.capture(), any(JSONB.class)))
+                .thenReturn(Mono.empty());
 
         StepVerifier.create(service.processSingleBatchDelivery(requested, "initiative"))
                 .expectNext(delivered).verifyComplete();
 
-        verify(deliveryPort).recordDeliveryOutcome("batch", "initiative", outcome);
+        verify(deliveryPort).recordDeliveryOutcome(eq("batch"), eq("initiative"), any(DeliveryOutcomeDTO.class));
+        String sanitizedJson = reqJsonCaptor.getValue().data();
+        assertTrue(sanitizedJson.contains("***********************3456"));
+        assertFalse(sanitizedJson.contains("fiscal"));
+        assertFalse(sanitizedJson.contains("vat"));
+        assertFalse(sanitizedJson.contains("pec@example.com"));
+        assertFalse(sanitizedJson.contains("street"));
+        assertFalse(sanitizedJson.contains("holder"));
+    }
+
+    @Test
+    void deliveryWorkerDoesNotRecordEventWhenSendDoesNotOccurAndStillCompletesIfEventFails() {
+        RewardBatch requested = batch("batch", RewardBatchStatus.APPROVED);
+        RewardBatch snapshotted = batch("batch", RewardBatchStatus.APPROVED);
+        snapshotted.setDeliveryAmountCents(100L);
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(requested));
+        when(deliveryPort.snapshotDeliveryAmount("batch", "initiative")).thenReturn(Mono.just(snapshotted));
+        when(merchantRestClient.getMerchantDetail("merchant", "initiative")).thenReturn(Mono.empty());
+
+        StepVerifier.create(service.processSingleBatchDelivery(requested, "initiative")).expectError().verify();
+        verify(deliveryPort, never()).recordDeliveryEvent(any(), any(), any(), any(), any(), any());
+
+        MerchantDetailDTO merchant = MerchantDetailDTO.builder().fiscalCode("fiscal").build();
+        InstitutionDTO institution = InstitutionDTO.builder().build();
+        DeliveryOutcomeDTO techError = DeliveryOutcomeDTO.builder()
+                .succeded(false).message("Technical error: timeout").code(0).build();
+        RewardBatch stillApproved = batch("batch", RewardBatchStatus.APPROVED);
+        when(merchantRestClient.getMerchantDetail("merchant", "initiative")).thenReturn(Mono.just(merchant));
+        when(selfcareClient.getInstitutions("fiscal")).thenReturn(Mono.just(new InstitutionList(List.of(institution))));
+        when(erogazioniClient.postErogazione(any())).thenReturn(Mono.just(techError));
+        when(deliveryPort.recordDeliveryOutcome("batch", "initiative", techError)).thenReturn(Mono.just(stillApproved));
+        when(deliveryPort.recordDeliveryEvent(
+                eq("batch"), eq("initiative"), eq("TECHNICAL_ERROR"), isNull(), any(), any()))
+                .thenReturn(Mono.error(new RuntimeException("db error")));
+
+        StepVerifier.create(service.processSingleBatchDelivery(requested, "initiative"))
+                .expectNext(stillApproved).verifyComplete();
     }
 
     @Test
@@ -969,7 +1033,7 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Mono.empty());
         when(transactionReadPort.findBatchTransactionIds(eq("sent"), eq("initiative"), anyInt(), anyInt()))
                 .thenReturn(Flux.just("trx-1"), Flux.empty());
-        when(paymentRestClient.updateTransactionsStatus(java.util.Set.of("trx-1"), SyncTrxStatus.REWARDED))
+        when(paymentRestClient.updateTransactionsStatus(Set.of("trx-1"), SyncTrxStatus.REWARDED))
                 .thenReturn(Mono.just(1));
         when(decisionPort.prepareEvaluation("sent", "initiative", 15)).thenReturn(Mono.just(sent));
 
@@ -1029,19 +1093,26 @@ class RewardBatchServiceImplTest {
     }
 
     @Test
-    void outcomePollingUsesRequestedOrPendingRefundBatches() {
+    void outcomePollingUsesRequestedOrPendingRefundBatchesAndSkipsPortOnHttpError() {
         RewardBatch pending = batch("batch", RewardBatchStatus.PENDING_REFUND);
-        var completed = it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO.builder()
-                .erogazione(it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.ErogazioneOutcomeDTO.builder()
+        var completed = InvitaliaOutcomeResponseDTO.builder()
+                .erogazione(ErogazioneOutcomeDTO.builder()
                         .status("COMPLETATA").dateValue(LocalDate.parse("2026-01-02")).build()).build();
         when(lifecyclePort.findBatchWithStatus("batch", "initiative", RewardBatchStatus.PENDING_REFUND))
                 .thenReturn(Mono.just(pending));
         when(erogazioniClient.getOutcome("batch")).thenReturn(Mono.just(completed));
-        when(deliveryPort.recordRefundOutcome(
-                "batch", "initiative", RewardBatchStatus.REFUNDED, LocalDate.parse("2026-01-02"), null))
+        when(deliveryPort.recordOutcomeCheck(
+                eq("batch"), eq("initiative"),
+                eq(new OutcomeCheckCommand("COMPLETATA", null, LocalDate.parse("2026-01-02"), null, RewardBatchStatus.REFUNDED)),
+                any(JSONB.class)))
                 .thenReturn(Mono.just(batch("batch", RewardBatchStatus.REFUNDED)));
         StepVerifier.create(service.checkRewardBatchesOutcomes("initiative", List.of("batch")))
                 .verifyComplete();
+
+        when(erogazioniClient.getOutcome("batch")).thenReturn(Mono.error(new RuntimeException("HTTP 500")));
+        StepVerifier.create(service.checkRewardBatchesOutcomes("initiative", List.of("batch")))
+                .expectError(RuntimeException.class)
+                .verify();
 
         when(lifecyclePort.findBatchesWithStatus(RewardBatchStatus.PENDING_REFUND, "initiative"))
                 .thenReturn(Flux.empty());
@@ -1095,21 +1166,28 @@ class RewardBatchServiceImplTest {
     @Test
     void refundRejectionConcatenatesExternalErrorsAndUnknownStatusIsUnchanged() {
         RewardBatch pending = batch("batch", RewardBatchStatus.PENDING_REFUND);
-        var rejected = it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO.builder()
-                .erogazione(it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.ErogazioneOutcomeDTO.builder()
+        var rejected = InvitaliaOutcomeResponseDTO.builder()
+                .erogazione(ErogazioneOutcomeDTO.builder()
                         .status("RIFIUTATA").build())
                 .errors(List.of(
-                        new it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.ErrorInvitaliaDTO("a", "first"),
-                        new it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.ErrorInvitaliaDTO("b", "second")))
+                        new ErrorInvitaliaDTO("a", "first"),
+                        new ErrorInvitaliaDTO("b", "second")))
                 .build();
-        when(deliveryPort.recordRefundOutcome(
-                "batch", "initiative", RewardBatchStatus.NOT_REFUNDED, null, "a - first; b - second"))
+        when(deliveryPort.recordOutcomeCheck(
+                eq("batch"), eq("initiative"),
+                eq(new OutcomeCheckCommand("RIFIUTATA", null, null, "a - first; b - second", RewardBatchStatus.NOT_REFUNDED)),
+                any(JSONB.class)))
                 .thenReturn(Mono.just(batch("batch", RewardBatchStatus.NOT_REFUNDED)));
         StepVerifier.create(service.updateBatch(pending, rejected)).expectNextCount(1).verifyComplete();
 
-        var unknown = it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO.builder()
-                .erogazione(it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.ErogazioneOutcomeDTO.builder()
+        var unknown = InvitaliaOutcomeResponseDTO.builder()
+                .erogazione(ErogazioneOutcomeDTO.builder()
                         .status("UNKNOWN").build()).build();
+        when(deliveryPort.recordOutcomeCheck(
+                eq("batch"), eq("initiative"),
+                eq(new OutcomeCheckCommand("UNKNOWN", null, null, null, null)),
+                any(JSONB.class)))
+                .thenReturn(Mono.just(pending));
         StepVerifier.create(service.updateBatch(pending, unknown)).expectNext(pending).verifyComplete();
     }
 
@@ -1149,7 +1227,7 @@ class RewardBatchServiceImplTest {
                 .thenReturn(Mono.just(MerchantDetailDTO.builder().fiscalCode("fiscal").build()));
         when(selfcareClient.getInstitutions("fiscal"))
                 .thenReturn(Mono.just(new InstitutionList(List.of())));
-        org.mockito.Mockito.doCallRealMethod().when(worker).processSingleBatchDelivery(missing, "initiative");
+        doCallRealMethod().when(worker).processSingleBatchDelivery(missing, "initiative");
         doReturn(Mono.just(rejected)).when(worker).processSingleBatchDelivery(rejected, "initiative");
         doReturn(Mono.fromSupplier(() -> {
             accepted.setStatus(RewardBatchStatus.PENDING_REFUND);
@@ -1206,10 +1284,152 @@ class RewardBatchServiceImplTest {
                 .id(id).initiativeId("initiative").merchantId("merchant")
                 .month(YearMonth.now().minusMonths(1).toString()).posType(PosType.PHYSICAL)
                 .status(status).name("name").businessName("business")
-                .startDate(java.time.LocalDateTime.parse("2026-01-01T00:00:00"))
-                .endDate(java.time.LocalDateTime.parse("2026-01-31T23:59:59"))
-                .approvalDate(java.time.LocalDateTime.parse("2026-02-01T10:00:00"))
+                .startDate(LocalDateTime.parse("2026-01-01T00:00:00"))
+                .endDate(LocalDateTime.parse("2026-01-31T23:59:59"))
+                .approvalDate(LocalDateTime.parse("2026-02-01T10:00:00"))
                 .numberOfTransactions(1L).build();
+    }
+
+    @Test
+    void updateBatchReturnsOriginalBatchWhenResponseOrErogazioneIsNullAndLogsErroreStatus() {
+        RewardBatch pending = batch("batch", RewardBatchStatus.PENDING_REFUND);
+
+        StepVerifier.create(service.updateBatch(pending, null))
+                .expectNext(pending)
+                .verifyComplete();
+
+        StepVerifier.create(service.updateBatch(pending, InvitaliaOutcomeResponseDTO.builder().build()))
+                .expectNext(pending)
+                .verifyComplete();
+
+        InvitaliaOutcomeResponseDTO erroreResponse = InvitaliaOutcomeResponseDTO.builder()
+                .erogazione(ErogazioneOutcomeDTO.builder().status("ERRORE").build())
+                .build();
+        when(deliveryPort.recordOutcomeCheck(
+                eq("batch"), eq("initiative"),
+                eq(new OutcomeCheckCommand("ERRORE", null, null, null, null)),
+                any(JSONB.class)))
+                .thenReturn(Mono.just(pending));
+
+        StepVerifier.create(service.updateBatch(pending, erroreResponse))
+                .expectNext(pending)
+                .verifyComplete();
+    }
+
+    @Test
+    void updateBatchHandlesRifiutataWithoutErrorsList() {
+        RewardBatch pending = batch("batch", RewardBatchStatus.PENDING_REFUND);
+        RewardBatch notRefunded = batch("batch", RewardBatchStatus.NOT_REFUNDED);
+        InvitaliaOutcomeResponseDTO rifiutata = InvitaliaOutcomeResponseDTO.builder()
+                .erogazione(ErogazioneOutcomeDTO.builder().status("RIFIUTATA").build())
+                .errors(List.of())
+                .build();
+
+        when(deliveryPort.recordOutcomeCheck(
+                eq("batch"), eq("initiative"),
+                eq(new OutcomeCheckCommand("RIFIUTATA", null, null, null, RewardBatchStatus.NOT_REFUNDED)),
+                any(JSONB.class)))
+                .thenReturn(Mono.just(notRefunded));
+
+        StepVerifier.create(service.updateBatch(pending, rifiutata))
+                .expectNext(notRefunded)
+                .verifyComplete();
+    }
+
+    @Test
+    void deliveryWorkerRecordsRejectedOutcomeAndHandlesBlankOrShortIban() {
+        RewardBatch requested = batch("batch", RewardBatchStatus.APPROVED);
+        RewardBatch snapshotted = batch("batch", RewardBatchStatus.APPROVED);
+        snapshotted.setDeliveryAmountCents(100L);
+        RewardBatch stillApproved = batch("batch", RewardBatchStatus.APPROVED);
+        InstitutionDTO institution = InstitutionDTO.builder().build();
+        DeliveryOutcomeDTO rejected = DeliveryOutcomeDTO.builder()
+                .succeded(false).message("invalid iban").code(422).build();
+
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(requested));
+        when(deliveryPort.snapshotDeliveryAmount("batch", "initiative")).thenReturn(Mono.just(snapshotted));
+        when(selfcareClient.getInstitutions("fiscal")).thenReturn(Mono.just(new InstitutionList(List.of(institution))));
+        when(erogazioniClient.postErogazione(any())).thenReturn(Mono.just(rejected));
+        when(deliveryPort.recordDeliveryOutcome(eq("batch"), eq("initiative"), any(DeliveryOutcomeDTO.class)))
+                .thenReturn(Mono.just(stillApproved));
+
+        MerchantDetailDTO blankIbanMerchant = MerchantDetailDTO.builder()
+                .fiscalCode("fiscal").iban("   ").build();
+        ArgumentCaptor<JSONB> reqBlankCaptor = ArgumentCaptor.forClass(JSONB.class);
+        when(deliveryPort.recordDeliveryEvent(
+                eq("batch"), eq("initiative"), eq("REJECTED"), eq(422), reqBlankCaptor.capture(), any(JSONB.class)))
+                .thenReturn(Mono.empty());
+        when(merchantRestClient.getMerchantDetail("merchant", "initiative")).thenReturn(Mono.just(blankIbanMerchant));
+
+        StepVerifier.create(service.processSingleBatchDelivery(requested, "initiative"))
+                .expectNext(stillApproved)
+                .verifyComplete();
+        assertTrue(reqBlankCaptor.getValue().data().contains("\"ibanBeneficiario\":\"   \""));
+
+        MerchantDetailDTO shortIbanMerchant = MerchantDetailDTO.builder()
+                .fiscalCode("fiscal").iban("AB12").build();
+        ArgumentCaptor<JSONB> reqShortCaptor = ArgumentCaptor.forClass(JSONB.class);
+        when(deliveryPort.recordDeliveryEvent(
+                eq("batch"), eq("initiative"), eq("REJECTED"), eq(422), reqShortCaptor.capture(), any(JSONB.class)))
+                .thenReturn(Mono.empty());
+        when(merchantRestClient.getMerchantDetail("merchant", "initiative")).thenReturn(Mono.just(shortIbanMerchant));
+
+        StepVerifier.create(service.processSingleBatchDelivery(requested, "initiative"))
+                .expectNext(stillApproved)
+                .verifyComplete();
+        assertTrue(reqShortCaptor.getValue().data().contains("\"ibanBeneficiario\":\"****\""));
+    }
+
+    @Test
+    void updateBatchThrowsIllegalStateWhenJsonSerializationFails() {
+        ObjectMapper failingMapper = mock(ObjectMapper.class);
+        when(failingMapper.writeValueAsString(any())).thenThrow(new RuntimeException("serialization error"));
+
+        RewardBatchServiceImpl failingService = new RewardBatchServiceImpl(
+                lifecyclePort, listPort, merchantLookupPort, transactionReadPort, decisionPort,
+                postponementPort, finalApprovalPort, promotionPort, deliveryPort, reassignmentPort,
+                batchBlobService, checksErrorMapper, auditUtilities, merchantRestClient,
+                paymentRestClient, selfcareClient, erogazioniClient, initiativeDataService,
+                dataFactoryService, reportPersistencePort, failingMapper, 10);
+
+        RewardBatch pending = batch("batch", RewardBatchStatus.PENDING_REFUND);
+        InvitaliaOutcomeResponseDTO response = InvitaliaOutcomeResponseDTO.builder()
+                .erogazione(ErogazioneOutcomeDTO.builder().status("COMPLETATA").build())
+                .build();
+
+        assertThrows(IllegalStateException.class, () -> failingService.updateBatch(pending, response));
+    }
+
+    @Test
+    void deliveryWorkerHandlesNullMessageOnFailedOutcomeAsRejected() {
+        RewardBatch requested = batch("batch", RewardBatchStatus.APPROVED);
+        RewardBatch snapshotted = batch("batch", RewardBatchStatus.APPROVED);
+        snapshotted.setDeliveryAmountCents(100L);
+        RewardBatch stillApproved = batch("batch", RewardBatchStatus.APPROVED);
+
+        MerchantDetailDTO merchant = MerchantDetailDTO.builder()
+                .fiscalCode("fiscal").iban("IT60X0542811101000000123456").build();
+        InstitutionDTO institution = InstitutionDTO.builder().build();
+        DeliveryOutcomeDTO failedNoMessage = DeliveryOutcomeDTO.builder()
+                .succeded(false).message(null).code(400).build();
+
+        when(lifecyclePort.findBatch("batch", "initiative")).thenReturn(Mono.just(requested));
+        when(deliveryPort.snapshotDeliveryAmount("batch", "initiative")).thenReturn(Mono.just(snapshotted));
+        when(merchantRestClient.getMerchantDetail("merchant", "initiative")).thenReturn(Mono.just(merchant));
+        when(selfcareClient.getInstitutions("fiscal")).thenReturn(Mono.just(new InstitutionList(List.of(institution))));
+        when(erogazioniClient.postErogazione(any())).thenReturn(Mono.just(failedNoMessage));
+        when(deliveryPort.recordDeliveryOutcome(eq("batch"), eq("initiative"), any(DeliveryOutcomeDTO.class)))
+                .thenReturn(Mono.just(stillApproved));
+        when(deliveryPort.recordDeliveryEvent(
+                eq("batch"), eq("initiative"), eq("REJECTED"), eq(400), any(), any()))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(service.processSingleBatchDelivery(requested, "initiative"))
+                .expectNext(stillApproved)
+                .verifyComplete();
+
+        verify(deliveryPort).recordDeliveryEvent(
+                eq("batch"), eq("initiative"), eq("REJECTED"), eq(400), any(), any());
     }
 
     @Test

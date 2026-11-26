@@ -8,6 +8,8 @@ import it.gov.pagopa.idpay.transactions.persistence.sql.generated.IdpayRimborsi;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.Indexes;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.Keys;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.Reports.ReportsPath;
+import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatchDeliveryEvents.RewardBatchDeliveryEventsPath;
+import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatchDeliveryTransactions.RewardBatchDeliveryTransactionsPath;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions.RewardTransactionsPath;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardBatchesRecord;
 
@@ -205,6 +207,24 @@ public class RewardBatches extends TableImpl<RewardBatchesRecord> {
      */
     public final TableField<RewardBatchesRecord, String> REPORT_ID = createField(DSL.name("report_id"), SQLDataType.CLOB, this, "");
 
+    /**
+     * The column
+     * <code>idpay-rimborsi.reward_batches.last_outcome_check_date</code>.
+     */
+    public final TableField<RewardBatchesRecord, LocalDateTime> LAST_OUTCOME_CHECK_DATE = createField(DSL.name("last_outcome_check_date"), SQLDataType.LOCALDATETIME(6), this, "");
+
+    /**
+     * The column
+     * <code>idpay-rimborsi.reward_batches.last_invitalia_status</code>.
+     */
+    public final TableField<RewardBatchesRecord, String> LAST_INVITALIA_STATUS = createField(DSL.name("last_invitalia_status"), SQLDataType.CLOB, this, "");
+
+    /**
+     * The column
+     * <code>idpay-rimborsi.reward_batches.refund_amount_paid_cents</code>.
+     */
+    public final TableField<RewardBatchesRecord, Long> REFUND_AMOUNT_PAID_CENTS = createField(DSL.name("refund_amount_paid_cents"), SQLDataType.BIGINT, this, "");
+
     private RewardBatches(Name alias, Table<RewardBatchesRecord> aliased) {
         this(alias, aliased, (Field<?>[]) null, null);
     }
@@ -305,6 +325,32 @@ public class RewardBatches extends TableImpl<RewardBatchesRecord> {
             _reports = new ReportsPath(this, Keys.REWARD_BATCHES__FK_REWARD_BATCHES_REPORT, null);
 
         return _reports;
+    }
+
+    private transient RewardBatchDeliveryEventsPath _rewardBatchDeliveryEvents;
+
+    /**
+     * Get the implicit to-many join path to the
+     * <code>idpay-rimborsi.reward_batch_delivery_events</code> table
+     */
+    public RewardBatchDeliveryEventsPath rewardBatchDeliveryEvents() {
+        if (_rewardBatchDeliveryEvents == null)
+            _rewardBatchDeliveryEvents = new RewardBatchDeliveryEventsPath(this, null, Keys.REWARD_BATCH_DELIVERY_EVENTS__FK_DELIVERY_EVENTS_BATCH.getInverseKey());
+
+        return _rewardBatchDeliveryEvents;
+    }
+
+    private transient RewardBatchDeliveryTransactionsPath _rewardBatchDeliveryTransactions;
+
+    /**
+     * Get the implicit to-many join path to the
+     * <code>idpay-rimborsi.reward_batch_delivery_transactions</code> table
+     */
+    public RewardBatchDeliveryTransactionsPath rewardBatchDeliveryTransactions() {
+        if (_rewardBatchDeliveryTransactions == null)
+            _rewardBatchDeliveryTransactions = new RewardBatchDeliveryTransactionsPath(this, null, Keys.REWARD_BATCH_DELIVERY_TRANSACTIONS__FK_DELIVERY_TRX_BATCH.getInverseKey());
+
+        return _rewardBatchDeliveryTransactions;
     }
 
     private transient RewardTransactionsPath _rewardTransactions;
