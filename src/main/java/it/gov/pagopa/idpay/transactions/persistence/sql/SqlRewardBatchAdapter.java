@@ -299,12 +299,16 @@ public class SqlRewardBatchAdapter {
     ) {
         return Mono.from(transactionDslContext.selectOne()
                         .from(REWARD_BATCHES)
+                        .join(REWARD_TRANSACTIONS)
+                        .on(REWARD_TRANSACTIONS.REWARD_BATCH_ID.eq(REWARD_BATCHES.ID)
+                                .and(REWARD_TRANSACTIONS.INITIATIVE_ID.eq(REWARD_BATCHES.INITIATIVE_ID)))
                         .where(REWARD_BATCHES.INITIATIVE_ID.eq(initiativeId)
                                 .and(REWARD_BATCHES.MERCHANT_ID.eq(merchantId))
                                 .and(REWARD_BATCHES.POS_TYPE.eq(posType))
                                 .and(REWARD_BATCHES.MONTH.lt(month))
                                 .and(REWARD_BATCHES.ID.ne(rewardBatchId))
                                 .and(REWARD_BATCHES.STATUS.notIn(
+                                        RewardBatchStatus.CREATED.name(),
                                         RewardBatchStatus.APPROVED.name(),
                                         RewardBatchStatus.PENDING_REFUND.name(),
                                         RewardBatchStatus.NOT_REFUNDED.name(),

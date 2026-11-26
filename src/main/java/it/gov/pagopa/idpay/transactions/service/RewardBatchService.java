@@ -2,6 +2,7 @@ package it.gov.pagopa.idpay.transactions.service;
 
 import it.gov.pagopa.idpay.transactions.connector.rest.invitalia.dto.InvitaliaOutcomeResponseDTO;
 import it.gov.pagopa.idpay.transactions.dto.DownloadRewardBatchResponseDTO;
+import it.gov.pagopa.idpay.transactions.dto.RewardBatchMonthListDTO;
 import it.gov.pagopa.idpay.transactions.dto.TransactionsRequest;
 import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import org.springframework.data.domain.Page;
@@ -13,6 +14,8 @@ import java.util.List;
 public interface RewardBatchService {
 
   Mono<Page<RewardBatch>> getRewardBatches(String merchantId, String initiativeId, String organizationRole, String status, String assigneeLevel, String month, Pageable pageable);
+
+  Mono<RewardBatchMonthListDTO> getAvailableRewardBatchMonths(String initiativeId);
   Mono<RewardBatch> rewardBatchConfirmation(String initiativeId, String rewardBatchId);
 
   Mono<Void> rewardBatchConfirmationBatch(String initiativeId, List<String> rewardBatchIds);

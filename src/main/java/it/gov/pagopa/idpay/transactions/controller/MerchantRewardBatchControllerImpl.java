@@ -86,6 +86,13 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   @Override
+  public Mono<RewardBatchMonthListDTO> getAvailableRewardBatchMonths(String initiativeId) {
+    String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
+    log.info("[GET_AVAILABLE_REWARD_BATCH_MONTHS] Request received. Initiative: {}", sanitizeInitiativeId);
+    return rewardBatchService.getAvailableRewardBatchMonths(sanitizeInitiativeId);
+  }
+
+  @Override
   public Mono<RewardBatchDTO> getRewardBatchById(String merchantId, String initiativeId, String rewardBatchId) {
       String sanitizeMerchantId = merchantId == null ? null : Utilities.sanitizeString(merchantId);
       String sanitizeInitiativeId = initiativeId == null ? null : Utilities.sanitizeString(initiativeId);
@@ -215,7 +222,7 @@ public class MerchantRewardBatchControllerImpl implements MerchantRewardBatchCon
   }
 
   private static String requireInternalNote(TransactionsRequest request) {
-    String internalNote = request.getResolvedInternalNote();
+    String internalNote = request.getInternalNote();
     if (internalNote == null || internalNote.isBlank()) {
       throw new ClientExceptionWithBody(HttpStatus.BAD_REQUEST,
               ExceptionCode.REASON_FIELD_IS_MANDATORY,

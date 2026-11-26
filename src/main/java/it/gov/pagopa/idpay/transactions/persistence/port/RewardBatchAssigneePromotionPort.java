@@ -12,6 +12,7 @@ public interface RewardBatchAssigneePromotionPort {
             String rewardBatchId,
             String initiativeId,
             RewardBatchAssignee expectedAssignee,
-            RewardBatchAssignee nextAssignee
+            RewardBatchAssignee nextAssignee,
+            int controlThresholdPercentage
     );
 }
