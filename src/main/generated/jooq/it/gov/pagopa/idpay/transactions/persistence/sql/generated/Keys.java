@@ -5,9 +5,13 @@ package it.gov.pagopa.idpay.transactions.persistence.sql.generated;
 
 
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.Reports;
+import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatchDeliveryEvents;
+import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatchDeliveryTransactions;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.ReportsRecord;
+import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardBatchDeliveryEventsRecord;
+import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardBatchDeliveryTransactionsRecord;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardBatchesRecord;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.records.RewardTransactionsRecord;
 
@@ -30,6 +34,9 @@ public class Keys {
     // -------------------------------------------------------------------------
 
     public static final UniqueKey<ReportsRecord> REPORTS_PKEY = Internal.createUniqueKey(Reports.REPORTS, DSL.name("reports_pkey"), new TableField[] { Reports.REPORTS.ID }, true);
+    public static final UniqueKey<RewardBatchDeliveryEventsRecord> REWARD_BATCH_DELIVERY_EVENTS_PKEY = Internal.createUniqueKey(RewardBatchDeliveryEvents.REWARD_BATCH_DELIVERY_EVENTS, DSL.name("reward_batch_delivery_events_pkey"), new TableField[] { RewardBatchDeliveryEvents.REWARD_BATCH_DELIVERY_EVENTS.ID }, true);
+    public static final UniqueKey<RewardBatchDeliveryEventsRecord> UK_DELIVERY_EVENTS_ATTEMPT = Internal.createUniqueKey(RewardBatchDeliveryEvents.REWARD_BATCH_DELIVERY_EVENTS, DSL.name("uk_delivery_events_attempt"), new TableField[] { RewardBatchDeliveryEvents.REWARD_BATCH_DELIVERY_EVENTS.REWARD_BATCH_ID, RewardBatchDeliveryEvents.REWARD_BATCH_DELIVERY_EVENTS.EVENT_TYPE, RewardBatchDeliveryEvents.REWARD_BATCH_DELIVERY_EVENTS.ATTEMPT_NUMBER }, true);
+    public static final UniqueKey<RewardBatchDeliveryTransactionsRecord> REWARD_BATCH_DELIVERY_TRANSACTIONS_PKEY = Internal.createUniqueKey(RewardBatchDeliveryTransactions.REWARD_BATCH_DELIVERY_TRANSACTIONS, DSL.name("reward_batch_delivery_transactions_pkey"), new TableField[] { RewardBatchDeliveryTransactions.REWARD_BATCH_DELIVERY_TRANSACTIONS.REWARD_BATCH_ID, RewardBatchDeliveryTransactions.REWARD_BATCH_DELIVERY_TRANSACTIONS.TRANSACTION_ID }, true);
     public static final UniqueKey<RewardBatchesRecord> REWARD_BATCHES_PKEY = Internal.createUniqueKey(RewardBatches.REWARD_BATCHES, DSL.name("reward_batches_pkey"), new TableField[] { RewardBatches.REWARD_BATCHES.ID }, true);
     public static final UniqueKey<RewardBatchesRecord> UK_REWARD_BATCHES_ID_INITIATIVE = Internal.createUniqueKey(RewardBatches.REWARD_BATCHES, DSL.name("uk_reward_batches_id_initiative"), new TableField[] { RewardBatches.REWARD_BATCHES.ID, RewardBatches.REWARD_BATCHES.INITIATIVE_ID }, true);
     public static final UniqueKey<RewardBatchesRecord> UK_REWARD_BATCHES_INITIATIVE_MERCHANT_POS_MONTH = Internal.createUniqueKey(RewardBatches.REWARD_BATCHES, DSL.name("uk_reward_batches_initiative_merchant_pos_month"), new TableField[] { RewardBatches.REWARD_BATCHES.INITIATIVE_ID, RewardBatches.REWARD_BATCHES.MERCHANT_ID, RewardBatches.REWARD_BATCHES.POS_TYPE, RewardBatches.REWARD_BATCHES.MONTH }, true);
@@ -39,6 +46,8 @@ public class Keys {
     // FOREIGN KEY definitions
     // -------------------------------------------------------------------------
 
+    public static final ForeignKey<RewardBatchDeliveryEventsRecord, RewardBatchesRecord> REWARD_BATCH_DELIVERY_EVENTS__FK_DELIVERY_EVENTS_BATCH = Internal.createForeignKey(RewardBatchDeliveryEvents.REWARD_BATCH_DELIVERY_EVENTS, DSL.name("fk_delivery_events_batch"), new TableField[] { RewardBatchDeliveryEvents.REWARD_BATCH_DELIVERY_EVENTS.REWARD_BATCH_ID, RewardBatchDeliveryEvents.REWARD_BATCH_DELIVERY_EVENTS.INITIATIVE_ID }, Keys.UK_REWARD_BATCHES_ID_INITIATIVE, new TableField[] { RewardBatches.REWARD_BATCHES.ID, RewardBatches.REWARD_BATCHES.INITIATIVE_ID }, true);
+    public static final ForeignKey<RewardBatchDeliveryTransactionsRecord, RewardBatchesRecord> REWARD_BATCH_DELIVERY_TRANSACTIONS__FK_DELIVERY_TRX_BATCH = Internal.createForeignKey(RewardBatchDeliveryTransactions.REWARD_BATCH_DELIVERY_TRANSACTIONS, DSL.name("fk_delivery_trx_batch"), new TableField[] { RewardBatchDeliveryTransactions.REWARD_BATCH_DELIVERY_TRANSACTIONS.REWARD_BATCH_ID, RewardBatchDeliveryTransactions.REWARD_BATCH_DELIVERY_TRANSACTIONS.INITIATIVE_ID }, Keys.UK_REWARD_BATCHES_ID_INITIATIVE, new TableField[] { RewardBatches.REWARD_BATCHES.ID, RewardBatches.REWARD_BATCHES.INITIATIVE_ID }, true);
     public static final ForeignKey<RewardBatchesRecord, ReportsRecord> REWARD_BATCHES__FK_REWARD_BATCHES_REPORT = Internal.createForeignKey(RewardBatches.REWARD_BATCHES, DSL.name("fk_reward_batches_report"), new TableField[] { RewardBatches.REWARD_BATCHES.REPORT_ID }, Keys.REPORTS_PKEY, new TableField[] { Reports.REPORTS.ID }, true);
     public static final ForeignKey<RewardTransactionsRecord, RewardBatchesRecord> REWARD_TRANSACTIONS__FK_REWARD_TRANSACTIONS_BATCH_INITIATIVE = Internal.createForeignKey(RewardTransactions.REWARD_TRANSACTIONS, DSL.name("fk_reward_transactions_batch_initiative"), new TableField[] { RewardTransactions.REWARD_TRANSACTIONS.REWARD_BATCH_ID, RewardTransactions.REWARD_TRANSACTIONS.INITIATIVE_ID }, Keys.UK_REWARD_BATCHES_ID_INITIATIVE, new TableField[] { RewardBatches.REWARD_BATCHES.ID, RewardBatches.REWARD_BATCHES.INITIATIVE_ID }, true);
 }

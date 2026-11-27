@@ -5,6 +5,8 @@ package it.gov.pagopa.idpay.transactions.persistence.sql.generated;
 
 
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.Reports;
+import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatchDeliveryEvents;
+import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatchDeliveryTransactions;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardBatches;
 import it.gov.pagopa.idpay.transactions.persistence.sql.generated.tables.RewardTransactions;
 
@@ -19,6 +21,16 @@ public class Tables {
      * The table <code>idpay-rimborsi.reports</code>.
      */
     public static final Reports REPORTS = Reports.REPORTS;
+
+    /**
+     * The table <code>idpay-rimborsi.reward_batch_delivery_events</code>.
+     */
+    public static final RewardBatchDeliveryEvents REWARD_BATCH_DELIVERY_EVENTS = RewardBatchDeliveryEvents.REWARD_BATCH_DELIVERY_EVENTS;
+
+    /**
+     * The table <code>idpay-rimborsi.reward_batch_delivery_transactions</code>.
+     */
+    public static final RewardBatchDeliveryTransactions REWARD_BATCH_DELIVERY_TRANSACTIONS = RewardBatchDeliveryTransactions.REWARD_BATCH_DELIVERY_TRANSACTIONS;
 
     /**
      * The table <code>idpay-rimborsi.reward_batches</code>.

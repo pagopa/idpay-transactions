@@ -412,6 +412,54 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
         return (String) get(26);
     }
 
+    /**
+     * Setter for
+     * <code>idpay-rimborsi.reward_batches.last_outcome_check_date</code>.
+     */
+    public void setLastOutcomeCheckDate(LocalDateTime value) {
+        set(27, value);
+    }
+
+    /**
+     * Getter for
+     * <code>idpay-rimborsi.reward_batches.last_outcome_check_date</code>.
+     */
+    public LocalDateTime getLastOutcomeCheckDate() {
+        return (LocalDateTime) get(27);
+    }
+
+    /**
+     * Setter for
+     * <code>idpay-rimborsi.reward_batches.last_invitalia_status</code>.
+     */
+    public void setLastInvitaliaStatus(String value) {
+        set(28, value);
+    }
+
+    /**
+     * Getter for
+     * <code>idpay-rimborsi.reward_batches.last_invitalia_status</code>.
+     */
+    public String getLastInvitaliaStatus() {
+        return (String) get(28);
+    }
+
+    /**
+     * Setter for
+     * <code>idpay-rimborsi.reward_batches.refund_amount_paid_cents</code>.
+     */
+    public void setRefundAmountPaidCents(Long value) {
+        set(29, value);
+    }
+
+    /**
+     * Getter for
+     * <code>idpay-rimborsi.reward_batches.refund_amount_paid_cents</code>.
+     */
+    public Long getRefundAmountPaidCents() {
+        return (Long) get(29);
+    }
+
     // -------------------------------------------------------------------------
     // Primary key information
     // -------------------------------------------------------------------------
@@ -435,7 +483,7 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
     /**
      * Create a detached, initialised RewardBatchesRecord
      */
-    public RewardBatchesRecord(String id, String initiativeId, String merchantId, String businessName, String month, String posType, String status, Boolean partial, String name, LocalDateTime startDate, LocalDateTime endDate, LocalDateTime creationDate, LocalDateTime updateDate, LocalDateTime merchantSendDate, LocalDateTime approvalDate, LocalDateTime deliveryDateRequest, LocalDateTime refundOutcomeTimestamp, String reportPath, String filename, String assigneeLevel, LocalDate refundValutaDate, String refundErrorMessage, JSONB deliveryOutcome, Long deliveryAmountCents, Long initialAmountCentsAtSend, Long suspendedAmountCentsAtApproving, String reportId) {
+    public RewardBatchesRecord(String id, String initiativeId, String merchantId, String businessName, String month, String posType, String status, Boolean partial, String name, LocalDateTime startDate, LocalDateTime endDate, LocalDateTime creationDate, LocalDateTime updateDate, LocalDateTime merchantSendDate, LocalDateTime approvalDate, LocalDateTime deliveryDateRequest, LocalDateTime refundOutcomeTimestamp, String reportPath, String filename, String assigneeLevel, LocalDate refundValutaDate, String refundErrorMessage, JSONB deliveryOutcome, Long deliveryAmountCents, Long initialAmountCentsAtSend, Long suspendedAmountCentsAtApproving, String reportId, LocalDateTime lastOutcomeCheckDate, String lastInvitaliaStatus, Long refundAmountPaidCents) {
         super(RewardBatches.REWARD_BATCHES);
 
         setId(id);
@@ -465,6 +513,9 @@ public class RewardBatchesRecord extends UpdatableRecordImpl<RewardBatchesRecord
         setInitialAmountCentsAtSend(initialAmountCentsAtSend);
         setSuspendedAmountCentsAtApproving(suspendedAmountCentsAtApproving);
         setReportId(reportId);
+        setLastOutcomeCheckDate(lastOutcomeCheckDate);
+        setLastInvitaliaStatus(lastInvitaliaStatus);
+        setRefundAmountPaidCents(refundAmountPaidCents);
         resetChangedOnNotNull();
     }
 }

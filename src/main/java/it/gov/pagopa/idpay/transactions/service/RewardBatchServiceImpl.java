@@ -20,6 +20,7 @@ import it.gov.pagopa.idpay.transactions.model.RewardBatch;
 import it.gov.pagopa.idpay.transactions.model.RewardTransaction;
 import it.gov.pagopa.idpay.transactions.model.TransactionNotes;
 import it.gov.pagopa.idpay.transactions.persistence.port.*;
+import it.gov.pagopa.idpay.transactions.persistence.sql.OutcomeCheckCommand;
 import it.gov.pagopa.idpay.transactions.storage.ApprovedRewardBatchBlobService;
 import it.gov.pagopa.idpay.transactions.utils.AuditUtilities;
 import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants;
@@ -27,6 +28,7 @@ import it.gov.pagopa.idpay.transactions.utils.ExceptionConstants.ExceptionCode;
 import it.gov.pagopa.idpay.transactions.utils.Utilities;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.jooq.JSONB;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -35,12 +37,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import tools.jackson.databind.ObjectMapper;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiFunction;
@@ -77,6 +83,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
     private final InitiativeDataService initiativeDataService;
     private final DataFactoryService dataFactoryService;
     private final ReportPersistencePort reportPersistencePort;
+    private final ObjectMapper objectMapper;
 
     private final int pagesize;
 
@@ -116,6 +123,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                   InitiativeDataService initiativeDataService,
                                   DataFactoryService dataFactoryService,
                                   ReportPersistencePort reportPersistencePort,
+                                  ObjectMapper objectMapper,
                                   @Value("${app.batch.paginationSize}") int pagesize) {
         this.rewardBatchLifecyclePort = rewardBatchLifecyclePort;
         this.rewardBatchListPort = rewardBatchListPort;
@@ -137,6 +145,7 @@ public class RewardBatchServiceImpl implements RewardBatchService {
         this.initiativeDataService = initiativeDataService;
         this.dataFactoryService = dataFactoryService;
         this.reportPersistencePort = reportPersistencePort;
+        this.objectMapper = objectMapper;
         this.pagesize = pagesize;
     }
 
@@ -618,19 +627,30 @@ public class RewardBatchServiceImpl implements RewardBatchService {
 
     @Override
     public Mono<RewardBatch> updateBatch(RewardBatch batch, InvitaliaOutcomeResponseDTO response) {
+        if (response == null || response.getErogazione() == null) {
+            return Mono.just(batch);
+        }
+
         String status = response.getErogazione().getStatus();
+        Long amountPaidCents = toAmountPaidCents(response.getErogazione().getAmountPaid());
+        JSONB responseJson = toJooqJsonb(response);
 
         if (InvitaliaOutcomeStatus.COMPLETATA.name().equalsIgnoreCase(status)) {
-            return rewardBatchDeliveryPort.recordRefundOutcome(
+            OutcomeCheckCommand command = new OutcomeCheckCommand(
+                    status,
+                    amountPaidCents,
+                    response.getErogazione().getDateValue(),
+                    null,
+                    RewardBatchStatus.REFUNDED
+            );
+            return rewardBatchDeliveryPort.recordOutcomeCheck(
                             batch.getId(),
                             batch.getInitiativeId(),
-                            RewardBatchStatus.REFUNDED,
-                            response.getErogazione().getDateValue(),
-                            null
+                            command,
+                            responseJson
                     )
                     .switchIfEmpty(outcomePersistenceStateMismatch(batch.getId(), "refund completion"))
                     .doOnNext(this::logOutcomeTransition);
-
         }
         if (InvitaliaOutcomeStatus.RIFIUTATA.name().equalsIgnoreCase(status)) {
             String errorMessage = response.getErrors() == null || response.getErrors().isEmpty()
@@ -640,23 +660,50 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                     .reduce((first, second) -> first + "; " + second)
                     .orElse(null);
 
-            return rewardBatchDeliveryPort.recordRefundOutcome(
+            OutcomeCheckCommand command = new OutcomeCheckCommand(
+                    status,
+                    null,
+                    null,
+                    errorMessage,
+                    RewardBatchStatus.NOT_REFUNDED
+            );
+            return rewardBatchDeliveryPort.recordOutcomeCheck(
                             batch.getId(),
                             batch.getInitiativeId(),
-                            RewardBatchStatus.NOT_REFUNDED,
-                            null,
-                            errorMessage
+                            command,
+                            responseJson
                     )
                     .switchIfEmpty(outcomePersistenceStateMismatch(batch.getId(), "refund rejection"))
                     .doOnNext(this::logOutcomeTransition);
         }
+
         if (InvitaliaOutcomeStatus.IN_LAVORAZIONE.name().equalsIgnoreCase(status)
                 || InvitaliaOutcomeStatus.ERRORE.name().equalsIgnoreCase(status)) {
-            log.info("Batch {} has not been processed with status {}, the external status is {}", batch.getId(), batch.getStatus(), status);
-            return Mono.just(batch);
+            log.info("Batch {} has not been processed with status {}, the external status is {}",
+                    batch.getId(), batch.getStatus(), status);
         }
 
-        return Mono.just(batch);
+        OutcomeCheckCommand command = new OutcomeCheckCommand(
+                status,
+                null,
+                null,
+                null,
+                null
+        );
+        return rewardBatchDeliveryPort.recordOutcomeCheck(
+                        batch.getId(),
+                        batch.getInitiativeId(),
+                        command,
+                        responseJson
+                )
+                .defaultIfEmpty(batch);
+    }
+
+    private static Long toAmountPaidCents(BigDecimal amountPaid) {
+        if (amountPaid == null) {
+            return null;
+        }
+        return amountPaid.movePointRight(2).longValue();
     }
 
     private void logOutcomeTransition(RewardBatch batch) {
@@ -880,17 +927,78 @@ public class RewardBatchServiceImpl implements RewardBatchService {
                                                             .switchIfEmpty(outcomePersistenceStateMismatch(
                                                                     rewardBatchId,
                                                                     "delivery outcome"
-                                                            )))
-                                                    .doOnNext(updated -> {
-                                                        if (updated.getStatus() == RewardBatchStatus.PENDING_REFUND) {
-                                                            log.info("[PROCESS_BATCH] Batch {} delivery succeeded. Status moved to PENDING_REFUND", rewardBatchId);
-                                                        } else {
-                                                            log.warn("[PROCESS_BATCH] Batch {} delivery rejected by server: {}",
+                                                            ))
+                                                    .flatMap(updatedBatch -> rewardBatchDeliveryPort.recordDeliveryEvent(
                                                                     rewardBatchId,
-                                                                    outcomeMessage(updated));
-                                                        }
-                                                    });
+                                                                    initiativeId,
+                                                                    resolveDeliveryEventOutcome(outcome),
+                                                                    outcome.getCode() > 0 ? outcome.getCode() : null,
+                                                                    buildSanitizedDeliveryRequestJson(deliveryRequest),
+                                                                    toJooqJsonb(outcome)
+                                                            )
+                                                            .onErrorResume(ex -> {
+                                                                log.error("[PROCESS_BATCH] Failed to persist delivery event for batch {}",
+                                                                        Utilities.sanitizeString(rewardBatchId), ex);
+                                                                return Mono.empty();
+                                                            })
+                                                            .thenReturn(updatedBatch)))
+                                            .doOnNext(updated -> {
+                                                if (updated.getStatus() == RewardBatchStatus.PENDING_REFUND) {
+                                                    log.info("[PROCESS_BATCH] Batch {} delivery succeeded. Status moved to PENDING_REFUND", rewardBatchId);
+                                                } else {
+                                                    log.warn("[PROCESS_BATCH] Batch {} delivery rejected by server: {}",
+                                                            rewardBatchId,
+                                                            outcomeMessage(updated));
+                                                }
+                                            });
                                 })));
+    }
+
+    private static String resolveDeliveryEventOutcome(DeliveryOutcomeDTO outcome) {
+        if (outcome.isSucceded()) {
+            return "ACCEPTED";
+        }
+        if (outcome.getMessage() != null && outcome.getMessage().startsWith("Technical error:")) {
+            return "TECHNICAL_ERROR";
+        }
+        return "REJECTED";
+    }
+
+    private static String maskIban(String iban) {
+        if (iban == null || iban.isBlank()) {
+            return iban;
+        }
+        String trimmed = iban.trim();
+        if (trimmed.length() <= 4) {
+            return "*".repeat(trimmed.length());
+        }
+        return "*".repeat(trimmed.length() - 4) + trimmed.substring(trimmed.length() - 4);
+    }
+
+    private JSONB buildSanitizedDeliveryRequestJson(DeliveryRequest req) {
+        Map<String, Object> sanitizedErogazione = new LinkedHashMap<>();
+        if (req.getErogazione() != null) {
+            sanitizedErogazione.put("idPratica", req.getErogazione().getIdPratica());
+            sanitizedErogazione.put("dataAmmissione", req.getErogazione().getDataAmmissione());
+            sanitizedErogazione.put("ibanBeneficiario", maskIban(req.getErogazione().getIbanBeneficiario()));
+            sanitizedErogazione.put("importo", req.getErogazione().getImporto());
+            sanitizedErogazione.put("autorizzatore", req.getErogazione().getAutorizzatore());
+        }
+        Map<String, Object> sanitizedPayload = new LinkedHashMap<>();
+        sanitizedPayload.put("id", req.getId());
+        sanitizedPayload.put("erogazione", sanitizedErogazione);
+        return toJooqJsonb(sanitizedPayload);
+    }
+
+    private JSONB toJooqJsonb(Object value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return JSONB.jsonb(objectMapper.writeValueAsString(value));
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to serialize JSONB payload", e);
+        }
     }
 
     private static String outcomeMessage(RewardBatch batch) {
